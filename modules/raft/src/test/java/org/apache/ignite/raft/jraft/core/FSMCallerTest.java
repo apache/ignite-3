@@ -24,7 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -86,7 +86,7 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
         NodeOptions options = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
         this.closureQueue = new ClosureQueueImpl(options);
         opts = new FSMCallerOptions();
@@ -100,7 +100,7 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
         opts.setClosureQueue(this.closureQueue);
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
         opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("test", "TestFSMDisruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 1024,
                 () -> new FSMCallerImpl.ApplyTask(),
                 1,

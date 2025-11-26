@@ -185,7 +185,7 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
-        LOG.info("Starts FSMCaller successfully [nodeId={}].", nodeId);
+        LOG.info("Starts FSMCaller successfully [node={}].", node.getNodeId());
         return true;
     }
 
@@ -194,7 +194,7 @@ public class FSMCallerImpl implements FSMCaller {
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller...");
+        LOG.info("Shutting down FSMCaller [node={}].", node.getNodeId());
 
         this.shuttingDown = true;
 
@@ -225,7 +225,7 @@ public class FSMCallerImpl implements FSMCaller {
     private boolean enqueueTask(final EventTranslator<ApplyTask> tpl) {
         if (this.shutdownLatch != null) {
             // Shutting down
-            LOG.warn("FSMCaller is stopped, can not apply new task.");
+            LOG.warn("FSMCaller is stopped, can not apply new task [node={}].", nodeId);
             return false;
         }
 
@@ -353,7 +353,7 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onError(final RaftException error) {
         if (!this.error.getStatus().isOk()) {
-            LOG.warn("FSMCaller already in error status, ignore new error", error);
+            LOG.warn("FSMCaller already in error status, ignore new error [node={}].", nodeId, error);
             return false;
         }
         final OnErrorClosure c = new OnErrorClosure(error);
@@ -516,18 +516,22 @@ public class FSMCallerImpl implements FSMCaller {
                         LogId logId = logEntry.getId();
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
                                 logId.copy(),
-                                new Configuration(logEntry.getPeers(), logEntry.getLearners()),
-                                new Configuration()
+                                new Configuration(logEntry.getPeers(), logEntry.getLearners(), logEntry.getSequenceToken()),
+                                new Configuration(logEntry.getOldSequenceToken())
                         );
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
-                            configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
+                            configurationEntry.setOldConf(
+                                    new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners(), logEntry.getOldSequenceToken())
+                            );
                         }
 
                         this.fsm.onRawConfigurationCommitted(configurationEntry, logId.getIndex(), logId.getTerm());
 
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
-                            this.fsm.onConfigurationCommitted(new Configuration(iterImpl.entry().getPeers()));
+                            this.fsm.onConfigurationCommitted(
+                                    new Configuration(iterImpl.entry().getPeers(), iterImpl.entry().getSequenceToken())
+                            );
                         }
                     }
                     if (iterImpl.done() != null) {
@@ -582,7 +586,8 @@ public class FSMCallerImpl implements FSMCaller {
             this.nodeMetrics.recordSize("fsm-apply-tasks-count", iter.getIndex() - startIndex);
         }
         if (iter.hasNext()) {
-            LOG.error("Iterator is still valid, did you return before iterator reached the end?");
+            LOG.error("Iterator is still valid, did you return before iterator reached the end? [node={}].",
+                this.node.getNodeId());
         }
         // Try move to next in case that we pass the same log twice.
         // But if we are shutting down, current entry is not applied, so we should not advance the iterator to allow a ShutdownException
@@ -597,7 +602,7 @@ public class FSMCallerImpl implements FSMCaller {
         final long lastAppliedIndex = this.lastAppliedIndex.get();
         final ConfigurationEntry confEntry = this.logManager.getConfiguration(lastAppliedIndex);
         if (confEntry == null || confEntry.isEmpty()) {
-            LOG.error("Empty conf entry for lastAppliedIndex={}", lastAppliedIndex);
+            LOG.error("Empty conf entry for [node={}, lastAppliedIndex={}].", this.node.getNodeId(), lastAppliedIndex);
             Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EINVAL,
                 "Empty conf entry for lastAppliedIndex=%s", lastAppliedIndex));
             return;
@@ -706,14 +711,16 @@ public class FSMCallerImpl implements FSMCaller {
                     new LogId(meta.cfgIndex(), meta.cfgTerm()),
                     new Configuration(
                             meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
-                            meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
+                            meta.learnersList().stream().map(PeerId::parsePeer).collect(toList()),
+                            meta.sequenceToken()
                     ),
-                    new Configuration()
+                    new Configuration(meta.oldSequenceToken())
             );
             if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
                 configurationEntry.setOldConf(new Configuration(
                         meta.oldPeersList().stream().map(PeerId::parsePeer).collect(toList()),
-                        meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList())
+                        meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList()),
+                        meta.oldSequenceToken()
                 ));
             }
 
@@ -722,7 +729,7 @@ public class FSMCallerImpl implements FSMCaller {
 
         if (meta.oldPeersList() == null) {
             // Joint stage is not supposed to be noticeable by end users.
-            final Configuration conf = new Configuration();
+            final Configuration conf = new Configuration(meta.sequenceToken());
             if (meta.peersList() != null) {
                 for (String metaPeer : meta.peersList()) {
                     final PeerId peer = new PeerId();

@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWi
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -69,8 +68,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -296,9 +293,7 @@ abstract class ChangeIndexStatusTask {
                 throw new IndexTaskStoppingException();
             }
 
-            ReplicationGroupId groupId = enabledColocation()
-                    ? new ZonePartitionId(tableDescriptor.zoneId(), 0)
-                    : new TablePartitionId(indexDescriptor.tableId(), 0);
+            ZonePartitionId groupId = new ZonePartitionId(tableDescriptor.zoneId(), 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {

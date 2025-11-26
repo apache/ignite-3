@@ -17,49 +17,30 @@
 
 #pragma once
 
-#include <memory>
+#include "ignite/common/end_point.h"
+
+#include <vector>
 
 #include <Python.h>
 
-#define PY_CONNECTION_CLASS_NAME "PyConnection"
+#include "ssl_config.h"
 
-namespace ignite {
-class sql_environment;
-class sql_connection;
-}
-
-/**
- * Connection Python object.
- */
-struct py_connection {
-    PyObject_HEAD
-
-    /** Environment. */
-    ignite::sql_environment *m_environment;
-
-    /** Connection. */
-    ignite::sql_connection *m_connection;
-};
-
-/**
- * Connection init function.
- */
-int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds);
-
-/**
- * Connection dealloc function.
- */
-void py_connection_dealloc(py_connection *self);
 
 /**
  * Create a new instance of py_connection python class.
  *
- * @param env Environment.
- * @param conn Connection.
- * @return A new class instance.
+ * @param addresses Addresses.
+ * @param schema Schema.
+ * @param identity Identity.
+ * @param secret Secret.
+ * @param page_size Page size.
+ * @param timeout Timeout.
+ * @param autocommit Autocommit flag.
+ * @param ssl_cfg SSL Config.
+ * @return A new connection class instance.
  */
-py_connection* make_py_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn);
+PyObject* make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity,
+    const char* secret, int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg);
 
 /**
  * Prepare PyConnection type for registration.

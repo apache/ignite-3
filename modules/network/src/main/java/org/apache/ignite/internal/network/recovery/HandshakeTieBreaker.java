@@ -29,15 +29,15 @@ import java.util.UUID;
  */
 class HandshakeTieBreaker {
     /**
-     * Determines whether an existing channel should be closed based on the comparison of the server's launch id and the client's launch id.
-     * If the client's launch id is greater than the server's launch id, the existing channel should be closed in favor of the new one;
-     * otherwise, the new channel should be closed.
+     * Determines whether an existing channel should be closed based on the comparison of the acceptor's launch id and the initiator's
+     * launch id. If the initiator's launch id is greater than the acceptor's launch id, the existing channel should be closed in favor of
+     * the new one; otherwise, the new channel should be closed.
      *
-     * @param serverLaunchId Server's launch id.
-     * @param clientLaunchId Client's launch id.
+     * @param acceptorLaunchId Acceptor's launch id.
+     * @param initiatorLaunchId Initiator's launch id.
      * @return {@code true} if an existing channel should be closed, {@code false} otherwise.
      */
-    static boolean shouldCloseChannel(UUID serverLaunchId, UUID clientLaunchId) {
-        return clientLaunchId.compareTo(serverLaunchId) > 0;
+    static boolean shouldCloseChannel(UUID acceptorLaunchId, UUID initiatorLaunchId) {
+        return initiatorLaunchId.compareTo(acceptorLaunchId) > 0;
     }
 }

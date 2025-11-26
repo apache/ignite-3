@@ -248,7 +248,6 @@ public class ConnectToClusterQuestion {
         })).build();
     }
 
-
     /**
      * Ask if the user wants to enter basic auth configuration to retry connect.
      *

@@ -14,7 +14,7 @@
 // limitations under the License.
 = .NET Client
 
-Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there are no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
 
 Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
 
@@ -30,7 +30,7 @@ C# client is available via NuGet. To add it, use the `add package` command:
 
 [source, bash, subs="attributes,specialchars"]
 ----
-dotnet add package Ignite.Ignite --version 3.0.0
+dotnet add package Apache.Ignite --version 3.1.0
 ----
 
 == Connecting to Cluster
@@ -70,6 +70,16 @@ IIgniteClient client = await IgniteClient.StartAsync(cfg);
 ----
 --
 
+=== Limitations
+
+There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
+
+- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
+- Fields should be mapped to Ignite types;
+- All fields in user type should either be mapped to Table column or explicitly excluded;
+- All columns from Table should be mapped to some field in the user type;
+- *.NET only*: Any type (class, struct, record) is supported as long as all fields can be mapped to Ignite types;
+
 === Usage Examples
 
 
@@ -89,6 +99,35 @@ public class Account
 ----
 --
 
+== Using Dependency Injection
+
+Ignite client provides support for using link:https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection[Dependency Injection] when initializing a client instance.
+
+This approach can be used to simplify initializing the client in DI containers:
+
+- Register the `IgniteClientGroup` in your DI container:
++
+[source, cpp]
+----
+builder.Services.AddSingleton<IgniteClientGroup>(_ => new IgniteClientGroup(
+    new IgniteClientGroupConfiguration
+    {
+        Size = 3,
+        ClientConfiguration = new("localhost"),
+    }));
+----
++
+- Use an instance of the group you created in your methods:
++
+[source, cpp]
+----
+public async Task<IActionResult> Index([FromServices] IgniteClientGroup igniteGroup)
+{
+    IIgnite ignite = await igniteGroup.GetIgniteAsync();
+    var tables = await ignite.Tables.GetTablesAsync();
+    return Ok(tables);
+}
+----
 
 == SQL API
 
@@ -106,6 +145,52 @@ Debug.Assert(row["name"] as string == "John Doe");
 ----
 --
 
+=== Batch SQL Execution
+
+You can execute the specified DML statement once for each set of arguments and return the number of affected rows for each execution.
+
+NOTE: Only `INSERT`, `UPDATE`, `DELETE` statements are supported.
+
+To run a batch execution, you need to implement `ExecuteBatchAsync()` method with the following parameters:
+
+[source,csharp]
+----
+Task<long[]> ExecuteBatchAsync(
+    ITransaction? transaction,
+    SqlStatement statement,
+    IEnumerable<IEnumerable<object?>> args,
+    CancellationToken cancellationToken = default
+);
+----
+
+[discreet]
+==== Parameters
+
+* `transaction` - The optional transaction in which to execute the batch.
+* `statement` -  The SQL statement to execute for each entry in `args`.
+* `args` - A collection of argument lists. The statement will be executed once per inner collection. Must not be empty or contain empty rows.
+* `cancellationToken` - Token for cancelling the operation.
+
+[discreet]
+==== Example
+
+In this example we return an array of update counts.
+Each element corresponds to the number of rows affected by the statement execution for the matching entry in `args`. The length of the returned array equals the number of argument sets.
+
+[source,csharp]
+----
+long[] res = await sql.ExecuteBatchAsync(
+    transaction: null,
+    statement: "INSERT INTO Person (Id, Name) VALUES (?, ?)",
+    args:
+    [
+        [1, "Alice"],
+        [2, "Bob" ],
+        [3, "Charlie"]
+    ]
+);
+// res => [1, 1, 1]
+----
 
 === SQL Scripts
 
@@ -165,7 +250,7 @@ When working with tables, you can use built-in Tuple type, which is a set of key
 
 === Getting a Table Instance
 
-First, get an instance of the table. To obtain an instance of table, use the `IgniteTables.table(String)` method. You can also use `IgniteTables.tables()` method to list all existing tables.
+To obtain an instance of a table, use the `ITables.GetTableAsync(string name)` You can also use `ITables.GetTablesAsync` method to list all existing tables.
 
 
 [tabs]
@@ -184,9 +269,9 @@ var myTable = await Client.Tables.GetTableAsync("MY_TABLE");
 
 Once you've got a table you need to get a specific view to choose how you want to operate table records.
 
-==== Binary Record View
+==== Tuple Record View
 
-A binary record view. It can be used to operate table tuples directly.
+A tuple record view. It can be used to operate table tuples directly.
 
 [tabs]
 --
@@ -234,9 +319,9 @@ public record Poco(long Id, string? Name = null);
 ----
 --
 
-==== Key-Value Binary View
+==== Key-Value Tuple View
 
-A binary key-value view. It can be used to operate table using key and value tuples separately.
+A tuple key-value view. It can be used to operate table using key and value tuples separately.
 
 [tabs]
 --
@@ -294,13 +379,10 @@ Data streaming provides at-least-once delivery guarantee.
 tab:.NET[]
 [source, csharp]
 ----
-public async Task TestBasicStreamingRecordBinaryView()
-{
-    var options = DataStreamerOptions.Default with { BatchSize = 10 };
+    var options = DataStreamerOptions.Default with { PageSize = 10 };
     var data = Enumerable.Range(0, Count).Select(x => new IgniteTuple { ["id"] = 1L, ["name"] = "foo" }).ToList();
 
     await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
-}
 ----
 --
 
@@ -332,7 +414,6 @@ listener.SetMeasurementEventCallback<int>(
 listener.Start();
 ----
 
-
 === Available .NET Metrics
 
 [width="100%",cols="20%,80%",opts="header"]
@@ -358,3 +439,42 @@ listener.Start();
 |streamer-items-queued|The number of queued data streamer items.
 
 |=======================================================================
+
+== Logging
+
+To enable logging, set the `IgniteClientConfiguration.LoggerFactory` property to an instance of the `Microsoft.Extensions.Logging.ILoggerFactory` standard API.
+See link:https://docs.microsoft.com/en-us/dotnet/core/extensions/logging[Standard logging in .NET] to learn more.
+
+=== Examples
+
+The example below shows how you can configure logging to console with the `Microsoft.Extensions.Logging.Console` package:
+
+[tabs]
+--
+tab:.NET[]
+[source, csharp]
+----
+var cfg = new IgniteClientConfiguration
+{
+    LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
+};
+----
+--
+
+Alternatively, here is how to configure logging with link:https://serilog.net/[Serilog] by using `Serilog.Extensions.Logging` and `Serilog.Sinks.Console` packages:
+
+[tabs]
+--
+tab:.NET[]
+[source, csharp]
+----
+var cfg = new IgniteClientConfiguration
+{
+    LoggerFactory = LoggerFactory.Create(builder =>
+        builder.AddSerilog(new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .CreateLogger()))
+};
+----
+--

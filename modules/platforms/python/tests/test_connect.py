@@ -39,7 +39,7 @@ def test_connection_get_cursor(address):
 def test_connection_fail(address):
     with pytest.raises(pyignite_dbapi.OperationalError) as err:
         pyignite_dbapi.connect(address=address, timeout=1)
-    assert err.match('Failed to establish connection with the host.')
+    assert err.match('Failed to establish connection with the cluster.')
 
 
 ERR_MSG_WRONG_TYPE = "Only a string or a list of strings are allowed in 'address' parameter"

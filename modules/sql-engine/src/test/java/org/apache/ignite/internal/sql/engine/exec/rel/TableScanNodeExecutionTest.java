@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -29,7 +29,6 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.BitSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Spliterator;
@@ -51,13 +50,14 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -66,7 +66,6 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
@@ -76,15 +75,16 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -97,10 +97,10 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -131,8 +131,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
-        RowSchema rowSchema = rowSchemaFromRelTypes(List.of(rowType));
-
         int inBufSize = IN_BUFFER_SIZE;
 
         List<PartitionWithConsistencyToken> partsWithConsistencyTokens = IntStream.range(0, TestInternalTableImpl.PART_CNT)
@@ -147,7 +145,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             sizes[i] = inBufSize * (i + 1) + ThreadLocalRandom.current().nextInt(100);
         }
 
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(convertStructuredType(rowType));
 
         int i = 0;
 
@@ -192,7 +190,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     resourcesRegistry,
                     transactionInflights,
                     new TestLowWatermark(),
-                    commonExecutor
+                    commonExecutor,
+                    new NoOpMetricManager()
             );
 
             assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -275,7 +274,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 .mapToObj(i -> new PartitionWithConsistencyToken(1, 42L))
                 .collect(Collectors.toList());
 
-        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
+        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));
@@ -325,7 +324,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     ZONE_ID,
                     TABLE_ID,
                     PART_CNT,
-                    new SingleClusterNodeResolver(mock(ClusterNode.class)),
+                    new SingleClusterNodeResolver(mock(InternalClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateStorage.class),
@@ -337,7 +336,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     null,
                     mock(StreamerReceiverRunner.class),
                     () -> 10_000L,
-                    () -> 10_000L
+                    () -> 10_000L,
+                    true,
+                    new TableMetricSource(QualifiedName.fromSimple("test"))
             );
             this.dataAmount = dataAmount;
 
@@ -347,15 +348,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public Publisher<BinaryRow> scan(
                 int partId,
-                UUID txId,
-                HybridTimestamp readTime,
-                ClusterNode recipient,
-                @Nullable Integer indexId,
-                @Nullable BinaryTuplePrefix lowerBound,
-                @Nullable BinaryTuplePrefix upperBound,
-                int flags,
-                @Nullable BitSet columnsToInclude,
-                UUID txCoordinatorId
+                InternalClusterNode recipient,
+                OperationContext opCtx
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

@@ -37,10 +37,10 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * IgniteMdSelectivity supplies implementation of {@link RelMetadataQuery#getSelectivity}.
@@ -198,8 +198,9 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         // sys view is possible here
         if (table != null) {
             int colCount = table.getRowType(Commons.typeFactory()).getFieldCount();
-            ImmutableBitSet requiredCols = rel.requiredColumns() == null ? ImmutableBitSet.range(colCount) : rel.requiredColumns();
-            columnMapping = Commons.trimmingMapping(colCount, requiredCols);
+            columnMapping = rel.requiredColumns() == null
+                    ? Mappings.createIdentity(colCount)
+                    : Commons.projectedMapping(colCount, rel.requiredColumns());
 
             keyColumns = table.keyColumns();
             primaryKeys = new BitSet();

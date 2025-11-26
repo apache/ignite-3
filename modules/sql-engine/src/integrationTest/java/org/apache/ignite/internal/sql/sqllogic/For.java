@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.sql.sqllogic;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;

@@ -50,6 +50,8 @@ public final class SqlOperationContext {
     private final @Nullable String defaultSchemaName;
     private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
     private final @Nullable Consumer<Throwable> errorListener;
+    private final @Nullable String userName;
+    private final @Nullable Long topologyVersion;
 
     /**
      * Private constructor, used by a builder.
@@ -63,7 +65,9 @@ public final class SqlOperationContext {
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
             @Nullable Consumer<QueryTransactionWrapper> txUsedListener,
-            @Nullable Consumer<Throwable> errorListener
+            @Nullable Consumer<Throwable> errorListener,
+            @Nullable String userName,
+            @Nullable Long topologyVersion
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -74,6 +78,8 @@ public final class SqlOperationContext {
         this.defaultSchemaName = defaultSchemaName;
         this.txUsedListener = txUsedListener;
         this.errorListener = errorListener;
+        this.userName = userName;
+        this.topologyVersion = topologyVersion;
     }
 
     public static Builder builder() {
@@ -104,6 +110,11 @@ public final class SqlOperationContext {
         return timeZoneId;
     }
 
+    /** Returns current user name or {@code null} if unknown. */
+    public @Nullable String userName() {
+        return userName;
+    }
+
     /**
      * Returns name of the schema to use to resolve schema objects, like tables or system views, for which name of the schema was omitted.
      *
@@ -120,6 +131,15 @@ public final class SqlOperationContext {
      */
     public @Nullable QueryTransactionContext txContext() {
         return txContext;
+    }
+
+    /**
+     * Returns topology version with query was mapped on.
+     * 
+     * <p>May be null, if the node is the initiator.
+     */
+    public @Nullable Long topologyVersion() {
+        return topologyVersion;
     }
 
     /**
@@ -177,6 +197,8 @@ public final class SqlOperationContext {
         private @Nullable Consumer<Throwable> errorListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
+        private @Nullable String userName;
+        private @Nullable Long topologyVersion;
 
         public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
@@ -223,6 +245,16 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder userName(@Nullable String userName) {
+            this.userName = userName;
+            return this;
+        }
+
+        public Builder topologyVersion(@Nullable Long topologyVersion) {
+            this.topologyVersion = topologyVersion;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -234,7 +266,9 @@ public final class SqlOperationContext {
                     cancel,
                     defaultSchemaName,
                     txUsedListener,
-                    errorListener
+                    errorListener,
+                    userName,
+                    topologyVersion
             );
         }
     }

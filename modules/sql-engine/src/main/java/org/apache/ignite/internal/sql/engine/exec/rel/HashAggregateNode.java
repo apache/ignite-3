@@ -257,7 +257,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey grpKey = b.build();
 
             AggregateRow<RowT> aggRow = groups.computeIfAbsent(grpKey, k -> create());
-            aggRow.update(accs, allFields, handler, row);
+            aggRow.update(accs, grpFields, handler, row);
         }
 
         /**
@@ -287,7 +287,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                aggRow.writeTo(type, accs, fields, allFields, grpId);
+                aggRow.writeTo(type, accs, fields, allFields.cardinality(), grpFields, grpId);
 
                 RowT row = rowFactory.create(fields);
 

@@ -22,14 +22,13 @@ import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LO
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -67,7 +66,7 @@ public class MvGc implements ManuallyCloseable {
     private final GcConfiguration gcConfig;
 
     /** Garbage collection thread pool. */
-    private volatile ExecutorService executor;
+    private volatile ThreadPoolExecutor executor;
 
     /** Prevents double closing. */
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -111,6 +110,7 @@ public class MvGc implements ManuallyCloseable {
                     new LinkedBlockingQueue<>(),
                     IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
             );
+            executor.allowCoreThreadTimeOut(true);
 
             lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
         });
@@ -154,6 +154,12 @@ public class MvGc implements ManuallyCloseable {
                 return nullCompletedFuture();
             }
 
+            CompletableFuture<Void> awaitSafeTimeFuture = removed.awaitSafeTimeFuture.get();
+
+            if (awaitSafeTimeFuture != null && !awaitSafeTimeFuture.isDone()) {
+                awaitSafeTimeFuture.completeExceptionally(new StorageRemovedException());
+            }
+
             CompletableFuture<Void> gcInProgressFuture = removed.gcInProgressFuture.get();
 
             return gcInProgressFuture == null ? nullCompletedFuture() : gcInProgressFuture;
@@ -183,7 +189,8 @@ public class MvGc implements ManuallyCloseable {
 
     private void scheduleGcForStorage(TablePartitionId tablePartitionId) {
         inBusyLock(() -> {
-            CompletableFuture<Void> currentGcFuture = new CompletableFuture<>();
+            var currentGcFuture = new CompletableFuture<Void>();
+            var currentAwaitSafeTimeFuture = new CompletableFuture<Void>();
 
             GcStorageHandler storageHandler = storageHandlerByPartitionId.compute(tablePartitionId, (tablePartId, gcStorageHandler) -> {
                 if (gcStorageHandler == null) {
@@ -192,9 +199,14 @@ public class MvGc implements ManuallyCloseable {
                 }
 
                 CompletableFuture<Void> inProgressFuture = gcStorageHandler.gcInProgressFuture.get();
+                CompletableFuture<Void> awaitProgressFuture = gcStorageHandler.awaitSafeTimeFuture.get();
 
                 if (inProgressFuture == null || inProgressFuture.isDone()) {
                     boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(inProgressFuture, currentGcFuture);
+
+                    assert casResult : tablePartId;
+
+                    casResult = gcStorageHandler.awaitSafeTimeFuture.compareAndSet(awaitProgressFuture, currentAwaitSafeTimeFuture);
 
                     assert casResult : tablePartId;
                 } else {
@@ -231,11 +243,20 @@ public class MvGc implements ManuallyCloseable {
                 // We can only start garbage collection when the partition safe time is reached.
                 gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
+                        .whenComplete((unused, throwable) -> {
+                            if (throwable == null) {
+                                currentAwaitSafeTimeFuture.complete(null);
+                            } else {
+                                currentAwaitSafeTimeFuture.completeExceptionally(throwable);
+                            }
+                        });
+
+                currentAwaitSafeTimeFuture
                         .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize(), true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
-                                if (unwrapCause(throwable) instanceof TrackerClosedException) {
-                                    LOG.debug("TrackerClosedException caught", throwable);
+                                if (hasCause(throwable, TrackerClosedException.class, StorageRemovedException.class)) {
+                                    LOG.debug("Caught an expected exception", throwable);
 
                                     currentGcFuture.complete(null);
                                 } else {

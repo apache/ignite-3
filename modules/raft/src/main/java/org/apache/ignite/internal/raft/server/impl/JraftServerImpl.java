@@ -21,10 +21,12 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
@@ -65,6 +68,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.StoredRaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -78,7 +82,6 @@ import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -89,6 +92,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl.LogEntryAndClosure;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
@@ -323,7 +327,7 @@ public class JraftServerImpl implements RaftServer {
             opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-NodeImpl-Disruptor",
-                    (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                    (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     LogEntryAndClosure::new,
                     opts.getStripes(),
@@ -337,7 +341,7 @@ public class JraftServerImpl implements RaftServer {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-ReadOnlyService-Disruptor",
-                    (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                    (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ReadIndexEvent::new,
                     opts.getStripes(),
@@ -351,7 +355,7 @@ public class JraftServerImpl implements RaftServer {
             opts.setLogManagerDisruptor(new StripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-LogManager-Disruptor",
-                    (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                    (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
                     opts.getLogStripesCount(),
@@ -529,7 +533,7 @@ public class JraftServerImpl implements RaftServer {
 
             List<PeerId> learnerIds = configuration.learners().stream().map(PeerId::fromPeer).collect(toList());
 
-            nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
+            nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds, Configuration.NO_SEQUENCE_TOKEN));
 
             nodeOptions.setRpcClient(new IgniteRpcClient(service));
 
@@ -602,14 +606,47 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        destroyRaftNodeStoragesInternal(nodeId, groupOptions, false);
+    }
+
+    @Override
+    public void destroyRaftNodeStoragesDurably(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        destroyRaftNodeStoragesInternal(nodeId, groupOptions, true);
+    }
+
+    /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param nodeId ID of the Raft node.
+     */
+    public void createMetaStorage(RaftNodeId nodeId) {
+        RaftGroupService raftGroupService = nodes.get(nodeId);
+
+        if (raftGroupService == null) {
+            return;
+        }
+
+        ((NodeImpl) raftGroupService.getRaftNode()).metaStorage().createAfterDestroy();
+    }
+
+    private void destroyRaftNodeStoragesInternal(RaftNodeId nodeId, RaftGroupOptions groupOptions, boolean durable) {
         StorageDestructionIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
 
-        groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
+        if (durable) {
+            groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
+        }
 
-        destroyStorages(new StoragesDestructionContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()));
+        destroyStorages(
+                new StoragesDestructionContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()),
+                durable
+        );
     }
 
     private void destroyStorages(StoragesDestructionContext context) {
+        destroyStorages(context, true);
+    }
+
+    private void destroyStorages(StoragesDestructionContext context, boolean wasDurable) {
         String nodeId = context.intent().nodeId();
 
         try {
@@ -622,10 +659,47 @@ public class JraftServerImpl implements RaftServer {
             // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
             IgniteUtils.deleteIfExistsThrowable(dataPath);
         } catch (Exception e) {
-            throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Failed to delete storage for node: " + nodeId, e);
         }
 
-        groupStoragesDestructionIntents.removeStorageDestructionIntent(nodeId);
+        if (wasDurable) {
+            groupStoragesDestructionIntents.removeStorageDestructionIntent(nodeId);
+        }
+    }
+
+    /**
+     * Returns Raft node IDs for all groups that are present on disk.
+     *
+     * <p>This method should only be called when no Raft nodes are started or being started.
+     */
+    public Set<StoredRaftNodeId> raftNodeIdsOnDisk() {
+        Set<String> groupIdsForStorage = new HashSet<>();
+
+        for (LogStorageFactory logStorageFactory : groupStoragesContextResolver.logStorageFactories()) {
+            groupIdsForStorage.addAll(logStorageFactory.raftNodeStorageIdsOnDisk());
+        }
+        groupIdsForStorage.addAll(raftNodeMetaStorageIdsOnDisk());
+
+        return groupIdsForStorage.stream()
+                .map(nodeIdStr -> RaftNodeId.fromNodeIdStringForStorage(nodeIdStr, service.nodeName()))
+                .collect(toUnmodifiableSet());
+    }
+
+    private Set<String> raftNodeMetaStorageIdsOnDisk() {
+        return groupStoragesContextResolver.serverDataPaths().stream()
+                .filter(Files::exists)
+                .flatMap(JraftServerImpl::listFiles)
+                .filter(Files::isDirectory)
+                .map(groupDirPath -> groupDirPath.getFileName().toString())
+                .collect(toUnmodifiableSet());
+    }
+
+    private static Stream<Path> listFiles(Path dir) {
+        try {
+            return Files.list(dir);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
     }
 
     @Override
@@ -647,14 +721,14 @@ public class JraftServerImpl implements RaftServer {
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftGroupService raftGroupService = nodes.get(raftNodeId);
 
         List<PeerId> peerIds = peersAndLearners.peers().stream().map(PeerId::fromPeer).collect(toList());
 
         List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
 
-        raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+        return raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds, sequenceToken));
     }
 
     /**
@@ -820,6 +894,8 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupConfiguration committedConf = new RaftGroupConfiguration(
                     entry.getId().getIndex(),
                     entry.getId().getTerm(),
+                    entry.getConf().getSequenceToken(),
+                    hasOldConf ? entry.getOldConf().getSequenceToken() : Configuration.NO_SEQUENCE_TOKEN,
                     peersIdsToStrings(entry.getConf().getPeers()),
                     peersIdsToStrings(entry.getConf().getLearners()),
                     hasOldConf ? peersIdsToStrings(entry.getOldConf().getPeers()) : null,

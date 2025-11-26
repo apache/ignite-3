@@ -27,8 +27,8 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,7 +65,7 @@ public class NumericMergeSourcesCoercionTest extends BaseTypeCoercionTest {
 
         // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
         // take it into consideration.
-        boolean closerToBound = pair.first().spec() == NativeTypeSpec.INT16;
+        boolean closerToBound = pair.first().spec() == ColumnType.INT16;
 
         String val = generateLiteral(pair.second(), closerToBound);
         assertPlan("MERGE INTO T1 dst USING T2 src ON dst.c1 = src.c2 WHEN MATCHED THEN UPDATE SET c1 = " + val, schema,
@@ -96,7 +96,6 @@ public class NumericMergeSourcesCoercionTest extends BaseTypeCoercionTest {
         checkIncludesAllNumericTypePairs(argsForMergeWithLiteralValue());
         checkIncludesAllNumericTypePairs(argsDyn());
     }
-
 
     private static Stream<Arguments> argsForMergeWithColumnAsValue() {
         return Stream.of(

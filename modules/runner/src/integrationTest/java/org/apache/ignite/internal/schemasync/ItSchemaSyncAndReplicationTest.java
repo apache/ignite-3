@@ -35,6 +35,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -118,7 +119,10 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void transferLeadershipsTo(int nodeIndex) throws InterruptedException {
         cluster.transferLeadershipTo(nodeIndex, MetastorageGroupId.INSTANCE);
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
+
+        ReplicationGroupId solePartitionId = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+        cluster.transferLeadershipTo(nodeIndex, solePartitionId);
+        cluster.transferPrimaryTo(nodeIndex, solePartitionId);
     }
 
     private CompletableFuture<?> rejectionDueToMetadataLagTriggered() {

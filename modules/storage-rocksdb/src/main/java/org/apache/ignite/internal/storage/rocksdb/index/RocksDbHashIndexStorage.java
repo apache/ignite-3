@@ -97,7 +97,9 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
         return (StorageHashIndexDescriptor) descriptor;
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<RowId> get(BinaryTuple key) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);

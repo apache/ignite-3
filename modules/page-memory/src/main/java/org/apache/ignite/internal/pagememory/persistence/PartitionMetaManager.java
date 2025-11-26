@@ -65,7 +65,7 @@ public class PartitionMetaManager {
     }
 
     /**
-     * Returns the partition's meta information.
+     * Returns the partition's meta information, {@code null} if not yet added or was removed when the partition was destroyed.
      *
      * @param groupPartitionId Partition of the group.
      */
@@ -92,12 +92,14 @@ public class PartitionMetaManager {
      * @param groupPartitionId Partition of the group.
      * @param filePageStore Partition file page store.
      * @param buffer Buffer for reading and writing pages.
+     * @param partitionGeneration Partition generation at the time of its creation.
      */
     public PartitionMeta readOrCreateMeta(
             @Nullable UUID checkpointId,
             GroupPartitionId groupPartitionId,
             FilePageStore filePageStore,
-            ByteBuffer buffer
+            ByteBuffer buffer,
+            int partitionGeneration
     ) throws IgniteInternalCheckedException {
         long bufferAddr = bufferAddress(buffer);
 
@@ -108,7 +110,12 @@ public class PartitionMetaManager {
             try {
                 filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
 
-                return partitionMetaFactory.createPartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
+                return partitionMetaFactory.createPartitionMeta(
+                        checkpointId,
+                        ioRegistry.resolve(bufferAddr),
+                        bufferAddr,
+                        partitionGeneration
+                );
             } catch (IgniteInternalDataIntegrityViolationException e) {
                 LOG.info(() -> "Error reading partition meta page, will be recreated: " + groupPartitionId, e);
             }
@@ -130,7 +137,7 @@ public class PartitionMetaManager {
 
         filePageStore.sync();
 
-        return partitionMetaFactory.createPartitionMeta(checkpointId, io, bufferAddr);
+        return partitionMetaFactory.createPartitionMeta(checkpointId, io, bufferAddr, partitionGeneration);
     }
 
     /**

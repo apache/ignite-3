@@ -32,7 +32,7 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     private final Call<I, T> call;
 
-    private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
+    private ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
     private Supplier<I> inputProvider;
 
@@ -89,6 +89,19 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     public SingleCallExecutionPipelineBuilder<I, T> exceptionHandlers(ExceptionHandlers exceptionHandlers) {
         this.exceptionHandlers.addExceptionHandlers(exceptionHandlers);
+        return this;
+    }
+
+    /**
+     * Replaces the default exception handler.
+     * All the handlers previously added will be readded to the provided handler.
+     *
+     * @param defaultExceptionHandler The new default exception handler.
+     * @return The same instance of this builder.
+     */
+    public SingleCallExecutionPipelineBuilder<I, T> defaultExceptionHandler(ExceptionHandlers defaultExceptionHandler) {
+        defaultExceptionHandler.addExceptionHandlers(this.exceptionHandlers);
+        this.exceptionHandlers = defaultExceptionHandler;
         return this;
     }
 

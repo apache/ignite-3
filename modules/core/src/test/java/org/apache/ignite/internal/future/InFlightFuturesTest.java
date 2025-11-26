@@ -40,7 +40,6 @@ class InFlightFuturesTest {
         assertThat(currentFutures(inFlightFutures), is(singleton(incompleteFuture)));
     }
 
-
     @Test
     void removesAlreadyCompletedFutureOnRegistration() {
         CompletableFuture<Object> completedFuture = CompletableFuture.completedFuture("Completed");

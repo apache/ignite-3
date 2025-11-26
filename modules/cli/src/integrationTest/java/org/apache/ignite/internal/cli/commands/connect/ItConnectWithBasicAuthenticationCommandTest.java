@@ -456,7 +456,6 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertThat(session.info().jdbcUrl()).contains("username=admin&password=password");
     }
 
-
     @Test
     @DisplayName("Should ask for auth configuration connect to last connected cluster HTTPS url")
     void connectOnStartAskAuth() throws IOException {

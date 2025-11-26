@@ -1,0 +1,207 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: 'jobs.gradle'
+
+description = 'ignite-compatibility-tests'
+
+repositories {
+    // For Gradle Tooling API
+    maven { url = 'https://repo.gradle.org/gradle/libs-releases' }
+}
+
+dependencies {
+    testImplementation libs.swagger.parser
+    testImplementation project(':ignite-core')
+
+    integrationTestImplementation libs.netty.common
+    integrationTestImplementation libs.netty.buffer
+
+    integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.micronaut.junit5
+    integrationTestImplementation libs.micronaut.http.client
+
+    testFixturesImplementation libs.gradle.tooling.api
+    testFixturesImplementation libs.awaitility
+    testFixturesImplementation libs.jackson.databind
+    testFixturesImplementation libs.swagger.parser
+    testFixturesImplementation(libs.jsonpath.assert) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+    testFixturesImplementation libs.cytodynamics.nucleus
+    testFixturesImplementation libs.japicmp
+    testFixturesImplementation libs.micronaut.http.client
+    testFixturesImplementation libs.typesafe.config
+
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-runner'))
+    testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-client')
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-distribution-zones')
+    testFixturesImplementation project(':ignite-metastorage-api')
+    testFixturesImplementation project(':ignite-rest-api')
+    testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-cli')
+    testFixturesImplementation project(':ignite-rest-api')
+}
+
+private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {
+    def dependencies = dependencyNotations.collect {
+        dependencies.create(it)
+    }
+    Configuration detached = configurations.detachedConfiguration(dependencies as Dependency[])
+    detached.transitive = transitive
+    detached.attributes {
+        it.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.class, Category.LIBRARY));
+        it.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.class, Usage.JAVA_RUNTIME));
+        it.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.class, LibraryElements.JAR));
+        it.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.class, Bundling.EXTERNAL));
+        it.attribute(
+                TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
+                objects.named(TargetJvmEnvironment.class, TargetJvmEnvironment.STANDARD_JVM)
+        )
+    }
+    println "resolving $dependencyNotations"
+    return detached.resolve()  // Set<File> of *.jar
+}
+
+def versionsJsonFileName = 'src/testFixtures/resources/igniteVersions.json'
+
+// This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined or is
+// not equals to `true`, at most 2 last versions are resolved
+def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityTestDependencies') {
+    doLast {
+        def versionsFile = file(versionsJsonFileName)
+        def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+        def versions = shouldTestAllVersions() ? versionsJson.versions : versionsJson.versions.takeRight(2)
+        versions.each { version ->
+            versionsJson.artifacts.each { artifact ->
+                resolveAllDependencies(true, "$artifact:$version.version")
+            }
+        }
+    }
+}
+
+private shouldTestAllVersions() {
+    def value = System.getProperty("testAllVersions")
+    if (value != null) {
+        value = value.trim().toLowerCase()
+        return value.isEmpty() || "true".equals(value)
+    }
+    return false
+}
+
+integrationTest.dependsOn resolveCompatibilityTestDependencies
+
+tasks.register('constructArgFile') {
+    doLast {
+        String[] dependencies = ((String) project.property('dependencyNotation')).split(",")
+        def transitive = project.property('argFileTransitive').toBoolean()
+        def jars = resolveAllDependencies(transitive, dependencies)
+        def jarFiles = files(jars)
+        def classPath = jarFiles.asPath
+        def classPathFilePath = project.property('argFilePath')
+        def classPathOnly = project.property('argFileClassPathOnly').toBoolean()
+
+        def classPathFile = file(classPathFilePath)
+        classPathFile.withPrintWriter {
+            if (classPathOnly) {
+                jarFiles.forEach { f -> it.println(f.absolutePath) }
+                return
+            }
+
+            it.println '-classpath'
+            // Java argfile quote rules are weird. It's enough to quote spaces.
+            it.println classPath.replace(" ", "\" \"")
+            defaultJvmArgs.each { arg ->
+                it.println arg
+            }
+        }
+    }
+}
+
+configurations {
+    openapiSpec
+}
+
+dependencies {
+    openapiSpec(project(path: ':ignite-rest-api', configuration: 'openapiSpec'))
+}
+
+processTestResources {
+    from configurations.openapiSpec
+}
+
+tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
+    mainClass = 'org.apache.ignite.internal.PlatformCompatibilityTestNodeRunner'
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('postRelease', Copy) {
+    // Copy current OpenAPI specification to resources
+    from configurations.openapiSpec
+    into file("src/test/resources/versions/${project.projectVersion.toString()}/")
+
+    outputs.file versionsJsonFileName
+    doLast {
+        // Add current version to versions JSON
+        def versionsFile = file(versionsJsonFileName)
+        def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+
+        versionsJson.versions.add(Map.of('version', project.projectVersion.toString()))
+
+        versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
+                .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
+        versionsFile.append(System.lineSeparator())
+    }
+}

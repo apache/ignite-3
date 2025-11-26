@@ -22,8 +22,6 @@ import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
 import static org.apache.ignite.internal.sql.engine.prepare.PlanningContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
-import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -32,11 +30,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,8 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -63,7 +54,9 @@ import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
@@ -112,11 +105,8 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.TemporalNativeType;
-import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -131,6 +121,8 @@ public final class Commons {
     public static final String PART_COL_NAME = "__PART";
     // Old name for partition column. Kept for backward compatibility.
     public static final String PART_COL_NAME_LEGACY = "__part";
+
+    public static final String SYSTEM_USER_NAME = "SYSTEM";
 
     public static final int IN_BUFFER_SIZE = 512;
 
@@ -313,11 +305,11 @@ public final class Commons {
      * @param params Array of values.
      * @return Map of values.
      */
-    public static Int2ObjectMap<Object> arrayToMap(@Nullable Object[] params) {
+    public static <T> Int2ObjectMap<T> arrayToMap(@Nullable T[] params) {
         if (ArrayUtils.nullOrEmpty(params)) {
             return Int2ObjectMaps.emptyMap();
         } else {
-            Int2ObjectMap<Object> res = new Int2ObjectArrayMap<>(params.length);
+            Int2ObjectMap<T> res = new Int2ObjectArrayMap<>(params.length);
 
             for (int i = 0; i < params.length; i++) {
                 res.put(i, params[i]);
@@ -516,11 +508,13 @@ public final class Commons {
             case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
-            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BYTE_ARRAY: return tuple.bytesValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
             case TIMESTAMP: return tuple.timestampValue(fieldIndex);
+            case PERIOD: return tuple.periodValue(fieldIndex);
+            case DURATION: return tuple.durationValue(fieldIndex);
             default: throw new InvalidTypeException("Unknown element type: " + nativeType);
         }
     }
@@ -550,7 +544,6 @@ public final class Commons {
         return res;
     }
 
-
     /**
      * Quietly closes given object ignoring possible checked exception.
      *
@@ -563,148 +556,6 @@ public final class Commons {
             } catch (Exception ignored) {
                 // No-op.
             }
-        }
-    }
-
-    /**
-     * Provide mapping Native types to java classes.
-     *
-     * @param type Native type
-     * @return Java corresponding class.
-     */
-    public static Class<?> nativeTypeToClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case BOOLEAN:
-                return Boolean.class;
-
-            case INT8:
-                return Byte.class;
-
-            case INT16:
-                return Short.class;
-
-            case INT32:
-                return Integer.class;
-
-            case INT64:
-                return Long.class;
-
-            case FLOAT:
-                return Float.class;
-
-            case DOUBLE:
-                return Double.class;
-
-            case DECIMAL:
-                return BigDecimal.class;
-
-            case UUID:
-                return UUID.class;
-
-            case STRING:
-                return String.class;
-
-            case BYTES:
-                return byte[].class;
-
-            case DATE:
-                return LocalDate.class;
-
-            case TIME:
-                return LocalTime.class;
-
-            case DATETIME:
-                return LocalDateTime.class;
-
-            case TIMESTAMP:
-                return Instant.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
-     * precision is not applicable for this type.
-     *
-     * @return Precision for current type.
-     */
-    public static int nativeTypePrecision(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case INT8:
-                return 3;
-
-            case INT16:
-                return 5;
-
-            case INT32:
-                return 10;
-
-            case INT64:
-                return 19;
-
-            case FLOAT:
-            case DOUBLE:
-                return 15;
-
-            case DECIMAL:
-                return ((DecimalNativeType) type).precision();
-
-            case BOOLEAN:
-            case UUID:
-            case DATE:
-                return UNDEFINED_PRECISION;
-
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-                return ((TemporalNativeType) type).precision();
-
-            case BYTES:
-            case STRING:
-                return ((VarlenNativeType) type).length();
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Gets the scale of this type. Returns {@link ColumnMetadata#UNDEFINED_SCALE} if
-     * scale is not valid for this type.
-     *
-     * @return number of digits of scale
-     */
-    public static int nativeTypeScale(NativeType type) {
-        switch (type.spec()) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-                return 0;
-
-            case BOOLEAN:
-            case FLOAT:
-            case DOUBLE:
-            case UUID:
-            case DATE:
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-            case BYTES:
-            case STRING:
-                return UNDEFINED_SCALE;
-
-            case DECIMAL:
-                return ((DecimalNativeType) type).scale();
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 
@@ -926,9 +777,7 @@ public final class Commons {
 
     /** Returns {@code true} if the specified properties allow multi-statement query execution. */
     public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
-        Set<SqlQueryType> allowedTypes = properties.allowedQueryTypes();
-
-        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
+        return properties.allowMultiStatement();
     }
 
     /**
@@ -959,5 +808,49 @@ public final class Commons {
         }
 
         return firstFoundError;
+    }
+
+    /**
+     * Creates a {@link JoinInfo join condition} that treats {@code IS NOT DISTINCT FROM} as an equijoin condition.
+     *
+     * @param join Logical join.
+     * @return Join condition.
+     */
+    public static JoinInfo getNonStrictEquiJoinCondition(LogicalJoin join) {
+        JoinInfo joinInfo = join.analyzeCondition();
+
+        // Already an equijoin condition, do nothing.
+        if (joinInfo.isEqui()) {
+            return joinInfo;
+        }
+
+        // Create a non-strict equijoin condition that treats IS NOT DISTINCT_FROM as an equi join condition.
+        return JoinInfo.of(join.getLeft(), join.getRight(), join.getCondition());
+    }
+
+    /**
+     * Checks whether the given mapping is an identity mapping.
+     */
+    public static boolean isIdentityMapping(int[] mapping, int length) {
+        if (mapping.length != length) {
+            return false;
+        }
+        for (int i = 0; i < mapping.length; i++) {
+            if (mapping[i] != i) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Creates {@link Mappings.TargetMapping} such that for every given source within provided sourceSize resulting target equals to source
+     * shifted by specified offset (e.g. {@code target = source + offset}).
+     */
+    public static TargetMapping targetOffsetMapping(int sourceCount, int offset) {
+        return Mappings.offsetTarget(
+                Mappings.createIdentity(sourceCount),
+                offset
+        );
     }
 }

@@ -67,10 +67,10 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1215,32 +1215,33 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     @Override
-    public final Cursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException {
-        return find(lower, upper, null);
+    public final Cursor<T> find(@Nullable L lowerInclusive, @Nullable L upperInclusive) throws IgniteInternalCheckedException {
+        return find(lowerInclusive, upperInclusive, null);
     }
 
     @Override
-    public final Cursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException {
-        return find(lower, upper, null, x);
+    public final Cursor<T> find(@Nullable L lowerInclusive, @Nullable L upperInclusive, @Nullable Object x)
+            throws IgniteInternalCheckedException {
+        return find(lowerInclusive, upperInclusive, null, x);
     }
 
     /**
      * Getting the cursor through the rows of the tree.
      *
-     * @param lower Lower bound inclusive or {@code null} if unbounded.
-     * @param upper Upper bound inclusive or {@code null} if unbounded.
+     * @param lowerInclusive Lower bound inclusive or {@code null} if unbounded.
+     * @param upperInclusive Upper bound inclusive or {@code null} if unbounded.
      * @param c Tree row closure.
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
     public <R> Cursor<R> find(
-            @Nullable L lower,
-            @Nullable L upper,
+            @Nullable L lowerInclusive,
+            @Nullable L upperInclusive,
             @Nullable TreeRowMapClosure<L, T, R> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
-        return find(lower, upper, true, true, c, x);
+        return find(lowerInclusive, upperInclusive, true, true, c, x);
     }
 
     /**
@@ -6318,7 +6319,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             try {
                 return nextPage(lastRow);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Unable to read the next page", e);
+                // Can't throw checked exceptions from existing iterator API.
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Unable to read the next page", e);
             }
         }
 

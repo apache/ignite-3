@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
 import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.util.ImmutableIntList;
 
 /**
@@ -68,26 +69,16 @@ public class IgniteDistributions {
      * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
      * based on a hash function which takes into account the key field types of the row.
      *
-     * @param key     Affinity key ordinal.
-     * @param tableId Table ID.
-     * @param zoneId  Distribution zone ID.
-     * @return Affinity distribution.
-     */
-    public static IgniteDistribution affinity(int key, int tableId, Object zoneId) {
-        return hash(ImmutableIntList.of(key), DistributionFunction.affinity(tableId, zoneId));
-    }
-
-    /**
-     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
-     * based on a hash function which takes into account the key field types of the row.
-     *
      * @param keys Affinity keys ordinals. Should not be null or empty.
      * @param tableId Table ID.
      * @param zoneId  Distribution zone ID.
+     * @param label Human-readable label to show in EXPLAIN printout.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(List<Integer> keys, int tableId, Object zoneId) {
-        return hash(keys, DistributionFunction.affinity(tableId, zoneId));
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId, String label) {
+        assert !nullOrEmpty(keys) : "Hash-based distribution must have at least one key";
+
+        return canonize(new DistributionTrait(keys, tableId, zoneId, label, DistributionFunction.hash()));
     }
 
     /**
@@ -110,7 +101,7 @@ public class IgniteDistributions {
     public static IgniteDistribution hash(List<Integer> keys, DistributionFunction function) {
         assert !nullOrEmpty(keys) : "Hash-based distribution must have at least one key";
 
-        return canonize(new DistributionTrait(ImmutableIntList.copyOf(keys), function));
+        return canonize(new DistributionTrait(keys, function));
     }
 
     /**
@@ -121,6 +112,24 @@ public class IgniteDistributions {
      */
     public static IgniteDistribution identity(int key) {
         return canonize(new DistributionTrait(ImmutableIntList.of(key), DistributionFunction.identity()));
+    }
+
+    /**
+     * Creates a distribution trait of the same hash function with given distribution keys.
+     *
+     * @param trait Distribution trait.
+     * @param keys Distribution keys ordinals. Should not be null or empty.
+     * @return Distribution trait.
+     */
+    public static IgniteDistribution clone(IgniteDistribution trait, List<Integer> keys) {
+        assert !nullOrEmpty(keys) : "Hash-based distribution must have at least one key";
+        assert trait.function().type() == Type.HASH_DISTRIBUTED;
+
+        DistributionTrait distributionTrait = trait.isTableDistribution()
+                ? new DistributionTrait(keys, trait.tableId(), trait.zoneId(), trait.label(), trait.function())
+                : new DistributionTrait(keys, trait.function());
+
+        return canonize(distributionTrait);
     }
 
     /**

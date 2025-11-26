@@ -36,11 +36,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -77,6 +79,10 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     private final FailureProcessor failureProcessor;
 
+    private final ResourceVacuumMetrics resourceVacuumMetrics;
+
+    private final MetricManager metricManager;
+
     private volatile ScheduledFuture<?> vacuumOperationFuture;
     private volatile ScheduledFuture<?> broadcastClosedTransactionsFuture;
 
@@ -100,13 +106,14 @@ public class ResourceVacuumManager implements IgniteComponent {
             TransactionInflights transactionInflights,
             TxManager txManager,
             LowWatermark lowWatermark,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            MetricManager metricManager
     ) {
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = topologyService;
         this.resourceVacuumExecutor = Executors.newScheduledThreadPool(
                 RESOURCE_VACUUM_EXECUTOR_SIZE,
-                NamedThreadFactory.create(nodeName, "resource-vacuum-executor", LOG)
+                IgniteThreadFactory.create(nodeName, "resource-vacuum-executor", LOG)
         );
         this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(
                 topologyService,
@@ -121,8 +128,11 @@ public class ResourceVacuumManager implements IgniteComponent {
                 resourceVacuumExecutor
         );
 
+        this.resourceVacuumMetrics = new ResourceVacuumMetrics();
+
         this.txManager = txManager;
         this.failureProcessor = failureProcessor;
+        this.metricManager = metricManager;
     }
 
     @Override
@@ -145,6 +155,9 @@ public class ResourceVacuumManager implements IgniteComponent {
 
         finishedTransactionBatchRequestHandler.start();
 
+        metricManager.registerSource(resourceVacuumMetrics);
+        metricManager.enable(resourceVacuumMetrics);
+
         return nullCompletedFuture();
     }
 
@@ -159,6 +172,8 @@ public class ResourceVacuumManager implements IgniteComponent {
         if (broadcastClosedTransactionsFuture != null) {
             broadcastClosedTransactionsFuture.cancel(false);
         }
+
+        metricManager.disable(resourceVacuumMetrics);
 
         shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);
 
@@ -188,7 +203,7 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     private void vacuumTxnResources() {
         try {
-            txManager.vacuum();
+            txManager.vacuum(resourceVacuumMetrics);
         } catch (Throwable err) {
             failureProcessor.process(new FailureContext(err, "Error occurred during txn resources vacuum."));
 

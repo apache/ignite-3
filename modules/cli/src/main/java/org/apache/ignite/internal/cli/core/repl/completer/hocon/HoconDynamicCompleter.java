@@ -79,7 +79,6 @@ public class HoconDynamicCompleter implements DynamicCompleter {
                 .collect(Collectors.toList());
     }
 
-
     private void walkAndAdd(String keyPrefix, Set<String> keySet, List<String> result) {
         keySet.forEach(key -> {
             if (!leafs.contains(keyPrefix + key)) {

@@ -18,22 +18,33 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link CheckpointReadWriteLock} testing.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class CheckpointReadWriteLockTest {
+    @InjectExecutorService
+    private ExecutorService executorService;
+
     @Test
     void testReadLock() throws Exception {
-        CheckpointReadWriteLock lock0 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock1 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
+        CheckpointReadWriteLock lock0 = newReadWriteLock();
+        CheckpointReadWriteLock lock1 = newReadWriteLock();
 
         lock1.writeLock();
 
@@ -76,9 +87,9 @@ public class CheckpointReadWriteLockTest {
 
     @Test
     void testTryReadLock() throws Exception {
-        CheckpointReadWriteLock lock0 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock1 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock2 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
+        CheckpointReadWriteLock lock0 = newReadWriteLock();
+        CheckpointReadWriteLock lock1 = newReadWriteLock();
+        CheckpointReadWriteLock lock2 = newReadWriteLock();
 
         lock2.writeLock();
 
@@ -155,11 +166,15 @@ public class CheckpointReadWriteLockTest {
         assertEquals(0, lock2.getReadHoldCount());
     }
 
+    private CheckpointReadWriteLock newReadWriteLock() {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(), executorService);
+    }
+
     @Test
     void testCheckpointLockIsHeldByThread() throws Exception {
-        CheckpointReadWriteLock lock0 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock1 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock2 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
+        CheckpointReadWriteLock lock0 = newReadWriteLock();
+        CheckpointReadWriteLock lock1 = newReadWriteLock();
+        CheckpointReadWriteLock lock2 = newReadWriteLock();
 
         assertFalse(lock0.checkpointLockIsHeldByThread());
         assertFalse(lock1.checkpointLockIsHeldByThread());
@@ -171,7 +186,15 @@ public class CheckpointReadWriteLockTest {
         assertTrue(lock0.checkpointLockIsHeldByThread());
         assertTrue(lock1.checkpointLockIsHeldByThread());
 
-        runAsync(() -> assertTrue(lock2.checkpointLockIsHeldByThread()), "checkpoint-runner").get(1, TimeUnit.SECONDS);
+        assertThat(
+                runAsync(() -> assertFalse(lock2.checkpointLockIsHeldByThread()), "checkpoint-runner"),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(
+                runInCheckpointThreadAsync(() -> assertTrue(lock2.checkpointLockIsHeldByThread())),
+                willCompleteSuccessfully()
+        );
 
         runAsync(() -> {
             assertFalse(lock0.checkpointLockIsHeldByThread());
@@ -197,5 +220,23 @@ public class CheckpointReadWriteLockTest {
         assertFalse(lock0.checkpointLockIsHeldByThread());
         assertFalse(lock1.checkpointLockIsHeldByThread());
         assertFalse(lock2.checkpointLockIsHeldByThread());
+    }
+
+    private static CompletableFuture<Void> runInCheckpointThreadAsync(Runnable r) {
+        var future = new CompletableFuture<Void>();
+
+        var thread = new IgniteCheckpointThread("test", "test", () -> {
+            try {
+                r.run();
+
+                future.complete(null);
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+
+        thread.start();
+
+        return future;
     }
 }

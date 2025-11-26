@@ -33,5 +33,5 @@ Communication between nodes usually happens within the same data center. We reco
 
 Client to server communication may be over internet or otherwise untrusted network. Only the client port (10800 by default) is typically exposed outside of the cluster. To securely interact with your clients:
 
-- Enable SSL for client communication with the `ignite.clientConnector.ssl` link:[node configuration].
+- Enable SSL for client communication with the `ignite.clientConnector.ssl` link:administrators-guide/config/node-config[node configuration].
 - Enable link:administrators-guide/security/authentication[authentication] on the cluster.

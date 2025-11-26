@@ -19,36 +19,35 @@ package org.apache.ignite.client.handler.requests.jdbc;
 
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import java.sql.DatabaseMetaData;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.SortedSet;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnContainer;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
-import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
-
-// TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
 
 /**
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
@@ -57,23 +56,23 @@ public class JdbcMetadataCatalog {
     /** Primary key identifier. */
     private static final String PK = "PK_";
 
-    /** Table type. */
-    private static final String TBL_TYPE = "TABLE";
-
     private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
 
-    /** Comparator for {@link Column} by schema then table name then column order. */
-    private static final Comparator<Pair<String, Column>> bySchemaThenTabNameThenColOrder
-            = Comparator.comparing((Function<Pair<String, Column>, String>) Pair::getFirst)
-            .thenComparingInt(o -> o.getSecond().positionInRow());
-
     /** Comparator for {@link JdbcTableMeta} by table name. */
-    private static final Comparator<CatalogTableDescriptor> byTblTypeThenSchemaThenTblName
-            = Comparator.comparing(CatalogTableDescriptor::name);
+    private static final Comparator<JdbcTableMeta> byTblTypeThenSchemaThenTblName
+            = Comparator.comparing(JdbcTableMeta::tableType)
+            .thenComparing(JdbcTableMeta::schemaName)
+            .thenComparing(JdbcTableMeta::tableName);
+
+    /** Comparator for {@link JdbcPrimaryKeyMeta} by table name. */
+    private static final Comparator<JdbcPrimaryKeyMeta> bySchemaThenTblThenKey
+            = Comparator.comparing(JdbcPrimaryKeyMeta::schemaName)
+            .thenComparing(JdbcPrimaryKeyMeta::tableName)
+            .thenComparing(JdbcPrimaryKeyMeta::name);
 
     /**
      * Initializes info.
@@ -101,19 +100,23 @@ public class JdbcMetadataCatalog {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
-        return tablesAtNow()
-                .thenApply(tables -> tables.stream()
-                        .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
-                        .map(this::createPrimaryKeyMeta)
-                        .collect(toSet())
-                );
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .flatMap(schema -> Arrays.stream(schema.tables())
+                                        .filter(table -> matches(table.name(), tlbNameRegex))
+                                        .map(table -> createPrimaryKeyMeta(schema.name(), table))
+                        )
+                        .sorted(bySchemaThenTblThenKey)
+                        .collect(toList())
+        );
     }
 
-    private CompletableFuture<Collection<CatalogTableDescriptor>> tablesAtNow() {
+    private CompletableFuture<Collection<CatalogSchemaDescriptor>> schemasAtNow() {
         HybridTimestamp now = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(now)
-                .thenApply(unused -> catalogService.activeCatalog(now.longValue()).tables());
+                .thenApply(unused -> catalogService.activeCatalog(now.longValue()).schemas());
     }
 
     /**
@@ -129,25 +132,55 @@ public class JdbcMetadataCatalog {
      * @param tblTypes       Requested table types.
      * @return Future of the list of metadatas of tables that matches.
      */
-    public CompletableFuture<List<JdbcTableMeta>> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, String[] tblTypes) {
+    public CompletableFuture<List<JdbcTableMeta>> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, @Nullable String[] tblTypes) {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
+        Collection<CatalogObjectType> includedObjectTypes = resolveObjectTypes(tblTypes);
 
-        return tablesAtNow().thenApply(tables -> {
-            return tables.stream()
-                    .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
-                    .sorted(byTblTypeThenSchemaThenTblName)
-                    .map(t -> new JdbcTableMeta(SqlCommon.DEFAULT_SCHEMA_NAME, t.name(), TBL_TYPE))
-                    .collect(toList());
-        });
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .flatMap(schema -> includedObjectTypes.stream()
+                                .flatMap(tblType -> getCatalogObjects(schema, tblType)
+                                        .filter(desc -> matches(desc.name(), tlbNameRegex))
+                                        .map(desc -> new JdbcTableMeta(schema.name(), desc.name(), tblType.name())))
+                        )
+                        .sorted(byTblTypeThenSchemaThenTblName)
+                        .collect(toList())
+        );
     }
 
-    private static boolean tableNameAndSchemaMatches(
-            CatalogTableDescriptor table,
-            @Nullable String schemaNameRegex,
-            @Nullable String tlbNameRegex
-    ) {
-        return matches(SqlCommon.DEFAULT_SCHEMA_NAME, schemaNameRegex) && matches(table.name(), tlbNameRegex);
+    private static Stream<CatalogObjectDescriptor> getCatalogObjects(CatalogSchemaDescriptor schema, CatalogObjectType type) {
+        switch (type) {
+            case TABLE:
+                return Arrays.stream(schema.tables());
+            case VIEW:
+                return Arrays.stream(schema.systemViews());
+            default:
+                throw new IllegalArgumentException("Unsupported object type: " + type);
+        }
+    }
+
+    /**
+     * Returns the set of table types resolved by string names.
+     */
+    private static Collection<CatalogObjectType> resolveObjectTypes(@Nullable String[] tblTypes) {
+        if (tblTypes == null) {
+            return EnumSet.allOf(CatalogObjectType.class);
+        }
+
+        Set<CatalogObjectType> types = EnumSet.noneOf(CatalogObjectType.class);
+
+        for (String tblType : tblTypes) {
+            // In ODBC, SQL_ALL_TABLE_TYPES is defined as "%", so we need to support it.
+            if ("%".equals(tblType)) {
+                return EnumSet.allOf(CatalogObjectType.class);
+            }
+
+            types.add(CatalogObjectType.valueOf(tblType));
+        }
+
+        return types;
     }
 
     /**
@@ -165,19 +198,22 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
-        return tablesAtNow().thenApply(tablesList -> tablesList.stream()
-                .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
-                .flatMap(
-                    tbl -> {
-                        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
-
-                        return schema.columns().stream()
-                                .map(column -> new Pair<>(tbl.name(), column));
-                    })
-                .filter(e -> matches(e.getSecond().name(), colNameRegex))
-                .sorted(bySchemaThenTabNameThenColOrder)
-                .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
-                .collect(toCollection(LinkedHashSet::new)));
+        return schemasAtNow().thenApply(schemas -> schemas.stream()
+                        .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .sorted(Comparator.comparing(CatalogSchemaDescriptor::name))
+                        .flatMap(schema ->
+                                Stream.concat(
+                                        Arrays.stream(schema.systemViews()),
+                                        Arrays.stream(schema.tables())
+                                )
+                                .filter(desc -> matches(desc.name(), tlbNameRegex))
+                                .sorted(Comparator.comparing(CatalogColumnContainer::name))
+                                .flatMap(desc -> desc.columns().stream()
+                                                    .filter(col -> matches(col.name(), colNameRegex))
+                                                    .map(col -> createColumnMeta(schema.name(), desc.name(), col)))
+                        )
+                        .collect(toCollection(LinkedHashSet::new))
+        );
     }
 
     /**
@@ -189,19 +225,13 @@ public class JdbcMetadataCatalog {
      * @return Future of the schema names that matches provided pattern.
      */
     public CompletableFuture<Collection<String>> getSchemasMeta(String schemaNamePtrn) {
-        SortedSet<String> schemas = new TreeSet<>(); // to have values sorted.
-
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
 
-        if (matches(SqlCommon.DEFAULT_SCHEMA_NAME, schemaNameRegex)) {
-            schemas.add(SqlCommon.DEFAULT_SCHEMA_NAME);
-        }
-
-        return tablesAtNow().thenApply(tables ->
-                tables.stream()
-                    .map(tbl -> SqlCommon.DEFAULT_SCHEMA_NAME)
-                    .filter(schema -> matches(schema, schemaNameRegex))
-                    .collect(toCollection(() -> schemas))
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .map(CatalogObjectDescriptor::name)
+                        .filter(name -> matches(name, schemaNameRegex))
+                        .collect(toCollection(TreeSet::new))
         );
     }
 
@@ -211,32 +241,31 @@ public class JdbcMetadataCatalog {
      * @param tbl Table.
      * @return Jdbc primary key metadata.
      */
-    private JdbcPrimaryKeyMeta createPrimaryKeyMeta(CatalogTableDescriptor tbl) {
+    private static JdbcPrimaryKeyMeta createPrimaryKeyMeta(String schemaName, CatalogTableDescriptor tbl) {
         String keyName = PK + tbl.name();
 
-        List<String> keyColNames = List.copyOf(tbl.primaryKeyColumns());
+        List<String> keyColNames = List.copyOf(tbl.primaryKeyColumnNames());
 
-        return new JdbcPrimaryKeyMeta(SqlCommon.DEFAULT_SCHEMA_NAME, tbl.name(), keyName, keyColNames);
+        return new JdbcPrimaryKeyMeta(schemaName, tbl.name(), keyName, keyColNames);
     }
 
     /**
      * Creates column metadata from column and table name.
      *
+     * @param schemaName Schema name.
      * @param tblName Table name.
-     * @param col     Column.
+     * @param col Column descriptor.
      * @return Column metadata.
      */
-    private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
-        NativeType colType = col.type();
-
+    private static JdbcColumnMeta createColumnMeta(String schemaName, String tblName, CatalogTableColumnDescriptor col) {
         return new JdbcColumnMeta(
                 col.name(),
-                SqlCommon.DEFAULT_SCHEMA_NAME,
+                schemaName,
                 tblName,
                 col.name(),
-                colType.spec().asColumnType(), 
-                Commons.nativeTypePrecision(colType),
-                Commons.nativeTypeScale(colType),
+                col.type(),
+                resolvePrecision(col),
+                resolveScale(col),
                 col.nullable()
         );
     }
@@ -261,8 +290,10 @@ public class JdbcMetadataCatalog {
     }
 
     /**
-     * <p>Converts sql pattern wildcards into java regex wildcards.</p>
+     * Converts sql pattern wildcards into java regex wildcards.
+     *
      * <p>Translates "_" to "." and "%" to ".*" if those are not escaped with "\" ("\_" or "\%").</p>
+     *
      * <p>All other characters are considered normal and will be escaped if necessary.</p>
      * <pre>
      * Example:
@@ -290,5 +321,92 @@ public class JdbcMetadataCatalog {
         toRegex = toRegex.replaceAll("([^\\\\\\\\])(\\\\\\\\(?>\\\\\\\\\\\\\\\\)*\\\\\\\\)*\\\\\\\\([_|%])", "$1$2$3");
 
         return toRegex.substring(1);
+    }
+
+    /**
+     * Resolves the precision of the specified column.
+     * Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if precision is not applicable for this column type.
+     *
+     * @return Column precision.
+     */
+    private static int resolvePrecision(CatalogTableColumnDescriptor column) {
+        switch (column.type()) {
+            case INT8:
+                return 3;
+
+            case INT16:
+                return 5;
+
+            case INT32:
+                return 10;
+
+            case INT64:
+                return 19;
+
+            case FLOAT:
+            case DOUBLE:
+                return 15;
+
+            case BOOLEAN:
+            case UUID:
+            case DATE:
+                return UNDEFINED_PRECISION;
+
+            case DECIMAL:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                return column.precision();
+
+            case BYTE_ARRAY:
+            case STRING:
+                return column.length();
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + column.type());
+        }
+    }
+
+    /**
+     * Resolves the scale of the specified column.
+     * Returns {@link ColumnMetadata#UNDEFINED_SCALE} if scale is not valid for this type.
+     *
+     * @return Number of digits of scale.
+     */
+    private static int resolveScale(CatalogTableColumnDescriptor column) {
+        switch (column.type()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+                return 0;
+
+            case BOOLEAN:
+            case FLOAT:
+            case DOUBLE:
+            case UUID:
+            case DATE:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case BYTE_ARRAY:
+            case STRING:
+                return UNDEFINED_SCALE;
+
+            case DECIMAL:
+                return column.scale();
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + column.type());
+        }
+    }
+
+    /** Catalog object type. */
+    private enum CatalogObjectType {
+        /** Name of TABLE type. */
+        TABLE,
+
+        /** Name of VIEW type. */
+        VIEW
     }
 }

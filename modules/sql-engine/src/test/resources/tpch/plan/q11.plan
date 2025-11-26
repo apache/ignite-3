@@ -1,0 +1,104 @@
+Sort
+    collation: [VAL DESC]
+    est: (rows=26640)
+  Project
+      fieldNames: [PS_PARTKEY, VAL]
+      projection: [PS_PARTKEY, VAL]
+      est: (rows=26640)
+    NestedLoopJoin
+        predicate: >(VAL, CAST(EXPR$0):DECIMAL(32767, 2))
+        type: inner
+        est: (rows=26640)
+      ColocatedHashAggregate
+          fieldNames: [PS_PARTKEY, VAL]
+          group: [PS_PARTKEY]
+          aggregation: [SUM($f1)]
+          est: (rows=53280)
+        Project
+            fieldNames: [PS_PARTKEY, $f1]
+            projection: [PS_PARTKEY, *(PS_SUPPLYCOST, PS_AVAILQTY)]
+            est: (rows=266400)
+          MergeJoin
+              predicate: =(PS_SUPPKEY, S_SUPPKEY)
+              type: inner
+              est: (rows=266400)
+            Exchange
+                distribution: single
+                est: (rows=800000)
+              IndexScan
+                  table: PUBLIC.PARTSUPP
+                  index: PS_SK_PK
+                  type: SORTED
+                  fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY, PS_SUPPLYCOST]
+                  collation: [PS_SUPPKEY ASC, PS_PARTKEY ASC]
+                  est: (rows=800000)
+            HashJoin
+                predicate: =(S_NATIONKEY, N_NATIONKEY)
+                type: inner
+                est: (rows=3330)
+              Exchange
+                  distribution: single
+                  est: (rows=10000)
+                Sort
+                    collation: [S_SUPPKEY ASC]
+                    est: (rows=10000)
+                  TableScan
+                      table: PUBLIC.SUPPLIER
+                      fieldNames: [S_SUPPKEY, S_NATIONKEY]
+                      est: (rows=10000)
+              Exchange
+                  distribution: single
+                  est: (rows=8)
+                TableScan
+                    table: PUBLIC.NATION
+                    predicate: =(N_NAME, _UTF-8'GERMANY')
+                    fieldNames: [N_NATIONKEY, N_NAME]
+                    est: (rows=8)
+      Project
+          fieldNames: [EXPR$0]
+          projection: [*($f0, 0.0001:DECIMAL(5, 4))]
+          est: (rows=1)
+        ColocatedHashAggregate
+            group: []
+            aggregation: [SUM($f0)]
+            est: (rows=1)
+          Project
+              fieldNames: [$f0]
+              projection: [*(PS_SUPPLYCOST, PS_AVAILQTY)]
+              est: (rows=266400)
+            MergeJoin
+                predicate: =(PS_SUPPKEY, S_SUPPKEY)
+                type: inner
+                est: (rows=266400)
+              Exchange
+                  distribution: single
+                  est: (rows=800000)
+                IndexScan
+                    table: PUBLIC.PARTSUPP
+                    index: PS_SK_PK
+                    type: SORTED
+                    fieldNames: [PS_SUPPKEY, PS_AVAILQTY, PS_SUPPLYCOST]
+                    collation: [PS_SUPPKEY ASC]
+                    est: (rows=800000)
+              HashJoin
+                  predicate: =(S_NATIONKEY, N_NATIONKEY)
+                  type: inner
+                  est: (rows=3330)
+                Exchange
+                    distribution: single
+                    est: (rows=10000)
+                  Sort
+                      collation: [S_SUPPKEY ASC]
+                      est: (rows=10000)
+                    TableScan
+                        table: PUBLIC.SUPPLIER
+                        fieldNames: [S_SUPPKEY, S_NATIONKEY]
+                        est: (rows=10000)
+                Exchange
+                    distribution: single
+                    est: (rows=8)
+                  TableScan
+                      table: PUBLIC.NATION
+                      predicate: =(N_NAME, _UTF-8'GERMANY')
+                      fieldNames: [N_NATIONKEY, N_NAME]
+                      est: (rows=8)

@@ -25,13 +25,13 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexShuttle;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,7 +89,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet requiredCols
+            @Nullable ImmutableIntList requiredCols
     ) {
         this(-1L, cluster, traits, tbl, idxName, type, collation, names, proj, cond, searchBounds, requiredCols);
     }
@@ -122,7 +122,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet requiredCols
+            @Nullable ImmutableIntList requiredCols
     ) {
         super(cluster, traits, List.of(), tbl, idxName, type, names, proj, cond, searchBounds, requiredCols);
 
@@ -147,43 +147,13 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     protected RelWriter explainTerms0(RelWriter pw) {
         return super.explainTerms0(pw)
                 .itemIf("sourceId", sourceId, sourceId != -1)
-                .item("collation", collation());
+                .itemIf("collation", collation(), type == Type.SORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelNode accept(RexShuttle shuttle) {
-        RexNode newCondition = condition;
-        if (condition != null) {
-            newCondition = shuttle.apply(condition);
-        }
-
-        List<RexNode> newProjects = projects;
-        if (projects != null) {
-            newProjects = shuttle.apply(projects);
-        }
-
-        if (newCondition != condition || newProjects != projects) {
-            return new IgniteTableScan(
-                    sourceId,
-                    getCluster(),
-                    getTraitSet(),
-                    getHints(),
-                    getTable(),
-                    names,
-                    newProjects,
-                    newCondition,
-                    requiredColumns
-            );
-        } else {
-            return this;
-        }
     }
 
     /** {@inheritDoc} */
@@ -200,9 +170,30 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
                 idxName, type, collation, names, projects, condition, searchBounds, requiredColumns);
     }
 
+    @Override
+    protected IgniteIndexScan copy(
+            @Nullable List<RexNode> newProjects,
+            @Nullable RexNode newCondition,
+            @Nullable List<SearchBounds> newSearchBounds
+    ) {
+        return new IgniteIndexScan(sourceId, getCluster(), getTraitSet(), getTable(),
+                idxName, type, collation, names, newProjects, newCondition, newSearchBounds, requiredColumns);
+    }
+
     /** {@inheritDoc} */
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        explainAttributes(writer);
+
+        if (type == Type.SORTED) {
+            writer.addCollation(collation, getRowType());
+        }
+
+        return writer;
     }
 }

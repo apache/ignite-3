@@ -32,10 +32,7 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
 
     testImplementation libs.auto.service.annotations
-    testImplementation libs.hamcrest.core
     testImplementation libs.junit.testkit
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
     testImplementation libs.jmh.core
@@ -43,19 +40,15 @@ dependencies {
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
 
-    testFixturesImplementation project(":ignite-api")
+    testFixturesImplementation project(':ignite-api')
     testFixturesImplementation libs.auto.service.annotations
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.junit.testkit
-    testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.awaitility
 }
 
 test {
     filter {
         //Don't run parametrized tests from inner static classes which should not run.
-        excludeTestsMatching "*VariableSourceTest\$*"
         excludeTestsMatching "*WorkDirectoryExtensionTest\$*"
         excludeTestsMatching "*ExecutorServiceExtensionTest\$*"
     }

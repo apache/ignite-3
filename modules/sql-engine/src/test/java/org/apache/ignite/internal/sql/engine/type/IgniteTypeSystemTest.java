@@ -174,7 +174,6 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
         );
     }
 
-
     @ParameterizedTest
     @MethodSource("deriveDivideDecimalArgs")
     void deriveDivide(RelDataType a1, RelDataType a2, RelDataType rt) {

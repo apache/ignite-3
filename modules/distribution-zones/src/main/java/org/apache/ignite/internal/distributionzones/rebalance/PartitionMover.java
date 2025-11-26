@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.recoverable;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -39,15 +42,24 @@ public class PartitionMover {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMover.class);
 
+    private static final long MOVE_RESCHEDULE_DELAY_MILLIS = 100;
+
     private final IgniteSpinBusyLock busyLock;
+
+    private final ScheduledExecutorService rebalanceScheduler;
 
     private final Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier;
 
     /**
      * Constructor.
      */
-    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier) {
+    public PartitionMover(
+            IgniteSpinBusyLock busyLock,
+            ScheduledExecutorService rebalanceScheduler,
+            Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier
+    ) {
         this.busyLock = busyLock;
+        this.rebalanceScheduler = rebalanceScheduler;
         this.raftGroupServiceSupplier = raftGroupServiceSupplier;
     }
 
@@ -58,7 +70,7 @@ public class PartitionMover {
      *
      * @return Function which performs {@link RaftGroupService#changePeersAndLearnersAsync}.
      */
-    public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term) {
+    public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -66,7 +78,8 @@ public class PartitionMover {
         try {
             return raftGroupServiceSupplier
                     .get()
-                    .thenCompose(raftGroupService -> raftGroupService.changePeersAndLearnersAsync(peersAndLearners, term))
+                    .thenCompose(raftGroupService ->
+                            raftGroupService.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken))
                     .handle((resp, err) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -83,7 +96,15 @@ public class PartitionMover {
                                     LOG.debug("Unrecoverable error received during changePeersAndLearnersAsync invocation, retrying", err);
                                 }
 
-                                return movePartition(peersAndLearners, term);
+                                CompletableFuture<Void> future = new CompletableFuture<>();
+
+                                // We don't bother with ScheduledFuture as the delay is very short, so it will not delay the scheduler
+                                // stop for long.
+                                rebalanceScheduler.schedule(() -> {
+                                    movePartition(peersAndLearners, term, sequenceToken).whenComplete(copyStateTo(future));
+                                }, MOVE_RESCHEDULE_DELAY_MILLIS, MILLISECONDS);
+
+                                return future;
                             }
 
                             return CompletableFutures.<Void>nullCompletedFuture();

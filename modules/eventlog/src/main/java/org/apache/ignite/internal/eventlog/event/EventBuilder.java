@@ -19,7 +19,7 @@ package org.apache.ignite.internal.eventlog.event;
 
 import java.util.Map;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.EventFactory;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.exception.InvalidEventTypeException;
 import org.apache.ignite.internal.eventlog.event.exception.InvalidProductVersionException;
 import org.apache.ignite.internal.eventlog.event.exception.MissingEventTypeException;
@@ -27,8 +27,9 @@ import org.apache.ignite.internal.eventlog.event.exception.MissingEventUserExcep
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * The event builder that should be used only where the {@link EventFactory} is not enough to create an event. For example, in tests, where
- * you want to put some special event. In all other cases, use {@link EventFactory} to create events.
+ * The event builder that should be used only where the {@link IgniteEventType#builder()} is not enough to create an event. For example, in
+ * tests, where you want to put some special event. In all other cases, use {@link IgniteEventType#create(EventUser)} or
+ * {@link IgniteEventType#builder()} to create events.
  */
 public class EventBuilder {
     private static final String DEFAULT_VERSION = IgniteProductVersion.CURRENT_VERSION.toString();
@@ -42,9 +43,6 @@ public class EventBuilder {
     private EventUser user;
 
     private Map<String, Object> fields;
-
-    public EventBuilder() {
-    }
 
     /** The type of the event. The type must be not null and registered in the {@link EventTypeRegistry}. */
     public EventBuilder type(String type) {

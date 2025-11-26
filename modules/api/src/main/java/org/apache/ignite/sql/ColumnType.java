@@ -91,7 +91,10 @@ public enum ColumnType {
     PERIOD(17, Period.class, true, false, false),
 
     /** Time interval. SQL type: none. */
-    DURATION(18, Duration.class, true, false, false);
+    DURATION(18, Duration.class, true, false, false),
+
+    /** Structured type having named fields. SQL type: none. */
+    STRUCT(19, Object.class, false, false, false);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;
@@ -100,6 +103,7 @@ public enum ColumnType {
 
     private final int id;
 
+    /** Cached array with all enum values. */
     private static final ColumnType[] VALS;
 
     static {
@@ -150,7 +154,7 @@ public enum ColumnType {
         return id;
     }
 
-    /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
+    /** Returns the {@link ColumnType} instance by its id, or {@code null} if the id is invalid. */
     public static @Nullable ColumnType getById(int id) {
         return id >= 0 && id < VALS.length ? VALS[id] : null;
     }

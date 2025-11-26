@@ -42,7 +42,9 @@ template<typename T>
 class record_view;
 
 /**
- * Record view interface provides methods to access table records.
+ * @brief Record view interface for table.
+ *
+ * Provides methods to access table records.
  */
 template<>
 class record_view<ignite_tuple> {
@@ -463,7 +465,9 @@ private:
 };
 
 /**
- * Record view interface provides methods to access table records.
+ * @brief Record view interface for table.
+ *
+ * Provides methods to access table records.
  */
 template<typename T>
 class record_view {

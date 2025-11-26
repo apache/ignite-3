@@ -20,6 +20,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.docker)
     alias(libs.plugins.checksum)
+    alias(libs.plugins.license)
 }
 
 java {
@@ -27,6 +28,8 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+import com.github.jk1.license.render.InventoryHtmlReportRenderer
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
@@ -35,6 +38,7 @@ configurations {
     cliArtifacts
     cliZip
     dbZip
+    dotNetClient
     release
     localDefaults
 }
@@ -45,10 +49,14 @@ dependencies {
     cliArtifacts project(':ignite-cli')
     cliZip project(path: ':packaging-cli', configuration: 'cliZip')
     dbZip project(path: ':packaging-db', configuration: 'dbZip')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     release project(path: ':packaging-cli', configuration: 'cliRelease')
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
     release project(path: ':platforms', configuration: 'platformsRelease')
+    release project(path: ':packaging-dotnet-client', configuration: 'dotNetClientRelease')
+    release project(path: ':packaging-java-client', configuration: 'javaClientRelease')
+    release project(path: ':migration-tools-packaging-cli', configuration: 'cliRelease')
     localDefaults project(path: ':packaging-db', configuration: 'localDefaults')
 }
 
@@ -75,15 +83,30 @@ def tokens = [
 ]
 
 def replaceVars = tasks.register('replaceVars', Copy) {
-    from "$rootDir/packaging/common/linux"
+    from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
+    from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
 }
 
+ext.docker_image_name = "apacheignite/ignite:${project.projectVersion.toString()}"
+
 docker {
-    name 'apacheignite/ignite'
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+
+    if (project.hasProperty('target_platform')) {
+        platform project.properties["target_platform"]
+        buildx true
+    }
+
+    if (project.hasProperty('docker_push')) {
+        load false
+        push true
+    } else {
+        load true
+    }
 
     copySpec.into 'dist', {
         into('') {
@@ -110,6 +133,9 @@ docker {
                 from configurations.dbArtifacts
                 from "$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME"
                 from "$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME"
+            }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
             }
         }
         into('cli') {
@@ -181,4 +207,12 @@ def prepareRelease = tasks.register('prepareRelease', Copy) {
     include '*.rpm', '*.deb', '*.changes'
     include '*.jar'
     into file("$buildDir/release")
+}
+
+licenseReport {
+    configurations = ['dbArtifacts', 'cliArtifacts']
+    excludeBoms = true
+    renderers = [new InventoryHtmlReportRenderer()]
+    allowedLicensesFile = new File("$rootDir/check-rules/allowed-licenses.json")
+    filters = [new LicenseBundleNormalizer()]
 }

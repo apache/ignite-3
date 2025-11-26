@@ -45,7 +45,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -88,6 +90,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -102,6 +105,9 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration("mock: { maxClockSkewMillis: 500 }")
     private SchemaSynchronizationConfiguration schemaSynchronizationConfiguration;
@@ -266,7 +272,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         PeersAndLearners cfg = fromConsistentIds(Set.of(resetToLeader));
 
-        leaderNode.raftClient.changePeersAndLearners(cfg, leader.term()).join();
+        leaderNode.raftClient.changePeersAndLearners(cfg, leader.term(), Configuration.NO_SEQUENCE_TOKEN).join();
 
         PartialNode leaderNode2 = cluster.get(resetToLeader);
 
@@ -365,6 +371,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     new RaftGroupEventsClientListener()
             );
@@ -397,6 +404,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(Executor.class),
                             placementDriver,
                             clockService,
+                            new SystemPropertiesNodeProperties(),
                             GROUP_ID
                     ) {
                         @Override

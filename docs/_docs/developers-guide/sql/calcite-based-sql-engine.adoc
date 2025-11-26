@@ -14,13 +14,14 @@
 // limitations under the License.
 = Introduction
 
-Ignite 3.0 introduces new SQL engine based on the Apache Calcite framework to parse and optimize queries and generate execution plans. Previously, it was based on H2 Database.
+Apache Ignite 3 uses Apache Calcite as an SQL engine of choice. Apache Calcite is a dynamic data management framework, which mainly serves for mediating between applications and one or more data storage locations and data processing engines. For more information on Apache Calcite, see the link:https://calcite.apache.org/docs/[Calcite documentation,window=_blank].
 
-Apache Calcite is a dynamic data management framework, which mainly serves for mediating between applications and one or more data storage locations and data processing engines.
-For more information on Apache Calcite, please see the link:https://calcite.apache.org/docs/[product documentation,window=_blank].
+Apache Ignite 3 SQL engine has the following advantages:
 
-Replacing H2 SQL engine with Apache Calcite incorporates the following general improvements:
-
-* *Wider SQL support*: Apache Calcite, unlike H2, is specifically designed for SQL enablement on top of an arbitrary external data storage;
-* *Better optimization algorithms*: Apache Calcite optimizes queries by repeatedly applying planner rules to a relational expression;
-* *Higher overall performance*: Calcite offers much higher levels of execution flexibility, as well as higher efficiency in terms of both memory and CPU consumption.
+* *SQL Optimized for Distributed Environments*: Apache Ignite 3 distributed queries are not limited to a single map-reduce phase, allowing more complex data gathering;
+* *Transactional SQL*: All tables in Apache Ignite 3 support SQL transactions with transactional guarantees;
+* *Cluster-wide System Views*: link:administrators-guide/metrics/system-views[System views] in Apache Ignite 3 provide cluster-wide information, dynamically updated;
+* *Multi-Index Queries*: With Apache Ignite 3, you can perform queries that use multiple indexes at the same time to speed up queries;
+* *Standard-Adherent SQL*: Apache Ignite 3 SQL closely adheres to modern SQL standard;
+* *Improved optimization algorithms*: SQL in Apache Ignite 3 optimizes queries by repeatedly applying planner rules to a relational expression;
+* *High overall performance*: Apache Ignite 3 offers high levels of execution flexibility, as well as high efficiency in terms of both memory and CPU consumption.

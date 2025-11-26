@@ -22,8 +22,8 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
@@ -40,18 +40,18 @@ public class ClientTablePartitionPrimaryReplicasNodesGetRequest {
      * Process the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param tables Ignite tables.
      * @return Future which will complete after request process finished.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> table.partitionManager()
+        int tableId = in.unpackInt();
+
+        return readTableAsync(tableId, tables).thenCompose(table -> table.partitionManager()
                 .primaryReplicasAsync()
-                .thenAccept(partitions -> {
+                .thenApply(partitions -> out -> {
                     out.packInt(partitions.size());
                     for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
                         HashPartition partition = (HashPartition) e.getKey();

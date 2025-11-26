@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
@@ -29,25 +30,35 @@ import static org.mockserver.model.JsonBody.json;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockserver.model.MediaType;
 
 /** Unit tests for {@link RestartPartitionsCommand}. */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-25104
 public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
+    private static String PARTITIONS_RESTART_ENDPOINT;
+    private static String PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP;
+
+    @BeforeAll
+    public static void beforeAll() {
+        PARTITIONS_RESTART_ENDPOINT = "partitions/restart";
+        PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP = "partitions/restartWithCleanup";
+    }
+
     @Test
     @DisplayName("Restart all partitions")
     void restartAllPartitions() {
-        String expectedSentContent = "{"
-                + "     \"tableName\" : \"table_NAME\","
+        String expectedSentContent;
+
+        expectedSentContent = "{"
                 + "     \"zoneName\" : \"zone_NAME\","
                 + "}";
 
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/partitions/restart")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
                         .withBody(json(expectedSentContent))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
@@ -70,7 +81,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/partitions/restart")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
                         .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
@@ -94,17 +105,69 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/partitions/restart")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
                         .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
                 .respond(response(null));
 
-
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_NODE_NAMES_OPTION, "node_NAME,node_NAME_2"
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
+    }
+
+    @Test
+    @DisplayName("Restart all partitions with cleanup")
+    void restartAllPartitionsWithCleanup() {
+        String expectedSentContent;
+
+        expectedSentContent = "{"
+                + "     \"zoneName\" : \"zone_NAME\""
+                + "}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
+                        .withBody(json(expectedSentContent))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
+    }
+
+    @Test
+    @DisplayName("Restart specified partitions with cleanup")
+    void restartSpecifiedPartitionsWithCleanup() {
+        String expectedSentContent = "{\"partitionIds\" : [1,2]}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_WITH_CLEANUP_OPTION
         );
 
         assertErrOutputIsEmpty();

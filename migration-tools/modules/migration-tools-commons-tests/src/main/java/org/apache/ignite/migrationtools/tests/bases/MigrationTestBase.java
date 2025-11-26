@@ -23,21 +23,24 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.migrationtools.tests.clusters.FullSampleCluster;
 import org.apache.ignite.migrationtools.tests.containers.Ignite3ClusterContainer;
+import org.apache.ignite.migrationtools.tests.containers.MigrationToolsContainer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Container.ExecResult;
+import org.testcontainers.containers.ExecConfig;
+import org.testcontainers.containers.ExecConfig.ExecConfigBuilder;
 import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.MountableFile;
 
 /**
  * Base class for the migration tests.
@@ -50,8 +53,6 @@ import org.testcontainers.utility.MountableFile;
 @Testcontainers
 public class MigrationTestBase {
     private static final Logger LOGGER = LogManager.getLogger(MigrationTestBase.class);
-
-    public static final String DOCKER_IMAGE_NAME = "ai3-migration-tools:" + System.getProperty("migration-tools.docker.version", "latest");
 
     private static boolean DEBUG_MODE = Boolean.parseBoolean(System.getProperty("debugMode", "false"));
 
@@ -71,23 +72,7 @@ public class MigrationTestBase {
     protected static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network);
 
     @Container
-    protected static final GenericContainer migrationToolsContainer;
-
-    static {
-        // TODO: This should receive the correct version.
-        migrationToolsContainer = new GenericContainer<>(DOCKER_IMAGE_NAME)
-                .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint("/bin/bash"))
-            .withNetwork(network)
-            .withCommand("-c", "sleep infinity")
-            .withCopyFileToContainer(MountableFile.forHostPath(FullSampleCluster.CLUSTER_CFG_PATH), "/config-file.xml")
-            .withFileSystemBind(FullSampleCluster.TEST_CLUSTER_PATH.toString(), "/storage", BindMode.READ_WRITE)
-            .withEnv("CONFIG_URI", "/config-file.xml");
-
-        if (DEBUG_MODE) {
-            migrationToolsContainer.addEnv("EXTRA_JVM_OPTS", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005");
-            migrationToolsContainer.setPortBindings(Collections.singletonList("5005:5005"));
-        }
-    }
+    protected static final MigrationToolsContainer MIGRATION_TOOLS_CONTAINER = new MigrationToolsContainer(network);
 
     @AfterAll
     static void tearDownNetwork() {
@@ -112,41 +97,81 @@ public class MigrationTestBase {
         }
 
         for (int i = 0; i < NODE_NAMES.size(); i++) {
-            String nodeId = NODE_NAMES.get(i);
+            ExecResult execResult = migrateCache(MIGRATION_TOOLS_CONTAINER, i, cacheName, migrationMode, clusterAddress, null, logsFolder);
 
-            var fmt = "migration-%s-%d.%s";
-            var logPath = logsFolder.resolve(Path.of(String.format(fmt, cacheName, i, "log")));
-            var stdoutPath = logsFolder.resolve(Path.of(String.format(fmt, cacheName, i, "stdout")));
-            var stderrPath = logsFolder.resolve(Path.of(String.format(fmt, cacheName, i, "stderr")));
-            try (var outStream = Files.newOutputStream(stdoutPath); var errStream = Files.newOutputStream(stderrPath)) {
-                long startTime = System.currentTimeMillis();
-
-                var migrationCmd = migrationToolsContainer.execInContainer(
-                        "migration-tools",
-                        "persistent-data",
-                        "/storage",
-                        nodeId,
-                        "/config-file.xml",
-                        "migrate-cache",
-                        cacheName,
-                        clusterAddress,
-                        "--mode",
-                        migrationMode
-                );
-
-                long finishTime = System.currentTimeMillis() - startTime;
-
-                outStream.write(migrationCmd.getStdout().getBytes(StandardCharsets.UTF_8));
-                errStream.write(migrationCmd.getStderr().getBytes(StandardCharsets.UTF_8));
-                migrationToolsContainer.copyFileFromContainer("/root/.ignite-migration-tools/logs/ignite-0.log", logPath.toString());
-
-                assertThat(migrationCmd.getExitCode()).as("Migration command should have finished successfully").isZero();
-
-                LOGGER.info("Finished migrating cache: {};{};{};{}", nodeId, cacheName, migrationMode, finishTime);
-            }
+            assertThat(execResult.getExitCode()).as("Migration command should have finished successfully").isZero();
         }
     }
 
+    /**
+     * Executes the migration cache command in a container running the migration tools.
+     *
+     * @param migrationToolsContainer Migration tools container.
+     * @param nodeIdx Index of the node in the sample cluster to migrate from.
+     * @param cacheName Cacha name.
+     * @param migrationMode Migration Mode.
+     * @param clusterAddress Cluster address.
+     * @param credentials Cluster credentials, if any.
+     * @param logsFolder Logs folder to print the logs.
+     * @return The execution result.
+     * @throws IOException IOException.
+     * @throws InterruptedException InterruptionException.
+     */
+    public static ExecResult migrateCache(
+            MigrationToolsContainer migrationToolsContainer,
+            int nodeIdx,
+            String cacheName,
+            String migrationMode,
+            String clusterAddress,
+            @Nullable Map.Entry<String, String> credentials,
+            Path logsFolder
+    ) throws IOException, InterruptedException {
+        String nodeId = NODE_NAMES.get(nodeIdx);
 
+        var fmt = "migration-%s-%d.%s";
+        var logPath = logsFolder.resolve(Path.of(String.format(fmt, cacheName, nodeIdx, "log")));
+        var stdoutPath = logsFolder.resolve(Path.of(String.format(fmt, cacheName, nodeIdx, "stdout")));
+        var stderrPath = logsFolder.resolve(Path.of(String.format(fmt, cacheName, nodeIdx, "stderr")));
+        try (var outStream = Files.newOutputStream(stdoutPath); var errStream = Files.newOutputStream(stderrPath)) {
+            long startTime = System.currentTimeMillis();
 
+            List<String> arguments = new ArrayList<>(List.of(
+                    "migration-tools",
+                    "persistent-data",
+                    "/storage",
+                    nodeId,
+                    "/config-file.xml",
+                    "migrate-cache",
+                    cacheName,
+                    clusterAddress,
+                    "--mode",
+                    migrationMode
+            ));
+
+            ExecConfigBuilder execConfigBuilder = ExecConfig.builder();
+
+            if (credentials != null) {
+                arguments.add("--client.basicAuthenticator.username");
+                arguments.add(credentials.getKey());
+
+                execConfigBuilder.envVars(Map.of("IGNITE_CLIENT_SECRET", credentials.getValue()));
+            }
+
+            execConfigBuilder.command(arguments.toArray(String[]::new));
+
+            ExecConfig execConfig = execConfigBuilder.build();
+
+            var migrationCmd = migrationToolsContainer.execInContainer(execConfig);
+
+            long finishTime = System.currentTimeMillis() - startTime;
+
+            outStream.write(migrationCmd.getStdout().getBytes(StandardCharsets.UTF_8));
+            errStream.write(migrationCmd.getStderr().getBytes(StandardCharsets.UTF_8));
+            migrationToolsContainer.copyFileFromContainer("/root/.ignite-migration-tools/logs/ignite-0.log", logPath.toString());
+
+            LOGGER.info("Finished migrating cache: {};{};{};{}", nodeId, cacheName, migrationMode, finishTime);
+
+            return migrationCmd;
+        }
+    }
 }

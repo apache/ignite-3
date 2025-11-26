@@ -61,7 +61,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     private ExecutorService executor;
 
     @Override
-    protected TxStateRocksDbStorage createTableStorage() {
+    protected TxStateRocksDbStorage createTableOrZoneStorage() {
         return new TxStateRocksDbStorage(
                 TABLE_ID,
                 3,
@@ -73,6 +73,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     @BeforeEach
     protected void beforeTest() {
         sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
                 workDir,
                 scheduledExecutor,
                 executor,
@@ -111,7 +112,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
         tableStorage.close();
 
-        tableStorage = createTableStorage();
+        tableStorage = createTableOrZoneStorage();
 
         tableStorage.start();
 

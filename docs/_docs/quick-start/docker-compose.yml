@@ -19,7 +19,7 @@ name: ignite3
 
 x-ignite-def:
   &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   volumes:
     - ./node-docker-config.conf:/opt/ignite/etc/ignite-config.conf
 

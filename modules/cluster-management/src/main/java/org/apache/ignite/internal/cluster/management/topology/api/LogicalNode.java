@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -65,7 +65,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param clusterNode Represents a node in a cluster.
      * @param userAttributes  Node attributes defined in configuration.
      */
-    public LogicalNode(ClusterNode clusterNode, Map<String, String> userAttributes) {
+    public LogicalNode(InternalClusterNode clusterNode, Map<String, String> userAttributes) {
         this(clusterNode, userAttributes, emptyMap(), emptyList());
     }
 
@@ -78,7 +78,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param storageProfiles List of storage profiles, which the node supports.
      */
     public LogicalNode(
-            ClusterNode node,
+            InternalClusterNode node,
             Map<String, String> userAttributes,
             Map<String, String> systemAttributes,
             List<String> storageProfiles
@@ -91,7 +91,7 @@ public class LogicalNode extends ClusterNodeImpl {
      *
      * @param clusterNode    Represents a node in a cluster.
      */
-    public LogicalNode(ClusterNode clusterNode) {
+    public LogicalNode(InternalClusterNode clusterNode) {
         this(clusterNode, emptyMap(), emptyMap(), emptyList());
     }
 

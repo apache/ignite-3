@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,11 +31,25 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.QueryModifier;
+import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -45,10 +60,15 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,6 +78,18 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
+    @AfterEach
+    void dropAllTables() {
+        String dropTablesScript = client().tables().tables().stream()
+                .map(Table::name)
+                .map(name -> "DROP TABLE " + name)
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropTablesScript.isEmpty()) {
+            client().sql().executeScript(dropTablesScript);
+        }
+    }
+
     @Test
     void testExecuteAsyncSimpleSelect() {
         AsyncResultSet<SqlRow> resultSet = client().sql()
@@ -376,6 +408,174 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
     }
 
+    /** The purpose of this test is to check clients with different timeZone settings.
+     * In case when literal is a part of primary key and has a type: TIMESTAMP WITH LOCAL TIME ZONE - no
+     * partition awareness meta need to be calculated.
+     */
+    @Test
+    void testPartitionAwarenessNotExtractedForTsLiteral() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id int, ts TIMESTAMP WITH LOCAL TIME ZONE, val INT, "
+                + "PRIMARY KEY(id, ts))");
+
+        int count = 100;
+
+        for (int i = 0; i < count; i++) {
+            sql.execute(null, "INSERT INTO my_table VALUES (?, TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00', ?)", i, i);
+        }
+
+        StatementBuilder builder = sql.statementBuilder();
+
+        String query = "SELECT * FROM my_table WHERE id = ? AND ts = TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'";
+
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("Asia/Nicosia"));
+        Statement stmt1 = builder.build();
+
+        builder = sql.statementBuilder();
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("UTC"));
+        Statement stmt2 = builder.build();
+
+        Transaction tx = null;
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt1, i);
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt2, i);
+        }
+    }
+
+    @Test
+    void testExplicitTransactionKvCase() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        // First, let's fill the table and check every row in implicit tx.
+        // This should also prepare partition awareness metadata.
+        int count = 10;
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<?> ignored = sql.execute(null, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                // No-op.
+            }
+        }
+
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(i, rs.next().intValue(1));
+            }
+        }
+
+        // Now let's clean the table and do the same steps but within explicit tx.
+
+        try (ResultSet<?> ignored = sql.execute(null, "DELETE FROM my_table")) {
+            // No-op.
+        }
+
+        client.transactions().runInTransaction(tx -> {
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                    // No-op.
+                }
+            }
+
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<SqlRow> rs = sql.execute(tx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                    assertEquals(i, rs.next().intValue(1));
+                }
+            }
+
+            // All just inserted rows should not be visible yet
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                    assertFalse(rs.hasNext());
+                }
+            }
+
+            // The same for explicit RO transaction
+            client.transactions().runInTransaction(roTx -> {
+                for (int i = 0; i < count; i++) {
+                    try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                        assertFalse(rs.hasNext());
+                    }
+                }
+            }, new TransactionOptions().readOnly(true));
+        });
+
+        // And now changes are published.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(i, rs.next().intValue(1));
+            }
+        }
+    }
+
+    @Test
+    void testExplicitTransactionComplexQuery() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        int count = 10;
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<?> ignored = sql.execute(null, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                // No-op.
+            }
+        }
+
+        Transaction tx = client.transactions().begin();
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<?> ignored = sql.execute(tx, "DELETE FROM my_table WHERE val % 2 = 0")) {
+                // No-op.
+            }
+        }
+
+        // Changes has not been published yet.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(i, rs.next().intValue(1));
+            }
+        }
+
+        // But they are visible within the same transaction.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(tx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(rs.hasNext(), i % 2 != 0);
+            }
+        }
+
+        tx.commit();
+
+        // And now changes are published.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(rs.hasNext(), i % 2 != 0);
+            }
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testResultSetMapping(boolean useStatement) {
@@ -412,7 +612,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, row.num);
         assertEquals("hello world", row.str);
     }
-
 
     @Test
     void testResultSetMappingColumnNameMismatch() {
@@ -530,6 +729,136 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
+    }
+
+    @Test
+    public void testCurrentUser() {
+        String expectedUsername = UserDetails.UNKNOWN.username();
+        IgniteSql sql = client().sql();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        sql.execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute(null, "INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testSqlQueryModifiers() {
+        ClientSql sql = (ClientSql) client().sql();
+
+        Set<QueryModifier> selectType = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+        Set<QueryModifier> dmlType = EnumSet.of(QueryModifier.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<QueryModifier> ddlType = EnumSet.of(QueryModifier.ALLOW_APPLIED_RESULT);
+
+        Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
+        Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
+        Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
+        Statement multiStatement = client().sql().createStatement("SELECT 1; SELECT 2;");
+
+        BiConsumer<Statement, Set<QueryModifier>> check = (stmt, types) -> {
+            await(sql.executeAsyncInternal(
+                    null,
+                    null,
+                    null,
+                    types,
+                    stmt
+            ));
+        };
+
+        // Incorrect modifier for DDL.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, selectType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, dmlType),
+                    "Invalid SQL statement type"
+            );
+        }
+
+        // Incorrect modifier for DML.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, selectType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, ddlType),
+                    "Invalid SQL statement type"
+            );
+        }
+
+        // Incorrect modifier for SELECT.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, dmlType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, ddlType),
+                    "Invalid SQL statement type"
+            );
+        }
+
+        // Incorrect modifier for multi-statement.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(multiStatement, QueryModifier.SINGLE_STMT_MODIFIERS),
+                    "Multiple statements are not allowed."
+            );
+        }
+
+        // No exception expected with correct query modifier.
+        check.accept(ddlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(dmlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(selectStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(multiStatement, QueryModifier.ALL);
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
+    public void testBroadcastQueryTxInflightStateCleanup() {
+        IgniteSql sql = client().sql();
+
+        sql.execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute(null, String.format("CREATE INDEX IF NOT EXISTS idx1 ON t1 (val)"));
+        sql.execute(null, "INSERT INTO t1 (id, val) VALUES (1, 'test1')").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT id FROM t1 WHERE val = ?", "test1")) {
+            assertTrue(rs.hasNext());
+            assertEquals(1, rs.next().intValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        for (int i = 0; i < nodes(); i++) {
+            IgniteImpl server = TestWrappers.unwrapIgniteImpl(server(i));
+            TxManager txManager = server.txManager();
+            TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
+            assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
+        }
     }
 
     private static class Pojo {

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -32,14 +31,17 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -62,6 +64,8 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
     protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     protected static final String TABLE_NAME = "FOO";
+
+    protected static final int TABLE_ID = 1;
 
     protected static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
@@ -141,24 +145,22 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
         int hashIndexId = id++;
         int pkIndexId = id++;
 
-        String pkColumnName = "INTKEY";
-
-        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                tableId,
-                schemaId,
-                pkIndexId,
-                TABLE_NAME,
-                zoneId,
-                List.of(
-                        CatalogUtils.fromParams(ColumnParams.builder().name(pkColumnName).type(INT32).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
-                ),
-                List.of(pkColumnName),
-                null,
-                DEFAULT_STORAGE_PROFILE
+        List<CatalogTableColumnDescriptor> columns = List.of(
+                CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
+                CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
+                CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
+                CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
         );
+        CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(schemaId)
+                .primaryKeyIndexId(pkIndexId)
+                .name(TABLE_NAME)
+                .zoneId(zoneId)
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
         CatalogSortedIndexDescriptor sortedIndex = new CatalogSortedIndexDescriptor(
                 sortedIndexId,
@@ -166,7 +168,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                List.of(new CatalogIndexColumnDescriptor(1, ASC_NULLS_LAST)),
                 false
         );
 
@@ -176,7 +178,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of("STRKEY"),
+                IntList.of(1),
                 false
         );
 
@@ -186,7 +188,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of(pkColumnName),
+                IntList.of(0),
                 true
         );
 

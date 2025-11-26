@@ -23,7 +23,7 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-core')
@@ -48,6 +48,7 @@ dependencies {
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -59,12 +60,10 @@ dependencies {
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
-    testImplementation(testFixtures(project(':ignite-failure-handler')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
-    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
+    testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-network-api')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-raft-api')
@@ -74,8 +73,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-replicator'

@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.configuration.util;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyNavigableMap;
 import static java.util.Collections.singletonMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.tree.NamedListNode.IDS;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
@@ -61,9 +63,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Spliterators;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
@@ -430,6 +434,33 @@ public class ConfigurationUtilTest {
         assertEquals("value2", parentChange.elements().get("name2").child().str());
     }
 
+    @Test
+    public void fillFromPrefixMapWithNotFullNamedListSuccessfully() {
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange) parentNode;
+
+        // Entry with order index 0 is filtered
+        ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
+                "elements", Map.of(
+                        "01234567-89ab-cdef-0123-456789abcdef", Map.of(
+                                "child", Map.of("str", "value2"),
+                                ORDER_IDX, 1,
+                                NAME, "name2"
+                        ),
+                        IDS, Map.of("name2", "01234567-89ab-cdef-0123-456789abcdef")
+                )
+        ));
+
+        List<String> listKeys = parentChange.elements().namedListKeys();
+        assertEquals(1, listKeys.size());
+
+        String key = listKeys.get(0);
+        assertEquals("name2", key);
+
+        assertEquals("value2", parentChange.elements().get("name2").child().str());
+    }
+
     /**
      * Tests that patching of configuration node with a prefix map works fine when prefix map is valid.
      */
@@ -465,17 +496,19 @@ public class ConfigurationUtilTest {
                 Map.of(ParentConfiguration.KEY, newNodeInstance(ParentConfigurationSchema.class))
         );
 
-        assertThat(flattenedMap(superRoot, ParentConfiguration.KEY, node -> {
-        }), is(anEmptyMap()));
+        assertThat(flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> {}), is(anEmptyMap()));
 
-        assertThat(
-                flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange) node)
+        Map<String, Serializable> flattenedMap =
+                flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> ((ParentChange) node)
                         .changeElements(elements -> elements
                                 .create("name", element -> element
                                         .changeChild(child -> child.changeStr("foo"))
                                 )
                         )
-                ),
+                );
+
+        assertThat(
+                flattenedMap,
                 is(allOf(
                         aMapWithSize(4),
                         hasEntry(matchesPattern("root[.]elements[.]<ids>[.]name"), hasToString(matchesPattern("[-\\w]{36}"))),
@@ -486,14 +519,14 @@ public class ConfigurationUtilTest {
         );
 
         assertThat(
-                flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange) node)
+                flattenedMap(superRoot, ParentConfiguration.KEY, new TreeMap<>(flattenedMap), node -> ((ParentChange) node)
                         .changeElements(elements1 -> elements1.delete("void"))
                 ),
                 is(anEmptyMap())
         );
 
         assertThat(
-                flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange) node)
+                flattenedMap(superRoot, ParentConfiguration.KEY, new TreeMap<>(flattenedMap), node -> ((ParentChange) node)
                         .changeElements(elements -> elements.delete("name"))
                 ),
                 is(allOf(
@@ -508,7 +541,7 @@ public class ConfigurationUtilTest {
 
     @Test
     void testCheckConfigurationTypeMixedTypes() {
-        List<RootKey<?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
+        List<RootKey<?, ?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -908,7 +941,7 @@ public class ConfigurationUtilTest {
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
 
         Class<?> schemaClass = InternalWithoutSuperclassConfigurationSchema.class;
-        RootKey<?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
+        RootKey<?, ?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
 
         generator.compileRootSchema(schemaClass, Map.of(), Map.of());
 
@@ -1039,13 +1072,14 @@ public class ConfigurationUtilTest {
 
         addDefaults(polymorphicRootInnerNode);
 
-        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+        RootKey<?, ?, ?> rootKey = PolymorphicRootConfiguration.KEY;
 
         SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
 
         final Map<String, Serializable> act = flattenedMap(
                 superRoot,
                 rootKey,
+                emptyNavigableMap(),
                 node -> ((PolymorphicRootChange) node).changePolymorphicSubCfg(c -> c.convert(SecondPolymorphicInstanceChange.class))
         );
 
@@ -1073,13 +1107,16 @@ public class ConfigurationUtilTest {
 
         addDefaults(polymorphicRootInnerNode);
 
-        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+        RootKey<?, ?, ?> rootKey = PolymorphicRootConfiguration.KEY;
 
         SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
 
-        final Map<String, Serializable> act = flattenedMap(
+        var storageData = new TreeMap<>(flattenedMap(superRoot, rootKey, emptyNavigableMap(), node -> {}));
+
+        Map<String, Serializable> act = flattenedMap(
                 superRoot,
                 rootKey,
+                storageData,
                 node -> ((PolymorphicRootChange) node).changePolymorphicNamedCfg(c ->
                         c.createOrUpdate("0", c1 -> c1.convert(SecondPolymorphicInstanceChange.class)))
         );
@@ -1174,12 +1211,14 @@ public class ConfigurationUtilTest {
      * method execution is completed.
      *
      * @param superRoot Super root to patch.
-     * @param patch     Closure to change inner node.
+     * @param storageData Full storage data.
+     * @param patch Closure to change inner node.
      * @return Flat map with all changes from the patch.
      */
-    private Map<String, Serializable> flattenedMap(
+    private static Map<String, Serializable> flattenedMap(
             SuperRoot superRoot,
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
+            NavigableMap<String, ? extends Serializable> storageData,
             Consumer<InnerNode> patch
     ) {
         // Preserve a copy of the super root to use it as a golden source of data.
@@ -1192,7 +1231,7 @@ public class ConfigurationUtilTest {
         patch.accept(superRoot.getRoot(rootKey));
 
         // Create flat diff between two super trees.
-        return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
+        return createFlattenedUpdatesMap(originalSuperRoot, superRoot, storageData);
     }
 
     /**

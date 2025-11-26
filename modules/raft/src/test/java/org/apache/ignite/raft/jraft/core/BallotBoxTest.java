@@ -54,7 +54,7 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
     public void setup() {
         BallotBoxOptions opts = new BallotBoxOptions();
         NodeOptions options = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
         this.closureQueue = new ClosureQueueImpl(options);
         opts.setClosureQueue(this.closureQueue);
@@ -74,7 +74,7 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
     public void initWithLastCommittedIndex() {
         BallotBoxOptions opts = new BallotBoxOptions();
         NodeOptions options = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
         this.closureQueue = new ClosureQueueImpl(options);
         opts.setClosureQueue(this.closureQueue);

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.service;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -66,7 +67,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -126,7 +127,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, LOG));
 
         initialMemberConf = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
@@ -361,10 +362,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Creates raft group listener.
      *
      * @param service                 The cluster service.
+     * @param server                  The raft server that is starting a new raft node.
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
+    public abstract RaftGroupListener createListener(ClusterService service, RaftServer server, Path listenerPersistencePath);
 
     /**
      * Returns raft group id for tests.
@@ -458,7 +460,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftNode(
                 new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
                 initialMemberConf,
-                createListener(service, componentWorkDir.dbPath()),
+                createListener(service, server, componentWorkDir.dbPath()),
                 defaults()
                         .commandsMarshaller(commandsMarshaller(service))
                         .setLogStorageFactory(partitionsLogStorageFactory)
@@ -498,8 +500,16 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Marshaller commandsMarshaller = commandsMarshaller(clientNode);
 
-        RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, executor, commandsMarshaller);
+        RaftGroupService client = RaftGroupServiceImpl.start(
+                groupId,
+                clientNode,
+                FACTORY,
+                raftConfiguration,
+                initialMemberConf,
+                executor,
+                commandsMarshaller,
+                throttlingContextHolder()
+        );
 
         clients.add(client);
 

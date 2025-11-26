@@ -28,6 +28,8 @@ import org.apache.ignite.internal.thread.StripedExecutor;
 class MapStripedExecutorByChannelTypeId implements StripedExecutorByChannelTypeId {
     private final Int2ObjectMap<StripedExecutor> map;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+    @SuppressWarnings("PMD.UnnecessaryCast")
     MapStripedExecutorByChannelTypeId(CriticalStripedThreadPoolExecutorFactory factory, ChannelType... channelTypes) {
         map = Arrays.stream(channelTypes)
                 .collect(toIntMapCollector(

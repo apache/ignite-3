@@ -1,0 +1,89 @@
+Limit
+    fetch: 100
+    est: (rows=100)
+  ColocatedSortAggregate
+      fieldNames: [CA_ZIP, CA_COUNTY, EXPR$2]
+      collation: [CA_ZIP ASC, CA_COUNTY ASC]
+      group: [CA_ZIP, CA_COUNTY]
+      aggregation: [SUM(WS_SALES_PRICE)]
+      est: (rows=3883011)
+    Project
+        fieldNames: [CA_ZIP, CA_COUNTY, WS_SALES_PRICE]
+        projection: [CA_ZIP, CA_COUNTY, WS_SALES_PRICE]
+        est: (rows=10786141)
+      Filter
+          predicate: OR(=(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85669'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86197'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'88274'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83405'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86475'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85392'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85460'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'80348'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81792'), IS NOT NULL(i))
+          est: (rows=10786141)
+        HashJoin
+            predicate: =(I_ITEM_ID, I_ITEM_ID$0)
+            fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_SALES_PRICE, C_CUSTOMER_SK, C_CURRENT_ADDR_SK, CA_ADDRESS_SK, CA_COUNTY, CA_ZIP, D_DATE_SK, D_YEAR, D_QOY, I_ITEM_SK, I_ITEM_ID, I_ITEM_ID$0, i]
+            type: left
+            est: (rows=43144563)
+          HashJoin
+              predicate: =(WS_ITEM_SK, I_ITEM_SK)
+              type: inner
+              est: (rows=79772)
+            HashJoin
+                predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                type: inner
+                est: (rows=79772)
+              Sort
+                  collation: [CA_ZIP ASC, CA_COUNTY ASC]
+                  est: (rows=719384)
+                HashJoin
+                    predicate: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
+                    type: inner
+                    est: (rows=719384)
+                  HashJoin
+                      predicate: =(WS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+                      type: inner
+                      est: (rows=719384)
+                    Exchange
+                        distribution: single
+                        est: (rows=719384)
+                      TableScan
+                          table: PUBLIC.WEB_SALES
+                          fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_SALES_PRICE]
+                          est: (rows=719384)
+                    Exchange
+                        distribution: single
+                        est: (rows=100000)
+                      TableScan
+                          table: PUBLIC.CUSTOMER
+                          fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                          est: (rows=100000)
+                  Exchange
+                      distribution: single
+                      est: (rows=50000)
+                    TableScan
+                        table: PUBLIC.CUSTOMER_ADDRESS
+                        fieldNames: [CA_ADDRESS_SK, CA_COUNTY, CA_ZIP]
+                        est: (rows=50000)
+              Exchange
+                  distribution: single
+                  est: (rows=8100)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: AND(=(D_QOY, 1), =(D_YEAR, 1998))
+                    fieldNames: [D_DATE_SK, D_YEAR, D_QOY]
+                    est: (rows=8100)
+            Exchange
+                distribution: single
+                est: (rows=18000)
+              TableScan
+                  table: PUBLIC.ITEM
+                  fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                  est: (rows=18000)
+          ColocatedHashAggregate
+              fieldNames: [I_ITEM_ID, i]
+              group: [I_ITEM_ID]
+              aggregation: [LITERAL_AGG(true)]
+              est: (rows=3600)
+            Exchange
+                distribution: single
+                est: (rows=18000)
+              TableScan
+                  table: PUBLIC.ITEM
+                  predicate: SEARCH(I_ITEM_SK, Sarg[2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
+                  fieldNames: [I_ITEM_ID]
+                  est: (rows=18000)

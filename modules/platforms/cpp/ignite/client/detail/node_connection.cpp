@@ -16,21 +16,23 @@
  */
 
 #include "ignite/client/detail/node_connection.h"
+#include "ignite/common/detail/duration_min_max.h"
+#include "ignite/protocol/heartbeat_timeout.h"
 
 #include <ignite/protocol/messages.h>
 #include <ignite/protocol/utils.h>
 
 namespace ignite::detail {
 
-node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-    std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-    const ignite_client_configuration &cfg)
+node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> &&pool,
+    std::weak_ptr<connection_event_handler> &&event_handler, std::shared_ptr<ignite_logger> &&logger,
+    const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> &&timer_thread)
     : m_id(id)
     , m_pool(std::move(pool))
     , m_event_handler(std::move(event_handler))
     , m_logger(std::move(logger))
-    , m_configuration(cfg) {
-}
+    , m_configuration(cfg)
+    , m_timer_thread(std::move(timer_thread)){}
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
@@ -49,8 +51,7 @@ bool node_connection::handshake() {
     static constexpr std::int8_t CLIENT_TYPE = 2;
 
     std::map<std::string, std::string> extensions;
-    auto authenticator = m_configuration.get_authenticator();
-    if (authenticator) {
+    if (const auto authenticator = m_configuration.get_authenticator()) {
         extensions.emplace("authn-type", authenticator->get_type());
         extensions.emplace("authn-identity", authenticator->get_identity());
         extensions.emplace("authn-secret", authenticator->get_secret());
@@ -62,6 +63,8 @@ bool node_connection::handshake() {
 }
 
 void node_connection::process_message(bytes_view msg) {
+    m_last_message_ts = std::chrono::steady_clock::now();
+
     protocol::reader reader(msg);
 
     auto req_id = reader.read_int64();
@@ -110,9 +113,43 @@ void node_connection::process_message(bytes_view msg) {
 }
 
 void node_connection::on_observable_timestamp_changed(int64_t observable_timestamp) const {
-    auto event_handler = m_event_handler.lock();
-    if (event_handler) {
+    if (auto event_handler = m_event_handler.lock()) {
         event_handler->on_observable_timestamp_changed(observable_timestamp);
+    }
+}
+
+void node_connection::send_heartbeat() {
+    auto res = perform_request_wr<void>(
+        protocol::client_operation::HEARTBEAT, [](auto&, auto&){}, [self_weak = weak_from_this()](const auto&) {
+            if (auto self = self_weak.lock()) {
+                self->plan_heartbeat(self->m_heartbeat_interval);
+            }
+        }
+    );
+
+    // We don't care here if we were not able to send a heartbeat due to the connection is dead already.
+    UNUSED_VALUE(res);
+}
+
+void node_connection::on_heartbeat_timeout() {
+    auto idle_for = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - m_last_message_ts);
+
+    if (idle_for > m_heartbeat_interval) {
+        send_heartbeat();
+    } else {
+        auto sleep_for = m_heartbeat_interval - idle_for;
+        plan_heartbeat(sleep_for);
+    }
+}
+
+void node_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
+    if (auto timer_thread = m_timer_thread.lock()) {
+        timer_thread->add(timeout, [self_weak = weak_from_this()] {
+            if (auto self = self_weak.lock()) {
+                self->on_heartbeat_timeout();
+            }
+        });
     }
 }
 
@@ -135,8 +172,15 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     on_observable_timestamp_changed(response.observable_timestamp);
 
+    m_heartbeat_interval = calculate_heartbeat_interval(m_configuration.get_heartbeat_interval(),
+        std::chrono::milliseconds(response.idle_timeout_ms));
+
     m_protocol_context = response.context;
     m_handshake_complete = true;
+
+    if (m_heartbeat_interval.count()) {
+        plan_heartbeat(m_heartbeat_interval);
+    }
 
     return {};
 }

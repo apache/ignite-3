@@ -24,6 +24,8 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
+apply from: "$rootDir/buildscripts/utils.gradle"
+
 configurations {
     dotNetClient
 }
@@ -82,6 +84,7 @@ ospackage {
     url "https://ignite.apache.org"
     packageDescription "This package will install Apache Ignite 3 client library for .NET"
     os LINUX
+    release getCommitNum()
 
     into(tokens.LIB_DIR) {
         from configurations.dotNetClient
@@ -112,3 +115,21 @@ def createChecksums = tasks.register('createChecksums', Checksum) {
 }
 
 distZip.finalizedBy(createChecksums)
+
+configurations {
+    dotNetClientRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        dotNetClientRelease(file("$buildDir/distributions")) {
+            builtBy signDotNetClientZip, buildDeb, buildRpm
+        }
+        dotNetClientRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
+    }
+}

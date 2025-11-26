@@ -36,17 +36,20 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,7 +64,7 @@ public class PersistentTxStateVacuumizer {
 
     private final ReplicaService replicaService;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final ClockService clockService;
 
@@ -80,7 +83,7 @@ public class PersistentTxStateVacuumizer {
      */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             ClockService clockService,
             PlacementDriver placementDriver,
             FailureProcessor failureProcessor
@@ -146,11 +149,11 @@ public class PersistentTxStateVacuumizer {
                                 if (e == null) {
                                     successful.addAll(filteredTxIds);
                                     vacuumizedPersistentTxnStatesCount.addAndGet(filteredTxIds.size());
+                                } else if (expectedException(e)) {
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
                                     // a part of regular flow and doesn't need to be logged. NodeStoppingException should be ignored as
                                     // vacuumization will be retried after restart.
-                                } else if (hasCause(e, PrimaryReplicaMissException.class, NodeStoppingException.class)) {
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(
@@ -171,6 +174,24 @@ public class PersistentTxStateVacuumizer {
 
         return allOf(futures)
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
+    }
+
+    private static boolean expectedException(Throwable e) {
+        return hasCause(e,
+                PrimaryReplicaMissException.class,
+                NodeStoppingException.class,
+                ComponentStoppingException.class,
+                GroupOverloadedException.class,
+                // AwaitReplicaTimeoutException can be thrown from ReplicaService on receiver node, when there
+                // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
+                // on the receiver (during rebalancing, or distribution zone is deleted, etc.).
+                // We can ignore the exception in this case because we rely on the placement driver, that it won't prolong the non-existing
+                // replica's lease, the primary replica will be moved to another node and that another node will handle the vacuumization of
+                // the persistent tx state.
+                // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
+                // happen on another node.
+                AwaitReplicaTimeoutException.class
+        );
     }
 
     /**

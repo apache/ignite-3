@@ -17,22 +17,33 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
+import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -40,8 +51,12 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterConfigurationSchema;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterView;
+import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
-
 
 /**
  * Metric manager.
@@ -53,24 +68,26 @@ public class MetricManagerImpl implements MetricManager {
     /** Metric registry. */
     private final MetricRegistry registry;
 
-    private final MetricProvider metricsProvider;
-
     private final Map<String, MetricExporter> enabledMetricExporters = new ConcurrentHashMap<>();
 
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     /** Metrics' exporters. */
-    private Map<String, MetricExporter> availableExporters;
+    private volatile Map<String, MetricExporter> availableExporters;
 
-    private MetricConfiguration metricConfiguration;
+    private volatile MetricConfiguration metricConfiguration;
 
-    private Supplier<UUID> clusterIdSupplier;
+    private volatile Supplier<UUID> clusterIdSupplier;
 
-    private String nodeName;
+    private volatile @Nullable String nodeName;
 
     /**
      * Constructor.
      */
     public MetricManagerImpl() {
-        this(Loggers.forClass(MetricManagerImpl.class));
+        this(Loggers.forClass(MetricManagerImpl.class), null);
     }
 
     /**
@@ -78,10 +95,10 @@ public class MetricManagerImpl implements MetricManager {
      *
      * @param log Logger.
      */
-    public MetricManagerImpl(IgniteLogger log) {
+    public MetricManagerImpl(IgniteLogger log, @Nullable String nodeName) {
         registry = new MetricRegistry();
-        metricsProvider = new MetricProvider(registry);
         this.log = log;
+        this.nodeName = nodeName;
     }
 
     @Override
@@ -97,19 +114,24 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        start(loadExporters());
+        return inBusyLockAsync(busyLock, () -> {
+            start(loadExporters());
 
-        return nullCompletedFuture();
+            return nullCompletedFuture();
+        });
     }
 
     @Override
     @VisibleForTesting
     public void start(Map<String, MetricExporter> availableExporters) {
-        this.availableExporters = availableExporters;
+        this.availableExporters = Map.copyOf(availableExporters);
 
         MetricView conf = metricConfiguration.value();
 
-        for (ExporterView exporter : conf.exporters()) {
+        List<ExporterView> exporters = conf.exporters().stream().collect(toList());
+        exporters.addAll(defaultExporters(exporters));
+
+        for (ExporterView exporter : exporters) {
             checkAndStartExporter(exporter.exporterName(), exporter);
         }
 
@@ -117,22 +139,41 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public void start(Iterable<MetricExporter<?>> exporters) {
-        this.availableExporters = new HashMap<>();
+    public void start(Iterable<MetricExporter> exporters) {
+        inBusyLock(busyLock, () -> {
+            var availableExporters = new HashMap<String, MetricExporter>();
 
-        for (MetricExporter<?> exporter : exporters) {
-            exporter.start(metricsProvider, null, clusterIdSupplier, nodeName);
+            for (MetricExporter exporter : exporters) {
+                exporter.start(registry, null, clusterIdSupplier, nodeName);
 
-            availableExporters.put(exporter.name(), exporter);
-            enabledMetricExporters.put(exporter.name(), exporter);
+                availableExporters.put(exporter.name(), exporter);
+                enabledMetricExporters.put(exporter.name(), exporter);
+            }
+
+            this.availableExporters = Map.copyOf(availableExporters);
+        });
+    }
+
+    @Override
+    public void beforeNodeStop() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        try {
+            closeAllManually(Stream.concat(
+                    enabledMetricExporters.values().stream().map(metricExporter -> (ManuallyCloseable) metricExporter::stop),
+                    Stream.of(registry)
+            ));
+        } catch (Exception e) {
+            throw new IgniteInternalException(RESOURCE_CLOSING_ERR, e);
         }
     }
 
-    @Override public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        for (MetricExporter metricExporter : enabledMetricExporters.values()) {
-            metricExporter.stop();
-        }
-
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         enabledMetricExporters.clear();
 
         return nullCompletedFuture();
@@ -140,74 +181,126 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void registerSource(MetricSource src) {
-        registry.registerSource(src);
+        inBusyLock(busyLock, () -> registry.registerSource(src));
     }
 
     @Override
     public void unregisterSource(MetricSource src) {
-        registry.unregisterSource(src);
+        inBusyLockSafe(busyLock, () -> registry.unregisterSource(src));
     }
 
     @Override
     public void unregisterSource(String srcName) {
-        registry.unregisterSource(srcName);
+        inBusyLockSafe(busyLock, () -> registry.unregisterSource(srcName));
     }
 
     @Override
     public MetricSet enable(MetricSource src) {
-        MetricSet enabled = registry.enable(src);
+        return inBusyLock(busyLock, () -> {
+            MetricSet enabled = registry.enable(src);
 
-        if (enabled != null) {
-            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
-        }
+            if (enabled != null) {
+                enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+            }
 
-        return enabled;
+            return enabled;
+        });
     }
 
     @Override
-    public MetricSet enable(final String srcName) {
-        MetricSet enabled = registry.enable(srcName);
+    public MetricSet enable(String srcName) {
+        return inBusyLock(busyLock, () -> {
+            MetricSet enabled = registry.enable(srcName);
 
-        if (enabled != null) {
-            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
-        }
+            if (enabled != null) {
+                enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+            }
 
-        return enabled;
+            return enabled;
+        });
     }
 
     @Override
     public void disable(MetricSource src) {
-        registry.disable(src);
+        inBusyLockSafe(busyLock, () -> {
+            MetricSet metricSet = registry.snapshot().metrics().get(src.name());
 
-        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(src.name()));
+            registry.disable(src);
+
+            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
+        });
     }
 
     @Override
-    public void disable(final String srcName) {
-        registry.disable(srcName);
+    public void disable(String srcName) {
+        inBusyLockSafe(busyLock, () -> {
+            MetricSet metricSet = registry.snapshot().metrics().get(srcName);
 
-        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
+            registry.disable(srcName);
+
+            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
+        });
     }
 
     @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return registry.metricSnapshot();
+    public MetricSnapshot metricSnapshot() {
+        return inBusyLock(busyLock, registry::snapshot);
     }
 
     @Override
     public Collection<MetricSource> metricSources() {
-        return registry.metricSources();
+        return inBusyLock(busyLock, registry::metricSources);
     }
 
-    private <T extends ExporterView> void checkAndStartExporter(
-            String exporterName,
-            T exporterConfiguration) {
-        MetricExporter<T> exporter = availableExporters.get(exporterName);
+    @Override
+    public Collection<MetricExporter> enabledExporters() {
+        return inBusyLock(busyLock, enabledMetricExporters::values);
+    }
+
+    private static List<ExporterView> defaultExporters(List<? extends ExporterView> configuredExporters) {
+        if (configuredExporters.stream().map(ExporterView::exporterName).anyMatch(n -> n.equals(LogPushExporter.EXPORTER_NAME))) {
+            return emptyList();
+        } else {
+            ExporterView logExporterView = new LogPushExporterView() {
+                private final LogPushExporterConfigurationSchema schema = new LogPushExporterConfigurationSchema();
+
+                @Override
+                public long periodMillis() {
+                    return schema.periodMillis;
+                }
+
+                @Override
+                public boolean oneLinePerMetricSource() {
+                    return schema.oneLinePerMetricSource;
+                }
+
+                @Override
+                public String[] enabledMetrics() {
+                    return schema.enabledMetrics;
+                }
+
+                @Override
+                public String exporterName() {
+                    return LogPushExporter.EXPORTER_NAME;
+                }
+
+                @Override
+                public String name() {
+                    return "log";
+                }
+            };
+
+            return List.of(logExporterView);
+        }
+    }
+
+    private void checkAndStartExporter(String exporterName, ExporterView exporterConfiguration) {
+        MetricExporter exporter = availableExporters.get(exporterName);
 
         if (exporter != null) {
             enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
                 try {
-                    exporter.start(metricsProvider, exporterConfiguration, clusterIdSupplier, nodeName);
+                    exporter.start(registry, exporterConfiguration, clusterIdSupplier, nodeName);
 
                     return exporter;
                 } catch (Exception e) {
@@ -223,45 +316,61 @@ public class MetricManagerImpl implements MetricManager {
 
     /**
      * Load exporters by {@link ServiceLoader} mechanism.
-     *
-     * @return list of loaded exporters.
      */
-    public static Map<String, MetricExporter> loadExporters() {
-        var clsLdr = Thread.currentThread().getContextClassLoader();
+    private static Map<String, MetricExporter> loadExporters() {
+        ClassLoader clsLdr = Thread.currentThread().getContextClassLoader();
 
         return ServiceLoader
                 .load(MetricExporter.class, clsLdr)
                 .stream()
                 .map(Provider::get)
-                .collect(Collectors.toMap(e -> e.name(), Function.identity()));
+                .collect(toUnmodifiableMap(MetricExporter::name, Function.identity()));
     }
 
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            checkAndStartExporter(ctx.newValue().exporterName(), ctx.newValue());
+            inBusyLockSafe(busyLock, () -> {
+                ExporterView newValue = ctx.newValue();
+
+                assert newValue != null;
+
+                checkAndStartExporter(newValue.exporterName(), newValue);
+            });
 
             return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<ExporterView> ctx) {
-            var removed = enabledMetricExporters.remove(ctx.oldValue().exporterName());
+            inBusyLockSafe(busyLock, () -> {
+                ExporterView oldValue = ctx.oldValue();
 
-            if (removed != null) {
-                removed.stop();
-            }
+                assert oldValue != null;
+
+                MetricExporter removed = enabledMetricExporters.remove(oldValue.exporterName());
+
+                if (removed != null) {
+                    removed.stop();
+                }
+            });
 
             return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            MetricExporter exporter = enabledMetricExporters.get(ctx.newValue().exporterName());
+            inBusyLockSafe(busyLock, () -> {
+                ExporterView newValue = ctx.newValue();
 
-            if (exporter != null) {
-                exporter.reconfigure(ctx.newValue());
-            }
+                assert newValue != null;
+
+                MetricExporter exporter = enabledMetricExporters.get(newValue.exporterName());
+
+                if (exporter != null) {
+                    exporter.reconfigure(newValue);
+                }
+            });
 
             return nullCompletedFuture();
         }

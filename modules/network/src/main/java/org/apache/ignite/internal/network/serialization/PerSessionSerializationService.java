@@ -417,7 +417,6 @@ public class PerSessionSerializationService {
         return descriptors;
     }
 
-
     @TestOnly
     Map<Integer, ClassDescriptor> getDescriptorMapView() {
         return mergedIdToDescriptorMap;

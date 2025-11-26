@@ -17,14 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
  * Client SQL cursor next page request.
@@ -34,12 +36,10 @@ public class ClientSqlCursorNextPageRequest {
      * Processes the request.
      *
      * @param in  Unpacker.
-     * @param out Packer.
      * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             ClientResourceRegistry resources
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
@@ -48,9 +48,6 @@ public class ClientSqlCursorNextPageRequest {
 
         return resultSet.resultSet().fetchNextPage()
                 .thenCompose(r -> {
-                    packCurrentPage(out, r);
-                    out.packBoolean(r.hasMorePages());
-
                     if (!r.hasMorePages()) {
                         try {
                             resources.remove(resourceId);
@@ -58,11 +55,18 @@ public class ClientSqlCursorNextPageRequest {
                             // Ignore: either resource already removed, or registry is closing.
                         }
 
-                        return resultSet.closeAsync();
+                        return resultSet.closeAsync().thenApply(v -> getResponseWriter(r));
                     } else {
-                        return nullCompletedFuture();
+                        return completedFuture(getResponseWriter(r));
                     }
                 })
                 .toCompletableFuture();
+    }
+
+    private static ResponseWriter getResponseWriter(AsyncResultSet<SqlRow> r) {
+        return out -> {
+            packCurrentPage(out, r);
+            out.packBoolean(r.hasMorePages());
+        };
     }
 }

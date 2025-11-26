@@ -52,7 +52,6 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -70,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
@@ -122,7 +122,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .add("C1", SqlTypeName.INTEGER)
                 .build();
 
-        RexNode intValue1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode intValue1 = rexBuilder.makeExactLiteral(BigDecimal.ONE);
         RexNode intValue5 = rexBuilder.makeExactLiteral(new BigDecimal("5"));
         RexNode nullValue = rexBuilder.makeNullLiteral(typeFactory.createSqlType(SqlTypeName.INTEGER));
 
@@ -295,6 +295,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     void multiBoundConditionsAreMergedCorrectly() {
         RexBuilder rexBuilder = Commons.rexBuilder();
 
@@ -305,7 +306,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .add("C1", SqlTypeName.INTEGER)
                 .build();
 
-        RexNode intValue1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode intValue1 = rexBuilder.makeExactLiteral(BigDecimal.ONE);
         RexNode intValue2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
         RexNode intValue3 = rexBuilder.makeExactLiteral(new BigDecimal("3"));
         RexNode intValue5 = rexBuilder.makeExactLiteral(new BigDecimal("5"));
@@ -466,6 +467,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     public void testInvalidConditions() {
         // At the moment, such conditions are impossible to obtain, but we should be aware of them,
         // since they can break the merge procedure.
@@ -478,7 +480,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .add("C1", SqlTypeName.INTEGER)
                 .build();
 
-        RexNode intValue1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode intValue1 = rexBuilder.makeExactLiteral(BigDecimal.ONE);
         RexNode intValue2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
 
         { // conditions 'val between 2 and 1 or val = 2' should lead to single 'val = 2' (ASCENDING)
@@ -522,10 +524,11 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest(name = "condition satisfies the index: [{0}]")
     @ValueSource(booleans = {true, false})
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     public void testConditionsNotContainsNulls(boolean conditionSatisfyIdx) {
         RexBuilder rexBuilder = Commons.rexBuilder();
 
-        RexNode val1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode val1 = rexBuilder.makeExactLiteral(BigDecimal.ONE);
         RexNode val2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
 
         RelDataTypeSystem typeSystem = Commons.emptyCluster().getTypeFactory().getTypeSystem();
@@ -547,7 +550,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         // build bounds for two sequential columns also belongs to index
         List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.emptyCluster(),
-                RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableBitSet.of(0, 1, 2));
+                RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableIntList.of(0, 1, 2));
 
         if (!conditionSatisfyIdx) {
             assertNull(bounds);
@@ -575,6 +578,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     public void testProject() {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory tf = Commons.typeFactory();
@@ -582,7 +586,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
         RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
 
-        RexNode val1 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
+        RexNode val1 = rexBuilder.makeExactLiteral(BigDecimal.ONE, intType);
         RexNode val2 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
 
         RelDataType rowType = new Builder(tf)
@@ -672,6 +676,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     public void testValues() {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory tf = Commons.typeFactory();
@@ -679,7 +684,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
         RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
 
-        RexLiteral val10 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
+        RexLiteral val10 = rexBuilder.makeExactLiteral(BigDecimal.ONE, intType);
         RexLiteral val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
         RexLiteral val20 = rexBuilder.makeExactLiteral(new BigDecimal("3"), intType);
         RexLiteral val21 = rexBuilder.makeExactLiteral(new BigDecimal("4"), bigIntType);
@@ -749,7 +754,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         } else if (columnType == ColumnType.DOUBLE) {
             expected = ((Number) ((RexLiteral) expr1).getValue4()).doubleValue();
         } else {
-            expected = val == null ? null : TypeUtils.toInternal(val, val.getClass());
+            expected = val == null ? null : TypeUtils.toInternal(val, NativeTypes.fromObject(val).spec());
         }
 
         assertEquals(Arrays.asList(expected, val2), Arrays.asList(actual));
@@ -868,7 +873,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(makeLit.apply(doubleMin, doubleType), doubleType, ((BigDecimal) doubleMin).doubleValue(), false),
 
                 // DECIMAL
-                Arguments.of(makeLit.apply(new BigDecimal("1"), decimal5), decimal5, new BigDecimal("1"), false),
+                Arguments.of(makeLit.apply(BigDecimal.ONE, decimal5), decimal5, BigDecimal.ONE, false),
                 Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal52), decimal52, new BigDecimal("1.00"), false)
         );
     }
@@ -877,7 +882,8 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
                 // TODO https://issues.apache.org/jira/browse/IGNITE-17373
                 ColumnType.DURATION,
-                ColumnType.PERIOD
+                ColumnType.PERIOD,
+                ColumnType.STRUCT
         );
 
         List<Arguments> arguments = new ArrayList<>();

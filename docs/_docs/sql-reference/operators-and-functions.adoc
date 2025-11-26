@@ -98,6 +98,15 @@ SOME(condition)
 
 Returns TRUE if one or more of the values of condition is TRUE.
 
+=== GROUPING
+
+[source,sql]
+----
+GROUPING(column_reference [,column_reference])
+----
+
+Returns a bit vector of the given grouping expressions.
+
 == JSON Functions
 
 === JSON_TYPE
@@ -574,7 +583,7 @@ Returns string with the first letter of each word converter to upper case and th
 ----
 TO_BASE64(string)
 ----
-Converts the string to base-64 encoded form and returns a encoded string
+Converts the string to base-64 encoded form and returns an encoded string
 
 === FROM_BASE64
 
@@ -799,7 +808,7 @@ Returns a string consisting of string repeated of integer times; returns an empt
 ----
 SPACE(integer)
 ----
-Returns a string of integer spaces; returns an empty string if integer is less than 1.
+Returns a string with an integer number of spaces; returns an empty string if integer is less than 1.
 
 
 === STRCMP
@@ -1345,36 +1354,18 @@ Generates a random UUID.
 
 [source,sql]
 ----
-SYSTEM_RANGE(start, end[, increment]
+SYSTEM_RANGE(start, end[, increment])
 ----
 
 Returns a range from the table, with an optional increment.
 
-== Sequence Functions
+== Security Functions
 
-=== NEXTVAL
-
-[source,sql]
-----
-NEXTVAL('seq_name')
-----
-
-Advances the sequence and returns the new value.
-
-=== SETVAL
+=== CURRENT_USER
 
 [source,sql]
 ----
-SETVAL('seq_name', bigint)
+CURRENT_USER
 ----
 
-Sets the current sequence value to the specified value.
-
-=== CURRVAL
-
-[source,sql]
-----
-CURRVAL('seq_name')
-----
-
-Returns the current sequence value.
+Returns the name of the current database user. When security is disabled, returns the system user name instead.

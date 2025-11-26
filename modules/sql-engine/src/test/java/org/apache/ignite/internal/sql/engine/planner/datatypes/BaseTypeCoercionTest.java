@@ -66,7 +66,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -424,7 +424,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         Object val = SqlTestUtils.generateValueByType(type);
         // We have different behaviour of planner depending on value it can put CAST or not to do it.
         // So we will generate all values which more then Short.MAX_VALUE and CAST will be always putted.
-        if (closerToBoundForDecimal5 && type.spec() == NativeTypeSpec.DECIMAL) {
+        if (closerToBoundForDecimal5 && type.spec() == ColumnType.DECIMAL) {
             DecimalNativeType t = ((DecimalNativeType) type);
             // for five-digit we can have value less or more then Short.MaX_VALUE.
             // To get rid of vagueness let's generate always bigger value.
@@ -767,7 +767,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         return op1Matches && op2Matches;
     }
 
-
     static class FunctionCallMatcher {
 
         private final List<Matcher<RexNode>> args;
@@ -836,7 +835,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             public void describeTo(Description description) {
 
             }
-
 
             @Nullable
             private RexCall getRexCall(RelNode relNode) {

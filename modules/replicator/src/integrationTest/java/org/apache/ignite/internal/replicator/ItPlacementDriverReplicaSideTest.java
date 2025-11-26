@@ -62,9 +62,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -100,11 +103,10 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -130,9 +132,14 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService testClockService = new TestClockService(clock);
 
     private Set<String> placementDriverNodeNames;
     private Set<String> nodeNames;
@@ -162,7 +169,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     public void beforeTest(TestInfo testInfo) {
         partitionOperationsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create("test", "partition-operations", log)
+                IgniteThreadFactory.create("test", "partition-operations", log)
         );
 
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
@@ -176,7 +183,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
 
-        Supplier<ClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
+        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
 
         for (String nodeName : nodeNames) {
             ClusterService clusterService = clusterServices.get(nodeName);
@@ -198,6 +205,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     eventsClientListener
             );
@@ -217,7 +225,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     nodeName,
                     clusterService,
                     cmgManager,
-                    new TestClockService(clock),
+                    testClockService,
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
@@ -229,8 +237,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager,
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool(),
-                    replicaGrpId -> nullCompletedFuture()
+                    Executors.newSingleThreadScheduledExecutor(),
+                    replicaGrpId -> nullCompletedFuture(),
+                    ForkJoinPool.commonPool()
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -352,7 +361,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
@@ -414,7 +423,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),

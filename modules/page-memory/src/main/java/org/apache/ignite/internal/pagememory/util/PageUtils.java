@@ -61,15 +61,7 @@ public class PageUtils {
      * @return Bytes from given address.
      */
     public static byte[] getBytes(long addr, int off, int len) {
-        assert addr > 0 : addr;
-        assert off >= 0;
-        assert len >= 0;
-
-        byte[] bytes = new byte[len];
-
-        GridUnsafe.copyMemory(null, addr + off, bytes, GridUnsafe.BYTE_ARR_OFF, len);
-
-        return bytes;
+        return GridUnsafe.getBytes(addr, off, len);
     }
 
     /**

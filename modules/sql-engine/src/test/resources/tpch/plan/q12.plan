@@ -1,0 +1,40 @@
+Sort
+    collation: [L_SHIPMODE ASC]
+    est: (rows=42644)
+  ReduceHashAggregate
+      fieldNames: [L_SHIPMODE, HIGH_LINE_COUNT, LOW_LINE_COUNT]
+      group: [L_SHIPMODE]
+      aggregation: [SUM(_ACC0), SUM(_ACC1)]
+      est: (rows=42644)
+    Exchange
+        distribution: single
+        est: (rows=42644)
+      MapHashAggregate
+          fieldNames: [L_SHIPMODE, _ACC0, _ACC1, _GROUP_ID]
+          group: [L_SHIPMODE]
+          aggregation: [SUM($f1), SUM($f2)]
+          est: (rows=42644)
+        Project
+            fieldNames: [L_SHIPMODE, $f1, $f2]
+            projection: [L_SHIPMODE, CASE(SEARCH(O_ORDERPRIORITY, Sarg[_UTF-8'1-URGENT', _UTF-8'2-HIGH':CHAR(8) CHARACTER SET "UTF-8"]:CHAR(8) CHARACTER SET "UTF-8"), 1, 0), CASE(SEARCH(O_ORDERPRIORITY, Sarg[(-∞.._UTF-8'1-URGENT'), (_UTF-8'1-URGENT'.._UTF-8'2-HIGH':CHAR(8) CHARACTER SET "UTF-8"), (_UTF-8'2-HIGH':CHAR(8) CHARACTER SET "UTF-8"..+∞)]:CHAR(8) CHARACTER SET "UTF-8"), 1, 0)]
+            est: (rows=213218)
+          HashJoin
+              predicate: =(O_ORDERKEY, L_ORDERKEY)
+              type: inner
+              est: (rows=213218)
+            TableScan
+                table: PUBLIC.ORDERS
+                fieldNames: [O_ORDERKEY, O_ORDERPRIORITY]
+                est: (rows=1500000)
+            Exchange
+                distribution: table PUBLIC.ORDERS in zone "Default" by [L_ORDERKEY]
+                est: (rows=213218)
+              IndexScan
+                  table: PUBLIC.LINEITEM
+                  index: L_RD
+                  type: SORTED
+                  predicate: AND(SEARCH(L_SHIPMODE, Sarg[_UTF-8'MAIL':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'SHIP':VARCHAR(10) CHARACTER SET "UTF-8"]:VARCHAR(10) CHARACTER SET "UTF-8"), <(L_COMMITDATE, L_RECEIPTDATE), <(L_SHIPDATE, L_COMMITDATE), SEARCH(L_RECEIPTDATE, Sarg[[1994-01-01..1995-01-01)]))
+                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1994-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1995-01-01, upperInclude=false]]
+                  fieldNames: [L_ORDERKEY, L_SHIPDATE, L_COMMITDATE, L_RECEIPTDATE, L_SHIPMODE]
+                  collation: [L_RECEIPTDATE ASC]
+                  est: (rows=213218)

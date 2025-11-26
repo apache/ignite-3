@@ -19,11 +19,14 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.Objects;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Uniquely identifies a partition. This is a pair of internal table ID and partition number (aka partition ID).
  */
+// TODO IGNITE-22522 Remove
 public class TablePartitionKey implements PartitionKey {
     private final int tableId;
 
@@ -72,5 +75,10 @@ public class TablePartitionKey implements PartitionKey {
     @Override
     public String toString() {
         return S.toString(TablePartitionKey.class, this);
+    }
+
+    @Override
+    public ReplicationGroupId toReplicationGroupId() {
+        return new TablePartitionId(tableId, partitionId);
     }
 }

@@ -26,6 +26,7 @@ import java.io.Reader;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
@@ -58,7 +59,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.SqlException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
@@ -131,6 +132,10 @@ public final class IgniteSqlParser {
                 list.set(i, newNode);
             }
 
+            if (list.isEmpty()) {
+                throw new SqlException(STMT_PARSE_ERR, "Failed to parse query: Not a statement");
+            }
+
             return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
             throw convertException(e);
@@ -139,7 +144,7 @@ public final class IgniteSqlParser {
         }
     }
 
-    private static void validateTopLevelNode(SqlNode node) {
+    private static void validateTopLevelNode(SqlNode node) throws SqlParseException {
         boolean knownType = Commons.getQueryType(node) != null;
 
         if (!knownType) {
@@ -151,7 +156,16 @@ public final class IgniteSqlParser {
             int index2 = index1 > 0 ? sqlString.indexOf(' ', index1 + 1) : index1;
             String sql = sqlString.substring(0, index2);
 
-            throw SqlUtil.newContextException(node.getParserPosition(), IgniteResource.INSTANCE.unexpectedStatement(sql));
+            CalciteException cause = IgniteResource.INSTANCE.unexpectedStatement(sql).ex();
+
+            //noinspection DataFlowIssue
+            throw new SqlParseException(
+                    cause.getMessage(), 
+                    node.getParserPosition(),
+                    null,
+                    null,
+                    cause
+            );
         }
     }
 
@@ -258,7 +272,6 @@ public final class IgniteSqlParser {
                 return parser;
             }
         };
-
 
         // We store the number of dynamic parameters in a thread local since
         // it is not possible to access an instance of IgniteSqlParser created by a parser factory.

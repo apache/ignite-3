@@ -82,6 +82,8 @@ void linux_async_worker_thread::start(size_t limit, std::vector<tcp_range> addrs
         throw ignite_error(error::code::INTERNAL, msg);
     }
 
+//    auto timer = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+
     m_stopping = false;
     m_failed_attempts = 0;
     m_non_connected = std::move(addrs);

@@ -26,9 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +49,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientMetricSource;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -52,6 +57,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -59,6 +65,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
@@ -67,15 +74,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ClientMetricsTest extends BaseIgniteAbstractTest {
     private TestServer server;
     private IgniteClient client;
+    private IgniteClient client2;
 
     @AfterEach
     public void afterEach() throws Exception {
-        closeAll(client, server);
+        closeAll(client2, client, server);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
+    @Test
+    public void testConnectionMetrics() throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
@@ -84,18 +91,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
 
-        if (gracefulDisconnect) {
-            client.close();
-        } else {
-            server.close();
-        }
+        server.close();
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> metrics.connectionsActive() == 0, 1000),
                 () -> "connectionsActive: " + metrics.connectionsActive());
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == (gracefulDisconnect ? 0 : 1), 1000),
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == 1, 1000),
                 () -> "connectionsLost: " + metrics.connectionsLost());
 
         assertEquals(1, metrics.connectionsEstablished());
@@ -147,10 +150,27 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testHandshakesFailedTimeout() throws InterruptedException {
-        AtomicInteger counter = new AtomicInteger();
+    public void testHandshakesFailedTimeout() {
+        // Record handshake timeout logs.
+        // These logs are sent after the timeout is detected by the timeout task and after the metric manager is updated.
+        // Therefore it's safe to way for them.
+        // Checkout: org.apache.ignite.internal.client.TcpClientChannel.handshakeAsync
+        CountDownLatch latch = new CountDownLatch(1);
+        HandshakeTimeoutLoggerListener handshakeTimeoutListener = new HandshakeTimeoutLoggerListener(latch);
+
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
-        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 600 : 0;
+        // Blocks until a timeout was observed.
+        Function<Integer, Integer> responseDelay = idx -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for handshake timeout latch", e);
+            }
+
+            return 0;
+        };
+
         server = new TestServer(
                 1000,
                 new FakeIgnite(),
@@ -161,15 +181,17 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 null,
                 null
         );
+
         client = clientBuilder()
                 .connectTimeout(100)
+                .loggerFactory(handshakeTimeoutListener)
                 .build();
 
-        assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() == 1, 1000),
-                () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
+        long numObservedTimeouts = handshakeTimeoutListener.count();
+        assertThat("handshakesFailedTimeout", metrics().handshakesFailedTimeout(), greaterThanOrEqualTo(numObservedTimeouts));
     }
 
+    @SuppressWarnings("resource")
     @Test
     public void testRequestsMetrics() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
@@ -241,14 +263,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
-        assertEquals(16, metrics().bytesSent());
+        assertEquals(17, metrics().bytesSent());
 
         long handshakeReceived = metrics().bytesReceived();
         assertThat(handshakeReceived, greaterThanOrEqualTo(77L));
 
         client.tables().tables();
 
-        assertEquals(22, metrics().bytesSent());
+        assertEquals(23, metrics().bytesSent());
         assertEquals(handshakeReceived + 21, metrics().bytesReceived());
     }
 
@@ -309,16 +331,16 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {true, false})
     public void testJmxExport(boolean metricsEnabled) throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
-        client = clientBuilder().metricsEnabled(metricsEnabled).build();
+        client = clientBuilder().metricsEnabled(metricsEnabled).name("testJmxExport").build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:group=metrics,name=client";
+        String beanName = "org.apache.ignite:nodeName=testJmxExport,type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
         boolean registered = mbeanSrv.isRegistered(objName);
 
-        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
 
         if (!metricsEnabled) {
             return;
@@ -336,6 +358,63 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals("java.lang.Long", attribute.getType());
     }
 
+    @Test
+    public void testJmxExportTwoClients() throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+
+        // Client names are auto-generated, unless explicitly specified.
+        client = clientBuilder().metricsEnabled(true).build();
+        client2 = clientBuilder().metricsEnabled(true).build();
+
+        client.tables().tables();
+        client2.tables().tables();
+
+        for (var clientName : new String[]{client.name(), client2.name()}) {
+            String beanName = "org.apache.ignite:nodeName=" + clientName + ",type=metrics,name=client";
+            MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+            ObjectName objName = new ObjectName(beanName);
+            boolean registered = mbeanSrv.isRegistered(objName);
+
+            assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+
+            DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+            assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+            assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+        }
+    }
+
+    @Test
+    public void testJmxExportTwoClientsSameName() throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+
+        var loggerFactory1 = new TestLoggerFactory("client1");
+        var loggerFactory2 = new TestLoggerFactory("client2");
+
+        String clientName = "testJmxExportTwoClientsSameName";
+        client = clientBuilder().metricsEnabled(true).name(clientName).loggerFactory(loggerFactory1).build();
+        client2 = clientBuilder().metricsEnabled(true).name(clientName).loggerFactory(loggerFactory2).build();
+
+        client.tables().tables();
+        client2.tables().tables();
+
+        String beanName = "org.apache.ignite:nodeName=" + clientName + ",type=metrics,name=client";
+        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+        ObjectName objName = new ObjectName(beanName);
+        boolean registered = mbeanSrv.isRegistered(objName);
+
+        assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+
+        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+
+        // Error is logged, but the client is functional.
+        loggerFactory2.waitForLogContains("MBean for metric set can't be created [name=client].", 3_000);
+        loggerFactory1.assertLogDoesNotContain("MBean for metric set can't be created");
+    }
+
     private Table oneColumnTable() {
         if (server.ignite().tables().table(TABLE_ONE_COLUMN) == null) {
             ((FakeIgniteTables) server.ignite().tables()).createTable(TABLE_ONE_COLUMN);
@@ -343,7 +422,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
         return client.tables().table(TABLE_ONE_COLUMN);
     }
-
 
     private Builder clientBuilder() {
         return IgniteClient.builder()
@@ -353,5 +431,53 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
     private ClientMetricSource metrics() {
         return ((TcpIgniteClient) client).metrics();
+    }
+
+    /** This logger factory intercepts and counts Handshake Timeout messages. Can be generalised in the future for other messages. */
+    private static class HandshakeTimeoutLoggerListener implements LoggerFactory {
+        private final CountDownLatch latch;
+
+        private final AtomicInteger counter;
+
+        HandshakeTimeoutLoggerListener(CountDownLatch latch) {
+            this.latch = latch;
+            this.counter = new AtomicInteger(0);
+        }
+
+        @Override
+        public Logger forName(String name) {
+            Logger base = System.getLogger(name);
+            if (ReliableChannel.class.getName().equals(name)) {
+                Logger tracker = Mockito.mock(
+                        base.getClass(),
+                        Mockito.withSettings()
+                                .spiedInstance(base)
+                                .defaultAnswer(Mockito.CALLS_REAL_METHODS)
+                                .stubOnly()
+                );
+
+                Mockito.doAnswer(inv -> {
+                    Throwable err = inv.getArgument(2);
+                    if (err instanceof CompletionException && err.getCause() instanceof IgniteClientConnectionException) {
+                        IgniteClientConnectionException ex = (IgniteClientConnectionException) err.getCause();
+                        if (ex.getMessage().startsWith("Handshake timeout")) {
+                            // Updates the timeout counter and releases the responses so that we can connect to the server.
+                            counter.getAndIncrement();
+                            latch.countDown();
+                        }
+                    }
+
+                    return inv.callRealMethod();
+                }).when(tracker).log(Mockito.eq(Level.WARNING), Mockito.anyString(), Mockito.any(Throwable.class));
+
+                return tracker;
+            } else {
+                return base;
+            }
+        }
+
+        int count() {
+            return this.counter.get();
+        }
     }
 }

@@ -95,12 +95,13 @@ public class BuildIndexReplicaRequestHandler {
     }
 
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommandV3()
                 .indexId(request.indexId())
                 .tableId(request.tableId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
-                // We are sure that there will be no error here since the primary replica is sent the request to itself.
+                .abortedTransactionIds(request.abortedTransactionIds())
+                // We are sure that there will be no error here since the primary replica is sending the request to itself.
                 .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
                 .build();
     }

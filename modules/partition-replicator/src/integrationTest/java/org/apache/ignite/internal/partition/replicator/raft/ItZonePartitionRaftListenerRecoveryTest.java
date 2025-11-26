@@ -58,7 +58,9 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -72,10 +74,12 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
@@ -95,6 +99,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -119,7 +124,6 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -194,7 +198,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
-        MockMvPartitionStorage(ClusterNode node) {
+        MockMvPartitionStorage(InternalClusterNode node) {
             doAnswer(invocationOnMock -> {
                 lastAppliedIndex = invocationOnMock.getArgument(0);
 
@@ -231,9 +235,11 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
     void setUp(
             TestInfo testInfo,
             @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration,
             @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
             @Mock Catalog catalog,
-            @Mock CatalogIndexDescriptor catalogIndexDescriptor
+            @Mock CatalogIndexDescriptor catalogIndexDescriptor,
+            @Mock ReplicaManager replicaManager
     ) {
         when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
         when(catalog.indexes(anyInt())).thenReturn(List.of(catalogIndexDescriptor));
@@ -261,6 +267,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 clusterService,
                 new NoOpMetricManager(),
                 raftConfiguration,
+                systemLocalConfiguration,
                 clock,
                 new RaftGroupEventsClientListener(),
                 failureProcessor
@@ -269,6 +276,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(raftManager);
 
         var sharedRockDbStorage = new TxStateRocksDbSharedStorage(
+                clusterService.nodeName(),
                 workDir.resolve("tx"),
                 scheduledExecutorService,
                 executor,
@@ -306,7 +314,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 new PartitionTxStateAccessImpl(txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId())),
                 catalogService,
                 failureProcessor,
-                executor
+                executor,
+                new LogStorageAccessImpl(replicaManager)
         );
     }
 
@@ -383,7 +392,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
-        HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
 
@@ -402,6 +410,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
     }
@@ -559,7 +568,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                         .build())
                 .build();
 
-        return MESSAGE_FACTORY.updateCommand()
+        return MESSAGE_FACTORY.updateCommandV2()
                 .tableId(tableId)
                 .commitPartitionId(toReplicationGroupIdMessage(new ReplicaMessagesFactory(), PARTITION_ID))
                 .rowUuid(id)

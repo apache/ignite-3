@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage.BYTE_ORDER;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_OR_ZONE_ID_SIZE_BYTES;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.util.List;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.lease.LeaseInfoSerializer;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 
@@ -33,13 +36,16 @@ import org.rocksdb.WriteBatch;
  * A wrapper around a RocksDB column family to store TX storage meta information.
  */
 class TxStateMetaRocksDbPartitionStorage {
-    /** Key length for the payload. Consists of a 1-byte prefix, tableId (4 bytes) and partitionId (2 bytes), in Big Endian. */
-    private static final int KEY_SIZE_BYTES = TABLE_PREFIX_SIZE_BYTES + Short.BYTES + 1;
+    /** Prefix of the meta keys including table/zone ID. Consists of a 1-byte prefix, and tableId/zoneId (4 bytes), in Big Endian. */
+    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = 1 + TABLE_OR_ZONE_ID_SIZE_BYTES;
+
+    /** Key length for the payload. Consists of a 1-byte prefix, tableId/zoneId (4 bytes) and partitionId (2 bytes), in Big Endian. */
+    private static final int KEY_SIZE_BYTES = TABLE_OR_ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
 
     /**
      * Prefix to store meta information, such as last applied index and term.
      */
-    private static final byte LAST_APPLIED_PREFIX = 0;
+    static final byte LAST_APPLIED_PREFIX = 0;
 
     /**
      * Prefix to last committed replication group configuration.
@@ -58,7 +64,7 @@ class TxStateMetaRocksDbPartitionStorage {
 
     private final ColumnFamily columnFamily;
 
-    private final int tableId;
+    private final int tableOrZoneId;
 
     private final int partitionId;
 
@@ -79,10 +85,10 @@ class TxStateMetaRocksDbPartitionStorage {
     @Nullable
     private volatile LeaseInfo leaseInfo;
 
-    TxStateMetaRocksDbPartitionStorage(ColumnFamily columnFamily, int tableId, int partitionId) {
+    TxStateMetaRocksDbPartitionStorage(ColumnFamily columnFamily, int tableOrZoneId, int partitionId) {
         this.columnFamily = columnFamily;
         this.partitionId = partitionId;
-        this.tableId = tableId;
+        this.tableOrZoneId = tableOrZoneId;
 
         lastAppliedKey = createKey(LAST_APPLIED_PREFIX);
         confKey = createKey(CONF_PREFIX);
@@ -92,10 +98,18 @@ class TxStateMetaRocksDbPartitionStorage {
 
     private byte[] createKey(byte prefix) {
         return ByteBuffer.allocate(KEY_SIZE_BYTES)
-                .order(ByteOrder.BIG_ENDIAN)
+                .order(BYTE_ORDER)
                 .put(prefix)
-                .putInt(tableId)
+                .putInt(tableOrZoneId)
                 .putShort((short) partitionId)
+                .array();
+    }
+
+    private static byte[] createKeyPrefixForTableOrZone(byte prefix, int tableOrZoneId) {
+        return ByteBuffer.allocate(TABLE_OR_ZONE_PREFIX_SIZE_BYTES)
+                .order(BYTE_ORDER)
+                .put(prefix)
+                .putInt(tableOrZoneId)
                 .array();
     }
 
@@ -103,7 +117,7 @@ class TxStateMetaRocksDbPartitionStorage {
         byte[] lastAppliedBytes = columnFamily.get(lastAppliedKey);
 
         if (lastAppliedBytes != null) {
-            ByteBuffer buf = ByteBuffer.wrap(lastAppliedBytes).order(ByteOrder.BIG_ENDIAN);
+            ByteBuffer buf = ByteBuffer.wrap(lastAppliedBytes).order(BYTE_ORDER);
 
             lastAppliedIndex = buf.getLong();
             lastAppliedTerm = buf.getLong();
@@ -127,7 +141,7 @@ class TxStateMetaRocksDbPartitionStorage {
         byte[] lastAppliedBytes = columnFamily.get(lastAppliedKey);
 
         if (lastAppliedBytes != null) {
-            ByteBuffer buf = ByteBuffer.wrap(lastAppliedBytes).order(ByteOrder.BIG_ENDIAN);
+            ByteBuffer buf = ByteBuffer.wrap(lastAppliedBytes).order(BYTE_ORDER);
 
             this.lastAppliedIndex = buf.getLong();
             this.lastAppliedTerm = buf.getLong();
@@ -190,7 +204,7 @@ class TxStateMetaRocksDbPartitionStorage {
 
     private static byte[] indexAndTermToBytes(long lastAppliedIndex, long lastAppliedTerm) {
         return ByteBuffer.allocate(2 * Long.BYTES)
-                .order(ByteOrder.BIG_ENDIAN)
+                .order(BYTE_ORDER)
                 .putLong(lastAppliedIndex)
                 .putLong(lastAppliedTerm)
                 .array();
@@ -206,5 +220,14 @@ class TxStateMetaRocksDbPartitionStorage {
         lastAppliedTerm = 0;
         config = null;
         leaseInfo = null;
+    }
+
+    static void clearForTableOrZone(WriteBatch writeBatch, ColumnFamilyHandle cf, int tableOrZoneId) throws RocksDBException {
+        for (byte prefixByte : List.of(LAST_APPLIED_PREFIX, CONF_PREFIX, LEASE_INFO_PREFIX, SNAPSHOT_INFO_PREFIX)) {
+            byte[] start = createKeyPrefixForTableOrZone(prefixByte, tableOrZoneId);
+            byte[] end = incrementPrefix(start);
+
+            writeBatch.deleteRange(cf, start, end);
+        }
     }
 }

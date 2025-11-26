@@ -18,21 +18,23 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsBytes;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsString;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsTimestamp;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsUuid;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareFieldValue;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.equalityFlag;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFlagSet;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Matcher for comparing {@link BinaryTuple}s on a per-column basis.
@@ -82,9 +84,10 @@ public class PartialBinaryTupleMatcher {
 
         assert !isBuffer1Prefix : "An inline tuple must not contain a prefix.";
 
-        BinaryTupleReader tuple1 = new BinaryTuple(numElements, buffer1);
+        BinaryTupleReader tuple1 = new BinaryTuple(numElements, buffer1, UnsafeByteBufferAccessor::new);
 
-        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
+        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2)
+                : new BinaryTuple(numElements, buffer2, UnsafeByteBufferAccessor::new);
 
         int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
 
@@ -145,31 +148,26 @@ public class PartialBinaryTupleMatcher {
     }
 
     private static int compareFieldValuePartially(
-            NativeTypeSpec typeSpec,
+            ColumnType typeSpec,
             BinaryTupleReader partialTuple,
             BinaryTupleReader tuple2,
             int index
     ) {
         switch (typeSpec) {
-            case BYTES: {
-                partialTuple.seek(index);
+            case BYTE_ARRAY:
+                return compareAsBytes(partialTuple, tuple2, index);
 
-                int begin = partialTuple.begin();
-                int end = partialTuple.end();
-                int trimmedSize = Math.min(end - begin, partialTuple.byteBuffer().capacity() - begin);
+            case UUID:
+                return compareAsUuid(partialTuple, tuple2, index);
 
-                byte[] part = partialTuple.bytesValue(begin, begin + trimmedSize);
+            case STRING:
+                return compareAsString(partialTuple, tuple2, index);
 
-                byte[] cmp = getTrimmedBytes(tuple2, index, part.length);
+            case TIMESTAMP:
+                return compareAsTimestamp(partialTuple, tuple2, index);
 
-                return Arrays.compareUnsigned(part, cmp);
-            }
-            case STRING: {
-                return compareAsString(partialTuple, index, tuple2.stringValue(index), false);
-            }
-            default: {
+            default:
                 return 0;
-            }
         }
     }
 

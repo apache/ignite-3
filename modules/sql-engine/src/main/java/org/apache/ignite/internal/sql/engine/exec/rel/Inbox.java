@@ -33,6 +33,7 @@ import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -390,19 +391,19 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 });
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (context().originatingNodeName().equals(nodeName) && srcNodeNames == null) {
-            this.execute(this::close);
-        } else if (srcNodeNames != null && srcNodeNames.contains(nodeName)) {
-            this.execute(() -> onNodeLeft0(nodeName));
+    /** Notifies the inbox that provided node has left the cluster. */
+    public void onNodeLeft(InternalClusterNode node, long version) {
+        Long topologyVersion = context().topologyVersion();
+        if (topologyVersion != null && topologyVersion > version) {
+            return; // Ignore outdated event.
+        }
+
+        if (srcNodeNames.contains(node.name())) {
+            this.execute(() -> onNodeLeft0(node.name()));
         }
     }
 
-    private void onNodeLeft0(String nodeName) throws Exception {
+    private void onNodeLeft0(String nodeName) {
         if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new NodeLeftException(nodeName);
         }

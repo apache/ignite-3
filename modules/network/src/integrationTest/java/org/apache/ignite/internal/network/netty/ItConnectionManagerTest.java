@@ -24,15 +24,18 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.d
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
@@ -319,7 +323,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         IgniteInternalException exception = (IgniteInternalException) assertThrows(
                 IgniteInternalException.class,
                 () -> startManager(4000),
-                "Failed to start the connection manager: Port 4000 is not available."
+                "Failed to start the connection manager: Cannot start server at address=, port=4000"
         );
 
         assertEquals("IGN-NETWORK-2", exception.codeAsString());
@@ -403,15 +407,32 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
-            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
-            assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList()));
+
+            assertThat(sendFuture, willCompleteSuccessfully());
+
+            CompletableFuture<Void> ackSendFuture = ackFuture(manager1, emptyTestMessage);
+
+            assertThat(ackSendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
 
             ackSilencer.stopSilencing();
 
             provokeAckFor(sender);
 
-            assertThat(sendFuture, willCompleteSuccessfully());
+            assertThat(ackSendFuture, willCompleteSuccessfully());
         }
+    }
+
+    private CompletableFuture<Void> ackFuture(ConnectionManagerWrapper connectionManager, NetworkMessage msg) {
+        for (NettySender sender : connectionManager.channels().values()) {
+            for (OutNetworkObject outMsgWrapper : sender.recoveryDescriptor().unacknowledgedMessages()) {
+                if (outMsgWrapper.networkMessage() == msg) {
+                    return outMsgWrapper.acknowledgedFuture();
+                }
+            }
+        }
+
+        return nullCompletedFuture();
     }
 
     private static void waitTillChannelAppearsInMapOnAcceptor(
@@ -439,18 +460,12 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
             waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
 
-            OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
-
             List<Integer> ordinals = new CopyOnWriteArrayList<>();
 
-            CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+            CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList()))
                     .whenComplete((res, ex) -> ordinals.add(1));
-            CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+            CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList()))
                     .whenComplete((res, ex) -> ordinals.add(2));
-
-            ackSilencer.stopSilencing();
-
-            provokeAckFor(sender);
 
             assertThat(CompletableFuture.allOf(future1, future2), willCompleteSuccessfully());
             assertThat(ordinals, contains(1, 2));
@@ -469,8 +484,16 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             dropAcksFrom(manager2);
 
             HandshakeFinishMessage messageNotNeedingAck = new NetworkMessagesFactory().handshakeFinishMessage().build();
-            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList(), true));
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList()));
             assertThat(sendFuture, willCompleteSuccessfully());
+        }
+    }
+
+    @Test
+    public void connectionToSelfFailsWithHandshakeException() throws Exception {
+        try (ConnectionManagerWrapper manager = startManager(4000)) {
+            HandshakeException ex = assertWillThrow(manager.openChannelTo(manager).toCompletableFuture(), HandshakeException.class);
+            assertThat(ex.getMessage(), startsWith("Got handshake start from self"));
         }
     }
 
@@ -480,7 +503,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void provokeAckFor(NettySender sender1) {
-        sender1.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+        sender1.send(new OutNetworkObject(emptyTestMessage, emptyList()));
     }
 
     /**
@@ -548,7 +571,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             manager.setLocalNode(new ClusterNodeImpl(
                     launchId,
                     consistentId,
-                    new NetworkAddress(manager.localAddress().getHostName(), port)
+                    new NetworkAddress(manager.localBindAddress().getHostName(), port)
             ));
 
             var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, launchId);
@@ -593,7 +616,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             return connectionManager.channel(
                     recipient.launchId,
                     ChannelType.DEFAULT,
-                    recipient.connectionManager.localAddress()
+                    recipient.connectionManager.localBindAddress()
             );
         }
 

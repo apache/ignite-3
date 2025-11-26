@@ -17,23 +17,15 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /** Entry representing a rename of a table. */
-public class RenameTableEntry implements UpdateEntry, Fireable {
+public class RenameTableEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
 
     private final String newTableName;
@@ -43,6 +35,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
         this.newTableName = newTableName;
     }
 
+    @Override
     public int tableId() {
         return tableId;
     }
@@ -67,25 +60,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
-
-        CatalogTableDescriptor newTable = table.newDescriptor(
-                newTableName,
-                table.tableVersion() + 1,
-                table.columns(),
-                timestamp,
-                table.storageProfile()
-        );
-
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
-                defaultZoneIdOpt(catalog)
-        );
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
+        return table.copyBuilder()
+                .name(newTableName);
     }
 }

@@ -18,9 +18,9 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 
 /**
@@ -31,19 +31,17 @@ public class ClientJdbcSchemasMetadataRequest {
      * Processes remote {@code JdbcMetaSchemasRequest}.
      *
      * @param in      Client message unpacker.
-     * @param out     Client message packer.
      * @param handler Query event handler.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcDatabaseMetadataHandler handler
     ) {
         var req = new JdbcMetaSchemasRequest();
 
         req.readBinary(in);
 
-        return handler.schemasMetaAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.schemasMetaAsync(req).thenApply(res -> res::writeBinary);
     }
 }

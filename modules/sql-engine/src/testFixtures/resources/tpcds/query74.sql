@@ -3,7 +3,7 @@ with year_total as (
  select c_customer_id customer_id
        ,c_first_name customer_first_name
        ,c_last_name customer_last_name
-       ,d_year as year
+       ,d_year as "year"
        ,sum(ss_net_paid) year_total
        ,'s' sale_type
  from customer
@@ -20,7 +20,7 @@ with year_total as (
  select c_customer_id customer_id
        ,c_first_name customer_first_name
        ,c_last_name customer_last_name
-       ,d_year as year
+       ,d_year as "year"
        ,sum(ws_net_paid) year_total
        ,'w' sale_type
  from customer
@@ -47,10 +47,10 @@ with year_total as (
          and t_w_firstyear.sale_type = 'w'
          and t_s_secyear.sale_type = 's'
          and t_w_secyear.sale_type = 'w'
-         and t_s_firstyear.year = 1998
-         and t_s_secyear.year = 1998+1
-         and t_w_firstyear.year = 1998
-         and t_w_secyear.year = 1998+1
+         and t_s_firstyear."year" = 1998
+         and t_s_secyear."year" = 1998+1
+         and t_w_firstyear."year" = 1998
+         and t_w_secyear."year" = 1998+1
          and t_s_firstyear.year_total > 0
          and t_w_firstyear.year_total > 0
          and case when t_w_firstyear.year_total > 0 then t_w_secyear.year_total / t_w_firstyear.year_total else null end

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
@@ -55,7 +54,7 @@ import org.jetbrains.annotations.TestOnly;
 /** Schema-aware configuration generator. */
 public class ConfigurationTreeGenerator implements ManuallyCloseable {
 
-    private final Map<String, RootKey<?, ?>> rootKeys;
+    private final Map<String, RootKey<?, ?, ?>> rootKeys;
 
     @Nullable
     private ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
@@ -66,7 +65,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @param rootKeys Root keys.
      */
     @TestOnly
-    public ConfigurationTreeGenerator(RootKey<?, ?>... rootKeys) {
+    public ConfigurationTreeGenerator(RootKey<?, ?, ?>... rootKeys) {
         this(List.of(rootKeys), Set.of(), Set.of());
     }
 
@@ -78,7 +77,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @param polymorphicSchemaExtensions Polymorphic schema extensions.
      */
     public ConfigurationTreeGenerator(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             Collection<Class<?>> schemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions) {
 
@@ -101,7 +100,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
         assert generator != null : "ConfigurationTreeGenerator is already closed";
 
         SuperRoot superRoot = new SuperRoot(rootCreator());
-        for (RootKey<?, ?> rootKey : rootKeys.values()) {
+        for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
             superRoot.addRoot(rootKey, createRootNode(rootKey));
         }
 
@@ -115,7 +114,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @param changer Configuration changer instance to pass into constructor.
      * @return Configuration instance.
      */
-    public synchronized DynamicConfiguration<?, ?> instantiateCfg(RootKey<?, ?> rootKey, DynamicConfigurationChanger changer) {
+    public synchronized DynamicConfiguration<?, ?> instantiateCfg(RootKey<?, ?, ?> rootKey, DynamicConfigurationChanger changer) {
         assert generator != null : "ConfigurationTreeGenerator is already closed";
 
         return generator.instantiateCfg(rootKey, changer);
@@ -136,13 +135,13 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     /**
      * Creates new instance of root {@code *Node} class corresponding to the given root key.
      */
-    public synchronized InnerNode createRootNode(RootKey<?, ?> rootKey) {
+    public synchronized InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {
         return instantiateNode(rootKey.schemaClass());
     }
 
     private Function<String, RootInnerNode> rootCreator() {
         return key -> {
-            RootKey<?, ?> rootKey = rootKeys.get(key);
+            RootKey<?, ?, ?> rootKey = rootKeys.get(key);
 
             return rootKey == null ? null : new RootInnerNode(rootKey, createRootNode(rootKey));
         };
@@ -162,7 +161,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @return set of all schema classes
      */
     private static Set<Class<?>> collectAllSchemas(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {

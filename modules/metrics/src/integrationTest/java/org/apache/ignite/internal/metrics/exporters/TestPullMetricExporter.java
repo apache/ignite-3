@@ -28,20 +28,21 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
  * Simple pull exporter, which simulate the pull principe throw primitive wait/notify API
  * instead of the complex TCP/IP etc. endpoints.
  */
 @AutoService(MetricExporter.class)
-public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsExporterView> {
+public class TestPullMetricExporter extends BasicMetricExporter {
     public static final String EXPORTER_NAME = "testPull";
 
     private static OutputStream outputStream;
 
     private static final Object obj = new Object();
 
-    ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     public static void setOutputStream(OutputStream outputStream) {
         TestPullMetricExporter.outputStream = outputStream;
@@ -57,7 +58,7 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     }
 
     @Override
-    public void start(MetricProvider metricProvider, TestPullMetricsExporterView conf, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public void start(MetricProvider metricProvider, ExporterView conf, Supplier<UUID> clusterIdSupplier, String nodeName) {
         super.start(metricProvider, conf, clusterIdSupplier, nodeName);
 
         executorService.execute(() -> {
@@ -66,7 +67,7 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
 
                 var report = new StringBuilder();
 
-                for (MetricSet metricSet : metrics().get1().values()) {
+                for (MetricSet metricSet : snapshot().metrics().values()) {
                     report.append(metricSet.name()).append(":\n");
 
                     for (Metric metric : metricSet) {
@@ -101,11 +102,7 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     }
 
     @Override
-    public void addMetricSet(MetricSet metricSet) {
-    }
-
-    @Override
-    public void removeMetricSet(String metricSetName) {
+    public void reconfigure(ExporterView newValue) {
     }
 
     private void waitForRequest() {

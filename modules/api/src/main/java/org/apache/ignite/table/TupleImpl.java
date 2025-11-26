@@ -68,7 +68,21 @@ class TupleImpl implements Tuple, Serializable {
      * @param capacity Initial capacity.
      */
     TupleImpl(int capacity) {
-        this(new HashMap<>(capacity), new ArrayList<>(capacity), new ArrayList<>(capacity));
+        this(new HashMap<>(capacity(capacity)), new ArrayList<>(capacity), new ArrayList<>(capacity));
+    }
+
+    // Copied from IgniteUtils, because it's not accessible from this module.
+    // FIXME: https://issues.apache.org/jira/browse/IGNITE-26228
+    private static int capacity(int expSize) {
+        if (expSize < 3) {
+            return expSize + 1;
+        }
+
+        if (expSize < (1 << 30)) {
+            return expSize + expSize / 3;
+        }
+
+        return Integer.MAX_VALUE; // any large value
     }
 
     /**
@@ -416,7 +430,8 @@ class TupleImpl implements Tuple, Serializable {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(columnName(i)).append('=').append((Object) value(i));
+            Object value = value(i);
+            b.append(columnName(i)).append('=').append(value);
         }
         b.append(']');
 

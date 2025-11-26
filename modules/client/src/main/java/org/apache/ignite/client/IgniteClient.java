@@ -22,6 +22,7 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TI
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -108,6 +110,10 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /** Operation timeout. */
         private long operationTimeout = DFLT_OPERATION_TIMEOUT;
+
+        private int sqlPartitionAwarenessMetadataCacheSize = DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
+
+        private @Nullable String name;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -342,6 +348,65 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         }
 
         /**
+         * Sets the size of cache to store partition awareness metadata of sql queries, in number of entries. Default is
+         * {@value IgniteClientConfiguration#DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
+         *
+         * <p>SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
+         * relevant data, minimizing network overhead. Ignite client builds the metadata cache during the initial query execution and
+         * leverages this cache to speed up subsequent queries.
+         *
+         * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve
+         * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available for
+         * queries which have equality predicate over all colocation columns, or which inserts the whole tuple. Let's consider the following
+         * example:
+         * <pre>
+         *     // Creates reservations table. Please mind the {@code COLOCATE BY (floor_no)}: all reservations are colocated by
+         *     // {@code floor_no}.
+         *     CREATE TABLE RoomsReservations (room_no INT, floor_no INT, PRIMARY_KEY (room_no, floor_no)) COLOCATE BY (floor_no);
+         *
+         *     // Here, we are selecting all reserved rooms on a particular floor. All reservation are colocated by {@code floor_no},
+         *     // therefore having predicate like {@code floor_no = ?} make it possible to compute a partition which keeps the data of
+         *     // interest. Which in turn makes it possible to send the query directly to the node that hold the relevant data.
+         *     SELECT room_no FROM RoomsReservations WHERE floor_no = ?;
+         *
+         *     // Similar with INSERT: since values of dynamic parameters are known on a client, it makes it possible to route the
+         *     // query directly to the node that hold the relevant data.
+         *     INSERT INTO RoomsReservations(room_no, floor_no) VALUES(?, ?);
+         * </pre>
+         *
+         * @param size Cache size, in number of entries.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder sqlPartitionAwarenessMetadataCacheSize(int size) {
+            if (size < 0) {
+                throw new IllegalArgumentException("Partition awareness metadata cache size [" + size + "] "
+                        + "must be a non-negative integer value.");
+            }
+
+            this.sqlPartitionAwarenessMetadataCacheSize = size;
+
+            return this;
+        }
+
+        /**
+         * Sets the client name. Default is {@code null}, which means that Ignite will generate a unique name automatically.
+         *
+         * <p>Client name is used for identifying clients in JMX metrics. The name is only used locally and is not sent to the server.
+         *
+         * <p>If multiple clients with the same exist in the same JVM, JMX metrics will be exposed only for one of them.
+         * Others will log an error.
+         *
+         * @param name Client name.
+         * @return This instance.
+         */
+        public Builder name(@Nullable String name) {
+            this.name = name;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -369,7 +434,10 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     sslConfiguration,
                     metricsEnabled,
                     authenticator,
-                    operationTimeout);
+                    operationTimeout,
+                    sqlPartitionAwarenessMetadataCacheSize,
+                    name
+            );
 
             return TcpIgniteClient.startAsync(cfg);
         }

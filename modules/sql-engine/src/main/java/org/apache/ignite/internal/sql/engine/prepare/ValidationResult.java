@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ValidationResult holder.
@@ -28,11 +29,11 @@ import org.apache.calcite.sql.SqlNode;
 public class ValidationResult {
     private final SqlNode sqlNode;
 
-    private final RelDataType dataType;
+    @Nullable private final RelDataType dataType;
 
-    private final List<List<String>> origins;
+    @Nullable private final List<List<String>> origins;
 
-    private final List<String> aliases;
+    @Nullable private final List<String> aliases;
 
     /**
      * Constructor.
@@ -42,11 +43,28 @@ public class ValidationResult {
      * @param origins  Type fields provenance.
      * @param aliases  Derived column names.
      */
-    ValidationResult(SqlNode sqlNode, RelDataType dataType, List<List<String>> origins, List<String> aliases) {
+    ValidationResult(
+            SqlNode sqlNode,
+            RelDataType dataType,
+            List<List<String>> origins,
+            List<String> aliases
+    ) {
         this.sqlNode = sqlNode;
         this.dataType = dataType;
         this.origins = origins;
         this.aliases = aliases;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param sqlNode  Validated SQL node.
+     */
+    ValidationResult(SqlNode sqlNode) {
+        this.sqlNode = sqlNode;
+        this.dataType = null;
+        this.origins = null;
+        this.aliases = null;
     }
 
     /**
@@ -59,19 +77,19 @@ public class ValidationResult {
     /**
      * Get validated type.
      */
-    public RelDataType dataType() {
+    @Nullable public RelDataType dataType() {
         return dataType;
     }
 
     /**
      * Get type fields provenance.
      */
-    public List<List<String>> origins() {
+    @Nullable public List<List<String>> origins() {
         return origins;
     }
 
     /** Return alternatively derived column names. */
-    public List<String> aliases() {
+    @Nullable public List<String> aliases() {
         return aliases;
     }
 }

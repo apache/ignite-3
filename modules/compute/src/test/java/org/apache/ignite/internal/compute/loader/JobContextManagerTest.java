@@ -51,6 +51,8 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundExc
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,9 +62,13 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(WorkDirectoryExtension.class)
 class JobContextManagerTest extends BaseIgniteAbstractTest {
 
     private final Path unitsDir = getPath(JobClassLoaderFactory.class.getClassLoader().getResource("units"));
+
+    @WorkDirectory
+    private Path workDir;
 
     @Spy
     private IgniteDeployment deployment = new DummyIgniteDeployment(unitsDir);
@@ -75,7 +81,7 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         FileDeployerService deployerService = new FileDeployerService("test");
-        deployerService.initUnitsFolder(unitsDir);
+        deployerService.initUnitsFolder(unitsDir, workDir.resolve("tempDeployment"));
 
         classLoaderManager = new JobContextManager(
                 deployment,
@@ -99,8 +105,7 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
                 })
                 .collect(Collectors.toList());
 
-
-        JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, new URL[0], getClass().getClassLoader());
+        JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, getClass().getClassLoader());
         doReturn(toBeReturned)
                 .when(jobClassLoaderFactory).createClassLoader(deploymentUnits);
 
@@ -128,11 +133,9 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
 
         try (JobClassLoader toBeReturned1 = new JobClassLoader(
                 disposableVersion1,
-                extractUrls(disposableVersion1),
                 getClass().getClassLoader());
                 JobClassLoader toBeReturned2 = new JobClassLoader(
                         disposableVersion2,
-                        extractUrls(disposableVersion2),
                         getClass().getClassLoader())
         ) {
 

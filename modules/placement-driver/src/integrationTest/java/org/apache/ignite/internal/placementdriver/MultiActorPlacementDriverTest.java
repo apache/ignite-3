@@ -43,9 +43,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -105,6 +108,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
@@ -276,6 +282,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     nodeClock,
                     eventsClientListener
             );
@@ -323,7 +330,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     clockService,
                     mock(FailureProcessor.class),
-                    replicationConfiguration
+                    new SystemPropertiesNodeProperties(),
+                    replicationConfiguration,
+                    Runnable::run,
+                    mock(MetricManager.class),
+                    zoneId -> completedFuture(Set.of()),
+                    zoneId -> null
             );
 
             res.add(new Node(
@@ -406,7 +418,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         assertEquals(newLeader, msRaftClient.leader());
     }
-
 
     @Test
     public void testLeaseProlongAfterRedirect() throws Exception {

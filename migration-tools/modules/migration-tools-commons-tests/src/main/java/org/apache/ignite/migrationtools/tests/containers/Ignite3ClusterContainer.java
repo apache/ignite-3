@@ -21,7 +21,10 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -29,6 +32,7 @@ import java.util.stream.Stream;
 import org.apache.ignite3.client.IgniteClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -39,19 +43,17 @@ import org.testcontainers.utility.MountableFile;
 
 /** Ignite 3 cluster container. */
 public class Ignite3ClusterContainer implements Startable {
-
-    public static final String DOCKER_IMAGE_NAME = "apacheignite/ignite:" + System.getProperty("ignite3.docker.version", "latest");
-
     private static Path COMPUTE_LIBS_FOLDER = Path.of("build/dependency");
 
     private static final Logger LOGGER = LogManager.getLogger(Ignite3ClusterContainer.class);
 
     public final Network network;
 
-
     public final GenericContainer node;
 
     private BufferedWriter logWriter;
+
+    private @Nullable Map.Entry<String, String> credentials;
 
     public Ignite3ClusterContainer() {
         this(Network.newNetwork());
@@ -64,12 +66,19 @@ public class Ignite3ClusterContainer implements Startable {
      */
     public Ignite3ClusterContainer(Network network) {
         this.network = network;
-        this.node = new GenericContainer(DOCKER_IMAGE_NAME)
+        String imageName = dockerImageName();
+        this.node = new GenericContainer(imageName)
                 .withNetwork(network)
                 .withNetworkAliases("ai3.node.1")
                 .withCommand("--node-name clusterNode1")
                 .withExposedPorts(10800)
                 .waitingFor(Wait.forLogMessage(".*Components started.*", 1));
+    }
+
+    /** Sets the credentials for this cluster. */
+    public Ignite3ClusterContainer withCredentials(@Nullable Map.Entry<String, String> credentials) {
+        this.credentials = credentials;
+        return this;
     }
 
     /**
@@ -139,13 +148,25 @@ public class Ignite3ClusterContainer implements Startable {
 
         Container.ExecResult execRes = null;
         try {
-            execRes = this.node.execInContainer(
-                    "/opt/ignite3cli/bin/ignite3",
-                    "cluster",
-                    "init",
-                    "--name=ignite-cluster",
-                    "--url=http://127.0.0.1:10300",
-                    "--metastorage-group=clusterNode1");
+            List<String> args = new ArrayList<>(
+                    List.of(
+                            "/opt/ignite3cli/bin/ignite3",
+                            "cluster",
+                            "init",
+                            "--name=ignite-cluster",
+                            "--url=http://127.0.0.1:10300",
+                            "--metastorage-group=clusterNode1")
+            );
+
+            if (credentials != null) {
+                String credentialsArg = String.format(
+                        "--config=ignite{security{enabled:true,authentication.providers:[{name:default,type:basic,users:"
+                        + "[{username:%s,password:%s}]}]}}", credentials.getKey(), credentials.getValue());
+
+                args.add(credentialsArg);
+            }
+
+            execRes = this.node.execInContainer(args.toArray(String[]::new));
 
             if (execRes.getExitCode() != 0) {
                 throw new RuntimeException("Could not init cluster: " + execRes.getStderr());
@@ -172,6 +193,10 @@ public class Ignite3ClusterContainer implements Startable {
         }
     }
 
+    public String getInternalAddress() {
+        return this.node.getNetworkAliases().get(0) + ":" + 10800;
+    }
+
     public String getAddress() {
         return this.node.getHost() + ":" + this.node.getFirstMappedPort();
     }
@@ -182,5 +207,19 @@ public class Ignite3ClusterContainer implements Startable {
 
     public IgniteClient buildClient() {
         return clientBuilder().build();
+    }
+
+    /**
+     * Retrieves the ignite 3 docker image name which should be used in the tests.
+     *
+     * @return The docker image name.
+     */
+    public static String dockerImageName() {
+        String imageName = System.getProperty("ignite3.docker.image");
+        if (imageName == null) {
+            throw new IllegalArgumentException("ignite3.docker.image property must be defined");
+        }
+
+        return imageName;
     }
 }

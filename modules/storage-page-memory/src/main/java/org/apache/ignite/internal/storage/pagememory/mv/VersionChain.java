@@ -43,8 +43,8 @@ public class VersionChain extends VersionChainKey {
     /** Transaction id (part of transaction state). */
     private final @Nullable UUID transactionId;
 
-    /** Commit table id (part of transaction state). */
-    private final @Nullable Integer commitTableId;
+    /** Commit zone id (part of transaction state). */
+    private final @Nullable Integer commitZoneId;
 
     /** Commit partition id (part of transaction state). */
     private final int commitPartitionId;
@@ -52,11 +52,11 @@ public class VersionChain extends VersionChainKey {
     /**
      * Constructor.
      */
-    private VersionChain(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitTableId, int commitPartitionId, long headLink,
+    private VersionChain(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitZoneId, int commitPartitionId, long headLink,
             long nextLink) {
         super(rowId);
         this.transactionId = transactionId;
-        this.commitTableId = commitTableId;
+        this.commitZoneId = commitZoneId;
         this.commitPartitionId = commitPartitionId;
         this.headLink = headLink;
         this.nextLink = nextLink;
@@ -66,9 +66,9 @@ public class VersionChain extends VersionChainKey {
         return new VersionChain(rowId, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, headLink, nextLink);
     }
 
-    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, int commitTableId, int commitPartitionId, long headLink,
+    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, int commitZoneId, int commitPartitionId, long headLink,
             long nextLink) {
-        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
+        return new VersionChain(rowId, transactionId, commitZoneId, commitPartitionId, headLink, nextLink);
     }
 
     /**
@@ -79,10 +79,10 @@ public class VersionChain extends VersionChainKey {
     }
 
     /**
-     * Returns a commit table id, associated with a chain's head, or {@code null} if head is already committed.
+     * Returns a commit zone id, associated with a chain's head, or {@code null} if head is already committed.
      */
-    public @Nullable Integer commitTableId() {
-        return commitTableId;
+    public @Nullable Integer commitZoneId() {
+        return commitZoneId;
     }
 
     /**
@@ -151,7 +151,7 @@ public class VersionChain extends VersionChainKey {
      * @param nextLink New next link.
      */
     public VersionChain withNextLink(long nextLink) {
-        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
+        return new VersionChain(rowId, transactionId, commitZoneId, commitPartitionId, headLink, nextLink);
     }
 
     @Override

@@ -345,7 +345,7 @@ public class Jobs {
                 TaskExecutionContext taskContext,
                 @Nullable List<String> input) {
 
-            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().cluster().nodes());
             nodes.sort(comparing(ClusterNode::name));
 
             var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
@@ -387,7 +387,7 @@ public class Jobs {
     public static class MapReduceTuples implements MapReduceTask<Tuple, Tuple, Tuple, Tuple> {
         @Override
         public CompletableFuture<List<MapReduceJob<Tuple, Tuple>>> splitAsync(TaskExecutionContext taskContext, @Nullable Tuple input) {
-            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().cluster().nodes());
             Tuple jobsInput = Tuple.copy(input);
             jobsInput.set("split", "call");
 
@@ -434,7 +434,7 @@ public class Jobs {
                 @Nullable TwoStringPojo input
         ) {
 
-            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().cluster().nodes());
 
             var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                     .argumentMarshaller(new ArgumentStringMarshaller())

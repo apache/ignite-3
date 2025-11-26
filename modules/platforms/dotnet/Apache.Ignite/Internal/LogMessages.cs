@@ -200,11 +200,11 @@ internal static partial class LogMessages
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 
     [LoggerMessage(
-        Message = "Received response [requestId={RequestId}, flags={Flags}, remoteAddress={RemoteAddress}]",
+        Message = "Received response [requestId={RequestId}, op={Op}, flags={Flags}, remoteAddress={RemoteAddress}, duration={Duration}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
-        this ILogger logger, long requestId, ResponseFlags flags, EndPoint remoteAddress);
+        this ILogger logger, long requestId, ClientOp op, ResponseFlags flags, EndPoint remoteAddress, TimeSpan? duration);
 
     [LoggerMessage(
         Message = "Failed to send server op response [requestId={RequestId}, message={Message}]",
@@ -219,4 +219,18 @@ internal static partial class LogMessages
         EventId = 1029)]
     internal static partial void LogServerOpTrace(
         this ILogger logger, long requestId, int op, ServerOp opType, EndPoint remoteAddress);
+
+    [LoggerMessage(
+        Message = "Table op failed [op={Op}]",
+        Level = LogLevel.Debug,
+        EventId = 1030)]
+    internal static partial void LogFailedTableOpDebug(
+        this ILogger logger, Exception e, ClientOp op);
+
+    [LoggerMessage(
+        Message = "Failed to dispose socket",
+        Level = LogLevel.Warning,
+        EventId = 1031)]
+    internal static partial void LogFailedSocketDispose(
+        this ILogger logger, Exception e);
 }

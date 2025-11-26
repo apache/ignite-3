@@ -26,7 +26,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
@@ -34,7 +33,6 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.message.ScaleCubeMessageBuilder;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import reactor.core.Disposable;
@@ -73,9 +71,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
 
-    /** Topology service. */
-    private final ScaleCubeTopologyService topologyService;
-
     /** Node address. */
     private final Address address;
 
@@ -84,18 +79,15 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      *
      * @param localAddress Local address.
      * @param messagingService Messaging service.
-     * @param topologyService Topology service.
      * @param messageFactory  Message factory.
      */
     ScaleCubeDirectMarshallerTransport(
             Address localAddress,
             MessagingService messagingService,
-            ScaleCubeTopologyService topologyService,
             NetworkMessagesFactory messageFactory
     ) {
         this.address = localAddress;
         this.messagingService = messagingService;
-        this.topologyService = topologyService;
         this.messageFactory = messageFactory;
 
         this.messagingService.addMessageHandler(NetworkMessageTypes.class, (message, sender, correlationId) -> onMessage(message));
@@ -157,14 +149,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         var addr = new NetworkAddress(address.host(), address.port());
 
         return Mono.fromFuture(() -> {
-            ClusterNode node = topologyService.getByAddress(addr);
-
-            // Create a fake node for nodes that are not in the topology yet
-            if (node == null) {
-                node = new ClusterNodeImpl(null, null, addr);
-            }
-
-            return messagingService.send(node, SCALE_CUBE_CHANNEL_TYPE, fromMessage(message));
+            return messagingService.send(addr, SCALE_CUBE_CHANNEL_TYPE, fromMessage(message));
         });
     }
 

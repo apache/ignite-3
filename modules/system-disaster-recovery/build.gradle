@@ -32,9 +32,6 @@ dependencies {
     implementation project(':ignite-metastorage')
     implementation libs.jetbrains.annotations
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation testFixtures(project(":ignite-core"))
     testImplementation testFixtures(project(":ignite-cluster-management"))
     testImplementation testFixtures(project(":ignite-network"))
@@ -57,6 +54,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.okhttp.core
 }
 
 description = 'ignite-system-disaster-recovery'

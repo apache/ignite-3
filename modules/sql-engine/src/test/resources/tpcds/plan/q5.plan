@@ -1,0 +1,202 @@
+Sort
+    collation: [CHANNEL ASC, ID ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      group: [CHANNEL, ID]
+      groupSets: [[CHANNEL, ID], [CHANNEL], []]
+      aggregation: [SUM(SALES), SUM(RETURNS), SUM(PROFIT)]
+      est: (rows=1529126614865)
+    UnionAll
+        est: (rows=1532000739400)
+      Project
+          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):VARCHAR(28) CHARACTER SET "UTF-8", SALES, RETURNS, PROFIT]
+          est: (rows=3124078767)
+        Project
+            fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
+            projection: [_UTF-8'store channel', ||(_UTF-8'store', S_STORE_ID), SALES, RETURNS, -(PROFIT, PROFIT_LOSS)]
+            est: (rows=3124078767)
+          ColocatedHashAggregate
+              fieldNames: [S_STORE_ID, SALES, PROFIT, RETURNS, PROFIT_LOSS]
+              group: [S_STORE_ID]
+              aggregation: [SUM(SALES_PRICE), SUM(PROFIT), SUM(RETURN_AMT), SUM(NET_LOSS)]
+              est: (rows=3124078767)
+            Project
+                fieldNames: [S_STORE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                projection: [S_STORE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                est: (rows=15620393834)
+              MergeJoin
+                  predicate: =(STORE_SK, S_STORE_SK)
+                  type: inner
+                  est: (rows=15620393834)
+                HashJoin
+                    predicate: =(DATE_SK, D_DATE_SK)
+                    type: inner
+                    est: (rows=8677996574)
+                  Exchange
+                      distribution: single
+                      est: (rows=3167918)
+                    Sort
+                        collation: [STORE_SK ASC]
+                        est: (rows=3167918)
+                      UnionAll
+                          est: (rows=3167918)
+                        TableScan
+                            table: PUBLIC.STORE_SALES
+                            fieldNames: [STORE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                            projection: [SS_STORE_SK, SS_SOLD_DATE_SK, SS_EXT_SALES_PRICE, SS_NET_PROFIT, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2)]
+                            est: (rows=2880404)
+                        TableScan
+                            table: PUBLIC.STORE_RETURNS
+                            fieldNames: [STORE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                            projection: [SR_STORE_SK, SR_RETURNED_DATE_SK, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2), SR_RETURN_AMT, SR_NET_LOSS]
+                            est: (rows=287514)
+                  Exchange
+                      distribution: single
+                      est: (rows=18262)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: SEARCH(D_DATE, Sarg[[2000-08-19..2000-09-02]])
+                        fieldNames: [D_DATE_SK, D_DATE]
+                        est: (rows=18262)
+                Exchange
+                    distribution: single
+                    est: (rows=12)
+                  Sort
+                      collation: [S_STORE_SK ASC]
+                      est: (rows=12)
+                    TableScan
+                        table: PUBLIC.STORE
+                        fieldNames: [S_STORE_SK, S_STORE_ID]
+                        est: (rows=12)
+      Project
+          fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
+          projection: [_UTF-8'catalog channel', ||(_UTF-8'catalog_page', CP_CATALOG_PAGE_ID), SALES, RETURNS, -(PROFIT, PROFIT_LOSS)]
+          est: (rows=1526926163852)
+        ColocatedHashAggregate
+            fieldNames: [CP_CATALOG_PAGE_ID, SALES, PROFIT, RETURNS, PROFIT_LOSS]
+            group: [CP_CATALOG_PAGE_ID]
+            aggregation: [SUM(SALES_PRICE), SUM(PROFIT), SUM(RETURN_AMT), SUM(NET_LOSS)]
+            est: (rows=1526926163852)
+          Project
+              fieldNames: [CP_CATALOG_PAGE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+              projection: [CP_CATALOG_PAGE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+              est: (rows=7634630819261)
+            MergeJoin
+                predicate: =(PAGE_SK, CP_CATALOG_PAGE_SK)
+                type: inner
+                est: (rows=7634630819261)
+              HashJoin
+                  predicate: =(DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=4343534630)
+                Exchange
+                    distribution: single
+                    est: (rows=1585615)
+                  Sort
+                      collation: [PAGE_SK ASC]
+                      est: (rows=1585615)
+                    UnionAll
+                        est: (rows=1585615)
+                      TableScan
+                          table: PUBLIC.CATALOG_SALES
+                          fieldNames: [PAGE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                          projection: [CS_CATALOG_PAGE_SK, CS_SOLD_DATE_SK, CS_EXT_SALES_PRICE, CS_NET_PROFIT, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2)]
+                          est: (rows=1441548)
+                      TableScan
+                          table: PUBLIC.CATALOG_RETURNS
+                          fieldNames: [PAGE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                          projection: [CR_CATALOG_PAGE_SK, CR_RETURNED_DATE_SK, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2), CR_RETURN_AMOUNT, CR_NET_LOSS]
+                          est: (rows=144067)
+                Exchange
+                    distribution: single
+                    est: (rows=18262)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: SEARCH(D_DATE, Sarg[[2000-08-19..2000-09-02]])
+                      fieldNames: [D_DATE_SK, D_DATE]
+                      est: (rows=18262)
+              Exchange
+                  distribution: single
+                  est: (rows=11718)
+                Sort
+                    collation: [CP_CATALOG_PAGE_SK ASC]
+                    est: (rows=11718)
+                  TableScan
+                      table: PUBLIC.CATALOG_PAGE
+                      fieldNames: [CP_CATALOG_PAGE_SK, CP_CATALOG_PAGE_ID]
+                      est: (rows=11718)
+      Project
+          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):VARCHAR(28) CHARACTER SET "UTF-8", SALES, RETURNS, PROFIT]
+          est: (rows=1950496781)
+        Project
+            fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
+            projection: [_UTF-8'web channel', ||(_UTF-8'web_site', WEB_SITE_ID), SALES, RETURNS, -(PROFIT, PROFIT_LOSS)]
+            est: (rows=1950496781)
+          ColocatedHashAggregate
+              fieldNames: [WEB_SITE_ID, SALES, PROFIT, RETURNS, PROFIT_LOSS]
+              group: [WEB_SITE_ID]
+              aggregation: [SUM(SALES_PRICE), SUM(PROFIT), SUM(RETURN_AMT), SUM(NET_LOSS)]
+              est: (rows=1950496781)
+            Project
+                fieldNames: [WEB_SITE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                projection: [WEB_SITE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                est: (rows=9752483903)
+              MergeJoin
+                  predicate: =(WSR_WEB_SITE_SK, WEB_SITE_SK)
+                  type: inner
+                  est: (rows=9752483903)
+                HashJoin
+                    predicate: =(DATE_SK, D_DATE_SK)
+                    type: inner
+                    est: (rows=2167218645)
+                  Exchange
+                      distribution: single
+                      est: (rows=791147)
+                    Sort
+                        collation: [WSR_WEB_SITE_SK ASC]
+                        est: (rows=791147)
+                      UnionAll
+                          est: (rows=791147)
+                        TableScan
+                            table: PUBLIC.WEB_SALES
+                            fieldNames: [WSR_WEB_SITE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                            projection: [WS_WEB_SITE_SK, WS_SOLD_DATE_SK, WS_EXT_SALES_PRICE, WS_NET_PROFIT, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2)]
+                            est: (rows=719384)
+                        Project
+                            fieldNames: [WSR_WEB_SITE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                            projection: [WS_WEB_SITE_SK, WR_RETURNED_DATE_SK, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2), WR_RETURN_AMT, WR_NET_LOSS]
+                            est: (rows=71763)
+                          HashJoin
+                              predicate: AND(=(WR_ITEM_SK, WS_ITEM_SK), =(WR_ORDER_NUMBER, WS_ORDER_NUMBER))
+                              type: left
+                              est: (rows=71763)
+                            Exchange
+                                distribution: table PUBLIC.WEB_SALES in zone "Default" by [WR_ITEM_SK, WR_ORDER_NUMBER]
+                                est: (rows=71763)
+                              TableScan
+                                  table: PUBLIC.WEB_RETURNS
+                                  fieldNames: [WR_RETURNED_DATE_SK, WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_AMT, WR_NET_LOSS]
+                                  est: (rows=71763)
+                            TableScan
+                                table: PUBLIC.WEB_SALES
+                                fieldNames: [WS_ITEM_SK, WS_WEB_SITE_SK, WS_ORDER_NUMBER]
+                                est: (rows=719384)
+                  Exchange
+                      distribution: single
+                      est: (rows=18262)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: SEARCH(D_DATE, Sarg[[2000-08-19..2000-09-02]])
+                        fieldNames: [D_DATE_SK, D_DATE]
+                        est: (rows=18262)
+                Exchange
+                    distribution: single
+                    est: (rows=30)
+                  Sort
+                      collation: [WEB_SITE_SK ASC]
+                      est: (rows=30)
+                    TableScan
+                        table: PUBLIC.WEB_SITE
+                        fieldNames: [WEB_SITE_SK, WEB_SITE_ID]
+                        est: (rows=30)

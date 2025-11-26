@@ -20,13 +20,7 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -34,6 +28,8 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -42,10 +38,10 @@ import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
-import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -77,9 +73,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  */
 public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
         implements CatalogManager, SystemViewProvider {
-    /** Default zone name. */
-    public static final String DEFAULT_ZONE_NAME = "Default";
-
     private static final int MAX_RETRY_COUNT = 10;
 
     /** The logger. */
@@ -189,8 +182,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public int latestCatalogVersion() {
-        return catalogByVer.lastEntry().getKey();
+    public Catalog latestCatalog() {
+        return catalogByVer.lastEntry().getValue();
     }
 
     @Override
@@ -262,22 +255,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private CompletableFuture<Void> initCatalog(Catalog emptyCatalog) {
         List<CatalogCommand> initCommands = List.of(
-                // Init default zone
-                CreateZoneCommand.builder()
-                        .zoneName(DEFAULT_ZONE_NAME)
-                        .partitions(DEFAULT_PARTITION_COUNT)
-                        .replicas(DEFAULT_REPLICA_COUNT)
-                        .quorumSize(DEFAULT_ZONE_QUORUM_SIZE)
-                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds())
-                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                        .filter(DEFAULT_FILTER)
-                        .storageProfilesParams(
-                                List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
-                        )
-                        .build(),
-                AlterZoneSetDefaultCommand.builder()
-                        .zoneName(DEFAULT_ZONE_NAME)
-                        .build(),
                 // Add schemas
                 CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
                 CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
@@ -287,7 +264,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
-                    if (error != null) {
+                    if (error != null && !hasCause(error, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
                     }
 
@@ -456,7 +433,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return catalogSystemViewProvider.systemViews();
     }
 
-    class OnUpdateHandlerImpl implements OnUpdateHandler {
+    private class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (event instanceof SnapshotEntry) {
@@ -467,7 +444,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         }
 
         private CompletableFuture<Void> handle(SnapshotEntry event) {
-            Catalog catalog = event.snapshot();
+            Catalog catalog = upgradeCatalog(event.snapshot());
+
             // On recovery phase, we must register catalog from the snapshot.
             // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
             registerCatalog(catalog);
@@ -525,6 +503,48 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         }
                     });
         }
+    }
+
+    private static Catalog upgradeCatalog(Catalog snapshot) {
+        List<CatalogSchemaDescriptor> upgradedSchemas = new ArrayList<>(snapshot.schemas().size());
+        for (CatalogSchemaDescriptor schema : snapshot.schemas()) {
+            CatalogIndexDescriptor[] upgradedIndexes = upgradeIndexes(schema.tables(), schema.indexes());
+
+            upgradedSchemas.add(new CatalogSchemaDescriptor(
+                    schema.id(), schema.name(), schema.tables(), upgradedIndexes, schema.systemViews(), schema.updateTimestamp()
+            ));
+        }
+
+        return new Catalog(
+                snapshot.version(),
+                snapshot.time(),
+                snapshot.objectIdGenState(),
+                snapshot.zones(),
+                upgradedSchemas,
+                defaultZoneIdOpt(snapshot)
+        );
+    }
+
+    private static CatalogIndexDescriptor[] upgradeIndexes(
+            CatalogTableDescriptor[] tables,
+            CatalogIndexDescriptor[] indexes
+    ) {
+        Int2ObjectMap<CatalogTableDescriptor> tablesById = new Int2ObjectOpenHashMap<>();
+        for (CatalogTableDescriptor table : tables) {
+            tablesById.put(table.id(), table);
+        }
+
+        CatalogIndexDescriptor[] upgradedIndexes = new CatalogIndexDescriptor[indexes.length];
+        for (int i = 0; i < indexes.length; i++) {
+            CatalogIndexDescriptor index = indexes[i];
+            CatalogTableDescriptor table = tablesById.get(index.tableId());
+
+            assert table != null;
+
+            upgradedIndexes[i] = index.upgradeIfNeeded(table);
+        }
+
+        return upgradedIndexes;
     }
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {

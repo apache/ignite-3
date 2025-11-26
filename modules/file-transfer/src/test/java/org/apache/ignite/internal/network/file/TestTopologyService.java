@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.file;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.network.AbstractTopologyService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,53 +30,58 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestTopologyService extends AbstractTopologyService {
     @Override
-    public ClusterNode localMember() {
+    public InternalClusterNode localMember() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Collection<ClusterNode> allMembers() {
+    public Collection<InternalClusterNode> allMembers() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public @Nullable ClusterNode getByAddress(NetworkAddress addr) {
+    public Collection<InternalClusterNode> logicalTopologyMembers() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public @Nullable ClusterNode getByConsistentId(String consistentId) {
+    public @Nullable InternalClusterNode getByAddress(NetworkAddress addr) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public @Nullable ClusterNode getById(UUID id) {
+    public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public @Nullable InternalClusterNode getById(UUID id) {
         throw new UnsupportedOperationException();
     }
 
     /**
-     * Calls {@link TopologyEventHandler#onAppeared(ClusterNode)} on all registered event handlers.
+     * Calls {@link TopologyEventHandler#onAppeared(InternalClusterNode)} on all registered event handlers.
      *
      * @param member Member.
      */
-    public void fireAppearedEvent(ClusterNode member) {
+    public void fireAppearedEvent(InternalClusterNode member) {
         getEventHandlers().forEach(it -> it.onAppeared(member));
     }
 
     /**
-     * Calls {@link TopologyEventHandler#onDisappeared(ClusterNode)} on all registered event handlers.
+     * Calls {@link TopologyEventHandler#onDisappeared(InternalClusterNode)} on all registered event handlers.
      *
      * @param member Member.
      */
-    public void fireDisappearedEvent(ClusterNode member) {
+    public void fireDisappearedEvent(InternalClusterNode member) {
         getEventHandlers().forEach(it -> it.onDisappeared(member));
     }
 
     @Override
-    public void onJoined(ClusterNode node) {
+    public void onJoined(InternalClusterNode node) {
     }
 
     @Override
-    public void onLeft(ClusterNode node) {
+    public void onLeft(InternalClusterNode node) {
     }
 }

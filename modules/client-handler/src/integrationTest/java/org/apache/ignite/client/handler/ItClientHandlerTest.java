@@ -151,7 +151,6 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(); // Patch.
             unpacker.skipValue(); // Pre release.
 
-
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
@@ -159,7 +158,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(98, len);
+            assertEquals(99, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -479,7 +478,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(8); // Size.
+            packer.packInt(9); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -488,10 +487,14 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(2); // Client type: general purpose.
 
             BitSet clientFeatures = new BitSet();
-            // Supported feature
+            // Supported features
             clientFeatures.set(1);
+            clientFeatures.set(2);
+            clientFeatures.set(6);
+            clientFeatures.set(7);
+            clientFeatures.set(8);
             // Unsupported feature
-            clientFeatures.set(3);
+            clientFeatures.set(4);
 
             packer.packBinaryHeader(clientFeatures.toByteArray().length); // Features.);
             packer.writePayload(clientFeatures.toByteArray());
@@ -538,13 +541,20 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(3);
             expected.set(5);
             expected.set(6);
+            expected.set(7);
+            expected.set(8);
+            expected.set(9);
+            expected.set(10);
+            expected.set(11);
+            expected.set(12);
+            expected.set(13);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(98, len);
+            assertEquals(extensionsLen + featuresLen + 97 /* rest of the fields */, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);

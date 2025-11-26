@@ -24,11 +24,13 @@ import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,10 +47,10 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         requireNonNull(tx);
 
-        ClusterNode node = mock(ClusterNode.class);
+        InternalClusterNode node = mock(InternalClusterNode.class);
         lenient().when(node.name()).thenReturn("node");
 
-        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), node, tx.coordinatorId());
+        return internalTbl.scan(part, node, OperationContext.create(TxContext.readOnly(tx)));
     }
 
     @Override
@@ -57,7 +59,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     }
 
     @Override
-    protected void validateTxAbortedState(InternalTransaction tx) {
+    protected void validateTxFinished(InternalTransaction tx) {
         // noop since we do not store state for readonly transactions.
     }
 

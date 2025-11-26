@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.server.impl;
 
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -52,5 +54,13 @@ public class GroupStoragesContextResolver {
 
     StorageDestructionIntent getIntent(RaftNodeId nodeId, boolean isVolatile) {
         return new StorageDestructionIntent(nodeId.nodeIdStringForStorage(), groupNameResolver.apply(nodeId.groupId()), isVolatile);
+    }
+
+    Collection<Path> serverDataPaths() {
+        return List.copyOf(serverDataPathByGroupName.values());
+    }
+
+    Collection<LogStorageFactory> logStorageFactories() {
+        return List.copyOf(logStorageFactoryByGroupName.values());
     }
 }

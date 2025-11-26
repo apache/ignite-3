@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Double metric based on atomic updater of double value.
@@ -36,7 +37,7 @@ public class AtomicDoubleMetric extends AbstractMetric implements DoubleMetric {
      * @param name Name.
      * @param desc Description.
      */
-    public AtomicDoubleMetric(String name, String desc) {
+    public AtomicDoubleMetric(String name, @Nullable String desc) {
         super(name, desc);
     }
 

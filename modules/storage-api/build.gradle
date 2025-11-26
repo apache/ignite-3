@@ -21,33 +21,31 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
-    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
 
     api project(':ignite-metrics')
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-configuration')
-    implementation project(":ignite-core")
-    implementation project(":ignite-catalog")
-    implementation project(":ignite-workers")
-    implementation project(":ignite-failure-handler")
+    implementation project(':ignite-core')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-workers')
+    implementation project(':ignite-failure-handler')
     implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation libs.fastutil.core
 
-    testAnnotationProcessor project(":ignite-configuration-annotation-processor")
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-schema')
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-schema'))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
 
-    testFixturesAnnotationProcessor project(":ignite-configuration-annotation-processor")
+    testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesAnnotationProcessor libs.auto.service
 
     testFixturesImplementation project(':ignite-core')
@@ -58,17 +56,11 @@ dependencies {
     testFixturesImplementation project(':ignite-system-view-api')
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation project(':ignite-transactions')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation(testFixtures(project(':ignite-schema')))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.params
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration'))
+    testFixturesImplementation testFixtures(project(':ignite-schema'))
     testFixturesImplementation libs.auto.service.annotations
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.junit
+    testFixturesImplementation libs.fastutil.core
 }
 
 description = 'ignite-storage-api'

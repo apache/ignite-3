@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,7 +36,16 @@ public interface HybridTimestampTracker {
         }
 
         @Override
+        public long getLong() {
+            return NULL_HYBRID_TIMESTAMP;
+        }
+
+        @Override
         public void update(@Nullable HybridTimestamp ts) {
+        }
+
+        @Override
+        public void update(long ts) {
         }
     };
 
@@ -66,31 +75,20 @@ public interface HybridTimestampTracker {
             }
 
             @Override
+            public long getLong() {
+                return timestamp.get();
+            }
+
+            @Override
             public void update(@Nullable HybridTimestamp ts) {
                 long tsVal = hybridTimestampToLong(ts);
 
                 timestamp.updateAndGet(x -> Math.max(x, tsVal));
             }
-        };
-    }
-
-    /**
-     * Creates a client-managed HybridTimestampTracker based on a given initial timestamp and an update consumer.
-     *
-     * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
-     * @param updateTs A Consumer that accepts a HybridTimestamp for managing updates to the timestamp.
-     * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
-     */
-    static HybridTimestampTracker clientTracker(@Nullable HybridTimestamp intTs, Consumer<HybridTimestamp> updateTs) {
-        return new HybridTimestampTracker() {
-            @Override
-            public @Nullable HybridTimestamp get() {
-                return intTs;
-            }
 
             @Override
-            public void update(@Nullable HybridTimestamp ts) {
-                updateTs.accept(ts);
+            public void update(long ts) {
+                timestamp.updateAndGet(x -> Math.max(x, ts));
             }
         };
     }
@@ -103,9 +101,23 @@ public interface HybridTimestampTracker {
     @Nullable HybridTimestamp get();
 
     /**
+     * Get the observable timestamp as a long.
+     *
+     * @return Hybrid timestamp as a long.
+     */
+    long getLong();
+
+    /**
      * Updates the observable timestamp after an operation is executed.
      *
      * @param ts Hybrid timestamp.
      */
     void update(@Nullable HybridTimestamp ts);
+
+    /**
+     * Updates the observable timestamp after an operation is executed.
+     *
+     * @param ts Hybrid timestamp as long.
+     */
+    void update(long ts);
 }

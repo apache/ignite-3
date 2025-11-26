@@ -24,12 +24,12 @@
 #include <ignite/protocol/client_operation.h>
 
 #include <ignite/common/detail/utils.h>
+#include <ignite/common/detail/thread_timer.h>
 #include <ignite/network/async_client_pool.h>
 #include <ignite/protocol/reader.h>
 #include <ignite/protocol/writer.h>
 
 #include <atomic>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -47,6 +47,8 @@ class node_connection : public std::enable_shared_from_this<node_connection> {
     friend class cluster_connection;
 
 public:
+    typedef std::function<void(protocol::writer&, const protocol::protocol_context&)> writer_function_type;
+
     // Deleted
     node_connection() = delete;
     node_connection(node_connection &&) = delete;
@@ -67,13 +69,15 @@ public:
      * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
+     * @param timer_thread Timer thread.
      * @return New instance.
      */
     static std::shared_ptr<node_connection> make_new(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
         std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-        const ignite_client_configuration &cfg) {
+        const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> timer_thread) {
         return std::shared_ptr<node_connection>(
-            new node_connection(id, std::move(pool), std::move(event_handler), std::move(logger), cfg));
+            new node_connection(
+                id, std::move(pool), std::move(event_handler), std::move(logger), cfg, std::move(timer_thread)));
     }
 
     /**
@@ -99,7 +103,7 @@ public:
      * @param handler response handler.
      * @return A request ID on success and @c std::nullopt otherwise.
      */
-    std::optional<std::int64_t> perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
+    [[nodiscard]] std::optional<std::int64_t> perform_request(protocol::client_operation op, const writer_function_type &wr,
         std::shared_ptr<response_handler> handler) {
         auto req_id = generate_request_id();
         std::vector<std::byte> message;
@@ -110,7 +114,7 @@ public:
             protocol::writer writer(buffer);
             writer.write(std::int32_t(op));
             writer.write(req_id);
-            wr(writer);
+            wr(writer, m_protocol_context);
 
             buffer.write_length_header();
         }
@@ -140,13 +144,12 @@ public:
      * @param op Operation code.
      * @param wr Request writer function.
      * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on the result.
      * @return Channel used for the request.
      */
     template<typename T>
-    std::optional<std::int64_t> perform_request(protocol::client_operation op,
-        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
-        ignite_callback<T> callback) {
+    [[nodiscard]] std::optional<std::int64_t> perform_request(protocol::client_operation op, const writer_function_type &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
     }
@@ -157,13 +160,13 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on the result.
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_wr(
-        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
-        perform_request<T>(
+    [[nodiscard]] std::optional<std::int64_t> perform_request_wr(
+        protocol::client_operation op, const writer_function_type &wr, ignite_callback<T> callback) {
+        return perform_request<T>(
             op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
@@ -175,7 +178,7 @@ public:
     bool handshake();
 
     /**
-     * Callback that called when new message is received.
+     * Callback that called when a new message is received.
      *
      * @param msg Received message.
      */
@@ -199,6 +202,7 @@ public:
      * @return Logger associated with the connection.
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
+
 private:
     /**
      * Constructor.
@@ -208,10 +212,11 @@ private:
      * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
+     * @param timer_thread Timer thread.
      */
-    node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-        const ignite_client_configuration &cfg);
+    node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> &&pool,
+        std::weak_ptr<connection_event_handler> &&event_handler, std::shared_ptr<ignite_logger> &&logger,
+        const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> &&timer_thread);
 
     /**
      * Generate next request ID.
@@ -223,7 +228,7 @@ private:
     /**
      * Get and remove request handler.
      *
-     * @param reqId Request ID.
+     * @param req_id Request ID.
      * @return Handler.
      */
     std::shared_ptr<response_handler> get_and_remove_handler(std::int64_t req_id);
@@ -232,7 +237,7 @@ private:
      * Find handler by ID.
      * @warning Warning: m_request_handlers_mutex should be locked.
      *
-     * @param reqId Request ID.
+     * @param req_id Request ID.
      * @return Handler.
      */
     std::shared_ptr<response_handler> find_handler_unsafe(std::int64_t req_id);
@@ -243,6 +248,22 @@ private:
      * @param observable_timestamp New observable timestamp.
      */
     void on_observable_timestamp_changed(int64_t observable_timestamp) const;
+
+    /**
+     * Send a heartbeat message.
+     */
+    void send_heartbeat();
+
+    /**
+     * Heartbeat timeout event handler.
+     */
+    void on_heartbeat_timeout();
+
+    /**
+     * Plan the next heartbeat message within the specified timeout.
+     * @param timeout Timeout.
+     */
+    void plan_heartbeat(std::chrono::milliseconds timeout);
 
     /** Handshake complete. */
     bool m_handshake_complete{false};
@@ -259,6 +280,12 @@ private:
     /** Connection event handler. */
     std::weak_ptr<connection_event_handler> m_event_handler;
 
+    /** Heartbeat interval. */
+    std::chrono::milliseconds m_heartbeat_interval{0};
+
+    /** Last message timestamp. */
+    std::chrono::steady_clock::time_point m_last_message_ts{};
+
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};
 
@@ -273,6 +300,9 @@ private:
 
     /** Configuration. */
     const ignite_client_configuration &m_configuration;
+
+    /** Timer thread. */
+    std::weak_ptr<thread_timer> m_timer_thread;
 };
 
 } // namespace ignite::detail

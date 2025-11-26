@@ -45,7 +45,14 @@ std::shared_ptr<job_target> job_target::colocated(std::string_view table_name, c
     detail::arg_check::container_non_empty(table_name, "Table name");
     detail::arg_check::tuple_non_empty(key, "Key tuple");
 
-    return std::shared_ptr<job_target>{new detail::colocated_job_target{std::string{table_name}, key}};
+    return std::shared_ptr<job_target>{new detail::colocated_job_target{qualified_name::parse(table_name), key}};
+}
+
+std::shared_ptr<job_target> job_target::colocated(qualified_name table_name, const ignite_tuple &key) {
+    detail::arg_check::container_non_empty(table_name.get_schema_name(), "Table name");
+    detail::arg_check::tuple_non_empty(key, "Key tuple");
+
+    return std::shared_ptr<job_target>{new detail::colocated_job_target{table_name, key}};
 }
 
 } // namespace ignite

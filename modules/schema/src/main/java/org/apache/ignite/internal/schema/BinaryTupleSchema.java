@@ -30,7 +30,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,7 +47,7 @@ public class BinaryTupleSchema {
      * <p>To keep things simple we have the scale parameter everywhere but really use it only for Decimals.
      */
     public static final class Element {
-        final NativeTypeSpec typeSpec;
+        final ColumnType typeSpec;
 
         final int decimalScale;
 
@@ -62,7 +62,7 @@ public class BinaryTupleSchema {
         public Element(NativeType type, boolean nullable) {
             typeSpec = type.spec();
 
-            if (typeSpec == NativeTypeSpec.DECIMAL) {
+            if (typeSpec == ColumnType.DECIMAL) {
                 DecimalNativeType decimalType = (DecimalNativeType) type;
                 decimalScale = decimalType.scale();
             } else {
@@ -77,7 +77,7 @@ public class BinaryTupleSchema {
          *
          * @return Type spec.
          */
-        public NativeTypeSpec typeSpec() {
+        public ColumnType typeSpec() {
             return typeSpec;
         }
 
@@ -344,7 +344,7 @@ public class BinaryTupleSchema {
             case DECIMAL: return tuple.decimalValue(index, element.decimalScale);
             case UUID: return tuple.uuidValue(index);
             case STRING: return tuple.stringValue(index);
-            case BYTES: return tuple.bytesValue(index);
+            case BYTE_ARRAY: return tuple.bytesValue(index);
             case DATE: return tuple.dateValue(index);
             case TIME: return tuple.timeValue(index);
             case DATETIME: return tuple.dateTimeValue(index);
@@ -382,7 +382,7 @@ public class BinaryTupleSchema {
             case DOUBLE: return builder.appendDouble((double) value);
             case DECIMAL: return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID: return builder.appendUuidNotNull((UUID) value);
-            case BYTES: return builder.appendBytesNotNull((byte[]) value);
+            case BYTE_ARRAY: return builder.appendBytesNotNull((byte[]) value);
             case STRING: return builder.appendStringNotNull((String) value);
             case DATE: return builder.appendDateNotNull((LocalDate) value);
             case TIME: return builder.appendTimeNotNull((LocalTime) value);

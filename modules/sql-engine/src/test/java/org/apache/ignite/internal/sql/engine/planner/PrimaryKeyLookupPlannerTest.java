@@ -36,7 +36,10 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -192,8 +195,52 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         assertEmptyCondition((KeyValueGetPlan) plan);
     }
 
+    @Test
+    void optimizedGetWithOutOfRangeKey() {
+        node.initSchema("CREATE TABLE test (id TINYINT PRIMARY KEY, val INT)");
+
+        // Out of range: TINYINT_MAX + 1.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 128");
+
+            assertThat(plan, instanceOf(MultiStepPlan.class));
+            assertEmptyValuesNode((MultiStepPlan) plan);
+        }
+
+        // Out of range: TINYINT_MIN - 1.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -129");
+
+            assertThat(plan, instanceOf(MultiStepPlan.class));
+            assertEmptyValuesNode((MultiStepPlan) plan);
+        }
+
+        // TINYINT_MAX - no predicate expected.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 127");
+
+            assertThat(plan, instanceOf(KeyValueGetPlan.class));
+            assertKeyExpressions((KeyValueGetPlan) plan, "127:TINYINT");
+            assertEmptyCondition((KeyValueGetPlan) plan);
+        }
+
+        // TINYINT_MIN - no predicate expected.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -128");
+
+            assertThat(plan, instanceOf(KeyValueGetPlan.class));
+            assertKeyExpressions((KeyValueGetPlan) plan, "-128:TINYINT");
+            assertEmptyCondition((KeyValueGetPlan) plan);
+        }
+    }
+
+    private static void assertEmptyValuesNode(MultiStepPlan plan) {
+        assertThat(plan.getRel(), instanceOf(IgniteValues.class));
+        assertThat(((IgniteValues) plan.getRel()).tuples, Matchers.empty());
+    }
+
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.lookupNode().keyExpressions().stream()
+        List<String> keyExpressions = (plan.getRel()).keyExpressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -205,20 +252,20 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
 
     private static void assertCondition(KeyValueGetPlan plan, String expectedCondition) {
         assertThat(
-                plan.lookupNode().condition().toString(),
+                (plan.getRel()).condition().toString(),
                 equalTo(expectedCondition)
         );
     }
 
     private static void assertEmptyCondition(KeyValueGetPlan plan) {
         assertThat(
-                plan.lookupNode().condition(),
+                (plan.getRel()).condition(),
                 nullValue()
         );
     }
 
     private static void assertProjection(KeyValueGetPlan plan, String... expectedProjections) {
-        List<String> projections = plan.lookupNode().projects().stream()
+        List<String> projections = (plan.getRel()).projects().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

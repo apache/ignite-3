@@ -20,19 +20,20 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * MailboxRegistryImpl.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandler {
+public class MailboxRegistryImpl implements MailboxRegistry, LogicalTopologyEventListener {
     private static final IgniteLogger LOG = Loggers.forClass(MailboxRegistryImpl.class);
 
     private final Map<MailboxKey, CompletableFuture<Outbox<?>>> locals;
@@ -130,15 +131,9 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
 
     /** {@inheritDoc} */
     @Override
-    public void onAppeared(ClusterNode member) {
-        // NO-OP
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onDisappeared(ClusterNode member) {
-        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member.name())));
-        remotes.values().forEach(n -> n.onNodeLeft(member.name()));
+    public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(leftNode, newTopology.version())));
+        remotes.values().forEach(n -> n.onNodeLeft(leftNode, newTopology.version()));
     }
 
     private static class MailboxKey {

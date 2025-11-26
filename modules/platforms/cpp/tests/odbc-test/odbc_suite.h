@@ -17,24 +17,13 @@
 
 #pragma once
 
-#ifdef _WIN32
-# include <windows.h>
-#endif
-
 #include "ignite_runner.h"
 #include "odbc_connection.h"
-#include "odbc_test_utils.h"
 #include "test_utils.h"
 
 #include "tests/test-common/basic_auth_test_suite.h"
 
 #include <gtest/gtest.h>
-
-#include <memory>
-#include <string_view>
-
-#include <sql.h>
-#include <sqlext.h>
 
 namespace ignite {
 
@@ -43,7 +32,6 @@ namespace ignite {
  */
 class odbc_suite : public virtual ::testing::Test, public odbc_connection {
 public:
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24261 revert changing named to uppercase
     static inline const std::string TABLE_1 = "TBL1";
     static inline const std::string TABLE_NAME_ALL_COLUMNS = "TBL_ALL_COLUMNS";
     static inline const std::string TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL";
@@ -58,12 +46,22 @@ public:
      *
      * @return Addresses.
      */
-    static std::string get_nodes_address() {
+    static std::string get_nodes_address(const std::vector<std::string> &addresses) {
         std::string res;
-        for (const auto &addr : ignite_runner::get_node_addrs())
+        for (const auto &addr : addresses)
             res += addr + ',';
 
         return res;
+    }
+
+    /**
+     * Get heartbeat interval for tests.
+     *
+     * @return Heartbeat interval.
+     */
+    static std::chrono::milliseconds get_heartbeat_interval() {
+        using namespace std::chrono_literals;
+        return 2s;
     }
 
     /**
@@ -71,8 +69,30 @@ public:
      *
      * @return Addresses.
      */
-    static std::string get_basic_connection_string() {
-        return "driver={" + DRIVER_NAME + "};address=" + get_nodes_address() + ';';
+    static std::string get_nodes_address() {
+        return get_nodes_address(ignite_runner::get_node_addrs());
+    }
+
+    /**
+     * Get basic connection string with specified addresses.
+     *
+     * @return Basic connection string with specified addresses.
+     */
+    static std::string get_basic_connection_string(const std::string &addrs,
+        std::chrono::milliseconds heartbeat_interval = get_heartbeat_interval()) {
+        return "driver={" + DRIVER_NAME + "};"
+               "address=" + addrs + ";"
+               "heartbeat_interval=" + std::to_string(heartbeat_interval.count()) + ";";
+    }
+
+    /**
+     * Get basic connection string with default addresses.
+     *
+     * @return Basic connection string with default addresses.
+     */
+    static std::string get_basic_connection_string(
+        std::chrono::milliseconds heartbeat_interval = get_heartbeat_interval()) {
+        return get_basic_connection_string(get_nodes_address(), heartbeat_interval);
     }
 };
 

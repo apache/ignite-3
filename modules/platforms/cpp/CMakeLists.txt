@@ -33,7 +33,9 @@ set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 option(USE_LOCAL_DEPS "Use local dependencies." OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
+option(ENABLE_PROTOCOL "Build Ignite Protocol library" ON)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
+option(ENABLE_COMPATIBILITY_TESTS "Build Ignite.C++ compatibility tests" OFF)
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
@@ -126,7 +128,7 @@ add_subdirectory(ignite/common)
 add_subdirectory(ignite/tuple)
 
 # Add client and ODBC libraries.
-if (${ENABLE_CLIENT} OR ${ENABLE_ODBC})
+if (${ENABLE_CLIENT} OR ${ENABLE_ODBC} OR ${ENABLE_PROTOCOL})
     add_subdirectory(ignite/protocol)
     add_subdirectory(ignite/network)
 endif()
@@ -143,7 +145,7 @@ endif()
 
 # Add integration tests.
 if (${ENABLE_TESTS})
-    if (${ENABLE_CLIENT} OR ${ENABLE_ODBC})
+    if (${ENABLE_CLIENT} OR ${ENABLE_ODBC} OR ${ENABLE_COMPATIBILITY_TESTS})
         add_subdirectory(tests/test-common)
     endif()
 
@@ -153,6 +155,10 @@ if (${ENABLE_TESTS})
 
     if (${ENABLE_ODBC})
         add_subdirectory(tests/odbc-test)
+    endif()
+
+    if (${ENABLE_COMPATIBILITY_TESTS})
+        add_subdirectory(tests/compatibility-tests)
     endif()
 endif()
 

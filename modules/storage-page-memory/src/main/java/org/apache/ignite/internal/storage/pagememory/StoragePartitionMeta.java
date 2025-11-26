@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,6 +62,7 @@ public class StoragePartitionMeta extends PartitionMeta {
      * Constructor.
      *
      * @param pageCount Count of pages in the partition.
+     * @param partitionGeneration Partition generation at the time of its creation.
      * @param lastAppliedIndex Last applied index value.
      * @param lastAppliedTerm Last applied term value.
      * @param lastReplicationProtocolGroupConfigFirstPageId ID of the first page in a chain storing a blob representing last replication
@@ -72,10 +74,13 @@ public class StoragePartitionMeta extends PartitionMeta {
      * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param indexTreeMetaPageId Index tree meta page ID.
      * @param gcQueueMetaPageId Garbage collection queue meta page ID.
-     * @param estimatedSize Estimated size of the partition.
+     * @param estimatedSize Estimated number of latest entries in the partition.
+     *
+     * @see MvPartitionStorage#estimatedSize for a detailed description of what estimated size is.
      */
     public StoragePartitionMeta(
             int pageCount,
+            int partitionGeneration,
             long lastAppliedIndex,
             long lastAppliedTerm,
             long lastReplicationProtocolGroupConfigFirstPageId,
@@ -88,7 +93,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             long gcQueueMetaPageId,
             long estimatedSize
     ) {
-        super(pageCount);
+        super(pageCount, partitionGeneration);
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
@@ -462,6 +467,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         /**
          * Returns count of pages in the partition.
          */
+        @Override
         public int pageCount() {
             return pageCount;
         }

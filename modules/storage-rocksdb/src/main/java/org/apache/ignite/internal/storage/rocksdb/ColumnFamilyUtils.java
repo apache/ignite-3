@@ -27,8 +27,8 @@ import java.util.List;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.rocksdb.RocksDB;
 
 /**
@@ -39,7 +39,7 @@ public class ColumnFamilyUtils {
         RocksDB.loadLibrary();
     }
 
-    /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
+    /** Name of the meta column family matches default columns family, meaning that it always exists when new table is created. */
     private static final String META_CF_NAME = "default";
 
     /** Name of the Column Family that stores partition data with references to row data. */
@@ -67,10 +67,13 @@ public class ColumnFamilyUtils {
     );
 
     /** Nullability flag mask for {@link #sortedIndexCfName(List)}. */
-    private static final int NULLABILITY_FLAG = 1;
+    private static final int NULLABILITY_FLAG = 0b1;
 
     /** Order flag mask for {@link #sortedIndexCfName(List)}. */
-    private static final int ASC_ORDER_FLAG = 2;
+    private static final int ASC_ORDER_FLAG = 0b10;
+
+    /** Flag denoting whether to put NULLs first or last for {@link #sortedIndexCfName(List)}. */
+    private static final int NULLS_FIRST_FLAG = 0b100;
 
     /** Utility enum to describe a type of the column family - meta or partition. */
     public enum ColumnFamilyType {
@@ -111,7 +114,7 @@ public class ColumnFamilyUtils {
     /**
      * Generates a sorted index column family name by its columns descriptions.
      * The resulting array has a {@link #SORTED_INDEX_CF_PREFIX} prefix as a UTF8 array, followed by a number of pairs
-     * {@code {type, flags}}, where type represents ordinal of the corresponding {@link NativeTypeSpec}, and
+     * {@code {type, flags}}, where type represents ordinal of the corresponding {@link ColumnType}, and
      * flags store information about column's nullability and comparison order.
      *
      * @see #comparatorFromCfName(byte[])
@@ -123,9 +126,9 @@ public class ColumnFamilyUtils {
 
         for (StorageSortedIndexColumnDescriptor column : columns) {
             NativeType nativeType = column.type();
-            NativeTypeSpec nativeTypeSpec = nativeType.spec();
+            ColumnType type = nativeType.spec();
 
-            buf.put((byte) nativeTypeSpec.ordinal());
+            buf.put((byte) type.id());
 
             int flags = 0;
 
@@ -135,6 +138,10 @@ public class ColumnFamilyUtils {
 
             if (column.asc()) {
                 flags |= ASC_ORDER_FLAG;
+            }
+
+            if (column.nullsFirst()) {
+                flags |= NULLS_FIRST_FLAG;
             }
 
             buf.put((byte) flags);
@@ -154,16 +161,16 @@ public class ColumnFamilyUtils {
         List<StorageSortedIndexColumnDescriptor> columns = new ArrayList<>((cfName.length - prefixLen) / 2);
 
         for (int i = prefixLen; i < cfName.length; i += 2) {
-            byte nativeTypeSpecOrdinal = cfName[i];
+            byte typeSpecOrdinal = cfName[i];
             byte nativeTypeFlags = cfName[i + 1];
 
-            NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromOrdinal(nativeTypeSpecOrdinal);
+            ColumnType typeSpec = ColumnType.getById(typeSpecOrdinal);
 
-            assert nativeTypeSpec != null : format("Invalid sorted index CF name. [nameBytes={}]", Arrays.toString(cfName));
+            assert typeSpec != null : format("Invalid sorted index CF name. [nameBytes={}]", Arrays.toString(cfName));
 
             NativeType nativeType;
 
-            switch (nativeTypeSpec) {
+            switch (typeSpec) {
                 case BOOLEAN:
                     nativeType = NativeTypes.BOOLEAN;
                     break;
@@ -204,7 +211,7 @@ public class ColumnFamilyUtils {
                     nativeType = NativeTypes.stringOf(-1);
                     break;
 
-                case BYTES:
+                case BYTE_ARRAY:
                     nativeType = NativeTypes.BYTES;
                     break;
 
@@ -225,13 +232,14 @@ public class ColumnFamilyUtils {
                     break;
 
                 default:
-                    throw new AssertionError(format("Unexpected native type. [spec={}]", nativeTypeSpec));
+                    throw new AssertionError(format("Unexpected native type. [spec={}]", typeSpec));
             }
 
             boolean nullable = (nativeTypeFlags & NULLABILITY_FLAG) != 0;
             boolean asc = (nativeTypeFlags & ASC_ORDER_FLAG) != 0;
+            boolean nullsFirst = (nativeTypeFlags & NULLS_FIRST_FLAG) != 0;
 
-            columns.add(new StorageSortedIndexColumnDescriptor("<unknown>", nativeType, nullable, asc));
+            columns.add(new StorageSortedIndexColumnDescriptor("<unknown>", nativeType, nullable, asc, nullsFirst));
         }
 
         return new RocksDbBinaryTupleComparator(columns);

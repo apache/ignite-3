@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql;
 
+import java.time.ZoneId;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.QualifiedName;
 
@@ -29,4 +30,6 @@ public final class SqlCommon {
 
     /** Default page size. */
     public static final int DEFAULT_PAGE_SIZE = 1024;
+    /** Default time-zone ID. */
+    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 }

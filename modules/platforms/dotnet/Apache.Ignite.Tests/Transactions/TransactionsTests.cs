@@ -211,27 +211,36 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
+            // TODO IGNITE-26619 Implicit client ro tx does not include observableTimestamp - remove workaround below.
+            // Use single-node connection to work around causality issues due to round-robin in GetNextSocketWithoutReconnect.
+            var cfg = GetConfig();
+            cfg.Endpoints.Clear();
+            cfg.Endpoints.Add($"127.0.0.1:{ServerPort}");
+
+            using var client = await IgniteClient.StartAsync(cfg);
+            var recordView = (await client.Tables.GetTableAsync(TableName))!.GetRecordView<Poco>();
+
             var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
 
-            await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
+            await recordView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
-            await using var roTx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            await using var roTx = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
             if (readBeforeUpdate)
             {
-                Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
+                Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
             }
 
             // Update data in a different (implicit) tx.
-            await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
+            await recordView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
             // Old read-only tx sees old data.
-            Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
+            Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
-            await using var tx3 = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            Assert.AreEqual("22", (await PocoView.GetAsync(tx3, keyPoco)).Value.Val);
+            await using var tx3 = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            Assert.AreEqual("22", (await recordView.GetAsync(tx3, keyPoco)).Value.Val);
         }
 
         [Test]
@@ -348,6 +357,67 @@ namespace Apache.Ignite.Tests.Transactions
             }
 
             Assert.AreEqual(123, server.LastClientObservableTimestamp);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionUpdatesData()
+        {
+            await Client.Transactions.RunInTransactionAsync(
+                async tx => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultUpdatesData()
+        {
+            var res = await Client.Transactions.RunInTransactionAsync(async tx =>
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+                return await TupleView.GetAsync(tx, GetTuple(1));
+            });
+
+            Assert.AreEqual("2", res.Value[1]);
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync<int>(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
         }
 
         private class CustomTx : ITransaction

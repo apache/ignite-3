@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import com.github.spotbugs.snom.SpotBugsTask
 
 //This need for resolving plugins in buildscripts
 plugins {
@@ -76,6 +77,13 @@ ext {
     }
 }
 
+def trimQuotes(String input) {
+    if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
+        return input.substring(1, input.length() - 1);
+    }
+    return input;
+}
+
 allprojects {
     group 'org.apache.ignite'
     version = projectVersion
@@ -86,8 +94,17 @@ allprojects {
 
     tasks.withType(Test).configureEach {
         defaultCharacterEncoding = 'UTF-8'
+        def extraJvmArgs = []
 
-        jvmArgs += defaultJvmArgs
+        if (project.hasProperty('extraJvmArgs')) {
+            def prop = project.property('extraJvmArgs').toString().trim()
+
+            extraJvmArgs = trimQuotes(prop)
+                    .split(/\s+/)  // Split on whitespace
+                    .toList()
+        }
+
+        jvmArgs += defaultJvmArgs + extraJvmArgs
 
         systemProperty 'jraft.available_processors', 1
 
@@ -136,6 +153,12 @@ allprojects {
     tasks.withType(Test).configureEach {
         outputs.upToDateWhen { false }
     }
+
+    configurations.configureEach {
+        resolutionStrategy {
+            force libs.protobuf.java
+        }
+    }
 }
 
 subprojects {
@@ -160,6 +183,24 @@ subprojects {
     }
 
     tasks.register('printSubDependencies', DependencyReportTask)
+
+    tasks.register('spotbugs') {
+        dependsOn tasks.withType(SpotBugsTask)
+        group "Verification"
+        description 'Run all SpotBugs checks on the project'
+    }
+
+    tasks.register('pmd') {
+        dependsOn tasks.withType(Pmd)
+        group "Verification"
+        description 'Run all PMD checks on the project'
+    }
+
+    tasks.register('checkstyle') {
+        dependsOn tasks.withType(Checkstyle)
+        group "Verification"
+        description 'Run all Checkstyle checks on the project'
+    }
 }
 
 idea.project.settings {

@@ -26,9 +26,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
-import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
@@ -45,7 +45,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -60,6 +60,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.timebag.TimeBag;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -73,6 +74,8 @@ import org.jetbrains.annotations.VisibleForTesting;
  * will not get notified of a new revision until all Watches have finished processing a previous revision.
  */
 public class WatchProcessor implements ManuallyCloseable {
+    private final boolean longHandlingLoggingEnabled = getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
+
     /** Reads an entry from the storage using a given key and revision. */
     @FunctionalInterface
     public interface EntryReader {
@@ -93,11 +96,6 @@ public class WatchProcessor implements ManuallyCloseable {
      */
     private static final int WATCH_EVENT_PROCESSING_LOG_KEYS = 10;
 
-    @SuppressWarnings({"unchecked", "rawtypes"}) // Have to do it because field type is generic. This is safe, trust me bro.
-    private static final AtomicReferenceFieldUpdater<WatchProcessor, CompletableFuture<Void>> NOTIFICATION_FUTURE_UPDATER =
-            (AtomicReferenceFieldUpdater)
-            AtomicReferenceFieldUpdater.newUpdater(WatchProcessor.class, CompletableFuture.class, "notificationFuture");
-
     /** Map that contains Watches and corresponding Watch notification process (represented as a CompletableFuture). */
     private final List<Watch> watches = new CopyOnWriteArrayList<>();
 
@@ -107,7 +105,11 @@ public class WatchProcessor implements ManuallyCloseable {
      * <p>Since Watches are notified concurrently, this future is used to guarantee that no Watches get notified of a new revision,
      * until all Watches have finished processing the previous revision.
      */
-    private volatile CompletableFuture<Void> notificationFuture = nullCompletedFuture();
+    private CompletableFuture<Void> notificationFuture = nullCompletedFuture();
+
+    private final Object notificationFutureMutex = new Object();
+
+    private final List<NotificationEnqueuedListener> notificationEnqueuedListeners = new CopyOnWriteArrayList<>();
 
     private final EntryReader entryReader;
 
@@ -142,8 +144,8 @@ public class WatchProcessor implements ManuallyCloseable {
 
         ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED);
         this.watchExecutor = new ThreadPoolExecutor(
-                4,
-                4,
+                1,
+                1,
                 0L,
                 MILLISECONDS,
                 new LinkedBlockingQueue<>(),
@@ -180,6 +182,11 @@ public class WatchProcessor implements ManuallyCloseable {
         assert this.watchEventHandlingCallback == null;
 
         this.watchEventHandlingCallback = callback;
+    }
+
+    /** Registers a notification enqueued listener. */
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        notificationEnqueuedListeners.add(listener);
     }
 
     private <T> CompletableFuture<T> inBusyLockAsync(Supplier<CompletableFuture<T>> fn) {
@@ -222,11 +229,13 @@ public class WatchProcessor implements ManuallyCloseable {
      * @return Updated value of {@link #notificationFuture}.
      */
     @VisibleForTesting
-    CompletableFuture<Void> enqueue(Supplier<CompletableFuture<Void>> asyncAction, Supplier<String> additionalInfoSupplier) {
-        while (true) {
-            CompletableFuture<Void> chainingFuture = new CompletableFuture<>();
-
-            CompletableFuture<Void> newNotificationFuture = chainingFuture
+    CompletableFuture<Void> enqueue(
+            Supplier<CompletableFuture<Void>> asyncAction,
+            Consumer<CompletableFuture<Void>> afterEnqueuing,
+            Supplier<String> additionalInfoSupplier
+    ) {
+        synchronized (notificationFutureMutex) {
+            notificationFuture = notificationFuture
                     .thenComposeAsync(v -> inBusyLockAsync(asyncAction), watchExecutor)
                     .whenComplete((unused, e) -> {
                         if (e != null) {
@@ -234,27 +243,23 @@ public class WatchProcessor implements ManuallyCloseable {
                         }
                     });
 
-            CompletableFuture<Void> oldNotificationFuture = notificationFuture;
+            afterEnqueuing.accept(notificationFuture);
 
-            if (NOTIFICATION_FUTURE_UPDATER.compareAndSet(this, oldNotificationFuture, newNotificationFuture)) {
-                oldNotificationFuture.whenComplete(copyStateTo(chainingFuture));
-
-                return newNotificationFuture;
-            }
+            return notificationFuture;
         }
     }
 
     private CompletableFuture<Void> notifyWatchesInternal(long newRevision, List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
-        return enqueue(() -> {
-            List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
-                    .filter(WatchProcessor::isNotIdempotentCacheCommand)
-                    .collect(toList());
+        List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
+                .filter(WatchProcessor::isNotIdempotentCacheCommand)
+                .collect(toList());
 
+        return enqueue(() -> {
             List<WatchAndEvents> watchAndEvents = collectWatchesAndEvents(filteredUpdatedEntries, newRevision);
 
-            long startTimeNanos = System.nanoTime();
+            long startTimeNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
             CompletableFuture<Void> notifyWatchesFuture = performWatchesNotifications(watchAndEvents, newRevision, time);
 
@@ -264,10 +269,22 @@ public class WatchProcessor implements ManuallyCloseable {
             CompletableFuture<Void> newNotificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
                     .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
 
-            newNotificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
+            newNotificationFuture.whenComplete((u, e) -> maybeLogLongProcessing(filteredUpdatedEntries, watchAndEvents, startTimeNanos));
 
             return newNotificationFuture;
+        }, newNotificationFuture -> {
+            invokeNotificationFutureListeners(newNotificationFuture, filteredUpdatedEntries, time);
         }, updatedEntriesKeysInfo(updatedEntries));
+    }
+
+    private void invokeNotificationFutureListeners(
+            CompletableFuture<Void> newNotificationFuture,
+            List<Entry> filteredUpdatedEntries,
+            HybridTimestamp time
+    ) {
+        for (NotificationEnqueuedListener listener : notificationEnqueuedListeners) {
+            listener.onEnqueued(newNotificationFuture, filteredUpdatedEntries, time);
+        }
     }
 
     private static Supplier<String> updatedEntriesKeysInfo(List<Entry> updatedEntries) {
@@ -293,9 +310,16 @@ public class WatchProcessor implements ManuallyCloseable {
             CompletableFuture<Void> notifyWatchFuture;
 
             try {
-                var event = new WatchEvent(watchAndEvents.events, revision, time);
+                var event = new WatchEvent(watchAndEvents.events, revision, time, watchAndEvents.timeBag);
+
+                event.timeBag().start();
 
                 notifyWatchFuture = watchAndEvents.watch.onUpdate(event);
+
+                event.timeBag().finishGlobalStage("Sync notification");
+
+                notifyWatchFuture = notifyWatchFuture
+                        .whenComplete((unused, e) -> event.timeBag().finishGlobalStage("Async notification"));
             } catch (Throwable throwable) {
                 notifyWatchFuture = failedFuture(throwable);
             }
@@ -306,8 +330,8 @@ public class WatchProcessor implements ManuallyCloseable {
         return allOf(notifyWatchFutures);
     }
 
-    private static void maybeLogLongProcessing(List<Entry> updatedEntries, long startTimeNanos) {
-        if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false)) {
+    private void maybeLogLongProcessing(List<Entry> updatedEntries, List<WatchAndEvents> watchAndEvents, long startTimeNanos) {
+        if (!longHandlingLoggingEnabled) {
             return;
         }
 
@@ -327,6 +351,17 @@ public class WatchProcessor implements ManuallyCloseable {
                     keysHead,
                     keysTail
             );
+
+            String timingsHead = watchAndEvents.stream()
+                    .limit(WATCH_EVENT_PROCESSING_LOG_KEYS)
+                    .map(watchAndEventsItem -> {
+                        String listenerName = watchAndEventsItem.watch.listener().getClass().getName();
+                        String stages = watchAndEventsItem.timeBag.stagesTimings().stream().collect(joining(",", "[", "]"));
+
+                        return "lsnr=" + listenerName + ", stages=" + stages;
+                    }).collect(joining(", "));
+
+            LOG.warn("Watch event processing timings [{}{}]", timingsHead, keysTail);
         }
     }
 
@@ -357,7 +392,7 @@ public class WatchProcessor implements ManuallyCloseable {
             }
 
             if (!events.isEmpty()) {
-                watchAndEvents.add(new WatchAndEvents(watch, events));
+                watchAndEvents.add(new WatchAndEvents(watch, events, TimeBag.createTimeBag(longHandlingLoggingEnabled, false)));
             }
         }
 
@@ -391,6 +426,8 @@ public class WatchProcessor implements ManuallyCloseable {
             watchEventHandlingCallback.onSafeTimeAdvanced(time);
 
             return nullCompletedFuture();
+        }, newNotificationFuture -> {
+            invokeNotificationFutureListeners(newNotificationFuture, List.of(), time);
         }, () -> "<nothing>");
     }
 
@@ -418,7 +455,9 @@ public class WatchProcessor implements ManuallyCloseable {
 
         busyLock.block();
 
-        notificationFuture.completeExceptionally(new NodeStoppingException());
+        synchronized (notificationFutureMutex) {
+            notificationFuture.completeExceptionally(new NodeStoppingException());
+        }
 
         IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, SECONDS);
     }

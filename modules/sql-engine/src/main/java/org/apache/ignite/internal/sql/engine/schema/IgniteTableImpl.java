@@ -17,20 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.StreamSupport;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -43,8 +42,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
     private final ImmutableIntList keyColumns;
-    private final @Nullable ImmutableBitSet columnsToInsert;
-    private final @Nullable ImmutableBitSet columnsToUpdate;
+    private final @Nullable ImmutableIntList columnsToInsert;
+    private final @Nullable ImmutableIntList columnsToUpdate;
 
     private final Map<String, IgniteIndex> indexMap;
 
@@ -58,6 +57,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             String name,
             int id,
             int version,
+            long timestamp,
             TableDescriptor desc,
             ImmutableIntList keyColumns,
             Statistic statistic,
@@ -65,39 +65,19 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             int partitions,
             int zoneId
     ) {
-        super(name, id, version, desc, statistic);
+        super(name, id, version, timestamp, desc, statistic);
 
         this.keyColumns = keyColumns;
         this.indexMap = indexMap;
         this.partitions = partitions;
         this.zoneId = zoneId;
         this.columnsToInsert = deriveColumnsToInsert(desc);
-
-        int virtualColumnsCount = (int) StreamSupport.stream(desc.spliterator(), false)
-                .filter(ColumnDescriptor::virtual)
-                .count();
-
-        this.columnsToUpdate = ImmutableBitSet.range(desc.columnsCount() - virtualColumnsCount);
+        this.columnsToUpdate = deriveColumnsToUpdate(desc);
 
         colocationColumnTypes = new Lazy<>(this::evaluateTypes);
     }
 
-    private static RelDataType deriveDeleteRowType(
-            IgniteTypeFactory typeFactory,
-            TableDescriptor desc,
-            ImmutableIntList keyColumns
-    ) {
-        var builder = new RelDataTypeFactory.Builder(typeFactory);
-
-        RelDataType fullRow = desc.rowType(typeFactory, null);
-        for (int i : keyColumns) {
-            builder.add(fullRow.getFieldList().get(i));
-        }
-
-        return builder.build();
-    }
-
-    private static @Nullable ImmutableBitSet deriveColumnsToInsert(TableDescriptor desc) {
+    private static @Nullable ImmutableIntList deriveColumnsToInsert(TableDescriptor desc) {
         /*
         Columns to insert are columns which will be expanded in case user omit
         columns list in insert statement as in example below:
@@ -113,24 +93,35 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
         See org.apache.ignite.internal.sql.engine.util.Commons.implicitPkEnabled, and
         org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl.injectDefault for details.
          */
-        ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+        if (!desc.hasHiddenColumns()) {
+            return null; // 'null' means that full projection will be used for insert.
+        }
 
-        boolean hiddenColumnFound = false;
+        IntList columnsToInsert = new IntArrayList(desc.columnsCount());
+
         for (ColumnDescriptor columnDescriptor : desc) {
-            if (columnDescriptor.hidden()) {
-                hiddenColumnFound = true;
-
-                continue;
+            if (!columnDescriptor.hidden()) {
+                columnsToInsert.add(columnDescriptor.logicalIndex());
             }
-
-            builder.set(columnDescriptor.logicalIndex());
         }
 
-        if (hiddenColumnFound) {
-            return builder.build();
+        return ImmutableIntList.of(columnsToInsert.toIntArray());
+    }
+
+    private static @Nullable ImmutableIntList deriveColumnsToUpdate(TableDescriptor desc) {
+        if (!desc.hasVirtualColumns()) {
+            return null; // 'null' means that full projection will be used for update.
         }
 
-        return null;
+        IntList columnsToUpdate = new IntArrayList(desc.columnsCount());
+
+        for (ColumnDescriptor columnDescriptor : desc) {
+            if (!columnDescriptor.virtual()) {
+                columnsToUpdate.add(columnDescriptor.logicalIndex());
+            }
+        }
+
+        return ImmutableIntList.of(columnsToUpdate.toIntArray());
     }
 
     /** {@inheritDoc} */
@@ -204,6 +195,6 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     /** {@inheritDoc} */
     @Override
     public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
-        return deriveDeleteRowType(factory, descriptor(), keyColumns);
+        return descriptor().rowType(factory, keyColumns);
     }
 }

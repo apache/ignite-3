@@ -319,10 +319,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertPlan(TestCase.CASE_17,
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
                         .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteLimit.class)
-                                        .and(input(isInstanceOf(IgniteSort.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
                 ));
@@ -579,6 +577,18 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
     }
 
+    /**
+     * Validates a plan for a query with GROUPING aggregate.
+     */
+    @Test
+    public void groupsWithGroupingAggregate() throws Exception {
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1A);
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1B);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2B);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         checkSimpleAggSingle(testCase, hasAggregate());
     }
@@ -693,7 +703,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 )
         );
     }
-
 
     private void checkDistinctAggWithGroupByHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
@@ -882,7 +891,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 ))
         ));
     }
-
 
     private void checkDerivedCollationWithOrderByGroupColumnSingle(TestCase testCase) throws Exception {
         RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));

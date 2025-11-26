@@ -94,7 +94,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
         this.copyOpts = new CopyOptions();
         Mockito.when(this.raftClientService.connect(peerId)).thenReturn(true);
         nodeOptions = new NodeOptions();
-        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus()));
         assertTrue(this.copier.init(this.uri, new SnapshotCopierOptions(this.raftClientService, this.timerManager,
             this.raftOptions, nodeOptions)));
         this.copier.setStorage(this.snapshotStorage);

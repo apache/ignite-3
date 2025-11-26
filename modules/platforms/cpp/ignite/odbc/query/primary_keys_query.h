@@ -55,7 +55,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta() override { return &m_columns_meta; }
+    const protocol::column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
@@ -88,7 +88,7 @@ public:
     bool is_data_available() const override { return m_cursor != m_meta.end(); }
 
     /**
-     * Get number of rows affected by the statement.
+     * Get the number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
@@ -121,11 +121,11 @@ private:
     /** Query executed. */
     bool m_executed{false};
 
-    /** Result set fetched. */
+    /** A flag indicating whether a result set was fetched. */
     bool m_fetched{false};
 
     /** Columns metadata. */
-    column_meta_vector m_columns_meta;
+    protocol::column_meta_vector m_columns_meta;
 
     /** Primary keys metadata. */
     primary_key_meta_vector m_meta;

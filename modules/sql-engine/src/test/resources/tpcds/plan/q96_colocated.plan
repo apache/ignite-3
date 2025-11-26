@@ -1,0 +1,56 @@
+Sort
+    collation: [EXPR$0 ASC]
+    fetch: 100
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [EXPR$0]
+      group: []
+      aggregation: [COUNT()]
+      est: (rows=1)
+    Project
+        fieldNames: [SS_SOLD_TIME_SK, SS_HDEMO_SK, SS_STORE_SK, HD_DEMO_SK, HD_DEP_COUNT, T_TIME_SK, T_HOUR, T_MINUTE, S_STORE_SK, S_STORE_NAME]
+        projection: [SS_SOLD_TIME_SK, SS_HDEMO_SK, SS_STORE_SK, HD_DEMO_SK, HD_DEP_COUNT, T_TIME_SK, T_HOUR, T_MINUTE, S_STORE_SK, S_STORE_NAME]
+        est: (rows=53181)
+      HashJoin
+          predicate: =(SS_HDEMO_SK, HD_DEMO_SK)
+          type: inner
+          est: (rows=53181)
+        HashJoin
+            predicate: =(SS_STORE_SK, S_STORE_SK)
+            type: inner
+            est: (rows=159703)
+          HashJoin
+              predicate: =(SS_SOLD_TIME_SK, T_TIME_SK)
+              type: inner
+              est: (rows=479587)
+            Exchange
+                distribution: single
+                est: (rows=2880404)
+              TableScan
+                  table: PUBLIC.STORE_SALES
+                  fieldNames: [SS_SOLD_TIME_SK, SS_HDEMO_SK, SS_STORE_SK]
+                  est: (rows=2880404)
+            Exchange
+                distribution: single
+                est: (rows=14386)
+              TableScan
+                  table: PUBLIC.TIME_DIM
+                  predicate: AND(=(T_HOUR, 16), >=(T_MINUTE, 30))
+                  fieldNames: [T_TIME_SK, T_HOUR, T_MINUTE]
+                  est: (rows=14386)
+          Exchange
+              distribution: single
+              est: (rows=4)
+            TableScan
+                table: PUBLIC.STORE
+                predicate: =(S_STORE_NAME, _UTF-8'ese')
+                fieldNames: [S_STORE_SK, S_STORE_NAME]
+                est: (rows=4)
+        Exchange
+            distribution: single
+            est: (rows=2398)
+          TableScan
+              table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+              predicate: =(HD_DEP_COUNT, 6)
+              fieldNames: [HD_DEMO_SK, HD_DEP_COUNT]
+              est: (rows=2398)

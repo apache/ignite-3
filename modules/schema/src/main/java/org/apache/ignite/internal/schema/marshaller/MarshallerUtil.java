@@ -43,7 +43,7 @@ public final class MarshallerUtil {
      */
     public static int getValueSize(Object val, NativeType type) throws InvalidTypeException {
         switch (type.spec()) {
-            case BYTES:
+            case BYTE_ARRAY:
                 if (val instanceof byte[]) {
                     byte[] bytes = (byte[]) val;
                     if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
@@ -154,7 +154,7 @@ public final class MarshallerUtil {
                 return BinaryMode.UUID;
             case STRING:
                 return BinaryMode.STRING;
-            case BYTES:
+            case BYTE_ARRAY:
                 return BinaryMode.BYTE_ARR;
             case DATE:
                 return BinaryMode.DATE;

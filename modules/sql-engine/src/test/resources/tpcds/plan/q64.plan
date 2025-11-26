@@ -1,473 +1,490 @@
 Sort
     collation: [PRODUCT_NAME ASC, STORE_NAME ASC, CNT0 ASC, S11 ASC, S12 ASC]
-    est. row count: 21
+    est: (rows=254468)
   Project
-      fields: [PRODUCT_NAME, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, CNT, S11, S21, S31, S12, S22, S32, SYEAR0, CNT0]
-      exprs: [PRODUCT_NAME, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, CNT, S1, S2, S3, S10, S20, S30, SYEAR0, CNT0]
-      est. row count: 21
+      fieldNames: [PRODUCT_NAME, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, CNT, S11, S21, S31, S12, S22, S32, SYEAR0, CNT0]
+      projection: [PRODUCT_NAME, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, CNT, S1, S2, S3, S1$0, S2$0, S3$0, SYEAR$0, CNT$0]
+      est: (rows=254468)
     HashJoin
-        condition: AND(=(ITEM_SK, ITEM_SK0), <=(CNT0, CNT), =(STORE_NAME, STORE_NAME0), =(STORE_ZIP, STORE_ZIP0))
-        joinType: inner
-        est. row count: 21
+        predicate: AND(=(ITEM_SK, ITEM_SK$0), <=(CNT$0, CNT), =(STORE_NAME, STORE_NAME$0), =(STORE_ZIP, STORE_ZIP$0))
+        fieldNames: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, CNT, S1, S2, S3, PRODUCT_NAME$0, ITEM_SK$0, STORE_NAME$0, STORE_ZIP$0, B_STREET_NUMBER$0, B_STREET_NAME$0, B_CITY$0, B_ZIP$0, C_STREET_NUMBER$0, C_STREET_NAME$0, C_CITY$0, C_ZIP$0, SYEAR$0, FSYEAR$0, S2YEAR$0, CNT$0, S1$0, S2$0, S3$0]
+        type: inner
+        est: (rows=254468)
       ColocatedHashAggregate
+          fieldNames: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, CNT, S1, S2, S3]
           group: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR]
-          aggs: [COUNT(), SUM(SS_WHOLESALE_COST), SUM(SS_LIST_PRICE), SUM(SS_COUPON_AMT)]
-          est. row count: 2887
+          aggregation: [COUNT(), SUM(SS_WHOLESALE_COST), SUM(SS_LIST_PRICE), SUM(SS_COUPON_AMT)]
+          est: (rows=17466721)
         Project
-            fields: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
-            exprs: [I_PRODUCT_NAME, I_ITEM_SK, S_STORE_NAME, S_ZIP, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_STREET_NUMBER0, CA_STREET_NAME0, CA_CITY0, CA_ZIP0, D_YEAR00, D_YEAR, D_YEAR0, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
-            est. row count: 2992
+            fieldNames: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
+            projection: [I_PRODUCT_NAME, I_ITEM_SK, S_STORE_NAME, S_ZIP, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, D_YEAR$0$0, D_YEAR, D_YEAR$0, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
+            est: (rows=18103688)
           HashJoin
-              condition: AND(=(SS_ITEM_SK, SR_ITEM_SK), =(SS_TICKET_NUMBER, SR_TICKET_NUMBER))
-              joinType: inner
-              est. row count: 2992
+              predicate: =(C_FIRST_SALES_DATE_SK, D_DATE_SK)
+              fieldNames: [D_DATE_SK, D_YEAR, D_DATE_SK$0, D_YEAR$0, CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_ADDRESS_SK$0, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK$0$0, D_YEAR$0$0, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0, P_PROMO_SK, S_STORE_SK, S_STORE_NAME, S_ZIP]
+              type: inner
+              est: (rows=18103688)
             Exchange
                 distribution: single
-                est. row count: 287514
+                est: (rows=73049)
               TableScan
-                  table: [PUBLIC, STORE_RETURNS]
-                  fields: [SR_ITEM_SK, SR_TICKET_NUMBER]
-                  est. row count: 287514
+                  table: PUBLIC.DATE_DIM
+                  fieldNames: [D_DATE_SK, D_YEAR]
+                  est: (rows=73049)
             HashJoin
-                condition: =(C_FIRST_SALES_DATE_SK, D_DATE_SK)
-                joinType: inner
-                est. row count: 90684167
+                predicate: =(C_FIRST_SHIPTO_DATE_SK, D_DATE_SK)
+                fieldNames: [D_DATE_SK, D_YEAR, CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_ADDRESS_SK$0, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK$0, D_YEAR$0, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0, P_PROMO_SK, S_STORE_SK, S_STORE_NAME, S_ZIP]
+                type: inner
+                est: (rows=18103688)
               Exchange
                   distribution: single
-                  est. row count: 73049
+                  est: (rows=73049)
                 TableScan
-                    table: [PUBLIC, DATE_DIM]
-                    fields: [D_DATE_SK, D_YEAR]
-                    est. row count: 73049
+                    table: PUBLIC.DATE_DIM
+                    fieldNames: [D_DATE_SK, D_YEAR]
+                    est: (rows=73049)
               HashJoin
-                  condition: =(C_FIRST_SHIPTO_DATE_SK, D_DATE_SK)
-                  joinType: inner
-                  est. row count: 90684167
-                Exchange
-                    distribution: single
-                    est. row count: 73049
-                  TableScan
-                      table: [PUBLIC, DATE_DIM]
-                      fields: [D_DATE_SK, D_YEAR]
-                      est. row count: 73049
+                  predicate: =(SS_STORE_SK, S_STORE_SK)
+                  type: inner
+                  est: (rows=18103688)
                 HashJoin
-                    condition: =(SS_STORE_SK, S_STORE_SK)
-                    joinType: inner
-                    est. row count: 90684167
+                    predicate: =(SS_PROMO_SK, P_PROMO_SK)
+                    type: inner
+                    est: (rows=18103688)
                   HashJoin
-                      condition: =(SS_PROMO_SK, P_PROMO_SK)
-                      joinType: inner
-                      est. row count: 90684167
-                    HashJoin
-                        condition: =(SS_ADDR_SK, CA_ADDRESS_SK)
-                        joinType: inner
-                        est. row count: 90684167
-                      Exchange
-                          distribution: single
-                          est. row count: 50000
-                        TableScan
-                            table: [PUBLIC, CUSTOMER_ADDRESS]
-                            fields: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
-                            est. row count: 50000
-                      HashJoin
-                          condition: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
-                          joinType: inner
-                          est. row count: 90684167
-                        Exchange
-                            distribution: single
-                            est. row count: 50000
-                          TableScan
-                              table: [PUBLIC, CUSTOMER_ADDRESS]
-                              fields: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
-                              est. row count: 50000
-                        HashJoin
-                            condition: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK0)
-                            joinType: inner
-                            est. row count: 90684167
-                          HashJoin
-                              condition: =(SS_HDEMO_SK, HD_DEMO_SK)
-                              joinType: inner
-                              est. row count: 90684167
-                            Exchange
-                                distribution: single
-                                est. row count: 7200
-                              TableScan
-                                  table: [PUBLIC, HOUSEHOLD_DEMOGRAPHICS]
-                                  fields: [HD_DEMO_SK, HD_INCOME_BAND_SK]
-                                  est. row count: 7200
-                            HashJoin
-                                condition: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK)
-                                joinType: inner
-                                est. row count: 90684167
-                              HashJoin
-                                  condition: =(C_CURRENT_HDEMO_SK, HD_DEMO_SK)
-                                  joinType: inner
-                                  est. row count: 90684167
-                                Exchange
-                                    distribution: single
-                                    est. row count: 7200
-                                  TableScan
-                                      table: [PUBLIC, HOUSEHOLD_DEMOGRAPHICS]
-                                      fields: [HD_DEMO_SK, HD_INCOME_BAND_SK]
-                                      est. row count: 7200
-                                HashJoin
-                                    condition: AND(<>(CD_MARITAL_STATUS, CD_MARITAL_STATUS0), =(SS_CDEMO_SK, CD_DEMO_SK))
-                                    joinType: inner
-                                    est. row count: 90684167
-                                  Exchange
-                                      distribution: single
-                                      est. row count: 1920800
-                                    TableScan
-                                        table: [PUBLIC, CUSTOMER_DEMOGRAPHICS]
-                                        fields: [CD_DEMO_SK, CD_MARITAL_STATUS]
-                                        est. row count: 1920800
-                                  HashJoin
-                                      condition: =(C_CURRENT_CDEMO_SK, CD_DEMO_SK)
-                                      joinType: inner
-                                      est. row count: 129548810
-                                    Exchange
-                                        distribution: single
-                                        est. row count: 1920800
-                                      TableScan
-                                          table: [PUBLIC, CUSTOMER_DEMOGRAPHICS]
-                                          fields: [CD_DEMO_SK, CD_MARITAL_STATUS]
-                                          est. row count: 1920800
-                                    HashJoin
-                                        condition: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
-                                        joinType: inner
-                                        est. row count: 129548810
-                                      Exchange
-                                          distribution: single
-                                          est. row count: 100000
-                                        TableScan
-                                            table: [PUBLIC, CUSTOMER]
-                                            fields: [C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK]
-                                            est. row count: 100000
-                                      HashJoin
-                                          condition: =(SS_SOLD_DATE_SK, D_DATE_SK)
-                                          joinType: inner
-                                          est. row count: 129548810
-                                        HashJoin
-                                            condition: =(SS_ITEM_SK, CS_ITEM_SK)
-                                            joinType: inner
-                                            est. row count: 389035465
-                                          HashJoin
-                                              condition: =(SS_ITEM_SK, I_ITEM_SK)
-                                              joinType: inner
-                                              est. row count: 180025
-                                            Exchange
-                                                distribution: single
-                                                est. row count: 2880404
-                                              TableScan
-                                                  table: [PUBLIC, STORE_SALES]
-                                                  fields: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
-                                                  est. row count: 2880404
-                                            Exchange
-                                                distribution: single
-                                                est. row count: 1125
-                                              TableScan
-                                                  table: [PUBLIC, ITEM]
-                                                  filters: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), 80.00), <=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(80, 10)):DECIMAL(12, 2) NOT NULL), >=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(80, 1)):DECIMAL(12, 2) NOT NULL), <=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(80, 15)):DECIMAL(12, 2) NOT NULL))
-                                                  fields: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
-                                                  est. row count: 1125
-                                          Filter
-                                              condition: >(SALE, *(2, REFUND))
-                                              est. row count: 14407
-                                            ReduceHashAggregate
-                                                rowType: RecordType(INTEGER CS_ITEM_SK, DECIMAL(32767, 2) SALE, DECIMAL(32767, 2) REFUND)
-                                                group: [CS_ITEM_SK]
-                                                aggs: [SUM(_ACC0), SUM(_ACC1)]
-                                                est. row count: 28813
-                                              Exchange
-                                                  distribution: single
-                                                  est. row count: 28813
-                                                MapHashAggregate
-                                                    group: [CS_ITEM_SK]
-                                                    aggs: [SUM(CS_EXT_LIST_PRICE), SUM($f2)]
-                                                    est. row count: 28813
-                                                  Project
-                                                      fields: [CS_ITEM_SK, CS_EXT_LIST_PRICE, $f2]
-                                                      exprs: [CS_ITEM_SK, CS_EXT_LIST_PRICE, +(+(CR_REFUNDED_CASH, CR_REVERSED_CHARGE), CR_STORE_CREDIT)]
-                                                      est. row count: 144067
-                                                    HashJoin
-                                                        condition: AND(=(CS_ITEM_SK, CR_ITEM_SK), =(CS_ORDER_NUMBER, CR_ORDER_NUMBER))
-                                                        joinType: inner
-                                                        est. row count: 144067
-                                                      TableScan
-                                                          table: [PUBLIC, CATALOG_SALES]
-                                                          fields: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
-                                                          est. row count: 1441548
-                                                      Exchange
-                                                          distribution: affinity[tableId=51, zoneId=51][0, 1]
-                                                          est. row count: 144067
-                                                        TableScan
-                                                            table: [PUBLIC, CATALOG_RETURNS]
-                                                            fields: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
-                                                            est. row count: 144067
-                                        Exchange
-                                            distribution: single
-                                            est. row count: 24325
-                                          TableScan
-                                              table: [PUBLIC, DATE_DIM]
-                                              filters: =(D_YEAR, 1999)
-                                              fields: [D_DATE_SK, D_YEAR]
-                                              est. row count: 24325
-                              Exchange
-                                  distribution: single
-                                  est. row count: 20
-                                TableScan
-                                    table: [PUBLIC, INCOME_BAND]
-                                    fields: [IB_INCOME_BAND_SK]
-                                    est. row count: 20
-                          Exchange
-                              distribution: single
-                              est. row count: 20
-                            TableScan
-                                table: [PUBLIC, INCOME_BAND]
-                                fields: [IB_INCOME_BAND_SK]
-                                est. row count: 20
+                      predicate: =(SS_ADDR_SK, CA_ADDRESS_SK)
+                      fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_ADDRESS_SK$0, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0]
+                      type: inner
+                      est: (rows=18103688)
                     Exchange
                         distribution: single
-                        est. row count: 300
+                        est: (rows=50000)
                       TableScan
-                          table: [PUBLIC, PROMOTION]
-                          fields: [P_PROMO_SK]
-                          est. row count: 300
+                          table: PUBLIC.CUSTOMER_ADDRESS
+                          fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
+                          est: (rows=50000)
+                    HashJoin
+                        predicate: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
+                        type: inner
+                        est: (rows=18103688)
+                      Exchange
+                          distribution: single
+                          est: (rows=50000)
+                        TableScan
+                            table: PUBLIC.CUSTOMER_ADDRESS
+                            fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
+                            est: (rows=50000)
+                      HashJoin
+                          predicate: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK$0)
+                          fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0]
+                          type: inner
+                          est: (rows=18103688)
+                        HashJoin
+                            predicate: =(SS_HDEMO_SK, HD_DEMO_SK)
+                            fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK]
+                            type: inner
+                            est: (rows=18103688)
+                          Exchange
+                              distribution: single
+                              est: (rows=7200)
+                            TableScan
+                                table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                                fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK]
+                                est: (rows=7200)
+                          HashJoin
+                              predicate: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK)
+                              type: inner
+                              est: (rows=18103688)
+                            HashJoin
+                                predicate: =(C_CURRENT_HDEMO_SK, HD_DEMO_SK)
+                                type: inner
+                                est: (rows=18103688)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=7200)
+                                TableScan
+                                    table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                                    fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK]
+                                    est: (rows=7200)
+                              HashJoin
+                                  predicate: AND(<>(CD_MARITAL_STATUS, CD_MARITAL_STATUS$0), =(SS_CDEMO_SK, CD_DEMO_SK))
+                                  fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND]
+                                  type: inner
+                                  est: (rows=18103688)
+                                Exchange
+                                    distribution: single
+                                    est: (rows=1920800)
+                                  TableScan
+                                      table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                                      fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS]
+                                      est: (rows=1920800)
+                                HashJoin
+                                    predicate: =(C_CURRENT_CDEMO_SK, CD_DEMO_SK)
+                                    type: inner
+                                    est: (rows=25862411)
+                                  Exchange
+                                      distribution: single
+                                      est: (rows=1920800)
+                                    TableScan
+                                        table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                                        fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS]
+                                        est: (rows=1920800)
+                                  HashJoin
+                                      predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                                      type: inner
+                                      est: (rows=25862411)
+                                    Exchange
+                                        distribution: single
+                                        est: (rows=100000)
+                                      TableScan
+                                          table: PUBLIC.CUSTOMER
+                                          fieldNames: [C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK]
+                                          est: (rows=100000)
+                                    HashJoin
+                                        predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                                        type: inner
+                                        est: (rows=25862411)
+                                      Exchange
+                                          distribution: single
+                                          est: (rows=24325)
+                                        TableScan
+                                            table: PUBLIC.DATE_DIM
+                                            predicate: =(D_YEAR, 1999)
+                                            fieldNames: [D_DATE_SK, D_YEAR]
+                                            est: (rows=24325)
+                                      HashJoin
+                                          predicate: =(SS_ITEM_SK, CS_ITEM_SK)
+                                          type: inner
+                                          est: (rows=77664899)
+                                        HashJoin
+                                            predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                                            type: inner
+                                            est: (rows=35939)
+                                          Exchange
+                                              distribution: single
+                                              est: (rows=287514)
+                                            HashJoin
+                                                predicate: AND(=(SS_ITEM_SK, SR_ITEM_SK), =(SS_TICKET_NUMBER, SR_TICKET_NUMBER))
+                                                type: inner
+                                                est: (rows=287514)
+                                              TableScan
+                                                  table: PUBLIC.STORE_SALES
+                                                  fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
+                                                  est: (rows=2880404)
+                                              Exchange
+                                                  distribution: table PUBLIC.STORE_SALES in zone "Default" by [SR_ITEM_SK, SR_TICKET_NUMBER]
+                                                  est: (rows=287514)
+                                                TableScan
+                                                    table: PUBLIC.STORE_RETURNS
+                                                    fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER]
+                                                    est: (rows=287514)
+                                          Exchange
+                                              distribution: single
+                                              est: (rows=2250)
+                                            TableScan
+                                                table: PUBLIC.ITEM
+                                                predicate: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(I_CURRENT_PRICE, 80.00), SEARCH(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), Sarg[[81.00:DECIMAL(12, 2)..90.00:DECIMAL(12, 2)]; NULL AS FALSE]:DECIMAL(12, 2)))
+                                                fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
+                                                est: (rows=2250)
+                                        Filter
+                                            predicate: >(SALE, *(2, REFUND))
+                                            est: (rows=14407)
+                                          ReduceHashAggregate
+                                              fieldNames: [CS_ITEM_SK, SALE, REFUND]
+                                              group: [CS_ITEM_SK]
+                                              aggregation: [SUM(_ACC0), SUM(_ACC1)]
+                                              est: (rows=28813)
+                                            Exchange
+                                                distribution: single
+                                                est: (rows=28813)
+                                              MapHashAggregate
+                                                  fieldNames: [CS_ITEM_SK, _ACC0, _ACC1, _GROUP_ID]
+                                                  group: [CS_ITEM_SK]
+                                                  aggregation: [SUM(CS_EXT_LIST_PRICE), SUM($f2)]
+                                                  est: (rows=28813)
+                                                Project
+                                                    fieldNames: [CS_ITEM_SK, CS_EXT_LIST_PRICE, $f2]
+                                                    projection: [CS_ITEM_SK, CS_EXT_LIST_PRICE, +(+(CR_REFUNDED_CASH, CR_REVERSED_CHARGE), CR_STORE_CREDIT)]
+                                                    est: (rows=144067)
+                                                  HashJoin
+                                                      predicate: AND(=(CS_ITEM_SK, CR_ITEM_SK), =(CS_ORDER_NUMBER, CR_ORDER_NUMBER))
+                                                      type: inner
+                                                      est: (rows=144067)
+                                                    TableScan
+                                                        table: PUBLIC.CATALOG_SALES
+                                                        fieldNames: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
+                                                        est: (rows=1441548)
+                                                    Exchange
+                                                        distribution: table PUBLIC.CATALOG_SALES in zone "Default" by [CR_ITEM_SK, CR_ORDER_NUMBER]
+                                                        est: (rows=144067)
+                                                      TableScan
+                                                          table: PUBLIC.CATALOG_RETURNS
+                                                          fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
+                                                          est: (rows=144067)
+                            Exchange
+                                distribution: single
+                                est: (rows=20)
+                              TableScan
+                                  table: PUBLIC.INCOME_BAND
+                                  fieldNames: [IB_INCOME_BAND_SK]
+                                  est: (rows=20)
+                        Exchange
+                            distribution: single
+                            est: (rows=20)
+                          TableScan
+                              table: PUBLIC.INCOME_BAND
+                              fieldNames: [IB_INCOME_BAND_SK]
+                              est: (rows=20)
                   Exchange
                       distribution: single
-                      est. row count: 12
+                      est: (rows=300)
                     TableScan
-                        table: [PUBLIC, STORE]
-                        fields: [S_STORE_SK, S_STORE_NAME, S_ZIP]
-                        est. row count: 12
+                        table: PUBLIC.PROMOTION
+                        fieldNames: [P_PROMO_SK]
+                        est: (rows=300)
+                Exchange
+                    distribution: single
+                    est: (rows=12)
+                  TableScan
+                      table: PUBLIC.STORE
+                      fieldNames: [S_STORE_SK, S_STORE_NAME, S_ZIP]
+                      est: (rows=12)
       ColocatedHashAggregate
+          fieldNames: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, CNT, S1, S2, S3]
           group: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR]
-          aggs: [COUNT(), SUM(SS_WHOLESALE_COST), SUM(SS_LIST_PRICE), SUM(SS_COUPON_AMT)]
-          est. row count: 2887
+          aggregation: [COUNT(), SUM(SS_WHOLESALE_COST), SUM(SS_LIST_PRICE), SUM(SS_COUPON_AMT)]
+          est: (rows=17466721)
         Project
-            fields: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
-            exprs: [I_PRODUCT_NAME, I_ITEM_SK, S_STORE_NAME, S_ZIP, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_STREET_NUMBER0, CA_STREET_NAME0, CA_CITY0, CA_ZIP0, D_YEAR00, D_YEAR, D_YEAR0, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
-            est. row count: 2992
+            fieldNames: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
+            projection: [I_PRODUCT_NAME, I_ITEM_SK, S_STORE_NAME, S_ZIP, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, D_YEAR$0$0, D_YEAR, D_YEAR$0, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
+            est: (rows=18103688)
           HashJoin
-              condition: AND(=(SS_ITEM_SK, SR_ITEM_SK), =(SS_TICKET_NUMBER, SR_TICKET_NUMBER))
-              joinType: inner
-              est. row count: 2992
+              predicate: =(C_FIRST_SALES_DATE_SK, D_DATE_SK)
+              fieldNames: [D_DATE_SK, D_YEAR, D_DATE_SK$0, D_YEAR$0, CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_ADDRESS_SK$0, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK$0$0, D_YEAR$0$0, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0, P_PROMO_SK, S_STORE_SK, S_STORE_NAME, S_ZIP]
+              type: inner
+              est: (rows=18103688)
             Exchange
                 distribution: single
-                est. row count: 287514
+                est: (rows=73049)
               TableScan
-                  table: [PUBLIC, STORE_RETURNS]
-                  fields: [SR_ITEM_SK, SR_TICKET_NUMBER]
-                  est. row count: 287514
+                  table: PUBLIC.DATE_DIM
+                  fieldNames: [D_DATE_SK, D_YEAR]
+                  est: (rows=73049)
             HashJoin
-                condition: =(C_FIRST_SALES_DATE_SK, D_DATE_SK)
-                joinType: inner
-                est. row count: 90684167
+                predicate: =(C_FIRST_SHIPTO_DATE_SK, D_DATE_SK)
+                fieldNames: [D_DATE_SK, D_YEAR, CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_ADDRESS_SK$0, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK$0, D_YEAR$0, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0, P_PROMO_SK, S_STORE_SK, S_STORE_NAME, S_ZIP]
+                type: inner
+                est: (rows=18103688)
               Exchange
                   distribution: single
-                  est. row count: 73049
+                  est: (rows=73049)
                 TableScan
-                    table: [PUBLIC, DATE_DIM]
-                    fields: [D_DATE_SK, D_YEAR]
-                    est. row count: 73049
+                    table: PUBLIC.DATE_DIM
+                    fieldNames: [D_DATE_SK, D_YEAR]
+                    est: (rows=73049)
               HashJoin
-                  condition: =(C_FIRST_SHIPTO_DATE_SK, D_DATE_SK)
-                  joinType: inner
-                  est. row count: 90684167
-                Exchange
-                    distribution: single
-                    est. row count: 73049
-                  TableScan
-                      table: [PUBLIC, DATE_DIM]
-                      fields: [D_DATE_SK, D_YEAR]
-                      est. row count: 73049
+                  predicate: =(SS_STORE_SK, S_STORE_SK)
+                  type: inner
+                  est: (rows=18103688)
                 HashJoin
-                    condition: =(SS_STORE_SK, S_STORE_SK)
-                    joinType: inner
-                    est. row count: 90684167
+                    predicate: =(SS_PROMO_SK, P_PROMO_SK)
+                    type: inner
+                    est: (rows=18103688)
                   HashJoin
-                      condition: =(SS_PROMO_SK, P_PROMO_SK)
-                      joinType: inner
-                      est. row count: 90684167
-                    HashJoin
-                        condition: =(SS_ADDR_SK, CA_ADDRESS_SK)
-                        joinType: inner
-                        est. row count: 90684167
-                      Exchange
-                          distribution: single
-                          est. row count: 50000
-                        TableScan
-                            table: [PUBLIC, CUSTOMER_ADDRESS]
-                            fields: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
-                            est. row count: 50000
-                      HashJoin
-                          condition: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
-                          joinType: inner
-                          est. row count: 90684167
-                        Exchange
-                            distribution: single
-                            est. row count: 50000
-                          TableScan
-                              table: [PUBLIC, CUSTOMER_ADDRESS]
-                              fields: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
-                              est. row count: 50000
-                        HashJoin
-                            condition: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK0)
-                            joinType: inner
-                            est. row count: 90684167
-                          HashJoin
-                              condition: =(SS_HDEMO_SK, HD_DEMO_SK)
-                              joinType: inner
-                              est. row count: 90684167
-                            Exchange
-                                distribution: single
-                                est. row count: 7200
-                              TableScan
-                                  table: [PUBLIC, HOUSEHOLD_DEMOGRAPHICS]
-                                  fields: [HD_DEMO_SK, HD_INCOME_BAND_SK]
-                                  est. row count: 7200
-                            HashJoin
-                                condition: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK)
-                                joinType: inner
-                                est. row count: 90684167
-                              HashJoin
-                                  condition: =(C_CURRENT_HDEMO_SK, HD_DEMO_SK)
-                                  joinType: inner
-                                  est. row count: 90684167
-                                Exchange
-                                    distribution: single
-                                    est. row count: 7200
-                                  TableScan
-                                      table: [PUBLIC, HOUSEHOLD_DEMOGRAPHICS]
-                                      fields: [HD_DEMO_SK, HD_INCOME_BAND_SK]
-                                      est. row count: 7200
-                                HashJoin
-                                    condition: AND(<>(CD_MARITAL_STATUS, CD_MARITAL_STATUS0), =(SS_CDEMO_SK, CD_DEMO_SK))
-                                    joinType: inner
-                                    est. row count: 90684167
-                                  Exchange
-                                      distribution: single
-                                      est. row count: 1920800
-                                    TableScan
-                                        table: [PUBLIC, CUSTOMER_DEMOGRAPHICS]
-                                        fields: [CD_DEMO_SK, CD_MARITAL_STATUS]
-                                        est. row count: 1920800
-                                  HashJoin
-                                      condition: =(C_CURRENT_CDEMO_SK, CD_DEMO_SK)
-                                      joinType: inner
-                                      est. row count: 129548810
-                                    Exchange
-                                        distribution: single
-                                        est. row count: 1920800
-                                      TableScan
-                                          table: [PUBLIC, CUSTOMER_DEMOGRAPHICS]
-                                          fields: [CD_DEMO_SK, CD_MARITAL_STATUS]
-                                          est. row count: 1920800
-                                    HashJoin
-                                        condition: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
-                                        joinType: inner
-                                        est. row count: 129548810
-                                      Exchange
-                                          distribution: single
-                                          est. row count: 100000
-                                        TableScan
-                                            table: [PUBLIC, CUSTOMER]
-                                            fields: [C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK]
-                                            est. row count: 100000
-                                      HashJoin
-                                          condition: =(SS_SOLD_DATE_SK, D_DATE_SK)
-                                          joinType: inner
-                                          est. row count: 129548810
-                                        HashJoin
-                                            condition: =(SS_ITEM_SK, CS_ITEM_SK)
-                                            joinType: inner
-                                            est. row count: 389035465
-                                          HashJoin
-                                              condition: =(SS_ITEM_SK, I_ITEM_SK)
-                                              joinType: inner
-                                              est. row count: 180025
-                                            Exchange
-                                                distribution: single
-                                                est. row count: 2880404
-                                              TableScan
-                                                  table: [PUBLIC, STORE_SALES]
-                                                  fields: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
-                                                  est. row count: 2880404
-                                            Exchange
-                                                distribution: single
-                                                est. row count: 1125
-                                              TableScan
-                                                  table: [PUBLIC, ITEM]
-                                                  filters: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), 80.00), <=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(80, 10)):DECIMAL(12, 2) NOT NULL), >=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(80, 1)):DECIMAL(12, 2) NOT NULL), <=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(80, 15)):DECIMAL(12, 2) NOT NULL))
-                                                  fields: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
-                                                  est. row count: 1125
-                                          Filter
-                                              condition: >(SALE, *(2, REFUND))
-                                              est. row count: 14407
-                                            ReduceHashAggregate
-                                                rowType: RecordType(INTEGER CS_ITEM_SK, DECIMAL(32767, 2) SALE, DECIMAL(32767, 2) REFUND)
-                                                group: [CS_ITEM_SK]
-                                                aggs: [SUM(_ACC0), SUM(_ACC1)]
-                                                est. row count: 28813
-                                              Exchange
-                                                  distribution: single
-                                                  est. row count: 28813
-                                                MapHashAggregate
-                                                    group: [CS_ITEM_SK]
-                                                    aggs: [SUM(CS_EXT_LIST_PRICE), SUM($f2)]
-                                                    est. row count: 28813
-                                                  Project
-                                                      fields: [CS_ITEM_SK, CS_EXT_LIST_PRICE, $f2]
-                                                      exprs: [CS_ITEM_SK, CS_EXT_LIST_PRICE, +(+(CR_REFUNDED_CASH, CR_REVERSED_CHARGE), CR_STORE_CREDIT)]
-                                                      est. row count: 144067
-                                                    HashJoin
-                                                        condition: AND(=(CS_ITEM_SK, CR_ITEM_SK), =(CS_ORDER_NUMBER, CR_ORDER_NUMBER))
-                                                        joinType: inner
-                                                        est. row count: 144067
-                                                      TableScan
-                                                          table: [PUBLIC, CATALOG_SALES]
-                                                          fields: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
-                                                          est. row count: 1441548
-                                                      Exchange
-                                                          distribution: affinity[tableId=51, zoneId=51][0, 1]
-                                                          est. row count: 144067
-                                                        TableScan
-                                                            table: [PUBLIC, CATALOG_RETURNS]
-                                                            fields: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
-                                                            est. row count: 144067
-                                        Exchange
-                                            distribution: single
-                                            est. row count: 24325
-                                          TableScan
-                                              table: [PUBLIC, DATE_DIM]
-                                              filters: =(D_YEAR, +(1999, 1))
-                                              fields: [D_DATE_SK, D_YEAR]
-                                              est. row count: 24325
-                              Exchange
-                                  distribution: single
-                                  est. row count: 20
-                                TableScan
-                                    table: [PUBLIC, INCOME_BAND]
-                                    fields: [IB_INCOME_BAND_SK]
-                                    est. row count: 20
-                          Exchange
-                              distribution: single
-                              est. row count: 20
-                            TableScan
-                                table: [PUBLIC, INCOME_BAND]
-                                fields: [IB_INCOME_BAND_SK]
-                                est. row count: 20
+                      predicate: =(SS_ADDR_SK, CA_ADDRESS_SK)
+                      fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP, CA_ADDRESS_SK$0, CA_STREET_NUMBER$0, CA_STREET_NAME$0, CA_CITY$0, CA_ZIP$0, HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0]
+                      type: inner
+                      est: (rows=18103688)
                     Exchange
                         distribution: single
-                        est. row count: 300
+                        est: (rows=50000)
                       TableScan
-                          table: [PUBLIC, PROMOTION]
-                          fields: [P_PROMO_SK]
-                          est. row count: 300
+                          table: PUBLIC.CUSTOMER_ADDRESS
+                          fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
+                          est: (rows=50000)
+                    HashJoin
+                        predicate: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
+                        type: inner
+                        est: (rows=18103688)
+                      Exchange
+                          distribution: single
+                          est: (rows=50000)
+                        TableScan
+                            table: PUBLIC.CUSTOMER_ADDRESS
+                            fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_CITY, CA_ZIP]
+                            est: (rows=50000)
+                      HashJoin
+                          predicate: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK$0)
+                          fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK, IB_INCOME_BAND_SK$0]
+                          type: inner
+                          est: (rows=18103688)
+                        HashJoin
+                            predicate: =(SS_HDEMO_SK, HD_DEMO_SK)
+                            fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK, HD_DEMO_SK$0, HD_INCOME_BAND_SK$0, CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND, IB_INCOME_BAND_SK]
+                            type: inner
+                            est: (rows=18103688)
+                          Exchange
+                              distribution: single
+                              est: (rows=7200)
+                            TableScan
+                                table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                                fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK]
+                                est: (rows=7200)
+                          HashJoin
+                              predicate: =(HD_INCOME_BAND_SK, IB_INCOME_BAND_SK)
+                              type: inner
+                              est: (rows=18103688)
+                            HashJoin
+                                predicate: =(C_CURRENT_HDEMO_SK, HD_DEMO_SK)
+                                type: inner
+                                est: (rows=18103688)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=7200)
+                                TableScan
+                                    table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                                    fieldNames: [HD_DEMO_SK, HD_INCOME_BAND_SK]
+                                    est: (rows=7200)
+                              HashJoin
+                                  predicate: AND(<>(CD_MARITAL_STATUS, CD_MARITAL_STATUS$0), =(SS_CDEMO_SK, CD_DEMO_SK))
+                                  fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS, CD_DEMO_SK$0, CD_MARITAL_STATUS$0, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK, D_DATE_SK, D_YEAR, SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT, SR_ITEM_SK, SR_TICKET_NUMBER, I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME, CS_ITEM_SK, SALE, REFUND]
+                                  type: inner
+                                  est: (rows=18103688)
+                                Exchange
+                                    distribution: single
+                                    est: (rows=1920800)
+                                  TableScan
+                                      table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                                      fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS]
+                                      est: (rows=1920800)
+                                HashJoin
+                                    predicate: =(C_CURRENT_CDEMO_SK, CD_DEMO_SK)
+                                    type: inner
+                                    est: (rows=25862411)
+                                  Exchange
+                                      distribution: single
+                                      est: (rows=1920800)
+                                    TableScan
+                                        table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                                        fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS]
+                                        est: (rows=1920800)
+                                  HashJoin
+                                      predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                                      type: inner
+                                      est: (rows=25862411)
+                                    Exchange
+                                        distribution: single
+                                        est: (rows=100000)
+                                      TableScan
+                                          table: PUBLIC.CUSTOMER
+                                          fieldNames: [C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK, C_FIRST_SHIPTO_DATE_SK, C_FIRST_SALES_DATE_SK]
+                                          est: (rows=100000)
+                                    HashJoin
+                                        predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                                        type: inner
+                                        est: (rows=25862411)
+                                      Exchange
+                                          distribution: single
+                                          est: (rows=24325)
+                                        TableScan
+                                            table: PUBLIC.DATE_DIM
+                                            predicate: =(D_YEAR, 2000)
+                                            fieldNames: [D_DATE_SK, D_YEAR]
+                                            est: (rows=24325)
+                                      HashJoin
+                                          predicate: =(SS_ITEM_SK, CS_ITEM_SK)
+                                          type: inner
+                                          est: (rows=77664899)
+                                        HashJoin
+                                            predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                                            type: inner
+                                            est: (rows=35939)
+                                          Exchange
+                                              distribution: single
+                                              est: (rows=287514)
+                                            HashJoin
+                                                predicate: AND(=(SS_ITEM_SK, SR_ITEM_SK), =(SS_TICKET_NUMBER, SR_TICKET_NUMBER))
+                                                type: inner
+                                                est: (rows=287514)
+                                              TableScan
+                                                  table: PUBLIC.STORE_SALES
+                                                  fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
+                                                  est: (rows=2880404)
+                                              Exchange
+                                                  distribution: table PUBLIC.STORE_SALES in zone "Default" by [SR_ITEM_SK, SR_TICKET_NUMBER]
+                                                  est: (rows=287514)
+                                                TableScan
+                                                    table: PUBLIC.STORE_RETURNS
+                                                    fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER]
+                                                    est: (rows=287514)
+                                          Exchange
+                                              distribution: single
+                                              est: (rows=2250)
+                                            TableScan
+                                                table: PUBLIC.ITEM
+                                                predicate: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(I_CURRENT_PRICE, 80.00), SEARCH(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), Sarg[[81.00:DECIMAL(12, 2)..90.00:DECIMAL(12, 2)]; NULL AS FALSE]:DECIMAL(12, 2)))
+                                                fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
+                                                est: (rows=2250)
+                                        Filter
+                                            predicate: >(SALE, *(2, REFUND))
+                                            est: (rows=14407)
+                                          ReduceHashAggregate
+                                              fieldNames: [CS_ITEM_SK, SALE, REFUND]
+                                              group: [CS_ITEM_SK]
+                                              aggregation: [SUM(_ACC0), SUM(_ACC1)]
+                                              est: (rows=28813)
+                                            Exchange
+                                                distribution: single
+                                                est: (rows=28813)
+                                              MapHashAggregate
+                                                  fieldNames: [CS_ITEM_SK, _ACC0, _ACC1, _GROUP_ID]
+                                                  group: [CS_ITEM_SK]
+                                                  aggregation: [SUM(CS_EXT_LIST_PRICE), SUM($f2)]
+                                                  est: (rows=28813)
+                                                Project
+                                                    fieldNames: [CS_ITEM_SK, CS_EXT_LIST_PRICE, $f2]
+                                                    projection: [CS_ITEM_SK, CS_EXT_LIST_PRICE, +(+(CR_REFUNDED_CASH, CR_REVERSED_CHARGE), CR_STORE_CREDIT)]
+                                                    est: (rows=144067)
+                                                  HashJoin
+                                                      predicate: AND(=(CS_ITEM_SK, CR_ITEM_SK), =(CS_ORDER_NUMBER, CR_ORDER_NUMBER))
+                                                      type: inner
+                                                      est: (rows=144067)
+                                                    TableScan
+                                                        table: PUBLIC.CATALOG_SALES
+                                                        fieldNames: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
+                                                        est: (rows=1441548)
+                                                    Exchange
+                                                        distribution: table PUBLIC.CATALOG_SALES in zone "Default" by [CR_ITEM_SK, CR_ORDER_NUMBER]
+                                                        est: (rows=144067)
+                                                      TableScan
+                                                          table: PUBLIC.CATALOG_RETURNS
+                                                          fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
+                                                          est: (rows=144067)
+                            Exchange
+                                distribution: single
+                                est: (rows=20)
+                              TableScan
+                                  table: PUBLIC.INCOME_BAND
+                                  fieldNames: [IB_INCOME_BAND_SK]
+                                  est: (rows=20)
+                        Exchange
+                            distribution: single
+                            est: (rows=20)
+                          TableScan
+                              table: PUBLIC.INCOME_BAND
+                              fieldNames: [IB_INCOME_BAND_SK]
+                              est: (rows=20)
                   Exchange
                       distribution: single
-                      est. row count: 12
+                      est: (rows=300)
                     TableScan
-                        table: [PUBLIC, STORE]
-                        fields: [S_STORE_SK, S_STORE_NAME, S_ZIP]
-                        est. row count: 12
+                        table: PUBLIC.PROMOTION
+                        fieldNames: [P_PROMO_SK]
+                        est: (rows=300)
+                Exchange
+                    distribution: single
+                    est: (rows=12)
+                  TableScan
+                      table: PUBLIC.STORE
+                      fieldNames: [S_STORE_SK, S_STORE_NAME, S_ZIP]
+                      est: (rows=12)

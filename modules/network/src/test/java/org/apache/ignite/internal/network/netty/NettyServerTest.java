@@ -185,7 +185,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
 
-        String expectedError = String.format("Address %s:%d is not available", address, serverCfg.port().value());
+        String expectedError = String.format("Cannot start server at address=%s, port=%d", address, serverCfg.port().value());
         assertThat(e.getCause().getMessage(), containsString(expectedError));
     }
 

@@ -27,8 +27,8 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -52,7 +52,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
 
         // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
         // take it into consideration.
-        boolean closerToBound = pair.first().spec() == NativeTypeSpec.INT16;
+        boolean closerToBound = pair.first().spec() == ColumnType.INT16;
 
         String value = generateLiteral(pair.second(), closerToBound);
         assertPlan("INSERT INTO T VALUES(" + value + "," + value + ")", schema, keyValOperandMatcher(operandMatcher)::matches, List.of());

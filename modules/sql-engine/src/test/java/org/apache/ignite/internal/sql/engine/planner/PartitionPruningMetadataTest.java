@@ -31,6 +31,7 @@ import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.prepare.RelWithSources;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -57,27 +58,27 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     private static final IgniteSchema TABLE_C1 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addColumn("C2", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_NULLABLE_C2 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addColumn("C2", NativeTypes.INT32, true)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_C2 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addKeyColumn("C2", NativeTypes.INT32)
             .addColumn("C3", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_C2_NULLABLE_C3 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addKeyColumn("C2", NativeTypes.INT32)
             .addColumn("C3", NativeTypes.INT32, true)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_C2_C3 = createSchema(TestBuilders.table().name("T")
@@ -85,32 +86,32 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .addKeyColumn("C2", NativeTypes.INT32)
             .addKeyColumn("C3", NativeTypes.INT32)
             .addColumn("C4", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1, 2), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1, 2), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_BOOL_C1 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.BOOLEAN)
             .addColumn("C2", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_BOOL_C1_C3 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.BOOLEAN)
             .addKeyColumn("C2", NativeTypes.BOOLEAN)
             .addColumn("C3", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_BOOLS = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addColumn("C2", NativeTypes.BOOLEAN, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_ALL_BOOLS_C1 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.BOOLEAN)
             .addColumn("C2", NativeTypes.BOOLEAN, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     @BeforeAll
@@ -416,8 +417,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         NO_META_5e("c1 = 42 AND c1 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
         NO_META_5f("c1 = 42 AND c2 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
 
-        // No constant folding
-        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1),
+        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1, "[c1=14]"),
         CONST_FOLDING_1b("c1 = ? + 4", TABLE_C1),
 
         // 0s removed by Calcite.
@@ -616,7 +616,8 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     private void extractMetadataAndCheck(IgniteRel rel, List<String> columnNames, List<String> expectedMetadata) {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
-        PartitionPruningMetadata actual = extractor.go(rel);
+        RelWithSources relWithSoucres = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+        PartitionPruningMetadata actual = extractor.go(relWithSoucres.root());
 
         List<String> actualMetadata;
 

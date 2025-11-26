@@ -22,12 +22,15 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -324,5 +328,130 @@ public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
         });
 
         return args;
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "9999-12-31 00:00:00, 0, 9999-12-31 00:00:00",
+            "9999-12-31 00:00:00, 1, 9999-12-31 00:00:00",
+            "9999-12-31 00:00:00, 3, 9999-12-31 00:00:00",
+            "9999-12-31 00:00:00, 6, 9999-12-31 00:00:00",
+            "9999-12-31 00:00:00, 9, 9999-12-31 00:00:00",
+            "9999-12-31 00:00:00.999999999, 1, 9999-12-31 00:00:00.9",
+            "9999-12-31 00:00:00.999999999, 2, 9999-12-31 00:00:00.99",
+            "9999-12-31 00:00:00.999999999, 3, 9999-12-31 00:00:00.999",
+            "9999-12-31 00:00:00.999999999, 6, 9999-12-31 00:00:00.999",
+            "9999-12-31 00:00:00.999999999, 9, 9999-12-31 00:00:00.999",
+            "9999-12-31 00:00:00.111111111, 1, 9999-12-31 00:00:00.1",
+            "9999-12-31 00:00:00.111111111, 2, 9999-12-31 00:00:00.11",
+            "9999-12-31 00:00:00.111111111, 3, 9999-12-31 00:00:00.111",
+            "9999-12-31 00:00:00.111111111, 6, 9999-12-31 00:00:00.111",
+            "9999-12-31 00:00:00.111111111, 9, 9999-12-31 00:00:00.111",
+
+            // Negative unix timestamps.
+            "0001-01-01 00:00:00.999999999, 1, 0001-01-01 00:00:00.9",
+            "0001-01-01 00:00:00.999999999, 2, 0001-01-01 00:00:00.99",
+            "0001-01-01 00:00:00.999999999, 3, 0001-01-01 00:00:00.999",
+            "0001-01-01 00:00:00.999999999, 6, 0001-01-01 00:00:00.999",
+            "0001-01-01 00:00:00.999999999, 9, 0001-01-01 00:00:00.999",
+            "0001-01-01 00:00:00.111111111, 1, 0001-01-01 00:00:00.1",
+            "0001-01-01 00:00:00.111111111, 2, 0001-01-01 00:00:00.11",
+            "0001-01-01 00:00:00.111111111, 3, 0001-01-01 00:00:00.111",
+            "0001-01-01 00:00:00.111111111, 6, 0001-01-01 00:00:00.111",
+            "0001-01-01 00:00:00.111111111, 9, 0001-01-01 00:00:00.111"
+    })
+    public void testAdjustTimestampMillis(String timestampString, int precision, String result) {
+        LocalDateTime sourceDate = LocalDateTime.parse(timestampString.replace(' ', 'T'));
+        LocalDateTime expectedDate = LocalDateTime.parse(result.replace(' ', 'T'));
+
+        long timestamp = (long) TypeUtils.toInternal(sourceDate, ColumnType.DATETIME);
+
+        Long resTimestamp = IgniteSqlDateTimeUtils.adjustTimestampMillis(timestamp, precision);
+
+        assertNotNull(resTimestamp);
+
+        LocalDateTime actualDate = (LocalDateTime) TypeUtils.fromInternal(resTimestamp, ColumnType.DATETIME);
+
+        assertThat(actualDate, equalTo(expectedDate));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "00:00:00, 0, 00:00:00",
+            "00:00:00, 1, 00:00:00",
+            "23:59:59, 3, 23:59:59",
+            "00:00:00, 6, 00:00:00",
+            "23:59:59, 9, 23:59:59",
+
+            "00:00:00.999999999, 0, 00:00:00",
+            "00:00:00.999999999, 1, 00:00:00.9",
+            "00:00:00.999999999, 2, 00:00:00.99",
+            "00:00:00.999999999, 3, 00:00:00.999",
+            "00:00:00.999999999, 6, 00:00:00.999",
+            "00:00:00.999999999, 9, 00:00:00.999",
+
+            "00:00:00.111111111, 0, 00:00:00",
+            "00:00:00.111111111, 1, 00:00:00.1",
+            "00:00:00.111111111, 2, 00:00:00.11",
+            "00:00:00.111111111, 3, 00:00:00.111",
+            "00:00:00.111111111, 6, 00:00:00.111",
+            "00:00:00.111111111, 9, 00:00:00.111",
+
+            "23:59:59.999999999, 0, 23:59:59",
+            "23:59:59.999999999, 1, 23:59:59.9",
+            "23:59:59.999999999, 2, 23:59:59.99",
+            "23:59:59.999999999, 3, 23:59:59.999",
+            "23:59:59.999999999, 6, 23:59:59.999",
+            "23:59:59.999999999, 9, 23:59:59.999",
+
+            "23:59:59.111111111, 0, 23:59:59",
+            "23:59:59.111111111, 1, 23:59:59.1",
+            "23:59:59.111111111, 2, 23:59:59.11",
+            "23:59:59.111111111, 3, 23:59:59.111",
+            "23:59:59.111111111, 6, 23:59:59.111",
+            "23:59:59.111111111, 9, 23:59:59.111"
+    })
+    public void testAdjustTimeMillis(String timeString, int precision, String result) {
+        LocalTime sourceTime = LocalTime.parse(timeString);
+        LocalTime expectedTime = LocalTime.parse(result);
+
+        int time = (int) TypeUtils.toInternal(sourceTime, ColumnType.TIME);
+
+        Integer resTime = IgniteSqlDateTimeUtils.adjustTimeMillis(time, precision);
+
+        assertNotNull(resTime);
+
+        LocalTime actualTime = (LocalTime) TypeUtils.fromInternal(resTime, ColumnType.TIME);
+
+        assertThat(actualTime, equalTo(expectedTime));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "",
+            "-",
+            "--",
+            "-1",
+            "-0",
+            "-0-",
+            "a",
+            "a-",
+            "10000-",
+            "9223372036854775808-01-01, true",
+    })
+    public void testYearIsOutOfRange(String literal) {
+        assertThat(IgniteSqlDateTimeUtils.isYearOutOfRange(literal), is(true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "0-",
+            "0-01-01",
+            "0000-01-01 00:00:00",
+            "0000-01-01 00:00:00.123",
+            "00000000000000009999-01-01"
+    })
+    public void testYearIsNotOutOfRange(String literal) {
+        assertThat(IgniteSqlDateTimeUtils.isYearOutOfRange(literal), is(false));
     }
 }

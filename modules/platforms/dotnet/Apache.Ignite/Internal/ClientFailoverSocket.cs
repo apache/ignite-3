@@ -156,12 +156,14 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(
                     clientOp,
@@ -169,7 +171,8 @@ namespace Apache.Ignite.Internal
                     request,
                     preferredNode,
                     retryPolicyOverride: null,
-                    expectNotifications)
+                    expectNotifications,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             return buffer;
@@ -184,6 +187,7 @@ namespace Apache.Ignite.Internal
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="retryPolicyOverride">Retry policy.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
@@ -191,7 +195,8 @@ namespace Apache.Ignite.Internal
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
             IRetryPolicy? retryPolicyOverride = null,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             if (tx != null)
             {
@@ -201,16 +206,18 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
-                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications, cancellationToken).ConfigureAwait(false);
                 return (buffer, tx.Socket);
             }
 
             return await DoWithRetryAsync(
-                (clientOp, request, expectNotifications),
+                (clientOp, request, expectNotifications, cancellationToken),
                 static (_, arg) => arg.clientOp,
                 async static (socket, arg) =>
                 {
-                    var res = await socket.DoOutInOpAsync(arg.clientOp, arg.request, arg.expectNotifications).ConfigureAwait(false);
+                    PooledBuffer res = await socket.DoOutInOpAsync(
+                        arg.clientOp, arg.request, arg.expectNotifications, arg.cancellationToken).ConfigureAwait(false);
+
                     return (Buffer: res, Socket: socket);
                 },
                 preferredNode,
@@ -270,6 +277,7 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         public void Dispose()
         {
             _socketLock.Wait();
@@ -285,7 +293,14 @@ namespace Apache.Ignite.Internal
 
                 foreach (var endpoint in _endpoints)
                 {
-                    endpoint.Socket?.Dispose();
+                    try
+                    {
+                        endpoint.Socket?.Dispose();
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogFailedSocketDispose(e);
+                    }
                 }
             }
             finally
@@ -411,42 +426,26 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            var tasks = new List<Task>(_endpoints.Count);
+            if (_endpoints.Count == 1)
+            {
+                // No secondary connections to establish.
+                return;
+            }
 
             while (!_disposed)
             {
-                tasks.Clear();
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(_endpoints.Count);
+                }
+
+                int failed = 0;
 
                 foreach (var endpoint in _endpoints)
                 {
                     try
                     {
-                        var connectTask = ConnectAsync(endpoint);
-                        if (connectTask.IsCompleted)
-                        {
-                            continue;
-                        }
-
-                        tasks.Add(connectTask.AsTask());
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
-                    }
-                }
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(tasks.Count);
-                }
-
-                // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
-                int failed = 0;
-                foreach (var task in tasks)
-                {
-                    try
-                    {
-                        await task.ConfigureAwait(false);
+                        await ConnectAsync(endpoint).ConfigureAwait(false);
                     }
                     catch (Exception e)
                     {
@@ -457,7 +456,7 @@ namespace Apache.Ignite.Internal
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
+                    _logger.LogSecondaryConnectionsEstablishedDebug(_endpoints.Count - failed, failed);
                 }
 
                 if (Configuration.Configuration.ReconnectInterval <= TimeSpan.Zero)

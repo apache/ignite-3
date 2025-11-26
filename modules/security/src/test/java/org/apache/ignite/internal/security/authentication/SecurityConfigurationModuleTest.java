@@ -39,7 +39,6 @@ import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticat
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
-import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfigurationSchema;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionView;
@@ -122,8 +121,7 @@ class SecurityConfigurationModuleTest {
 
     @Test
     void doNotSetDefaultUserIfProvidersIsNotEmpty() {
-        SecurityChange securityChange =
-                ((SecurityExtensionChange) rootChange.changeRoot(SecurityExtensionConfiguration.KEY)).changeSecurity();
+        SecurityChange securityChange = rootChange.changeRoot(SecurityExtensionConfiguration.KEY).changeSecurity();
         securityChange.changeAuthentication().changeProviders().create("basic", change -> {
             change.convert(BasicAuthenticationProviderChange.class)
                     .changeUsers(users -> users.create("admin", user -> user.changePassword("password")));
@@ -131,7 +129,7 @@ class SecurityConfigurationModuleTest {
 
         module.patchConfigurationWithDynamicDefaults(rootChange);
 
-        SecurityView securityView = ((SecurityExtensionView) rootChange.viewRoot(SecurityExtensionConfiguration.KEY)).security();
+        SecurityView securityView = rootChange.viewRoot(SecurityExtensionConfiguration.KEY).security();
 
         assertThat(securityView.authentication().providers().size(), is(1));
 

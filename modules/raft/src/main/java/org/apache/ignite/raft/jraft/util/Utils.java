@@ -269,6 +269,9 @@ public final class Utils {
     public static final int MAX_COLLECTOR_SIZE_PER_THREAD = SystemPropertyUtil.getInt(
         "jraft.max_collector_size_per_thread", 256);
 
+    /** Default max {@link ByteBufferCollector} size per server, it can be set by "-Djraft.max_collector_size_per_thread", default 256. */
+    public static final int MAX_COLLECTOR_SIZE_PER_SERVER = SystemPropertyUtil.getInt("jraft.max_collector_size_per_server", 256);
+
     /**
      * Expand byte buffer for 1024 bytes.
      */

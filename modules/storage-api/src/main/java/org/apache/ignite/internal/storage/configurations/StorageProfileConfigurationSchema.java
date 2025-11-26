@@ -26,6 +26,11 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
  */
 @PolymorphicConfig
 public class StorageProfileConfigurationSchema {
+    /**
+     * Special value that is used to indicate that a property (usually related to a data region size) is not set statically and instead
+     * must be computed dynamically, based on the current system configuration.
+     */
+    public static final long UNSPECIFIED_SIZE = -1;
 
     /** Storage engine name. */
     @PolymorphicId
@@ -33,5 +38,4 @@ public class StorageProfileConfigurationSchema {
 
     @InjectedName
     public String name;
-
 }

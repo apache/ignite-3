@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -63,7 +64,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
-     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @param readOnly {@code true} in order to start a read snapshot transaction, {@code false} in order to start read-write one.
      * @return The transaction.
      */
     InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
@@ -81,7 +82,7 @@ public interface TxManager extends IgniteComponent {
     }
 
     /**
-     * Starts an explicit read-only transaction coordinated by a local node.
+     * Starts an explicit read snapshot transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
@@ -160,8 +161,8 @@ public interface TxManager extends IgniteComponent {
      *         updated with commit timestamp of every committed transaction. Not null on commit.
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
-     * @param commit {@code True} if a commit requested.
-     * @param timeoutExceeded {@code True} if a timeout exceeded. 'commit' and timeout must not be {@code} True at the same time.
+     * @param commit {@code true} if a commit requested.
+     * @param timeoutExceeded {@code true} if a timeout exceeded. 'commit' and timeout must not be {@code true} at the same time.
      */
     void finishFull(
             HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
@@ -173,16 +174,18 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
-     * @param commit {@code true} if a commit requested.
+     * @param commitIntent {@code true} if a commit requested.
      * @param timeoutExceeded {@code true} if a timeout exceeded.
+     * @param recovery {@code true} if finished by recovery.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             @Nullable ReplicationGroupId commitPartition,
-            boolean commit,
+            boolean commitIntent,
             boolean timeoutExceeded,
+            boolean recovery,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
@@ -192,7 +195,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
-     * @param commitPartitionId Commit partition id.
+     * @param commitPartitionId Commit partition id. {@code Null} for unlock only path.
      * @param enlistedPartitions Map of enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -200,7 +203,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -212,7 +215,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to sends the request to are calculated by the placement driver.
      *
-     * @param commitPartitionId Commit partition id.
+     * @param commitPartitionId Commit partition id. {@code Null} for unlock only path.
      * @param enlistedPartitions Enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -220,7 +223,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -228,7 +231,7 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
-     * Sends cleanup request to the nodes than initiated recovery.
+     * Sends cleanup request to a node that had initiated the recovery.
      *
      * @param commitPartitionId Commit partition id.
      * @param node Target node.
@@ -240,9 +243,10 @@ public interface TxManager extends IgniteComponent {
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
      *
+     * @param resourceVacuumMetrics Metrics of resource vacuumizing.
      * @return Vacuum complete future.
      */
-    CompletableFuture<Void> vacuum();
+    CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics);
 
     /**
      * Kills a local transaction by its id. The behavior is similar to the transaction rollback.

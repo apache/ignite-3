@@ -21,7 +21,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
@@ -44,21 +44,19 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
 
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-table')))
-    testImplementation(testFixtures(project(':ignite-catalog')))
-    testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation(testFixtures(project(':ignite-failure-handler')))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-table'))
+    testImplementation testFixtures(project(':ignite-catalog'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-replicator')
     testImplementation project(':ignite-cluster-management')
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
 
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-core')
@@ -78,6 +76,8 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-placement-driver-api')
     integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
@@ -85,7 +85,6 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-storage-api'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation testFixtures(project(':ignite-replicator'))
-    integrationTestImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-index'

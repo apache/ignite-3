@@ -14,7 +14,7 @@
 // limitations under the License.
 = Ignite Clients
 
-Ignite 3 clients connect to the cluster via a standard socket connection. Unlike in Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike in Ignite 2.x, there are no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
 
 Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
 
@@ -33,6 +33,7 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
       "idleTimeoutMillis" : 0,
       "listenAddresses" : "",
       "metricsEnabled" : false,
+      "name" : "client_1",
       "port" : 10800,
       "sendServerExceptionStackTraceToClient" : false,
       "ssl" : {
@@ -62,6 +63,7 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
 |idleTimeoutMillis|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit (0).| Yes | Yes | 0-2147483647
 |listenAddresses| "" | Address (IP or hostname) to listen on. Listens on all interfaces if empty. | Yes | Yes | Valid IP address or host name
 |metricsEnabled|false|Defines if client metrics are collected. | Yes | Yes | true, false
+|name|`client_{number}`| Defines the unique client name. If not specified, generated automatically based on client number. | Yes | Yes | A valid string
 |port|10800|The port the client connector will be listening to. | Yes | Yes | 1024-65535
 |sendServerExceptionStackTraceToClient|false a| 
 By default, only the exception message and code are sent back to the client. 
@@ -105,6 +107,89 @@ For each key that needs updating, the client will get the name of the node holdi
 
 NOTE: Partition awareness assumes that the cluster is stable. Client receives information about cluster data assignments in the background, and it may be outdated by the time an update is sent. If it is, nodes will automatically redirect requests to correct nodes until data on the client is updated.
 
+=== Limitations
+
+* Apache Ignite can only apply partition awareness optimization for queries over single partition of a single table.
+
+* DML queries, which **cannot** be rewritten to key-value operations, are not supported yet. +
+Apache Ignite can execute a query as key-value operation only if the query contains an equality condition on all key columns.
+Partition awareness will only work for DML queries if the query can be rewritten to a single key-value operation. The explain plan will contains `KeyValueGet` or `KeyValueModify` node in that case.
+Bulk DML operations (like `INSERT FROM SELECT` or multi-value `INSERT FROM VALUES`) are not supported yet.
+
+* Equality condition on colocation key columns is required. +
+Apache Ignite can only apply partition awareness optimization if the SQL query contains an equality condition on all colocated columns. This requirement allows the client to route the query to the node where the partition with the data resides. +
+
+* Partition awareness cache on client may miss required metadata +
+Client nodes do not parse or execute queries by themselves, they require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies. +
+See ```org.apache.ignite.client.IgniteClient.Builder#sqlPartitionAwarenessMetadataCacheSize()``` for more information.
+
+=== How to Check if Partition Awareness is Applicable
+
+You can verify whether partition awareness is used for a given SQL query by inspecting the EXPLAIN command results.
+
+* The resulting plan should contain a `TableScan` node with equality conditions on all colocation columns of the table:
+----
+TableScan
+      table: PUBLIC.T
+      predicate: AND(=(COLOCATION_COL_1, ?), =(COLOCATION_COL_2, ?))
+----
+* or a similar `IndexScan` where the search bound has a prefix of all the colocation columns:
+----
+IndexScan
+      table: PUBLIC.T
+      predicate: AND(=(COLOCATION_COL_1, ?), =(COLOCATION_COL_2, ?))
+      searchBounds: [ExactBounds [bound=?], ExactBounds [bound=?]]
+----
+* or `KeyValueGet` node:
+----
+KeyValueGet
+    table: PUBLIC.T
+    key: [?0]
+----
+* or `KeyValueModify` node:
+----
+KeyValueModify
+    table: PUBLIC.T
+    key: [?0]
+----
+
+NOTE: Apache Ignite supports both literals and dynamic parameters in equality conditions for partition awareness purposes.
+
+
+=== Examples
+Assuming a table `T` is defined as:
+[source, sql]
+----
+CREATE TABLE T (
+    id INT NOT NULL,
+    region_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    val VARCHAR,
+    PRIMARY KEY (id, region_id, customer_id)
+) COLOCATE BY (region_id, customer_id);
+----
+The following queries can utilize partition awareness optimization:
+----
+SELECT * FROM T WHERE region_id =? AND customer_id = ?
+
+DELETE FROM T
+WHERE id = ? AND region_id = ? AND customer_id = ?;
+
+INSERT INTO T (id, region_id, customer_id, val)
+VALUES (?, ?, ?, ?);
+----
+
+While these queries will not utilize partition awareness:
+----
+// Missing condition for colocation column `customer_id`.
+SELECT * FROM T WHERE region_id =?
+
+// Non-equality condition on colocation column.
+SELECT * FROM T WHERE region_id = ? AND customer_id > ?
+----
+
+In more complex cases (nested queries, IN condition, JOINS), partition awareness is not guaranteed to work. It depends on whether the query can be rewritten in a form which contains sufficient information to locate the data.
+
 == Client Features
 The following table outlines features supported by each client.
 
@@ -122,6 +207,6 @@ Partition Awareness,{yes},{yes},No
 Transactions,{yes},{yes},{yes}
 Compute API,{yes},{yes},{yes}
 Retry Policy,{yes},{yes},No
-Heartbeats,{yes},{yes},No
+Heartbeats,{yes},{yes},{yes}
 Data Streamer,{yes},{yes},No
 |===

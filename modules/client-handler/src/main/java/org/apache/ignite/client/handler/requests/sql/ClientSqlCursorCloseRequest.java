@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
@@ -31,19 +31,17 @@ public class ClientSqlCursorCloseRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param resources Resources.
      * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             ClientResourceRegistry resources
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
         ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
 
-        return asyncResultSet.closeAsync();
+        return asyncResultSet.closeAsync().thenApply(v -> null);
     }
 }

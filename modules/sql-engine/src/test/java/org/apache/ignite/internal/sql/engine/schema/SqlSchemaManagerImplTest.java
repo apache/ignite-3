@@ -77,6 +77,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -112,10 +113,16 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void init() {
-        sqlStatisticManager = tableId -> 10_000L;
+        sqlStatisticManager = tableId -> 10_000;
 
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
-        sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 200);
+        sqlSchemaManager = new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                200
+        );
 
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
@@ -269,7 +276,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 column("VAL_NOT_NULLABLE", columnType, precision, scale, false)
                         ))
                         .primaryKey(primaryKey("ID"))
-                        .zone("Default")
                         .build()
         )));
 
@@ -290,7 +296,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(tableDescriptor, notNullValue());
 
         TableDescriptor descriptor = table.descriptor();
-        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedRowsCount(descriptor), "column count");
+        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedColumnsCount(descriptor), "column count");
 
         for (int i = 0; i < tableDescriptor.columns().size(); i++) {
             CatalogTableColumnDescriptor expectedColumnDescriptor = tableDescriptor.columns().get(i);
@@ -339,7 +345,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                         .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build()
                         ))
                         .primaryKey(primaryKey("C1", "C4"))
-                        .zone("Default")
                         .build()
         )));
 
@@ -392,7 +397,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C4").type(ColumnType.INT8).nullable(true).build()
                         ))
                         .primaryKey(primaryKey)
-                        .zone("Default")
                         .build()
         )));
 
@@ -439,8 +443,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C3").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C4").type(ColumnType.INT32).build()
                 ))
-                .primaryKey(primaryKey("C1", "C2", "C3", "C4"))
-                .zone("Default");
+                .primaryKey(primaryKey("C1", "C2", "C3", "C4"));
 
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
@@ -472,21 +475,33 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T1");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(1), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(1),
+                    table.id(),
+                    table.zoneId(),
+                    "table PUBLIC.T1 in zone \"Default\"")));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T2");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(3, 1), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(3, 1),
+                    table.id(),
+                    table.zoneId(),
+                    "table PUBLIC.T2 in zone \"Default\"")));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T3");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(2, 1, 0), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(2, 1, 0),
+                    table.id(),
+                    table.zoneId(),
+                    "table PUBLIC.T3 in zone \"Default\"")));
         }
     }
 
@@ -839,7 +854,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-
     private static IgniteSystemView getSystemView(IgniteSchema schema, String name) {
         Table systemViewTable = schema.getTable(name);
         assertNotNull(systemViewTable);
@@ -901,7 +915,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKey(TableHashPrimaryKey.builder()
                         .columns(List.of("ID"))
                         .build())
-                .zone("Default")
                 .build();
     }
 

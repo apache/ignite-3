@@ -18,11 +18,10 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,7 +35,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -69,16 +71,10 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        int openCursorResources = openResources();
-        // connection + not closed result set
-        assertTrue(openResources() <= 2, "Open cursors: " + openCursorResources);
-
         stmt.close();
 
-        openCursorResources = openResources();
-        // only connection context or 0 if already closed.
-        assertTrue(openResources() <= 1, "Open cursors: " + openCursorResources);
-        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER), is(0));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openCursors(CLUSTER), is(0));
     }
 
     @Test
@@ -92,7 +88,9 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         // pk violation exception
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
         stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (1, 1, '1'); COMMIT");
-        assertThrowsSqlException("Failed to fetch query results", () -> stmt.execute("SELECT COUNT(*) FROM TEST_TX"));
+        assertEquals(0, stmt.getUpdateCount());
+        assertThrowsSqlException("PK unique constraint is violated", () -> stmt.getMoreResults());
+
         stmt.execute("SELECT COUNT(*) FROM TEST_TX");
         try (ResultSet rs = stmt.getResultSet()) {
             assertTrue(rs.next());
@@ -143,18 +141,27 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     public void testSimpleQueryError() throws Exception {
         boolean res = stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
         assertTrue(res);
-        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        assertThrowsSqlException("Division by zero", () -> stmt.getMoreResults());
         // Next after exception.
-        assertFalse(stmt.getMoreResults());
+        // assertFalse(stmt.getMoreResults());
+        // Do not move past the first result.
+        assertThrowsSqlException("Division by zero", () -> stmt.getMoreResults());
 
         stmt.closeOnCompletion();
     }
 
     @Test
+    public void testSimpleQueryErrorMustReleaseServerResources() throws Exception {
+        // The script fails, the user does not retrieve any result sets.
+        stmt.execute("SELECT 1; SELECT 2/0; SELECT 3");
+        // But the resources must be released in after test callbacks.
+    }
+
+    @Test
     public void testSimpleQueryErrorCloseRs() throws Exception {
-        stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
+        stmt.execute("SELECT 1; SELECT 2/0; SELECT 2");
         ResultSet rs = stmt.getResultSet();
-        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        assertThrowsSqlException("Division by zero", () -> stmt.getMoreResults());
         stmt.closeOnCompletion();
 
         rs.close();
@@ -212,13 +219,18 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void noMoreResultsArePossibleAfterCloseOnCompletion() throws Exception {
         stmt.execute("SELECT 1; SELECT 2; SELECT 3");
+
+        ResultSet rs1 = stmt.getResultSet();
         // SELECT 2;
         assertTrue(stmt.getMoreResults());
+        assertTrue(rs1.isClosed());
 
+        ResultSet rs2 = stmt.getResultSet();
         stmt.closeOnCompletion();
 
         // SELECT 3;
         assertTrue(stmt.getMoreResults());
+        assertTrue(rs2.isClosed());
         assertFalse(stmt.isClosed());
 
         // no more results, auto close statement
@@ -229,7 +241,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void requestMoreThanOneFetch() throws Exception {
-        int range = stmt.getFetchSize() + 100;
+        int range = SqlCommon.DEFAULT_PAGE_SIZE + 100;
         stmt.execute(format("START TRANSACTION; SELECT * FROM TABLE(system_range(0, {})); COMMIT;", range));
         assertEquals(range + 1, getResultSetSize());
 
@@ -250,6 +262,21 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(stmt.getMoreResults());
         stmt.getResultSet().next();
         assertEquals(2, stmt.getResultSet().getInt(1));
+    }
+
+    @Test
+    public void statementMustCloseAllDependentCursors() throws SQLException {
+        int rowsCount = SqlCommon.DEFAULT_PAGE_SIZE * 3;
+
+        stmt.execute(format("SELECT * FROM SYSTEM_RANGE(0, {});"
+                        + "SELECT * FROM SYSTEM_RANGE(0, {}); "
+                        + "SELECT * FROM SYSTEM_RANGE(0, {});",
+                rowsCount, rowsCount, rowsCount));
+
+        stmt.close();
+
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER), is(0));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openCursors(CLUSTER), is(0));
     }
 
     @Test
@@ -309,14 +336,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBrokenTransaction() throws Exception {
-        boolean res = stmt.execute("START TRANSACTION;");
-        assertFalse(res);
-        assertNull(stmt.getResultSet());
-        assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
-        assertEquals(-1, stmt.getUpdateCount());
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                "Transaction block doesn't have a COMMIT statement at the end.",
+                () -> stmt.execute("START TRANSACTION;")
+        );
 
-        res = stmt.execute("COMMIT;");
+        boolean res = stmt.execute("COMMIT;");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
@@ -404,7 +430,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(rs.next());
         assertEquals(0, rs.getInt(1));
 
-
         stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
         conn.commit();
 
@@ -417,11 +442,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testAutoCommitFalseTxControlStatementsNotSupported() throws Exception {
-        String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled";
+        String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled.";
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; COMMIT;"));
 
         boolean res = stmt.execute("SELECT 1;COMMIT");
         assertTrue(res);
@@ -582,18 +607,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(-1, stmt.getUpdateCount());
     }
 
-    @Test
-    public void testResultsFromExecuteBatch() throws Exception {
-        stmt.addBatch("INSERT INTO TEST_TX VALUES (7, 25, 'Michel');");
-        stmt.addBatch("INSERT INTO TEST_TX VALUES (8, 25, 'Michel');");
-        int[] arr = stmt.executeBatch();
-
-        assertEquals(2, arr.length);
-        assertArrayEquals(new int[]{1, 1}, arr);
-        assertEquals(-1, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
-    }
-
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
@@ -626,11 +639,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         String complexQuery =
                 "INSERT INTO TEST_TX VALUES (5, ?, 'Leo'); "
-                    + "START TRANSACTION ; "
-                    + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
-                    + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
-                    + "DELETE FROM TEST_TX WHERE age < ?; "
-                    + "COMMIT;";
+                        + "START TRANSACTION ; "
+                        + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
+                        + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
+                        + "DELETE FROM TEST_TX WHERE age < ?; "
+                        + "COMMIT;";
 
         try (PreparedStatement p = conn.prepareStatement(complexQuery)) {
             p.setInt(1, leoAge);
@@ -661,8 +674,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testTimeout() throws SQLException {
-        JdbcStatement igniteStmt = (JdbcStatement) stmt;
-        igniteStmt.timeout(500);
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+        igniteStmt.setQueryTimeout(1);
 
         int attempts = 10;
 

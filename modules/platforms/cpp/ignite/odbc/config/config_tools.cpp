@@ -18,7 +18,7 @@
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <algorithm>
 #include <sstream>
@@ -84,51 +84,14 @@ std::vector<end_point> parse_address(std::string_view value) {
         if (addr.empty())
             return;
 
-        end_points.emplace_back(parse_single_address(addr));
+        try {
+            end_points.emplace_back(parse_single_address(addr, configuration::default_value::port));
+        } catch (ignite_error &err) {
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE, err.what());
+        }
     });
 
     return end_points;
-}
-
-end_point parse_single_address(std::string_view value) {
-    auto colon_num = std::count(value.begin(), value.end(), ':');
-
-    if (colon_num == 0)
-        return {std::string(value), configuration::default_value::port};
-
-    if (colon_num != 1) {
-        throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-            "Unexpected number of ':' characters in the following address: '" + std::string(value));
-    }
-
-    auto colon_pos = value.find(':');
-    auto host = value.substr(0, colon_pos);
-
-    if (colon_pos == value.size() - 1) {
-        throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-            "Port is missing in the following address: '" + std::string(value));
-    }
-
-    auto port_str = value.substr(colon_pos + 1);
-    auto port = parse_port(port_str);
-
-    return {std::string(host), port};
-}
-
-std::optional<std::int64_t> parse_int64(std::string_view value) {
-    auto value_str = trim(value);
-    if (!std::all_of(value_str.begin(), value_str.end(), [](char c) { return std::isdigit(c) || c == '-'; }))
-        return std::nullopt;
-    return lexical_cast<std::int64_t>(value_str);
-}
-
-std::uint16_t parse_port(std::string_view value) {
-    auto port_opt = parse_int<std::uint16_t>(value);
-    if (!port_opt || *port_opt == 0) {
-        throw odbc_error(
-            sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE, "Invalid port value: " + std::string(value));
-    }
-    return *port_opt;
 }
 
 config_map parse_connection_string(std::string_view str) {

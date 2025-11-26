@@ -17,37 +17,39 @@
 
 package org.apache.ignite.internal.rest.recovery;
 
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
+import static io.micronaut.http.HttpStatus.OK;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
-import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.hamcrest.Matchers.allOf;
 
 import io.micronaut.http.HttpRequest;
-import io.micronaut.http.HttpResponse;
-import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Test for disaster recovery restart partitions command. */
 @MicronautTest
@@ -81,61 +83,49 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("Distribution zone was not found [zoneName=" + unknownZone + "]"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Distribution zone was not found [zoneName=" + unknownZone + "]")
+        );
     }
 
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testRestartPartitionTableNotFound() {
-        if (enabledColocation()) {
-            // This test in colocation mode is not relevant.
-            return;
-        }
-
         String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName.toUpperCase() + "]"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("The table does not exist [name=" + tableName.toUpperCase() + "]")
+        );
     }
 
     @Test
     void testRestartPartitionsIllegalPartitionNegative() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10));
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("Partition ID can't be negative, found: -10"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Partition ID can't be negative, found: -10")
+        );
     }
 
     @Test
     void testRestartPartitionsPartitionsOutOfRange() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-        assertThat(e.getMessage(), containsString(
-                String.format(
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail(String.format(
                         "Partition IDs should be in range [0, %d] for zone %s, found: %d",
                         DEFAULT_PARTITION_COUNT - 1,
                         FIRST_ZONE,
                         DEFAULT_PARTITION_COUNT
-                )
-        ));
+                ))
+        );
     }
 
     @Test
@@ -146,29 +136,30 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
         MutableHttpRequest<?> post = restartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
+        List<Matcher<? super String>> detailMatchers = uppercaseNodeNames.stream()
+                .map(Matchers::containsString)
+                .collect(Collectors.toList());
 
-        assertThat(e.getStatus(), equalTo(HttpStatus.BAD_REQUEST));
-        uppercaseNodeNames.forEach(nodeName -> assertThat(e.getMessage(), containsString(nodeName)));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail(allOf(detailMatchers))
+        );
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26377")
     public void testRestartAllPartitions() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpResponse<Void> response = client.toBlocking().exchange(post);
-
-        assertThat(response.getStatus().getCode(), is(OK.code()));
+        assertThat(client.toBlocking().exchange(post), hasStatus(OK));
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26377")
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
-        HttpResponse<Void> response = client.toBlocking().exchange(post);
-
-        assertThat(response.getStatus().getCode(), is(OK.code()));
+        assertThat(client.toBlocking().exchange(post), hasStatus(OK));
     }
 
     @Test
@@ -177,9 +168,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpResponse<Void> response = client.toBlocking().exchange(post);
-
-        assertThat(response.getStatus().getCode(), is(OK.code()));
+        assertThat(client.toBlocking().exchange(post), hasStatus(OK));
     }
 
     private static Set<String> nodeNames(int count) {
@@ -195,7 +184,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
             String tableName,
             Collection<Integer> partitionIds
     ) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return HttpRequest.POST(RESTART_ZONE_PARTITIONS_ENDPOINT,
                     new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
         } else {

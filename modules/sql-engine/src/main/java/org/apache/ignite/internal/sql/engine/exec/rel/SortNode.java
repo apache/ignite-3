@@ -44,7 +44,9 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private final PriorityQueue<RowT> rows;
 
     /** SQL select limit. Negative if disabled. */
-    private final long limit;
+    private final long fetch;
+
+    private final long offset;
 
     /** Reverse-ordered rows in case of limited sort. */
     private List<RowT> reversed;
@@ -60,13 +62,24 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public SortNode(ExecutionContext<RowT> ctx,
             Comparator<RowT> comp,
             long offset,
-            long fetch) {
+            long fetch
+    ) {
         super(ctx);
 
         assert fetch == -1 || fetch >= 0;
         assert offset >= 0;
 
-        limit = fetch == -1 ? -1 : IgniteMath.addExact(fetch, offset);
+        // Offset must be set only together with fetch.
+        // This is limitation is current implementation, and SortConverterRule
+        // should not produce unsupported variant.
+        if (offset > 0 && fetch == -1) {
+            throw new AssertionError("Offset-only case is not supported by Sort node");
+        }
+
+        this.fetch = fetch;
+        this.offset = offset;
+
+        long limit = fetch == -1 ? -1 : IgniteMath.addExact(fetch, offset);
 
         if (limit < 1 || limit > Integer.MAX_VALUE) {
             rows = new PriorityQueue<>(comp);
@@ -113,6 +126,12 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
+        if (fetch == 0) {
+            downstream().end();
+
+            return;
+        }
+
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -154,7 +173,8 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         buf.app("class=").app(getClass().getSimpleName())
                 .app(", requested=").app(requested)
                 .app(", waiting=").app(waiting)
-                .app(", limit=").app(limit);
+                .app(", fetch=").app(fetch)
+                .app(", offset=").app(offset);
     }
 
     private void flush() throws Exception {
@@ -165,12 +185,12 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         inLoop = true;
         try {
             // Prepare final order (reversed).
-            if (limit > 0 && !rows.isEmpty()) {
+            if (fetch > 0 && !rows.isEmpty()) {
                 if (reversed == null) {
                     reversed = new ArrayList<>(rows.size());
                 }
 
-                while (!rows.isEmpty()) {
+                while (rows.size() > offset) {
                     reversed.add(rows.poll());
 
                     if (++processed >= inBufSize) {
@@ -180,6 +200,8 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                         return;
                     }
                 }
+
+                rows.clear();
 
                 processed = 0;
             }

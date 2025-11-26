@@ -1,0 +1,144 @@
+Sort
+    collation: [TOTAL_CNT DESC, I_ITEM_DESC ASC, W_WAREHOUSE_NAME ASC, D_WEEK_SEQ ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      fieldNames: [I_ITEM_DESC, W_WAREHOUSE_NAME, D_WEEK_SEQ, NO_PROMO, PROMO, TOTAL_CNT]
+      group: [I_ITEM_DESC, W_WAREHOUSE_NAME, D_WEEK_SEQ]
+      aggregation: [SUM($f3), SUM($f4), COUNT()]
+      est: (rows=11212229921)
+    Project
+        fieldNames: [I_ITEM_DESC, W_WAREHOUSE_NAME, D_WEEK_SEQ, $f3, $f4]
+        projection: [I_ITEM_DESC, W_WAREHOUSE_NAME, D_WEEK_SEQ, CASE(IS NULL(P_PROMO_SK), 1, 0), CASE(IS NOT NULL(P_PROMO_SK), 1, 0)]
+        est: (rows=22975880987)
+      MergeJoin
+          predicate: AND(=(CR_ITEM_SK, CS_ITEM_SK), =(CR_ORDER_NUMBER, CS_ORDER_NUMBER))
+          type: left
+          est: (rows=22975880987)
+        HashJoin
+            predicate: =(CS_PROMO_SK, P_PROMO_SK)
+            type: left
+            est: (rows=22975880987)
+          HashJoin
+              predicate: AND(=(CS_SHIP_DATE_SK, D_DATE_SK$1), >(D_DATE$0, +(D_DATE, 432000000:INTERVAL DAY)))
+              fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_DATE_SK, CS_BILL_CDEMO_SK, CS_BILL_HDEMO_SK, CS_ITEM_SK, CS_PROMO_SK, CS_ORDER_NUMBER, CS_QUANTITY, INV_DATE_SK, INV_ITEM_SK, INV_WAREHOUSE_SK, INV_QUANTITY_ON_HAND, W_WAREHOUSE_SK, W_WAREHOUSE_NAME, I_ITEM_SK, I_ITEM_DESC, CD_DEMO_SK, CD_MARITAL_STATUS, HD_DEMO_SK, HD_BUY_POTENTIAL, D_DATE_SK, D_DATE, D_WEEK_SEQ, D_YEAR, D_DATE_SK$0, D_WEEK_SEQ$0, D_DATE_SK$1, D_DATE$0]
+              type: inner
+              est: (rows=22975880987)
+            HashJoin
+                predicate: AND(=(INV_DATE_SK, D_DATE_SK$0), =(D_WEEK_SEQ, D_WEEK_SEQ$0))
+                fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_DATE_SK, CS_BILL_CDEMO_SK, CS_BILL_HDEMO_SK, CS_ITEM_SK, CS_PROMO_SK, CS_ORDER_NUMBER, CS_QUANTITY, INV_DATE_SK, INV_ITEM_SK, INV_WAREHOUSE_SK, INV_QUANTITY_ON_HAND, W_WAREHOUSE_SK, W_WAREHOUSE_NAME, I_ITEM_SK, I_ITEM_DESC, CD_DEMO_SK, CD_MARITAL_STATUS, HD_DEMO_SK, HD_BUY_POTENTIAL, D_DATE_SK, D_DATE, D_WEEK_SEQ, D_YEAR, D_DATE_SK$0, D_WEEK_SEQ$0]
+                type: inner
+                est: (rows=32822687124)
+              HashJoin
+                  predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=46889553034)
+                HashJoin
+                    predicate: =(CS_BILL_HDEMO_SK, HD_DEMO_SK)
+                    type: inner
+                    est: (rows=140809468571)
+                  HashJoin
+                      predicate: =(CS_BILL_CDEMO_SK, CD_DEMO_SK)
+                      type: inner
+                      est: (rows=422851256969)
+                    MergeJoin
+                        predicate: =(I_ITEM_SK, CS_ITEM_SK)
+                        type: inner
+                        est: (rows=1269823594500)
+                      HashJoin
+                          predicate: =(W_WAREHOUSE_SK, INV_WAREHOUSE_SK)
+                          type: inner
+                          est: (rows=1269823594500)
+                        HashJoin
+                            predicate: AND(=(CS_ITEM_SK, INV_ITEM_SK), <(INV_QUANTITY_ON_HAND, CS_QUANTITY))
+                            type: inner
+                            est: (rows=1269823594500)
+                          Exchange
+                              distribution: single
+                              est: (rows=1441548)
+                            Sort
+                                collation: [CS_ITEM_SK ASC, CS_ORDER_NUMBER ASC]
+                                est: (rows=1441548)
+                              TableScan
+                                  table: PUBLIC.CATALOG_SALES
+                                  fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_DATE_SK, CS_BILL_CDEMO_SK, CS_BILL_HDEMO_SK, CS_ITEM_SK, CS_PROMO_SK, CS_ORDER_NUMBER, CS_QUANTITY]
+                                  est: (rows=1441548)
+                          Exchange
+                              distribution: single
+                              est: (rows=11745000)
+                            TableScan
+                                table: PUBLIC.INVENTORY
+                                fieldNames: [INV_DATE_SK, INV_ITEM_SK, INV_WAREHOUSE_SK, INV_QUANTITY_ON_HAND]
+                                est: (rows=11745000)
+                        Exchange
+                            distribution: single
+                            est: (rows=5)
+                          TableScan
+                              table: PUBLIC.WAREHOUSE
+                              fieldNames: [W_WAREHOUSE_SK, W_WAREHOUSE_NAME]
+                              est: (rows=5)
+                      Exchange
+                          distribution: single
+                          est: (rows=18000)
+                        Sort
+                            collation: [I_ITEM_SK ASC]
+                            est: (rows=18000)
+                          TableScan
+                              table: PUBLIC.ITEM
+                              fieldNames: [I_ITEM_SK, I_ITEM_DESC]
+                              est: (rows=18000)
+                    Exchange
+                        distribution: single
+                        est: (rows=639626)
+                      TableScan
+                          table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                          predicate: =(CD_MARITAL_STATUS, _UTF-8'D')
+                          fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS]
+                          est: (rows=639626)
+                  Exchange
+                      distribution: single
+                      est: (rows=2398)
+                    TableScan
+                        table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                        predicate: =(HD_BUY_POTENTIAL, _UTF-8'1001-5000')
+                        fieldNames: [HD_DEMO_SK, HD_BUY_POTENTIAL]
+                        est: (rows=2398)
+                Exchange
+                    distribution: single
+                    est: (rows=24325)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: =(D_YEAR, 2000)
+                      fieldNames: [D_DATE_SK, D_DATE, D_WEEK_SEQ, D_YEAR]
+                      est: (rows=24325)
+              Exchange
+                  distribution: single
+                  est: (rows=73049)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    fieldNames: [D_DATE_SK, D_WEEK_SEQ]
+                    est: (rows=73049)
+            Exchange
+                distribution: single
+                est: (rows=73049)
+              TableScan
+                  table: PUBLIC.DATE_DIM
+                  fieldNames: [D_DATE_SK, D_DATE]
+                  est: (rows=73049)
+          Exchange
+              distribution: single
+              est: (rows=300)
+            TableScan
+                table: PUBLIC.PROMOTION
+                fieldNames: [P_PROMO_SK]
+                est: (rows=300)
+        Exchange
+            distribution: single
+            est: (rows=144067)
+          Sort
+              collation: [CR_ITEM_SK ASC, CR_ORDER_NUMBER ASC]
+              est: (rows=144067)
+            TableScan
+                table: PUBLIC.CATALOG_RETURNS
+                fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER]
+                est: (rows=144067)

@@ -72,32 +72,40 @@ public interface PartitionMvStorageAccess {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID. In details: - if there is no
-     * uncommitted version, a new uncommitted version is added - if there is an uncommitted version belonging to the same transaction, it
-     * gets replaced by the given version - if there is an uncommitted version belonging to a different transaction,
-     * {@link TxIdMismatchException} is thrown
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
+     *
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li>If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li>If there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown.</li>
+     * </ul>
      *
      * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction ID.
      * @param commitTableOrZoneId Commit table/zone ID.
-     * @param commitPartitionId Commit partitionId.
+     * @param commitPartitionId Commit partition ID.
      * @param catalogVersion Catalog version of the incoming partition snapshot.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      * @throws StorageException If failed to write data.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      */
     void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId, int catalogVersion);
 
     /**
-     * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
-     * uncommitted version, this method may fail with a system exception (this method should not be called if there is already something
-     * uncommitted for the given row).
+     * Creates a committed version.
+     *
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new committed version is added.</li>
+     * <li>f there is an uncommitted version, {@link StorageException} is thrown.</li>
+     * </ul>
      *
      * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
      * @param catalogVersion Catalog version of the incoming partition snapshot.
-     * @throws StorageException If failed to write data.
+     * @throws StorageException If failed to write data to the storage.
      */
     void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp, int catalogVersion);
 
@@ -192,4 +200,7 @@ public interface PartitionMvStorageAccess {
      * @param newLowWatermark Candidate for update.
      */
     void updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /** Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent. */
+    boolean isVolatile();
 }

@@ -17,19 +17,17 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.PartitionMapping;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -40,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientTransactions implements IgniteTransactions {
     /** 0 timeout is used as a flag to use the configured timeout. */
-    private static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+    public static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
 
     /** Channel. */
     private final ReliableChannel ch;
@@ -63,14 +61,24 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        return CompletableFuture.completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
+        return completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
     }
 
+    /**
+     * Begins the transaction on any node.
+     *
+     * @param ch Reliable channel.
+     * @param options The options.
+     * @param observableTimestamp The timestamp.
+     * @param channelResolver Client channel resolver.
+     *
+     * @return The future.
+     */
     static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
-            @Nullable PartitionMapping pm,
             @Nullable TransactionOptions options,
-            HybridTimestampTracker observableTimestamp
+            long observableTimestamp,
+            Supplier<CompletableFuture<ClientChannel>> channelResolver
     ) {
         boolean readOnly = options != null && options.readOnly();
         long timeout = options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
@@ -80,15 +88,10 @@ public class ClientTransactions implements IgniteTransactions {
                 w -> {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(timeout);
-                    w.out().packLong(observableTimestamp.get().longValue());
-                    if (!readOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
-                        w.out().packInt(pm == null ? -1 : pm.tableId());
-                        w.out().packInt(pm == null ? -1 : pm.partition());
-                    }
+                    w.out().packLong(observableTimestamp);
                 },
-                r -> readTx(r, readOnly, pm, observableTimestamp, timeout),
-                pm == null ? null : pm.nodeConsistentId(),
-                null,
+                r -> readTx(r, readOnly, timeout),
+                channelResolver,
                 null,
                 false);
     }
@@ -96,19 +99,12 @@ public class ClientTransactions implements IgniteTransactions {
     private static ClientTransaction readTx(
             PayloadInputChannel r,
             boolean isReadOnly,
-            @Nullable PartitionMapping pm,
-            HybridTimestampTracker tracker,
             long timeout
     ) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
-        if (isReadOnly || !r.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
-            return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
-        } else {
-            UUID txId = in.unpackUuid();
-            UUID coordId = in.unpackUuid();
-            return new ClientTransaction(r.clientChannel(), id, isReadOnly, txId, pm, coordId, tracker, timeout);
-        }
+
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
     }
 }

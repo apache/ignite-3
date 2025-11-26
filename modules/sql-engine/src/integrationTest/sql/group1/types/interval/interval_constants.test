@@ -7,73 +7,63 @@ PRAGMA enable_verification
 
 # interval constants with different representations
 query I
-SELECT interval 2 days;
-----
-PT48H
-
-query T
-SELECT interval (2) day;
-----
-PT48H
-
-query T
-SELECT interval (1+1) days;
-----
-PT48H
-
-query T
 SELECT interval '2' days;
 ----
 PT48H
 
 query TTTTTT
-SELECT interval 2 years, interval 2 months, interval 2 days, interval 2 hours, interval 2 minutes, interval 2 seconds;
+SELECT interval '2' years, interval '2' months, interval '2' days, interval '2' hours, interval '2' minutes, interval '2' seconds;
 ----
 P2Y	P2M	PT48H	PT2H	PT2M	PT2S
 
-# non-constant expression
-query T
-SELECT interval (x) day from table(system_range(1, 3));
-----
-PT24H
-PT48H
-PT72H
+# Non-literal interval
+statement error: Failed to validate query.
+SELECT interval ('2') days;
 
-query T
+statement error: Expression is not supported: String literal expected
+SELECT interval 2 days;
+
+statement error: Failed to validate query.
+SELECT interval ('1+1') days;
+
+statement error: Expression is not supported: String literal expected
+SELECT interval (1+1) days;
+
+# non-constant expression
+statement error: Expression is not supported: String literal expected
+SELECT interval (x) day from table(system_range(1, 3));
+
+statement error: Expression is not supported: String literal expected
 SELECT interval (x + 1) day from table(system_range(1, 3));
-----
-PT48H
-PT72H
-PT96H
 
 # try all the different types
 query TT
-SELECT interval 2 years, interval 2 year;
+SELECT interval '2' years, interval '2' year;
 ----
 P2Y	P2Y
 
 query TT
-SELECT interval 2 months, interval 2 month;
+SELECT interval '2' months, interval '2' month;
 ----
 P2M	P2M
 
 query TT
-SELECT interval 2 days, interval 2 day;
+SELECT interval '2' days, interval '2' day;
 ----
 PT48H	PT48H
 
 query TT
-SELECT interval 2 hours, interval 2 hour;
+SELECT interval '2' hours, interval '2' hour;
 ----
 PT2H	PT2H
 
 query TT
-SELECT interval 2 minutes, interval 2 minute;
+SELECT interval '2' minutes, interval '2' minute;
 ----
 PT2M	PT2M
 
 query TT
-SELECT interval 2 seconds, interval 2 second;
+SELECT interval '2' seconds, interval '2' second;
 ----
 PT2S	PT2S
 

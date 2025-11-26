@@ -20,6 +20,7 @@ package org.apache.ignite.internal.systemview;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -121,7 +122,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
             catalogManager.catalogReadyFuture(1).thenCompose((x) -> catalogManager.execute(commands)).whenComplete((r, t) -> {
                         viewsRegistrationFuture.complete(null);
 
-                        if (t != null) {
+                        if (t != null && !hasCause(t, NodeStoppingException.class)) {
                             failureProcessor.process(new FailureContext(t, "Failed to register system views."));
                         }
                     }

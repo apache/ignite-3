@@ -19,10 +19,9 @@
 
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
-#include "ignite/odbc/meta/column_meta.h"
+#include "ignite/protocol/sql/column_meta.h"
 
 #include <cstdint>
-#include <map>
 
 namespace ignite {
 
@@ -76,7 +75,7 @@ public:
      * @param column_bindings Application buffers to put data to.
      * @return Operation result.
      */
-    virtual sql_result fetch_next_row(column_binding_map &m_column_bindings) = 0;
+    virtual sql_result fetch_next_row(column_binding_map &column_bindings) = 0;
 
     /**
      * Get data of the specified column in the result set.
@@ -99,8 +98,8 @@ public:
      *
      * @return Column metadata.
      */
-    [[nodiscard]] virtual const column_meta_vector *get_meta() {
-        static const column_meta_vector empty;
+    [[nodiscard]] virtual const protocol::column_meta_vector *get_meta() {
+        static const protocol::column_meta_vector empty;
 
         return &empty;
     }

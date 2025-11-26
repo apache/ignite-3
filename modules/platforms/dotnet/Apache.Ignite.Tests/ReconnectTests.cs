@@ -89,17 +89,21 @@ public class ReconnectTests
     [Timeout(30_000)]
     public async Task TestDroppedConnectionsAreRestoredInBackground()
     {
+        const int serverCount = 8;
+
         var cfg = new IgniteClientConfiguration
         {
+            SocketTimeout = TimeSpan.FromSeconds(1),
+            OperationTimeout = TimeSpan.FromSeconds(1),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             ReconnectInterval = TimeSpan.FromMilliseconds(300),
             LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
-        using var servers = FakeServerGroup.Create(10);
+        using var servers = FakeServerGroup.Create(serverCount);
         using var client = await servers.ConnectClientAsync(cfg);
 
-        client.WaitForConnections(10);
+        client.WaitForConnections(serverCount);
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
 
@@ -108,7 +112,7 @@ public class ReconnectTests
 
         // Connections are restored in background due to ReconnectInterval.
         servers.DropNewConnections = false;
-        client.WaitForConnections(10);
+        client.WaitForConnections(serverCount);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }

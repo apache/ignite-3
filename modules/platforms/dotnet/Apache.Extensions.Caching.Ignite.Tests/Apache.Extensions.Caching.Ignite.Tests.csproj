@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
 
         <IsPackable>false</IsPackable>
+        <IsPublishable>false</IsPublishable>
         <IsTestProject>true</IsTestProject>
         <RootNamespace>Apache.Extensions.Cache.Ignite.Tests</RootNamespace>
     </PropertyGroup>

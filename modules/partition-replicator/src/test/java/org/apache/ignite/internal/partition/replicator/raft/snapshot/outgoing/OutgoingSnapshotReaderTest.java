@@ -26,11 +26,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
@@ -83,7 +85,8 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
                 txStateAccess,
                 catalogService,
                 mock(FailureProcessor.class),
-                mock(Executor.class)
+                mock(Executor.class),
+                mock(LogStorageAccess.class)
         );
 
         snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess1);
@@ -97,7 +100,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
         lenient().when(partitionAccess1.lastAppliedTerm()).thenReturn(2L);
         lenient().when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
 
-        try (var reader = new OutgoingSnapshotReader(snapshotStorage)) {
+        try (var reader = new OutgoingSnapshotReader(UUID.randomUUID(), snapshotStorage)) {
             SnapshotMeta meta = reader.load();
             assertEquals(10L, meta.lastIncludedIndex());
             assertEquals(1L, meta.lastIncludedTerm());

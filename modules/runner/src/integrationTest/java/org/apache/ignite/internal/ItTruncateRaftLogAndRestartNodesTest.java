@@ -51,6 +51,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -59,14 +60,15 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
@@ -82,6 +84,7 @@ import org.junit.jupiter.api.Test;
  * Class for testing various scenarios with raft log truncation and node restarts that emulate the situation with fsync disabled for raft
  * groups associated with tables.
  */
+// TODO: IGNITE-25501 Fix partition state after snapshot
 public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTruncateRaftLogAndRestartNodesTest.class);
 
@@ -94,7 +97,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         return 0;
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24802")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25502")
     @Test
     void enterNodeWithIndexGreaterThanCurrentMajority() throws Exception {
         cluster.startAndInit(3);
@@ -332,16 +335,14 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
             InternalTableImpl internalTableImpl,
             InternalTransaction roTx,
             int partitionId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         assertTrue(roTx.isReadOnly(), roTx.toString());
 
         return internalTableImpl.scan(
                 partitionId,
-                roTx.id(),
-                roTx.readTimestamp(),
                 recipientNode,
-                roTx.coordinatorId()
+                OperationContext.create(TxContext.readOnly(roTx))
         );
     }
 

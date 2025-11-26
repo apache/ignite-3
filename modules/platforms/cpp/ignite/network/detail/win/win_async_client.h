@@ -26,7 +26,6 @@
 
 #include <cstdint>
 #include <deque>
-#include <memory>
 #include <mutex>
 
 namespace ignite::network::detail {
@@ -41,7 +40,7 @@ enum class io_operation_kind {
 };
 
 /**
- * Represents single IO operation.
+ * Represents a single IO operation.
  * Needed to be able to distinguish one operation from another.
  */
 struct io_operation {
@@ -53,7 +52,7 @@ struct io_operation {
 };
 
 /**
- * Windows-specific implementation of async network client.
+ * Windows-specific implementation of an async network client.
  */
 class win_async_client {
 public:
@@ -78,7 +77,7 @@ public:
      * @param range Range.
      * @param m_bufLen Buffer length.
      */
-    win_async_client(SOCKET m_socket, end_point addr, tcp_range range, int32_t m_bufLen);
+    win_async_client(SOCKET socket, end_point addr, tcp_range range, int32_t m_bufLen);
 
     /**
      * Destructor.
@@ -114,7 +113,7 @@ public:
     HANDLE add_to_iocp(HANDLE iocp);
 
     /**
-     * Send packet using client.
+     * Send a packet using the client.
      *
      * @param data Data to send.
      * @return @c true on success.
@@ -157,7 +156,7 @@ public:
     [[nodiscard]] const tcp_range &get_range() const { return m_range; }
 
     /**
-     * Check whether client is closed.
+     * Check whether the client is closed.
      *
      * @return @c true if closed.
      */
@@ -187,14 +186,14 @@ public:
 
 private:
     /**
-     * Clears client's receive buffer.
+     * Clears the client's receive buffer.
      *
      * @return Data received so far.
      */
     void clear_receive_buffer();
 
     /**
-     * Send next packet in queue.
+     * Send the next packet in queue.
      *
      * @warning Can only be called when holding m_send_mutex lock.
      * @return @c true on success.
@@ -219,16 +218,16 @@ private:
     /** Address range associated with current connection. */
     tcp_range m_range;
 
-    /** Current send operation. */
+    /** The current send operation. */
     io_operation m_current_send{};
 
     /** Packets that should be sent. */
     std::deque<data_buffer_owning> m_send_packets;
 
-    /** Send critical section. */
+    /** A send critical section. */
     std::mutex m_send_mutex;
 
-    /** Current receive operation. */
+    /** The current receive operation. */
     io_operation m_current_recv{};
 
     /** Packet that is currently received. */

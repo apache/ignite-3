@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.network.NaiveMessageFormat;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.messages.MessageWithMarshallable;
@@ -67,6 +68,8 @@ public class MarshallableTest extends BaseIgniteAbstractTest {
     private final MessageSerializationRegistry registry = defaultSerializationRegistry();
 
     private final TestMessagesFactory msgFactory = new TestMessagesFactory();
+
+    private final MessageFormat messageFormat = new NaiveMessageFormat();
 
     /**
      * Tests that marshallable object can be serialized along with its descriptor.
@@ -95,7 +98,7 @@ public class MarshallableTest extends BaseIgniteAbstractTest {
 
         var channel = new EmbeddedChannel(
                 new ChunkedWriteHandler(),
-                new OutboundEncoder(serializers.perSessionSerializationService)
+                new OutboundEncoder(messageFormat, serializers.perSessionSerializationService)
         );
 
         List<ClassDescriptorMessage> classDescriptorsMessages = PerSessionSerializationService.createClassDescriptorsMessages(
@@ -134,7 +137,7 @@ public class MarshallableTest extends BaseIgniteAbstractTest {
         PerSessionSerializationService perSessionSerializationService = serializers.perSessionSerializationService;
         ClassDescriptor descriptor = serializers.descriptor;
 
-        final var decoder = new InboundDecoder(perSessionSerializationService);
+        final var decoder = new InboundDecoder(messageFormat, perSessionSerializationService);
 
         int size = outBuffer.position();
 

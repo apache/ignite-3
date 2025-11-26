@@ -1,6 +1,10 @@
 name: "Build Python DB API Driver Wheels"
 
 on:
+  push:
+    paths:
+      - 'modules/platforms/python/**'
+
   workflow_dispatch:
 
 jobs:
@@ -10,6 +14,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            modules/platforms/
 
       - uses: actions/setup-python@v5
 
@@ -38,15 +45,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            modules/platforms/
 
       - uses: actions/setup-python@v5
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.23.1
-
-      - name: Install UnixODBC on macOS
-        if: runner.os == 'macOS'
-        run: brew install --quiet unixodbc
 
       - name: Build wheels macOS 14
         if: matrix.os == 'macos-14'
@@ -72,16 +78,15 @@ jobs:
         env:
           CIBW_BUILD: cp39-manylinux* cp31{0,1,2,3}-manylinux*
           CIBW_ARCHS: auto64
-          CIBW_BEFORE_ALL: yum -y install unixODBC-devel openssl-devel
+          CIBW_BEFORE_ALL: yum -y install openssl-devel
           CIBW_BUILD_VERBOSITY: 1
 
-      - name: Install Winget
+      - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
-        uses: Cyberboss/install-winget@v1
-
-      - name: Install OpenSSL on Windows
-        if: runner.os == 'Windows'
-        run: winget install --id=ShiningLight.OpenSSL.Dev -e --accept-source-agreements --disable-interactivity
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
 
       - name: Build wheels Windows
         if: runner.os == 'Windows'

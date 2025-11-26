@@ -26,7 +26,7 @@ using Microsoft.CodeAnalysis.CSharp;
 
 internal static class AssemblyGenerator
 {
-    internal static void EmitClassLib(string targetFile, [StringSyntax("C#")] string code)
+    internal static void EmitClassLib(string targetFile, [StringSyntax("C#")] string code, string referencePath)
     {
         var assemblyName = Path.GetFileNameWithoutExtension(targetFile);
         var syntaxTree = CSharpSyntaxTree.ParseText(code);
@@ -38,7 +38,7 @@ internal static class AssemblyGenerator
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
             MetadataReference.CreateFromFile(Path.Combine(refDir, "System.dll")),
             MetadataReference.CreateFromFile(Path.Combine(refDir, "System.Runtime.dll")),
-            MetadataReference.CreateFromFile(typeof(IgniteClient).Assembly.Location),
+            MetadataReference.CreateFromFile(referencePath)
         };
 
         var compilation = CSharpCompilation.Create(

@@ -27,7 +27,7 @@ test {
 }
 
 dependencies {
-    implementation project(":spring-boot-starter-ignite-client")
+    implementation project(':spring-boot-starter-ignite-client')
 
     implementation libs.spring.boot
     implementation libs.spring.boot.autoconfigure
@@ -36,6 +36,6 @@ dependencies {
     testImplementation libs.junit5.impl
     testImplementation libs.junit5.api
     testImplementation libs.assertj.core
-    testImplementation(testFixtures project(':ignite-runner'))
-    testImplementation(testFixtures project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-runner'))
+    testImplementation testFixtures(project(':ignite-core'))
 }

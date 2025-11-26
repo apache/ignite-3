@@ -26,8 +26,8 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -191,7 +191,6 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         return Stream.of("YEAR", "QUARTER", "MONTH", "WEEK").map(f -> Arguments.of(f, Types.DATE));
     }
 
-
     @ParameterizedTest
     @MethodSource("extractTimestamp")
     public void extractTimestamp(String field, NativeType nativeType) throws Exception {
@@ -226,7 +225,7 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     public void dateFromTimestamp(NativeType nativeType) throws Exception {
         IgniteSchema schema = createSchemaWithSingleColumnTable(nativeType);
 
-        if (nativeType.spec() == NativeTypeSpec.DATETIME) {
+        if (nativeType.spec() == ColumnType.DATETIME) {
             List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(nativeType));
             Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.DATE);
 

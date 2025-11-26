@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -32,6 +33,7 @@ public class RaftConfigurationSchema {
      * a recipient and installed.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "installSnapshotTimeout")
     public int installSnapshotTimeoutMillis = Integer.MAX_VALUE;
 
     /** Configuration for Raft groups corresponding to table partitions. */
@@ -43,18 +45,21 @@ public class RaftConfigurationSchema {
      * Timeout value (in milliseconds) for which the Raft client will try to receive a successful response from a remote peer.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "retryTimeout")
     public long retryTimeoutMillis = 10_000;
 
     /**
      * Delay (in milliseconds) used by the Raft client between re-sending a failed request.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "retryDelay")
     public long retryDelayMillis = 200;
 
     /**
      * Timeout value (in milliseconds) for which the Raft client will try to receive a response from a remote peer.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "responseTimeout")
     public long responseTimeoutMillis = 3_000;
 
     /**
@@ -68,19 +73,36 @@ public class RaftConfigurationSchema {
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
+     *
+     * @see DisruptorConfigurationSchema#stripes
      */
+    @Deprecated
     @Value(hasDefault = true)
-    public int stripes = Runtime.getRuntime().availableProcessors();
+    public int stripes = DisruptorConfigurationSchema.DEFAULT_STRIPES_COUNT;
 
     /**
      * Amount of log manager Disruptors stripes.
+     *
+     * @see DisruptorConfigurationSchema#logManagerStripes
      */
+    @Deprecated
     @Value(hasDefault = true)
-    public int logStripesCount = 4;
+    public int logStripesCount = DisruptorConfigurationSchema.DEFAULT_LOG_MANAGER_STRIPES_COUNT;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
      */
     @Value(hasDefault = true)
     public boolean logYieldStrategy = false;
+
+    /**
+     * Value for max inflights overflow rate. It's used in partitions throttling context.
+     * {@code 1.0} is too strict, so we use {@code 1.3}, allows 30% overflow.
+     */
+    @Value(hasDefault = true)
+    public double maxInflightOverflowRate = 1.3;
+
+    /** Configuration for RAFT disruptor's. */
+    @ConfigValue
+    public DisruptorConfigurationSchema disruptor;
 }

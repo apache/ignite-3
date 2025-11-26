@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -133,8 +133,6 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(mockSchemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         createAndStartComponents();
-
-        awaitDefaultZoneCreation(catalogManager);
 
         createTable(TABLE_NAME);
     }
@@ -220,7 +218,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 marshallers,
                 mock(IgniteSql.class),
                 mock(FailureProcessor.class),
-                table.primaryKeyIndexId()
+                table.primaryKeyIndexId(),
+                mock(TableStatsStalenessConfiguration.class)
         ));
     }
 
@@ -276,6 +275,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
+
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
     }
 
     private void createTable(String tableName) {

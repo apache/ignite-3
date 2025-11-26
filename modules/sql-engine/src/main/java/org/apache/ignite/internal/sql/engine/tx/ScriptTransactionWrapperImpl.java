@@ -129,11 +129,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         });
     }
 
-    /** Rolls back the transaction when all cursors are closed. */
-    void rollbackWhenCursorsClosed() {
-        changeState(State.ROLLBACK);
-    }
-
     /** Registers a new cursor associated with the current transaction. */
     void registerCursorFuture(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
         UUID cursorId = UUID.randomUUID();

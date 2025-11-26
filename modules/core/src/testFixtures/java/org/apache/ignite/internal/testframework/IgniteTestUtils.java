@@ -21,6 +21,8 @@ import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.testframework.WorkDirectoryExtension.zipDirectory;
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,6 +47,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -69,10 +73,10 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.awaitility.Awaitility;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -351,7 +355,7 @@ public final class IgniteTestUtils {
             run.run();
         } catch (Throwable e) {
             if (!hasCause(e, cls, msg)) {
-                fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
+                fail("Expected exception not found in stacktrace. [class=" + cls.getName() + "; message='" + msg + "']", e);
             }
 
             return e;
@@ -498,7 +502,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
+        ThreadFactory thrFactory = IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -615,9 +619,7 @@ public final class IgniteTestUtils {
     public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
         List<Callable<?>> calls = Collections.nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runMultiThreaded(calls, threadFactory);
+        return runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG));
     }
 
     /**
@@ -647,19 +649,21 @@ public final class IgniteTestUtils {
     public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, String threadName) {
         List<Callable<?>> calls = Collections.<Callable<?>>nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runAsync(() -> runMultiThreaded(calls, threadFactory));
+        return runAsync(() -> runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG)));
     }
 
     /**
      * Waits for the condition.
      *
+     * <p>This method is deprecated in favor of the Awaitility library; use {@link Awaitility#await()} instead.
+     *
      * @param cond Condition.
      * @param timeoutMillis Timeout in milliseconds.
      * @return {@code True} if the condition was satisfied within the timeout.
      * @throws InterruptedException If waiting was interrupted.
+     * @see Awaitility#await()
      */
+    @Deprecated
     public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
         return waitForCondition(cond, 10, timeoutMillis);
     }
@@ -667,13 +671,17 @@ public final class IgniteTestUtils {
     /**
      * Waits for the condition.
      *
+     * <p>This method is deprecated in favor of the Awaitility library; use {@link Awaitility#await()} instead.
+     *
      * @param cond Condition.
      * @param sleepMillis Sleep im milliseconds.
      * @param timeoutMillis Timeout in milliseconds.
      * @return {@code True} if the condition was satisfied within the timeout.
      * @throws InterruptedException If waiting was interrupted.
+     * @see Awaitility#await()
      */
     @SuppressWarnings("BusyWait")
+    @Deprecated
     public static boolean waitForCondition(BooleanSupplier cond, long sleepMillis, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 
@@ -919,18 +927,20 @@ public final class IgniteTestUtils {
                 thread.interrupt();
             }
 
-            fail("Race operations took too long.");
+            throw createAssertionError("Race operations took too long.", e, throwables);
         }
 
         if (!throwables.isEmpty()) {
-            AssertionError assertionError = new AssertionError("One or several threads have failed.");
-
-            for (Throwable throwable : throwables) {
-                assertionError.addSuppressed(throwable);
-            }
-
-            throw assertionError;
+            throw createAssertionError("One or several threads have failed.", null, throwables);
         }
+    }
+
+    private static AssertionError createAssertionError(String errorMessage, @Nullable Throwable cause, Collection<Throwable> suppressed) {
+        var error = new AssertionError(errorMessage, cause);
+
+        suppressed.forEach(error::addSuppressed);
+
+        return error;
     }
 
     /**
@@ -997,6 +1007,28 @@ public final class IgniteTestUtils {
             buf.rewind();
             channel.write(buf);
         }
+    }
+
+    /**
+     * Generate zip file with dummy content based on provided map.
+     *
+     * @param contentTree Map from zip content files path to size.
+     * @param dest Zip file destination.
+     * @throws IOException if an I/O error is thrown.
+     */
+    public static void createZipFile(Map<String, Long> contentTree, Path dest) throws IOException {
+        Path zipTempFolder = Files.createTempDirectory("zipContent");
+        for (Entry<String, Long> e : contentTree.entrySet()) {
+            String zipEntryPath = e.getKey();
+            Long entrySize = e.getValue();
+            Path entry = zipTempFolder.resolve(zipEntryPath);
+            if (entrySize > 0) {
+                Files.createDirectories(entry.getParent());
+                fillDummyFile(entry, entrySize);
+            }
+        }
+        zipDirectory(zipTempFolder, dest);
+        deleteIfExists(zipTempFolder);
     }
 
     /**

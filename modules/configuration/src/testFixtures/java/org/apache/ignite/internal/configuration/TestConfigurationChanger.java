@@ -37,7 +37,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
 
     /** Constructor. */
     public TestConfigurationChanger(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator validator
@@ -49,7 +49,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
      * Constructor.
      */
     public TestConfigurationChanger(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator validator,
@@ -80,7 +80,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
 
     /** {@inheritDoc} */
     @Override
-    public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+    public InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {
         return generator.createRootNode(rootKey);
     }
 }

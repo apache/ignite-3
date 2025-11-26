@@ -18,9 +18,10 @@
 package org.apache.ignite.internal.deployment;
 
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZipFile;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,15 +30,16 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.zip.ZipInputStream;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
+import org.apache.ignite.internal.deployunit.StreamDeploymentUnit;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
+import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
 
 class DeployFiles {
     private static final int BASE_REPLICA_TIMEOUT = 30;
@@ -56,6 +58,10 @@ class DeployFiles {
 
     private DeployFile bigFile;
 
+    private DeployFile flatZipFile;
+
+    private DeployFile treeZipFile;
+
     // TODO https://issues.apache.org/jira/browse/IGNITE-20204
     DeployFiles(Path workDir) {
         this.workDir = workDir;
@@ -63,7 +69,16 @@ class DeployFiles {
 
     private static DeployFile create(Path path, long size, int replicaTimeout) {
         try {
-            return new DeployFile(path, size, replicaTimeout);
+            return new DeployFile(path, false, size, replicaTimeout);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private DeployFile createZip(Path path, Map<String, Long> content, int replicaTimeout) {
+        try {
+            createZipFile(content, path);
+            return new DeployFile(path, true, content.values().stream().mapToLong(l -> l).sum(), replicaTimeout);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -90,6 +105,39 @@ class DeployFiles {
         return bigFile;
     }
 
+    DeployFile flatZipFile() {
+        if (flatZipFile == null) {
+            flatZipFile = createZip(
+                    workDir.resolve("flat.zip"),
+                    Map.of(
+                            "a1", SMALL_IN_BYTES,
+                            "a2", SMALL_IN_BYTES,
+                            "a3", SMALL_IN_BYTES,
+                            "a4", SMALL_IN_BYTES
+                    ),
+                    BASE_REPLICA_TIMEOUT
+            );
+        }
+        return flatZipFile;
+    }
+
+    DeployFile treeZipFile() {
+        if (treeZipFile == null) {
+            treeZipFile = createZip(
+                    workDir.resolve("tree.zip"),
+                    Map.of(
+                            "a1/a2", SMALL_IN_BYTES,
+                            "b1", SMALL_IN_BYTES,
+                            "c1/c2/c3/c4", MEDIUM_IN_BYTES,
+                            "d1/d2", SMALL_IN_BYTES,
+                            "d1/a2", SMALL_IN_BYTES
+                    ),
+                    BASE_REPLICA_TIMEOUT * 3
+            );
+        }
+        return treeZipFile;
+    }
+
     private Unit deployAndVerify(String id, Version version, DeployFile file, IgniteImpl entryNode) {
         return deployAndVerify(id, version, false, file, entryNode);
     }
@@ -110,14 +158,8 @@ class DeployFiles {
             NodesToDeploy nodesToDeploy,
             IgniteImpl entryNode
     ) {
-        List<Path> paths = files.stream()
-                .map(DeployFile::file)
-                .collect(Collectors.toList());
-
-        CompletableFuture<Boolean> deploy;
-
-        DeploymentUnit deploymentUnit = fromPaths(paths);
-        deploy = entryNode.deployment()
+        DeploymentUnit deploymentUnit = fromFiles(files);
+        CompletableFuture<Boolean> deploy = entryNode.deployment()
                 .deployAsync(id, version, force, deploymentUnit, nodesToDeploy)
                 .whenComplete((res, err) -> {
                     try {
@@ -131,11 +173,8 @@ class DeployFiles {
 
         Unit unit = new Unit(entryNode, workDir, id, version, files);
 
-        Path nodeUnitDirectory = unit.getNodeUnitDirectory(entryNode);
-
         for (DeployFile file : files) {
-            Path filePath = nodeUnitDirectory.resolve(file.file().getFileName());
-            assertTrue(Files.exists(filePath));
+            unit.verify(file, entryNode);
         }
 
         return unit;
@@ -153,6 +192,14 @@ class DeployFiles {
         return deployAndVerify(id, version, bigFile(), entryNode);
     }
 
+    public Unit deployAndVerifyFlatZip(String id, Version version, IgniteImpl entryNode) {
+        return deployAndVerify(id, version, flatZipFile(), entryNode);
+    }
+
+    public Unit deployAndVerifyTreeZip(String id, Version version, IgniteImpl entryNode) {
+        return deployAndVerify(id, version, treeZipFile(), entryNode);
+    }
+
     public static UnitStatuses buildStatus(String id, Unit... units) {
         UnitStatusesBuilder builder = UnitStatuses.builder(id);
         for (Unit unit : units) {
@@ -162,16 +209,38 @@ class DeployFiles {
         return builder.build();
     }
 
-    private static DeploymentUnit fromPaths(List<Path> paths) {
-        Objects.requireNonNull(paths);
+    public static void staticDeploy(String id, Version version, DeployFile file, Path workDir) throws IOException {
+        Path deploymentRootFolder = workDir.resolve("deployment");
+        Path unitFile = deploymentRootFolder.resolve(id).resolve(version.render()).resolve(file.file().getFileName());
+        Files.createDirectories(unitFile.getParent());
+        Files.copy(file.file(), unitFile);
+    }
+
+    private static DeploymentUnit fromFiles(List<DeployFile> files) {
         Map<String, InputStream> map = new HashMap<>();
+        ZipInputStream zis = null;
         try {
-            for (Path path : paths) {
-                map.put(path.getFileName().toString(), Files.newInputStream(path));
+            for (DeployFile file : files) {
+                if (file.zip()) {
+                    if (zis != null) {
+                        fail("Only single zip file deploy is supported.");
+                    }
+                    zis = new ZipInputStream(Files.newInputStream(file.file()));
+                } else {
+                    map.put(file.file().getFileName().toString(), Files.newInputStream(file.file()));
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return new DeploymentUnit(map);
+
+        if (zis != null) {
+            if (!map.isEmpty()) {
+                fail("Mixed zip and plain files deploy is not supported.");
+            }
+            return new ZipDeploymentUnit(zis);
+        } else {
+            return new StreamDeploymentUnit(map);
+        }
     }
 }

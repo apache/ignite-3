@@ -131,7 +131,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                             MarshallerUtil.factoryForClass(valClass));
 
         } catch (LinkageError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new IllegalArgumentException("Failed to create marshaller for key-value pair: schemaVer=" + schema.version()
+            throw new MarshallerException("Failed to create marshaller for key-value pair: schemaVer=" + schema.version()
                     + ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
     }
@@ -290,10 +290,10 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         for (int i = 0; i < columns.size(); i++) {
             body.append(keyMarsh.getValue(classDef.getType(), scope.getVariable("key"), i)).putVariable(value);
             NativeType type = columns.get(i).type();
-            BytecodeExpression valueSize = type.spec().fixedLength()
+            BytecodeExpression valueSize = type.fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(keyCols, i));
-            exactSizeEstimate = exactSizeEstimate && type.spec().fixedLength();
+            exactSizeEstimate = exactSizeEstimate && type.fixedLength();
             body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
@@ -302,10 +302,10 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         for (int i = 0; i < columns.size(); i++) {
             body.append(valMarsh.getValue(classDef.getType(), scope.getVariable("val"), i)).putVariable(value);
             NativeType type = columns.get(i).type();
-            BytecodeExpression valueSize = type.spec().fixedLength()
+            BytecodeExpression valueSize = type.fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(valCols, i));
-            exactSizeEstimate = exactSizeEstimate && type.spec().fixedLength();
+            exactSizeEstimate = exactSizeEstimate && type.fixedLength();
             body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 

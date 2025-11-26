@@ -25,7 +25,11 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.sql.Date;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneRules;
@@ -35,13 +39,14 @@ import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.calcite.runtime.SqlFunctions.DateParseFunction;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeFormatter;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,14 +54,16 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
-    public static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, NativeTypeSpec.DATETIME);
-    public static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, NativeTypeSpec.DATETIME);
+    public static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, ColumnType.DATETIME);
+    public static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, ColumnType.DATETIME);
 
-    private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, NativeTypeSpec.TIMESTAMP);
-    private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, NativeTypeSpec.TIMESTAMP);
+    private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, ColumnType.TIMESTAMP);
+    private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, ColumnType.TIMESTAMP);
 
-    private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, NativeTypeSpec.DATE);
-    private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, NativeTypeSpec.DATE);
+    private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, ColumnType.DATE);
+    private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, ColumnType.DATE);
+    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01. */
+    private static final LocalDate JAVA_SQL_TIME_DATE = LocalDate.of(1970, 1, 1);
 
     /**
      * Default constructor.
@@ -66,7 +73,7 @@ public class IgniteSqlFunctions {
     }
 
     /** CAST(DECIMAL AS VARCHAR). */
-    public static String toString(BigDecimal x) {
+    public static @Nullable String toString(@Nullable BigDecimal x) {
         return x == null ? null : x.toPlainString();
     }
 
@@ -94,7 +101,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code ROUND} operator applied to byte values. */
     public static byte sround(byte b0) {
-        return (byte) sround(b0, 0);
+        return sround(b0, 0);
     }
 
     /** SQL {@code ROUND} operator applied to byte values. */
@@ -187,7 +194,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code TRUNCATE} operator applied to byte values. */
     public static byte struncate(byte b0) {
-        return (byte) struncate(b0, 0);
+        return struncate(b0, 0);
     }
 
     /** SQL {@code TRUNCATE} operator applied to byte values. */
@@ -316,7 +323,7 @@ public class IgniteSqlFunctions {
     }
 
     /** CAST(VARCHAR AS DECIMAL). */
-    public static BigDecimal toBigDecimal(String s, int precision, int scale) {
+    public static @Nullable BigDecimal toBigDecimal(@Nullable String s, int precision, int scale) {
         if (s == null) {
             return null;
         }
@@ -325,7 +332,7 @@ public class IgniteSqlFunctions {
     }
 
     /** Cast object depending on type to DECIMAL. */
-    public static BigDecimal toBigDecimal(Object o, int precision, int scale) {
+    public static @Nullable BigDecimal toBigDecimal(@Nullable Object o, int precision, int scale) {
         if (o == null) {
             return null;
         }
@@ -342,7 +349,7 @@ public class IgniteSqlFunctions {
      * Converts the given {@code Number} to a decimal with the given {@code precision} and {@code scale}
      * according to SQL spec for CAST specification: General Rules, 8.
      */
-    public static BigDecimal toBigDecimal(Number value, int precision, int scale) {
+    public static @Nullable BigDecimal toBigDecimal(@Nullable Number value, int precision, int scale) {
         assert precision > 0 : "Invalid precision: " + precision;
 
         if (value == null) {
@@ -356,8 +363,26 @@ public class IgniteSqlFunctions {
         }
     }
 
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static @Nullable Integer toTimeExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Integer : object.getClass();
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis((Integer) object, precision);
+    }
+
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static int toTimeExact(long val, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis(Math.toIntExact(val), precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static Integer toDateExact(Object object) {
+    public static @Nullable Integer toDateExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -381,8 +406,28 @@ public class IgniteSqlFunctions {
         return intDate;
     }
 
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static @Nullable Long toTimestampExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static long toTimestampExact(long ts, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        long verified = toTimestampExact(ts);
+
+        return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static Long toTimestampExact(Object object) {
+    public static @Nullable Long toTimestampExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -401,8 +446,28 @@ public class IgniteSqlFunctions {
         return ts;
     }
 
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static long toTimestampLtzExact(long ts, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        long verified = toTimestampLtzExact(ts);
+
+        return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static Long toTimestampLtzExact(Object object) {
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -560,15 +625,96 @@ public class IgniteSqlFunctions {
         Objects.requireNonNull(timeZone, "timeZone");
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        DateParseFunction function = new DateParseFunction();
-        long ts = function.parseTimestamp(format, v);
-        Instant instant = Instant.ofEpochMilli(ts);
+        LocalDateTime dateTime = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(v);
+        Instant instant = dateTime.toInstant(ZoneOffset.UTC);
 
         // Adjust instant millis
         ZoneRules rules = timeZone.toZoneId().getRules();
         ZoneOffset offset = rules.getOffset(instant);
         Instant adjusted = instant.minus(offset.getTotalSeconds(), ChronoUnit.SECONDS);
         return adjusted.toEpochMilli();
+    }
+
+    /** Converts a date string into a date value. */
+    public static @Nullable Integer toDate(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDate date = SqlDateTimeFormatter.dateFormatter(format).parseDate(v);
+        return SqlFunctions.toInt(Date.valueOf(date));
+    }
+
+    /** Converts a time string into a time value. */
+    public static @Nullable Integer toTime(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalTime time = SqlDateTimeFormatter.timeFormatter(format).parseTime(v);
+        Instant instant = time.atDate(JAVA_SQL_TIME_DATE).toInstant(ZoneOffset.UTC);
+        return (int) instant.toEpochMilli();
+    }
+
+    /** Converts a timestamp string into a timestamp value. */
+    public static @Nullable Long toTimestamp(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDateTime ts = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(v);
+        Instant instant = ts.toInstant(ZoneOffset.UTC);
+        return instant.toEpochMilli();
+    }
+
+    /** Converts a date value into a date string. */
+    public static @Nullable String formatDate(String format, @Nullable Integer v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalDate date = LocalDate.ofEpochDay(v.longValue());
+        return SqlDateTimeFormatter.dateFormatter(format).formatDate(date);
+    }
+
+    /** Converts a time value into a time string. */
+    public static @Nullable String formatTime(String format, @Nullable Integer v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalTime time = LocalTime.ofInstant(Instant.ofEpochMilli(v.longValue()), ZoneOffset.UTC);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timeFormatter(format).formatTime(time);
+    }
+
+    /** Converts a timestamp value into a timestamp string. */
+    public static @Nullable String formatTimestamp(String format, @Nullable Long v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(v), ZoneOffset.UTC);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(dateTime, ZoneOffset.UTC);
+    }
+
+    /** Converts a timestamp value with local time zone into a timestamp string. */
+    public static @Nullable String formatTimestampWithLocalTimeZone(String format, @Nullable Long v, TimeZone timeZone) {
+        if (v == null) {
+            return null;
+        }
+
+        Instant instant = Instant.ofEpochMilli(v);
+        ZoneRules rules = timeZone.toZoneId().getRules();
+        ZoneOffset offset = rules.getOffset(instant);
+        LocalDateTime value = LocalDateTime.ofEpochSecond(instant.getEpochSecond(), instant.getNano(), offset);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(value, offset);
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
@@ -614,5 +760,203 @@ public class IgniteSqlFunctions {
         }
 
         return increment ? div + signum : div;
+    }
+
+    /**
+     * Computes the next lexicographically greater string by incrementing the rightmost character that is not at its maximum value.
+     *
+     * <p>This method is primarily used in conjunction with {@link #findPrefix(String, String)} to create upper bounds for efficient
+     * range scans. Given a prefix extracted from a LIKE pattern, this method produces the smallest string that is lexicographically greater
+     * than the prefix, enabling queries like {@code WHERE key >= prefix AND key < nextGreaterPrefix}.
+     *
+     * <p>If all characters are at maximum value ({@value Character#MAX_VALUE}), the method returns {@code null} because no greater string
+     * exists within the Unicode character space.
+     *
+     * <p>Basic examples:
+     * <pre>
+     * nextGreaterPrefix("abc")            → "abd"
+     * nextGreaterPrefix("test")           → "tesu"
+     * nextGreaterPrefix("user")           → "uses"
+     * nextGreaterPrefix("a")              → "b"
+     * nextGreaterPrefix("z")              → "{"
+     * nextGreaterPrefix("9")              → ":"
+     * </pre>
+     *
+     * <p>Examples with maximum values:
+     * <pre>
+     * nextGreaterPrefix("abc\uFFFF")      → "abd"        (skip max char, increment 'c')
+     * nextGreaterPrefix("a\uFFFF\uFFFF")  → "b"          (skip two max chars, increment 'a')
+     * nextGreaterPrefix("test\uFFFF")     → "tesu"       (skip max char, increment 't')
+     * nextGreaterPrefix("\uFFFF")         → null         (cannot increment)
+     * nextGreaterPrefix("\uFFFF\uFFFF")   → null         (all chars at max)
+     * </pre>
+     *
+     * <p>Edge cases:
+     * <pre>
+     * nextGreaterPrefix(null)             → null         (null input)
+     * nextGreaterPrefix("")               → null         (empty string, no chars to increment)
+     * nextGreaterPrefix("abc\uFFFF\uFFFF") → "abd"       (truncates all trailing max values)
+     * </pre>
+     *
+     * <p>Properties:
+     * <ul>
+     *   <li>The result is always the <em>smallest</em> string greater than the input</li>
+     *   <li>For any valid input {@code s}, {@code nextGreaterPrefix(s).compareTo(s) > 0}</li>
+     *   <li>The result may be shorter than the input (trailing max-value chars are removed)</li>
+     *   <li>Trailing {@code \uFFFF} characters are effectively truncated</li>
+     * </ul>
+     *
+     * @param prefix The string to increment. If {@code null}, returns {@code null}.
+     * @return A next lexicographically greater string, or {@code null} if the input is {@code null}, empty, or consists entirely of
+     *         maximum-value characters ({@code \uFFFF}). The returned string is guaranteed to be the smallest string greater than the
+     *         input.
+     */
+    public static @Nullable String nextGreaterPrefix(@Nullable String prefix) {
+        if (prefix == null) {
+            return null;
+        }
+
+        // Try to increment characters from right to left.
+        for (int i = prefix.length() - 1; i >= 0; i--) {
+            char c = prefix.charAt(i);
+
+            // Check if we can increment this character.
+            if (c < Character.MAX_VALUE) {
+                // Increment and return
+                return prefix.substring(0, i) + ((char) (c + 1));
+            }
+
+            // This character is already max, continue to previous character.
+        }
+
+        // All characters are at maximum value, or prefix is empty.
+        return null; // Given prefix is the greatest.
+    }
+
+    /**
+     * Extracts the literal prefix from a SQL LIKE pattern by identifying all characters before the first unescaped wildcard.
+     *
+     * <p>This method processes SQL LIKE patterns containing wildcards ({@code %} for any sequence, {@code _} for single character) and
+     * returns the constant prefix that can be used for optimized range scans.
+     *
+     * <p>When an escape character is provided, it allows wildcards to be treated as literal characters. The escape character itself can
+     * also be escaped to include it literally in the prefix.
+     *
+     * <p>Examples without escape character:
+     * <pre>
+     * findPrefix("user%", null)           → "user"
+     * findPrefix("admin_123", null)       → "admin"
+     * findPrefix("admin%123", null)       → "admin"
+     * findPrefix("test", null)            → "test"
+     * findPrefix("%anything", null)       → ""
+     * findPrefix("_anything", null)       → ""
+     * </pre>
+     *
+     * <p>Examples with escape character:
+     * <pre>
+     * findPrefix("user\\%", "\\")         → "user%"      (% is literal)
+     * findPrefix("admin\\_", "\\")        → "admin_"     (_ is literal)
+     * findPrefix("path\\\\dir", "\\")     → "path\\dir"  (\\ escapes to \)
+     * findPrefix("test\\%end%", "\\")     → "test%end"   (first % escaped, second is wildcard)
+     * findPrefix("a\\%b\\%c", "\\")       → "a%b%c"      (both % are literal)
+     * findPrefix("value^%", "^")          → "value%"     (different escape char)
+     * </pre>
+     *
+     * <p>Edge cases:
+     * <pre>
+     * findPrefix(null, null)              → null         (null pattern)
+     * findPrefix("test", "")              → throws       (invalid escape length)
+     * findPrefix("test", "ab")            → throws       (invalid escape length)
+     * findPrefix("", null)                → ""           (empty pattern)
+     * findPrefix("test\\", "\\")          → "test\\"     (escape at end treated as literal)
+     * </pre>
+     *
+     * @param pattern The SQL LIKE pattern to analyze; may contain wildcards {@code %} and {@code _}. If {@code null}, returns
+     *         {@code null}.
+     * @param escape The escape character used to treat wildcards as literals; must be exactly one character long if provided. Use
+     *         {@code null} if no escape character is defined.
+     * @return A literal prefix of the pattern before the first unescaped wildcard, with all escape sequences resolved to their literal
+     *         characters. Returns an empty string if the pattern starts with a wildcard. Returns {@code null} if the pattern is
+     *         {@code null}.
+     * @throws IllegalArgumentException If {@code escape} is not null and not exactly one character long.
+     */
+    public static @Nullable String findPrefix(@Nullable String pattern, @Nullable String escape) {
+        if (pattern == null) {
+            return null;
+        }
+
+        if (escape != null && escape.length() != 1) {
+            throw new IllegalArgumentException("Invalid escape character '" + escape + "'.");
+        }
+
+        if (escape == null) {
+            int cutPoint = findCutPoint(pattern);
+
+            if (cutPoint == 0) {
+                return "";
+            }
+
+            return pattern.substring(0, cutPoint);
+        }
+
+        return findPrefix(pattern, escape.charAt(0));
+    }
+
+    private static String findPrefix(String pattern, char escape) {
+        StringBuilder prefix = new StringBuilder(pattern.length());
+        int lastAppendEnd = 0;
+
+        for (int i = 0; i < pattern.length(); i++) {
+            char current = pattern.charAt(i);
+
+            if (current == escape) {
+                int nextCharIdx = i + 1;
+                if (nextCharIdx < pattern.length()) {
+                    char nextChar = pattern.charAt(nextCharIdx);
+
+                    if (nextChar == escape || nextChar == '%' || nextChar == '_') {
+                        // Append everything from lastAppendEnd to current position (excluding escape char)
+                        if (lastAppendEnd < i) {
+                            prefix.append(pattern, lastAppendEnd, i);
+                        }
+
+                        // Append the escaped character
+                        prefix.append(nextChar);
+
+                        i++; // Skip the next character
+                        lastAppendEnd = i + 1; // Update to position after escaped char
+                    }
+                }
+
+                continue;
+            }
+
+            if (current == '%' || current == '_') {
+                // Found wildcard - append any remaining prefix and return
+                if (lastAppendEnd < i) {
+                    prefix.append(pattern, lastAppendEnd, i);
+                }
+                return prefix.toString();
+            }
+        }
+
+        // No wildcards found - append any remaining characters
+        if (lastAppendEnd < pattern.length()) {
+            prefix.append(pattern, lastAppendEnd, pattern.length());
+        }
+
+        return prefix.toString();
+    }
+
+    private static int findCutPoint(String pattern) {
+        for (int i = 0; i < pattern.length(); i++) {
+            char current = pattern.charAt(i);
+
+            if (current == '%' || current == '_') {
+                return i;
+            }
+        }
+
+        return pattern.length();
     }
 }

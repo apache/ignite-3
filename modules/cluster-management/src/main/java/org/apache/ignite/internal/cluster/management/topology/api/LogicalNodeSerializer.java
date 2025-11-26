@@ -24,11 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.ignite.internal.network.ClusterNodeSerializer;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * {@link VersionedSerializer} for {@link LogicalNode} instances.
@@ -63,7 +63,7 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
 
     @Override
     protected LogicalNode readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-        ClusterNode node = clusterNodeSerializer.readExternal(in);
+        InternalClusterNode node = clusterNodeSerializer.readExternal(in);
 
         Map<String, String> userAttributes = readStringToStringMap(in);
         Map<String, String> systemAttributes = readStringToStringMap(in);

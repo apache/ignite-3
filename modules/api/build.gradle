@@ -24,17 +24,11 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 dependencies {
     annotationProcessor project(':ignite-error-code-annotation-processor')
 
-    implementation project(':ignite-error-code-annotation-processor')
+    implementation project(':ignite-error-code-api')
     implementation libs.jetbrains.annotations
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
-
-    testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 def platformsHeadersDir = file("${buildDir}/platforms/")

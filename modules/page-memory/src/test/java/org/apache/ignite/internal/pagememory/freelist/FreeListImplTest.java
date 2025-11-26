@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
@@ -35,21 +34,16 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
@@ -67,9 +61,6 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
     private static final long MAX_SIZE = 1024 * MiB;
 
     private static final int BATCH_SIZE = 100;
-
-    @InjectConfiguration(polymorphicExtensions = VolatilePageMemoryProfileConfigurationSchema.class, value = "mock.engine = aimem")
-    private StorageProfileConfiguration storageProfileCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -160,12 +151,6 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
     }
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
-        storageProfileCfg
-                .change(c -> ((VolatilePageMemoryProfileChange) c)
-                        .changeInitSizeBytes(MAX_SIZE)
-                        .changeMaxSizeBytes(MAX_SIZE))
-                .get(1, TimeUnit.SECONDS);
-
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -173,9 +158,8 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
         ioRegistry.load(DataPageIo.VERSIONS);
 
         return new VolatilePageMemory(
-                (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
+                VolatileDataRegionConfiguration.builder().pageSize(pageSize).initSize(MAX_SIZE).maxSize(MAX_SIZE).build(),
                 ioRegistry,
-                pageSize,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
     }

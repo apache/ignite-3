@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,8 +33,6 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.junit.jupiter.api.Test;
@@ -64,8 +61,7 @@ public class PlacementDriverNodesOperabilityTest extends ClusterPerClassIntegrat
         IgniteImpl nonMetaStorageNode = unwrapIgniteImpl(findAliveNode(ni -> !cmgMetastoreNodesIndices.contains(ni.getKey())));
 
         TableImpl table = unwrapTableImpl(metaStorageNode.tables().table("TABLE_TEST"));
-        ReplicationGroupId groupId = enabledColocation() ? new ZonePartitionId(table.internalTable().zoneId(), 0)
-                : new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId groupId = new ZonePartitionId(table.internalTable().zoneId(), 0);
 
         assertTrue(waitForCondition(() -> nonNullNonEmptyNoNullElements(assignments(metaStorageNode, groupId)), 3000));
         assertTrue(waitForCondition(() -> nonNullNonEmptyNoNullElements(assignments(nonMetaStorageNode, groupId)), 3000));
@@ -79,7 +75,7 @@ public class PlacementDriverNodesOperabilityTest extends ClusterPerClassIntegrat
                 .orElseThrow();
     }
 
-    private List<TokenizedAssignments> assignments(IgniteImpl node, ReplicationGroupId groupId) {
+    private List<TokenizedAssignments> assignments(IgniteImpl node, ZonePartitionId groupId) {
         return node.placementDriver().getAssignments(List.of(groupId), node.clock().now()).join();
     }
 

@@ -49,6 +49,9 @@ public final class SslContextProvider {
 
             var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
 
+            // TODO IGNITE-26240 Make endpointIdentificationAlgorithm configurable
+            builder.endpointIdentificationAlgorithm(null);
+
             setCiphers(builder, ssl);
 
             ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());

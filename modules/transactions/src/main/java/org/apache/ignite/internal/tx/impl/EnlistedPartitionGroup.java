@@ -23,7 +23,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition enlistment information together with partition group ID.
@@ -35,13 +34,14 @@ public class EnlistedPartitionGroup {
     private final Set<Integer> tableIds;
 
     /** Constructor. */
+    // TODO IGNITE-22522 Convert ReplicationGroupId to ZonePartitionId.
     public EnlistedPartitionGroup(ReplicationGroupId groupId, Set<Integer> tableIds) {
         this.groupId = groupId;
         this.tableIds = Set.copyOf(tableIds);
     }
 
     /** Constructor. */
-    @TestOnly
+    // TODO IGNITE-22522 Remove.
     public EnlistedPartitionGroup(TablePartitionId groupId) {
         this(groupId, Set.of(groupId.tableId()));
     }

@@ -19,17 +19,20 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
-import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
-import java.util.List;
+import java.util.EnumSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -37,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -52,14 +56,13 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleHelper;
@@ -94,7 +97,7 @@ public class ClientTableCommon {
 
             packer.packInt(7);
             packer.packString(col.name());
-            packer.packInt(getColumnType(col.type().spec()).id());
+            packer.packInt(col.type().spec().id());
             packer.packInt(col.positionInKey());
             packer.packBoolean(col.nullable());
             packer.packInt(col.positionInColocation());
@@ -103,13 +106,7 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple Tuple.
-     */
-    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
+    static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
         if (tuple == null) {
             packer.packInt(schemaRegistry.lastKnownSchemaVersion());
             packer.packNil();
@@ -165,38 +162,21 @@ public class ClientTableCommon {
                 var col = schema.column(i);
                 Object v = TupleHelper.valueOrDefault(tuple, col.name(), NO_VALUE);
 
-                ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
+                ClientBinaryTupleUtils.appendValue(builder, col.type().spec(), col.name(), getDecimalScale(col.type()), v);
             }
 
             packer.packBinaryTuple(builder);
         }
     }
 
-    /**
-     * Writes multiple tuples.
-     *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param schemaRegistry The registry.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuples(
+    static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             SchemaRegistry schemaRegistry) {
         writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry);
     }
 
-    /**
-     * Writes multiple tuples.
-     *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param part Which part of tuple to write.
-     * @param schemaRegistry The registry.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuples(
+    static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
@@ -228,16 +208,7 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Writes multiple tuples with null flags.
-     *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param part Which part of tuple to write.
-     * @param schemaRegistry The registry.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuplesNullable(
+    static void writeTuplesNullable(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
@@ -275,28 +246,23 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Reads a tuple.
-     *
-     * @param unpacker Unpacker.
-     * @param table Table.
-     * @param keyOnly Whether only key fields are expected.
-     * @return Future that will be completed with a tuple.
-     */
-    public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
-        return readSchema(unpacker, table).thenApply(schema -> readTuple(unpacker, keyOnly, schema));
+    public static CompletableFuture<Tuple> readTuple(
+            int schemaId, BitSet noValueSet, byte[] tupleBytes, TableViewInternal table, boolean keyOnly) {
+        return readSchema(schemaId, table).thenApply(schema -> readTuple(noValueSet, tupleBytes, keyOnly, schema));
     }
 
     /**
      * Reads a tuple.
      *
-     * @param unpacker Unpacker.
-     * @param keyOnly Whether only key fields are expected.
-     * @param schema Tuple schema.
+     * @param noValueSet No value set.
+     * @param tupleBytes Tuple bytes.
+     * @param keyOnly Key only flag.
+     * @param schema Schema.
      * @return Tuple.
      */
     public static Tuple readTuple(
-            ClientMessageUnpacker unpacker,
+            BitSet noValueSet,
+            byte[] tupleBytes,
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
@@ -306,43 +272,12 @@ public class ClientTableCommon {
         // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
         // If the column has a default value, it should be applied only in case 1.
         // https://cwiki.apache.org/confluence/display/IGNITE/IEP-76+Thin+Client+Protocol+for+Ignite+3.0#IEP76ThinClientProtocolforIgnite3.0-NullvsNoValue
-        var noValueSet = unpacker.unpackBitSet();
-        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
+        var binaryTupleReader = new BinaryTupleReader(cnt, tupleBytes);
 
         return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
 
-    /**
-     * Reads multiple tuples.
-     *
-     * @param unpacker Unpacker.
-     * @param table Table.
-     * @param keyOnly Whether only key fields are expected.
-     * @return Future that will be completed with tuples.
-     */
-    public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
-        return readSchema(unpacker, table).thenApply(schema -> {
-            var rowCnt = unpacker.unpackInt();
-            var res = new ArrayList<Tuple>(rowCnt);
-
-            for (int i = 0; i < rowCnt; i++) {
-                res.add(readTuple(unpacker, keyOnly, schema));
-            }
-
-            return res;
-        });
-    }
-
-    /**
-     * Reads schema.
-     *
-     * @param unpacker Unpacker.
-     * @param table Table.
-     * @return Schema descriptor future.
-     */
-    public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableViewInternal table) {
-        var schemaId = unpacker.unpackInt();
-
+    static CompletableFuture<SchemaDescriptor> readSchema(int schemaId, TableViewInternal table) {
         // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
         return table.schemaView().schemaAsync(schemaId);
     }
@@ -350,7 +285,7 @@ public class ClientTableCommon {
     /**
      * Reads a table.
      *
-     * @param unpacker Unpacker.
+     * @param tableId Table id.
      * @param tables Ignite tables.
      * @return Table.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
@@ -358,9 +293,7 @@ public class ClientTableCommon {
      *             <li>the node is stopping.</li>
      *         </ul>
      */
-    public static CompletableFuture<TableViewInternal> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
-        int tableId = unpacker.unpackInt();
-
+    public static CompletableFuture<TableViewInternal> readTableAsync(int tableId, IgniteTables tables) {
         try {
             IgniteTablesInternal tablesInternal = (IgniteTablesInternal) tables;
 
@@ -388,24 +321,54 @@ public class ClientTableCommon {
      * Write tx metadata.
      *
      * @param out Packer.
+     * @param tsTracker Timestamp tracker.
      * @param clockService Clock service.
-     * @param tx The transaction.
+     * @param req Request.
      */
-    public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
-        if (tx.remote()) {
-            TxState state = tx.state();
+    static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTupleRequestBase req) {
+        writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
+    }
 
-            if (state == TxState.ABORTED) {
-                // No-op enlistment.
-                out.packNil();
-            } else {
-                // Remote tx carries operation enlistment info.
-                PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
-                out.packString(token.primaryNodeConsistentId());
-                out.packLong(token.consistencyToken());
+    /**
+     * Write tx metadata.
+     *
+     * @param out Packer.
+     * @param tsTracker Timestamp tracker.
+     * @param clockService Clock service.
+     * @param req Request.
+     */
+    static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTuplesRequestBase req) {
+        writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
+    }
+
+    /**
+     * Write tx metadata.
+     *
+     * @param out Packer.
+     * @param tsTracker Timestamp tracker.
+     * @param clockService Clock service.
+     * @param tx Transaction.
+     * @param resourceId Resource id.
+     */
+    public static void writeTxMeta(ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService,
+            InternalTransaction tx, long resourceId) {
+        if (resourceId != 0) {
+            // Resource id is assigned on a first request in direct mode.
+            out.packLong(resourceId);
+            out.packUuid(tx.id());
+            out.packUuid(tx.coordinatorId());
+            out.packLong(tx.getTimeout());
+        } else if (tx.remote()) {
+            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            out.packString(token.primaryNodeConsistentId());
+            out.packLong(token.consistencyToken());
+            out.packBoolean(TxState.ABORTED == tx.state()); // No-op enlistment.
+
+            if (clockService != null) {
+                tsTracker.update(clockService.current());
             }
-
-            out.meta(clockService.current());
         }
     }
 
@@ -423,26 +386,80 @@ public class ClientTableCommon {
      * Reads transaction.
      *
      * @param in Unpacker.
-     * @param out Packer.
+     * @param tsUpdater Packer.
      * @param resources Resource registry.
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
+     * @param resourceIdHolder Resource id holder.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
+            HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
-            @Nullable NotificationSender notificationSender
-    ) {
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder) {
+        return readTx(in, tsUpdater, resources, txManager, notificationSender, resourceIdHolder, EnumSet.noneOf(RequestOptions.class));
+    }
+
+    /**
+     * Reads a transaction.
+     *
+     * @param in Unpacker.
+     * @param tsUpdater Packer.
+     * @param resources Resource registry.
+     * @param txManager Tx manager.
+     * @param notificationSender Notification sender.
+     * @param resourceIdHolder Resource id holder.
+     * @param options Request options. Defines how a request is processed.
+     * @return Transaction, if present, or null.
+     */
+    public static @Nullable InternalTransaction readTx(
+            ClientMessageUnpacker in,
+            HybridTimestampTracker tsUpdater,
+            ClientResourceRegistry resources,
+            @Nullable TxManager txManager,
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder,
+            EnumSet<RequestOptions> options) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
             long id = in.unpackLong();
-            if (id == TX_ID_DIRECT) {
+            if (id == TX_ID_FIRST_DIRECT) {
+                // This is first mapping request, which piggybacks transaction creation.
+                long observableTs = in.unpackLong();
+
+                var builder = InternalTxOptions.builder();
+                boolean readOnly;
+
+                if (options.contains(RequestOptions.HAS_OPTIONS)) {
+                    long timeoutMillis = in.unpackLong();
+                    int flags = in.unpackInt();
+                    EnumSet<ClientInternalTxOptions> txOptions = ClientInternalTxOptions.unpack(flags);
+                    readOnly = txOptions.contains(ClientInternalTxOptions.READ_ONLY);
+                    if (txOptions.contains(ClientInternalTxOptions.LOW_PRIORITY)) {
+                        builder.priority(TxPriority.LOW);
+                    }
+                    builder = builder.timeoutMillis(timeoutMillis);
+                } else {
+                    readOnly = in.unpackBoolean();
+                    long timeoutMillis = in.unpackLong();
+                    builder = builder.timeoutMillis(timeoutMillis);
+                }
+
+                InternalTxOptions txOptions = builder.build();
+                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
+
+                // Attach resource id only on first direct request.
+                resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
+
+                return tx;
+            } else if (id == TX_ID_DIRECT) {
+                // This is direct request mapping.
                 long token = in.unpackLong();
                 UUID txId = in.unpackUuid();
                 int commitTableId = in.unpackInt();
@@ -453,7 +470,7 @@ public class ClientTableCommon {
                 InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
                         coord, token, timeout, err -> {
                             // Will be called for write txns.
-                            notificationSender.sendNotification(w -> w.packUuid(txId), err);
+                            notificationSender.sendNotification(w -> w.packUuid(txId), err, NULL_HYBRID_TIMESTAMP);
                         });
 
                 // Remote transaction will be synchronously rolled back if the timeout has exceeded.
@@ -470,7 +487,7 @@ public class ClientTableCommon {
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                out.meta(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
+                tsUpdater.update(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
             }
 
             return tx;
@@ -479,30 +496,20 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Reads transaction or start implicit one.
-     *
-     * @param in Unpacker.
-     * @param out Packer.
-     * @param resources Resource registry.
-     * @param txManager Ignite transactions.
-     * @param readOnly Read only flag.
-     * @param notificationSender Notification sender.
-     * @return Transaction.
-     */
-    public static InternalTransaction readOrStartImplicitTx(
+    static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
+            HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
             TxManager txManager,
-            boolean readOnly,
-            @Nullable NotificationSender notificationSender) {
-        InternalTransaction tx = readTx(in, out, resources, txManager, notificationSender);
+            EnumSet<RequestOptions> options,
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder) {
+        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder, options);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(out, txManager, null, readOnly);
+            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY));
         }
 
         return tx;
@@ -511,7 +518,7 @@ public class ClientTableCommon {
     /**
      * Starts an explicit transaction.
      *
-     * @param out Packer.
+     * @param tsTracker Tracker.
      * @param txManager Ignite transactions.
      * @param currentTs Current observation timestamp or {@code null} if it is not defined.
      * @param readOnly Read only flag.
@@ -519,54 +526,27 @@ public class ClientTableCommon {
      * @return Transaction.
      */
     public static InternalTransaction startExplicitTx(
-            ClientMessagePacker out,
+            HybridTimestampTracker tsTracker,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,
             boolean readOnly,
             InternalTxOptions options
     ) {
-        return txManager.beginExplicit(
-                HybridTimestampTracker.atomicTracker(currentTs),
-                readOnly,
-                options
-        );
+        if (readOnly) {
+            tsTracker.update(currentTs);
+
+            return txManager.beginExplicitRo(tsTracker, options);
+        } else {
+            return txManager.beginExplicitRw(tsTracker, options);
+        }
     }
 
-    /**
-     * Starts an implicit transaction.
-     *
-     * @param out Packer.
-     * @param txManager Ignite transactions.
-     * @param currentTs Current observation timestamp or {@code null} if it is not defined.
-     * @param readOnly Read only flag.
-     * @return Transaction.
-     */
-    public static InternalTransaction startImplicitTx(
-            ClientMessagePacker out,
+    private static InternalTransaction startImplicitTx(
+            HybridTimestampTracker tsTracker,
             TxManager txManager,
-            @Nullable HybridTimestamp currentTs,
             boolean readOnly
     ) {
-        return txManager.beginImplicit(
-                HybridTimestampTracker.clientTracker(currentTs, out::meta),
-                readOnly
-        );
-    }
-
-    /**
-     * Gets client type by server type.
-     *
-     * @param spec Type spec.
-     * @return Client type code.
-     */
-    public static ColumnType getColumnType(NativeTypeSpec spec) {
-        ColumnType columnType = spec.asColumnTypeOrNull();
-
-        if (columnType == null) {
-            throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
-        }
-
-        return columnType;
+        return txManager.beginImplicit(tsTracker, readOnly);
     }
 
     /**

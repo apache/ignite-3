@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Collections.reverse;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,8 +35,10 @@ import org.jetbrains.annotations.Nullable;
  * RocksDb implementation of {@link TxStateStorage}.
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
-    /** Prefix length for the payload within a table. Consists of tableId (4 bytes) in Big Endian.  */
-    static final int TABLE_PREFIX_SIZE_BYTES = Integer.BYTES;
+    static final int TABLE_OR_ZONE_ID_SIZE_BYTES = Integer.BYTES;
+
+    /** Prefix length for the payload within a table/zone. Consists of tableId/zoneId (4 bytes) in Big Endian.  */
+    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = TABLE_OR_ZONE_ID_SIZE_BYTES;
 
     /** Partition storages. */
     private final AtomicReferenceArray<TxStateRocksDbPartitionStorage> storages;
@@ -49,7 +49,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Table ID. */
+    /** Table/zone ID. */
     final int id;
 
     final TxStateRocksDbSharedStorage sharedStorage;
@@ -57,7 +57,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /**
      * Constructor.
      *
-     * @param id Table ID.
+     * @param id Table/zone ID.
      * @param partitions Count of partitions.
      */
     public TxStateRocksDbStorage(
@@ -80,7 +80,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         if (partitionId < 0 || partitionId >= storages.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "tableId", id, false,
+                    "tableId/zoneId", id, false,
                     "partitionId", partitionId, false,
                     "partitions", storages.length(), false
             ));
@@ -88,13 +88,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
+    public TxStateRocksDbPartitionStorage getOrCreatePartitionStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
 
         if (storage == null) {
-            storage = new TxStateRocksDbPartitionStorage(partitionId, this);
+            storage = createPartitionStorage(partitionId);
 
             storage.start();
         }
@@ -104,13 +104,23 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return storage;
     }
 
+    /*
+     * Creates transaction state storage for partition.
+     *
+     * @param partitionId Partition id.
+     * @throws IgniteInternalException In case when the operation has failed.
+     */
+    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+        return new TxStateRocksDbPartitionStorage(partitionId, this);
+    }
+
     @Override
     public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) {
+    public void destroyPartitionStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStatePartitionStorage storage = storages.getAndSet(partitionId, null);
@@ -146,21 +156,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             reverse(resources);
             closeAll(resources);
         } catch (Exception e) {
-            throw new TxStateStorageException("Failed to stop transaction state storage [tableId={}]", e, id);
+            throw new TxStateStorageException("Failed to stop transaction state storage [tableOrZoneId={}]", e, id);
         }
     }
 
     @Override
     public void destroy() {
-        byte[] start = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(id).array();
-        byte[] end = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(id + 1).array();
-
-        try {
-            close();
-
-            sharedStorage.db().deleteRange(start, end);
-        } catch (Exception e) {
-            throw new TxStateStorageException("Failed to destroy the transaction state storage [tableId={}]", e, id);
-        }
+        close();
+        sharedStorage.destroyStorage(id);
     }
 }

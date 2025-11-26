@@ -28,7 +28,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.jctools.queues.MpscBlockingConsumerArrayQueue;
@@ -101,7 +101,7 @@ public class SingleThreadExecutorBenchmark {
     @Benchmark
     public void nettyDefaultEventExecutor() throws InterruptedException {
         execute(new DefaultSingleThreadExecutor(
-            new DefaultEventExecutor(new NamedThreadFactory("netty_executor", true, LOG))));
+            new DefaultEventExecutor(IgniteThreadFactory.create("node", "netty_executor", true, LOG))));
     }
 
     @Benchmark
@@ -118,7 +118,7 @@ public class SingleThreadExecutorBenchmark {
             .enableMetric(false) //
             .workQueue(new MpscBlockingConsumerArrayQueue<>(TIMES)) // TODO asch IGNITE-15997
             .keepAliveSeconds(60L) //
-            .threadFactory(new NamedThreadFactory("default", true, LOG)) //
+            .threadFactory(IgniteThreadFactory.create("node", "default", true, LOG)) //
             .build();
 
         execute(new DefaultSingleThreadExecutor(pool));
@@ -126,12 +126,12 @@ public class SingleThreadExecutorBenchmark {
 
     @Benchmark
     public void mpscSingleThreadExecutor() throws InterruptedException {
-        execute(new MpscSingleThreadExecutor(TIMES, new NamedThreadFactory("mpsc", true, LOG)));
+        execute(new MpscSingleThreadExecutor(TIMES, IgniteThreadFactory.create("node", "mpsc", true, LOG)));
     }
 
     @Benchmark
     public void mpscSingleThreadExecutorWithConcurrentLinkedQueue() throws InterruptedException {
-        execute(new MpscSingleThreadExecutor(TIMES, new NamedThreadFactory("mpsc_clq", true, LOG)) {
+        execute(new MpscSingleThreadExecutor(TIMES, IgniteThreadFactory.create("node", "mpsc_clq", true, LOG)) {
 
             @Override
             protected Queue<Runnable> newTaskQueue(final int maxPendingTasks) {
@@ -142,7 +142,7 @@ public class SingleThreadExecutorBenchmark {
 
     @Benchmark
     public void mpscSingleThreadExecutorWithLinkedBlockingQueue() throws InterruptedException {
-        execute(new MpscSingleThreadExecutor(TIMES, new NamedThreadFactory("mpsc_lbq", true, LOG)) {
+        execute(new MpscSingleThreadExecutor(TIMES, IgniteThreadFactory.create("node", "mpsc_lbq", true, LOG)) {
 
             @Override
             protected Queue<Runnable> newTaskQueue(final int maxPendingTasks) {
@@ -153,7 +153,7 @@ public class SingleThreadExecutorBenchmark {
 
     @Benchmark
     public void mpscSingleThreadExecutorWithLinkedTransferQueue() throws InterruptedException {
-        execute(new MpscSingleThreadExecutor(TIMES, new NamedThreadFactory("mpsc_ltq", true, LOG)) {
+        execute(new MpscSingleThreadExecutor(TIMES, IgniteThreadFactory.create("node", "mpsc_ltq", true, LOG)) {
 
             @Override
             protected Queue<Runnable> newTaskQueue(final int maxPendingTasks) {
@@ -178,7 +178,7 @@ public class SingleThreadExecutorBenchmark {
             .enableMetric(false) //
             .workQueue(new ArrayBlockingQueue<>(TIMES)) //
             .keepAliveSeconds(60L) //
-            .threadFactory(new NamedThreadFactory("benchmark", true, LOG)) //
+            .threadFactory(IgniteThreadFactory.create("node", "benchmark", true, LOG)) //
             .build();
     }
 }

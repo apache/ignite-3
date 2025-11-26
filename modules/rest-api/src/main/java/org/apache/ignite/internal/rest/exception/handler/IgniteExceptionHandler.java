@@ -22,18 +22,12 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles {@link IgniteException} and represents it as an application/problem+json response.
@@ -45,48 +39,15 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
 
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
-        String detail = extractDetailMessageOrNull(exception);
-
-        if (exception.getCause() instanceof ConfigurationValidationException) {
-            return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
-                            .detail(detail)
-                            .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
-                            .traceId(exception.traceId())
-                            .code(exception.codeAsString())
-            );
-        }
 
         if (exception.getCause() instanceof IllegalArgumentException || BAD_REQUEST_CODES.contains(exception.code())) {
             return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
-                            .detail(detail)
-                            .traceId(exception.traceId())
-                            .code(exception.codeAsString())
+                    Problem.fromIgniteException(exception, HttpCode.BAD_REQUEST).build()
             );
         }
 
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_SERVER_ERROR)
-                        .detail(detail)
-                        .traceId(exception.traceId())
-                        .code(exception.codeAsString())
+                Problem.fromIgniteException(exception, HttpCode.INTERNAL_SERVER_ERROR).build()
         );
-    }
-
-    @Nullable
-    private static String extractDetailMessageOrNull(IgniteException exception) {
-        String detail = ErrorGroups.extractCauseMessage(exception.getMessage());
-        if (detail != null && detail.isBlank()) {
-            detail = null;
-        }
-        return detail;
-    }
-
-    private List<InvalidParam> mapValidationIssuesToRestFormat(ConfigurationValidationException exception) {
-        return exception.getIssues()
-                .stream()
-                .map(validationIssue -> new InvalidParam(validationIssue.key(), validationIssue.message()))
-                .collect(Collectors.toList());
     }
 }

@@ -41,13 +41,13 @@ import static org.apache.ignite.internal.catalog.sql.ColumnTypeImpl.wrap;
 import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseColumn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 class QueryPartTest {
@@ -78,19 +78,13 @@ class QueryPartTest {
     }
 
     @Test
-    void compoundNamePart() {
-        assertThat(sql(Name.compound("a")), is("A"));
-        assertThat(sql(Name.compound("A")), is("A"));
-        assertThat(sql(Name.compound(null, "a")), is("A"));
-        assertThat(sql(Name.compound("", "a")), is("A"));
-        assertThat(sql(Name.compound("a", "b", "c")), is("A.B.C"));
-        assertThat(sql(Name.compound("a", "aB Cd")), is("A.\"aB Cd\""));
-
-        assertThrows(IllegalArgumentException.class, () -> Name.compound("", "", "a"));
-        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", ""));
-        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", "", "b"));
-        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", null));
-        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", null, "b"));
+    void qualifiedNamePart() {
+        assertThat(sql(Name.qualified(QualifiedName.fromSimple("a"))), is("PUBLIC.A"));
+        assertThat(sql(Name.qualified(QualifiedName.parse("a.b"))), is("A.B"));
+        assertThat(sql(Name.qualified(QualifiedName.parse("\"Ab\""))), is("PUBLIC.\"Ab\""));
+        assertThat(sql(Name.qualified(QualifiedName.parse("\"a b\""))), is("PUBLIC.\"a b\""));
+        assertThat(sql(Name.qualified(QualifiedName.parse("\"a b\".\"c d\""))), is("\"a b\".\"c d\""));
+        assertThat(sql(Name.qualified(QualifiedName.of("\"a b\"", "\"c d\""))), is("\"a b\".\"c d\""));
     }
 
     @Test

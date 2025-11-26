@@ -21,7 +21,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.timer.HashedWheelTimer;
 import org.apache.ignite.raft.jraft.util.timer.Timeout;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
@@ -49,7 +49,7 @@ public abstract class RepeatedTimer implements Describer {
     }
 
     public RepeatedTimer(final String name, final int timeoutMs) {
-        this(name, timeoutMs, new HashedWheelTimer(new NamedThreadFactory(name, true, LOG), 1, TimeUnit.MILLISECONDS, 2048));
+        this(name, timeoutMs, new HashedWheelTimer(IgniteThreadFactory.createWithFixedPrefix(name, true, LOG), 1, TimeUnit.MILLISECONDS, 2048));
     }
 
     public RepeatedTimer(final String name, final int timeoutMs, final Timer timer) {

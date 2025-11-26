@@ -28,4 +28,8 @@ public class RecipientLeftException extends IgniteException {
     public RecipientLeftException() {
         super(Network.RECIPIENT_LEFT_ERR);
     }
+
+    public RecipientLeftException(String message) {
+        super(Network.RECIPIENT_LEFT_ERR, message);
+    }
 }

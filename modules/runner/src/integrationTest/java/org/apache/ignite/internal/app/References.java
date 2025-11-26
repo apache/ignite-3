@@ -80,7 +80,7 @@ class References {
         compute = ignite.compute();
         catalog = ignite.catalog();
 
-        clusterNodes = ignite.clusterNodes();
+        clusterNodes = ignite.cluster().nodes();
 
         table = tables.table(TEST_TABLE_NAME);
         tableFromTableAsync = tables.tableAsync(TEST_TABLE_NAME).get(10, SECONDS);

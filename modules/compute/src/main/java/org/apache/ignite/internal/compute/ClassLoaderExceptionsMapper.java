@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThrowable;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.compute.loader.JobContext;
@@ -26,7 +28,6 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailable
 class ClassLoaderExceptionsMapper {
     // <class_fqdn>. Deployment unit <deployment_unit_id_and ver> doesn't exist.
     private static final String DEPLOYMENT_UNIT_DOES_NOT_EXIST_MSG = "%s. Deployment unit %s:%s doesn't exist";
-
 
     // <class_fqdn>. Deployment unit <deployment_unit_id> can't be used:
     // [clusterStatus = <clusterDURecord.status>, nodeStatus = <nodeDURecord.status>].
@@ -39,7 +40,7 @@ class ClassLoaderExceptionsMapper {
     ) {
         return future.handle((v, e) -> {
             if (e instanceof Exception) {
-                throw new CompletionException(mapException(unwrapCompletionException((Exception) e), jobClassName));
+                throw new CompletionException(mapException((Exception) unwrapCompletionThrowable((Exception) e), jobClassName));
             } else {
                 return v;
             }
@@ -69,14 +70,6 @@ class ClassLoaderExceptionsMapper {
             );
         } else {
             return e;
-        }
-    }
-
-    private static Exception unwrapCompletionException(Exception exception) {
-        if (exception instanceof CompletionException) {
-            return (Exception) exception.getCause();
-        } else {
-            return exception;
         }
     }
 }

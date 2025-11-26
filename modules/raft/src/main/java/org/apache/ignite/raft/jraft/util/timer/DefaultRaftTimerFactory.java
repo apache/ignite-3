@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.util.timer;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.core.TimerManager;
 
@@ -51,7 +51,7 @@ public class DefaultRaftTimerFactory implements RaftTimerFactory {
 
     @Override
     public Timer createTimer(final String name) {
-        return new HashedWheelTimer(new NamedThreadFactory(name, true, LOG), 1, TimeUnit.MILLISECONDS, 2048);
+        return new HashedWheelTimer(IgniteThreadFactory.createWithFixedPrefix(name, true, LOG), 1, TimeUnit.MILLISECONDS, 2048);
     }
 
     @Override

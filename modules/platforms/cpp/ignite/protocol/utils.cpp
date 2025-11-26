@@ -17,6 +17,7 @@
 
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/reader.h"
+#include "ignite/protocol/extension_types.h"
 
 #include "ignite/common/error_codes.h"
 
@@ -27,6 +28,7 @@
 #include <random>
 #include <sstream>
 #include <type_traits>
+
 
 namespace ignite::protocol {
 

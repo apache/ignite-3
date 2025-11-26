@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.lowwatermark;
 
+import static org.apache.ignite.configuration.notifications.ConfigurationListener.fromConsumer;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -36,7 +37,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.ScheduledUpdateLowWatermarkTask.State;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEventParameters;
@@ -56,16 +60,16 @@ import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessageGroup;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfigurationSchema;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -91,7 +95,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
 
-    static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
+    public static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
 
     private static final LowWatermarkMessagesFactory MESSAGES_FACTORY = new LowWatermarkMessagesFactory();
 
@@ -124,6 +128,11 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final Map<UUID, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
+    /** Guarded by {@link #scheduleUpdateLowWatermarkTaskLock}. */
+    private @Nullable ScheduledUpdateLowWatermarkTask lastScheduledUpdateLowWatermarkTask;
+
+    private final Lock scheduleUpdateLowWatermarkTaskLock = new ReentrantLock();
+
     /**
      * Constructor.
      *
@@ -148,7 +157,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         this.messagingService = messagingService;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "low-watermark-updater", LOG)
+                IgniteThreadFactory.create(nodeName, "low-watermark-updater", LOG)
         );
     }
 
@@ -158,6 +167,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             setLowWatermarkOnRecovery(readLowWatermarkFromVault());
 
             messagingService.addMessageHandler(LowWatermarkMessageGroup.class, this::onReceiveNetworkMessage);
+
+            lowWatermarkConfig.updateIntervalMillis().listen(fromConsumer(ctx -> scheduleUpdates()));
 
             return nullCompletedFuture();
         });
@@ -212,12 +223,50 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
+        scheduleUpdateLowWatermarkTaskLock.lock();
+
+        try {
+            ScheduledUpdateLowWatermarkTask lastTask = lastScheduledUpdateLowWatermarkTask;
+            ScheduledUpdateLowWatermarkTask newTask = new ScheduledUpdateLowWatermarkTask(this, State.NEW);
+
+            State lastTaskState = lastTask == null ? State.COMPLETED : lastTask.state();
+
+            switch (lastTaskState) {
+                case NEW:
+                    if (lastTask.tryCancel()) {
+                        lastScheduledUpdateLowWatermarkTask = newTask;
+
+                        scheduleUpdateLowWatermarkTaskBusy(newTask);
+                    }
+
+                    break;
+                case IN_PROGRESS:
+                    // In this case we don't need to schedule a new task because the current task that is in progress will schedule a new
+                    // task when it finishes.
+                    break;
+                case COMPLETED:
+                    lastScheduledUpdateLowWatermarkTask = newTask;
+
+                    scheduleUpdateLowWatermarkTaskBusy(newTask);
+
+                    break;
+                default:
+                    throw new AssertionError("Unknown state: " + lastTaskState);
+            }
+        } finally {
+            scheduleUpdateLowWatermarkTaskLock.unlock();
+        }
+    }
+
+    private void scheduleUpdateLowWatermarkTaskBusy(ScheduledUpdateLowWatermarkTask task) {
         ScheduledFuture<?> previousScheduledFuture = this.lastScheduledTaskFuture.get();
 
-        assert previousScheduledFuture == null || previousScheduledFuture.isDone() : "previous scheduled task has not finished";
+        if (previousScheduledFuture != null && !previousScheduledFuture.isDone()) {
+            previousScheduledFuture.cancel(true);
+        }
 
         ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
-                () -> updateLowWatermark(createNewLowWatermarkCandidate()),
+                task,
                 lowWatermarkConfig.updateIntervalMillis().value(),
                 TimeUnit.MILLISECONDS
         );
@@ -252,7 +301,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         }
     }
 
-    void onReceiveNetworkMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    void onReceiveNetworkMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         inBusyLock(busyLock, () -> {
             if (!(message instanceof GetLowWatermarkRequest)) {
                 return;
@@ -270,7 +319,11 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     @Override
     public void updateLowWatermark(HybridTimestamp newLowWatermark) {
-        inBusyLock(busyLock, () -> {
+        updateLowWatermarkAsync(newLowWatermark);
+    }
+
+    CompletableFuture<Void> updateLowWatermarkAsync(HybridTimestamp newLowWatermark) {
+        return inBusyLockAsync(busyLock, () -> {
             LowWatermarkCandidate newLowWatermarkCandidate = new LowWatermarkCandidate(newLowWatermark, new CompletableFuture<>());
             LowWatermarkCandidate oldLowWatermarkCandidate;
 
@@ -279,12 +332,12 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
                 // If another candidate contains a higher low watermark, then there is no need to update.
                 if (oldLowWatermarkCandidate.lowWatermark().compareTo(newLowWatermark) >= 0) {
-                    return;
+                    return nullCompletedFuture();
                 }
             } while (!lowWatermarkCandidate.compareAndSet(oldLowWatermarkCandidate, newLowWatermarkCandidate));
 
             // We will start the update as soon as the previous one finishes.
-            oldLowWatermarkCandidate.updateFuture()
+            return oldLowWatermarkCandidate.updateFuture()
                     .thenComposeAsync(unused -> updateAndNotify(newLowWatermark), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -339,16 +392,12 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                             .whenCompleteAsync((unused, throwable) -> {
                                 if (throwable != null) {
                                     if (!(hasCause(throwable, NodeStoppingException.class))) {
-                                        LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);
+                                        LOG.error("Failed to update low watermark: {}", throwable, newLowWatermark);
 
                                         failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
-
-                                        inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                                     }
                                 } else {
                                     LOG.info("Successful low watermark update: {}", newLowWatermark);
-
-                                    inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                                 }
                             }, scheduledThreadPool);
                 }

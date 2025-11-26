@@ -220,7 +220,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
     @Test
     void rightExceptionIsThrownIfSameColumnNameBelongsToIndexesForDifferentTables() {
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 createTableCommand(TABLE_NAME),
                 createIndexCommand(TABLE_NAME, "TEST_IDX"),
                 createTableCommand(TABLE_NAME + "_1"),
@@ -228,7 +228,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         );
 
         Set<String> indexes = catalog.indexes().stream()
-                .filter(index -> ((CatalogHashIndexDescriptor) index).columns().contains("VAL"))
+                .filter(index -> ((CatalogHashIndexDescriptor) index).columnIds().contains(1))
                 .map(CatalogObjectDescriptor::name)
                 .collect(Collectors.toSet());
 

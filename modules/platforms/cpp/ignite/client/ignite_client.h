@@ -40,7 +40,7 @@ class ignite_client_impl;
 } // namespace detail
 
 /**
- * Ignite client.
+ * @brief Ignite client.
  */
 class ignite_client {
 public:
@@ -54,30 +54,28 @@ public:
     ignite_client &operator=(const ignite_client &) = delete;
 
     /**
-     * Starts client asynchronously.
+     * Starts a client asynchronously.
      *
-     * Client tries to establish connection to every endpoint. First endpoint is
-     * selected randomly. After that round-robin is used to determine the next
-     * address to establish connection to.
+     * Client tries to establish connection to every endpoint. At first, an endpoint is selected randomly. After that,
+     * round-robin is used to determine the next address to establish connection to.
      *
-     * System means are used to resolve endpoint IP addresses. If more than one
-     * IP address is returned, client attempts to connect to them in random order.
+     * System means are used to resolve endpoint IP addresses. If more than one IP address is returned, the client
+     * attempts to connect to them in random order.
      *
      * Only one connection establishment can be in process at the same time.
      *
-     * Client considered connected to a cluster when there is at least one
-     * connection to any node of the cluster. Upon this event, future will be set
-     * with a usable ignite_client instance.
+     * Client considered connected to a cluster when there is at least one connection to any node of the cluster.
+     * Upon this event, a callback will be called with a usable ignite_client instance.
      *
      * @param configuration Client configuration.
      * @param timeout Operation timeout.
-     * @param callback Callback to be called once operation is complete.
+     * @param callback Callback to be called once the operation is complete.
      */
     IGNITE_API static void start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
         ignite_callback<ignite_client> callback);
 
     /**
-     * Starts client synchronously.
+     * Starts a client synchronously.
      *
      * @see start_async for details.
      *

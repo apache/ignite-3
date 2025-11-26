@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -44,6 +45,7 @@ public class ScaleCubeConfigurationSchema {
      * @see <a href="https://en.wikipedia.org/wiki/Gossip_protocol">Gossip Protocol</a>
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "gossipInterval")
     public final int gossipIntervalMillis = 200;
 
     /**
@@ -59,5 +61,6 @@ public class ScaleCubeConfigurationSchema {
      * another node).
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "metadataTimeout")
     public final int metadataTimeoutMillis = 3_000;
 }

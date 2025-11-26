@@ -55,6 +55,7 @@ class TxStateMetaRocksDbPartitionStorageTest extends IgniteAbstractTest {
             @InjectExecutorService ExecutorService executor
     ) {
         sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
                 workDir,
                 scheduledExecutor,
                 executor,

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -49,6 +49,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -85,6 +86,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -342,7 +345,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
-        Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
+        Matcher<String> planMatcher = containsIndexScanIgnoreBounds("PUBLIC", "TEST", "TEST_IDX");
 
         checkMixedTransactions(planMatcher);
     }
@@ -962,6 +965,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Wait until FIRST script statement is started to execute.
         waitUntilRunningQueriesCount(greaterThan(1));
+        // We have to make sure that execution is started.
+        waitUntilActiveTransactionsCount(is(1));
 
         assertThat(scriptFut.isDone(), is(false));
 
@@ -980,7 +985,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void cancelLongRunningStatement() throws InterruptedException {
+    public void cancelLongRunningStatement() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
@@ -996,9 +1001,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        waitUntilRunningQueriesCount(greaterThan(0));
-        // Wait a bit more to improve failure rate.
-        Thread.sleep(500);
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
 
         // Wait for query cancel.
         cancelHandle.cancel();
@@ -1007,6 +1010,54 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(() -> await(f));
         assertThat(txManager().pending(), is(0));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = JoinRelType.class, mode = Mode.INCLUDE, names = {"INNER", "LEFT", "RIGHT", "FULL"})
+    public void cancelLongRunningJoinStatement(JoinRelType joinType) throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        sql.executeScript("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
+        for (int i = 0; i < 10; i++) {
+            sql.executeScript("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        String join10x = String.format("SELECT count(*) FROM ("
+                + "SELECT "
+                + "t1.ID AS ID1, t2.ID AS ID2, t3.ID AS ID3, t4.ID AS ID4, t5.ID AS ID5, "
+                + "t6.ID AS ID6, t7.ID AS ID7, t8.ID AS ID8, t9.ID AS ID9, t10.ID AS ID10 "
+                + "FROM TEST t1 "
+                + "%s JOIN TEST t2  ON 1 = 1 "
+                + "%s JOIN TEST t3  ON 1 = 1 "
+                + "%s JOIN TEST t4  ON 1 = 1 "
+                + "%s JOIN TEST t5  ON 1 = 1 "
+                + "%s JOIN TEST t6  ON 1 = 1 "
+                + "%s JOIN TEST t7  ON 1 = 1 "
+                + "%s JOIN TEST t8  ON 1 = 1 "
+                + "%s JOIN TEST t9  ON 1 = 1 "
+                + "%s JOIN TEST t10 ON 1 = 1 "
+                + ")", joinType, joinType, joinType, joinType, joinType, joinType, joinType, joinType, joinType);
+
+        {
+            Statement statement = sql.statementBuilder()
+                    .query(join10x)
+                    .build();
+
+            CancelHandle cancelHandle = CancelHandle.create();
+            CompletableFuture<?> fut = sql.executeAsync(null, cancelHandle.token(), statement);
+
+            // Wait until the query starts executing.
+            waitUntilRunningQueriesCount(greaterThan(0));
+            // Wait a bit more to improve failure rate.
+            Thread.sleep(500);
+
+            cancelHandle.cancel();
+
+            // Query was actually cancelled.
+            waitUntilRunningQueriesCount(is(0));
+            expectQueryCancelled(() -> await(fut));
+            assertThat(txManager().pending(), is(0));
+        }
     }
 
     @Test
@@ -1219,6 +1270,29 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public abstract void cancelBatch() throws InterruptedException;
+
+    @Test
+    public void cancelDdlScript() {
+        IgniteSql sql = igniteSql();
+
+        String script =
+                "CREATE TABLE test1 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test3 (id INT PRIMARY KEY);";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+
+        waitUntilRunningQueriesCount(greaterThan(0));
+
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> await(scriptFut));
+
+        waitUntilRunningQueriesCount(is(0));
+    }
 
     @Test
     public void cancelQueryBeforeExecution() {

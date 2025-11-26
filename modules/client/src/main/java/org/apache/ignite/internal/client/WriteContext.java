@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.client;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,4 +28,14 @@ import org.jetbrains.annotations.Nullable;
 public class WriteContext {
     public @Nullable PartitionMapping pm;
     public @Nullable Long enlistmentToken;
+    public CompletableFuture<ClientTransaction> firstReqFut;
+    public final HybridTimestampTracker tracker;
+    public boolean readOnly;
+    public @Nullable ClientChannel channel;
+    public final int opCode;
+
+    public WriteContext(HybridTimestampTracker tracker, int opCode) {
+        this.tracker = tracker;
+        this.opCode = opCode;
+    }
 }

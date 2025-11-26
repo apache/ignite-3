@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,7 +51,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -66,14 +68,15 @@ public final class PartitionPruningPredicate {
     /**
      * Applies partition pruning to the given colocation group. This group should have the same number of assignments as the source table.
      *
+     * @param sourceId Source id.
      * @param table Table.
      * @param pruningColumns Partition pruning metadata.
      * @param dynamicParameters Values dynamic parameters.
      * @param colocationGroup Colocation group.
-     *
      * @return New colocation group.
      */
     public static ColocationGroup prunePartitions(
+            long sourceId,
             IgniteTable table,
             PartitionPruningColumns pruningColumns,
             Object[] dynamicParameters,
@@ -120,8 +123,9 @@ public final class PartitionPruningPredicate {
             }
         }
 
+        // Replace group id.
         return new ColocationGroup(
-                colocationGroup.sourceIds(),
+                LongList.of(sourceId),
                 List.copyOf(newNodes),
                 newAssignments,
                 partitionsPerNode
@@ -137,7 +141,6 @@ public final class PartitionPruningPredicate {
      * @param expressionFactory Expression factory.
      * @param assignments Assignments.
      * @param nodeName Node name.
-     *
      * @return List of partitions that belong to the provided node.
      */
     public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
@@ -188,14 +191,18 @@ public final class PartitionPruningPredicate {
             for (int key : keys) {
                 RexNode node = columns.get(key);
                 NativeType physicalType = table.descriptor().columnDescriptor(key).physicalType();
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
-                //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
-                if (physicalType.spec() == NativeTypeSpec.UUID && !(node instanceof RexDynamicParam)) {
-                    return null;
-                }
-
+                ColumnType columnType = physicalType.spec();
                 Object val = getNodeValue(physicalType, node, dynamicParameters);
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+                if (columnType == ColumnType.TIME
+                        || columnType == ColumnType.DATETIME
+                        || columnType == ColumnType.TIMESTAMP) {
+                    TemporalNativeType temporalNativeType = (TemporalNativeType) physicalType;
+                    if (temporalNativeType.precision() > 3) {
+                        return null;
+                    }
+                }
 
                 partitionCalculator.append(val);
             }
@@ -223,28 +230,28 @@ public final class PartitionPruningPredicate {
     }
 
     private static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        if (physicalType.spec() == NativeTypeSpec.DATE) {
+        if (physicalType.spec() == ColumnType.DATE) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
             return LocalDate.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == NativeTypeSpec.TIME) {
+        } else if (physicalType.spec() == ColumnType.TIME) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
 
             return LocalTime.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == NativeTypeSpec.TIMESTAMP) {
+        } else if (physicalType.spec() == ColumnType.TIMESTAMP) {
             TimestampString timestampString = lit.getValueAs(TimestampString.class);
             assert timestampString != null;
 
             return Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-        } else if (physicalType.spec() == NativeTypeSpec.DATETIME) {
+        } else if (physicalType.spec() == ColumnType.DATETIME) {
             TimestampString timestampString = lit.getValueAs(TimestampString.class);
             assert timestampString != null;
 
             Instant instant = Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
             return LocalDateTime.ofInstant(instant, ZONE_ID_UTC);
         } else {
-            Class<?> javaClass = NativeTypeSpec.toClass(physicalType.spec(), true);
+            Class<?> javaClass = physicalType.spec().javaClass();
             return lit.getValueAs(javaClass);
         }
     }

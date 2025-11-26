@@ -28,7 +28,7 @@ import org.apache.ignite.rest.client.model.NodeMetricSources;
 
 /** Decorator for printing list of {@link NodeMetricSources}. */
 public class ClusterMetricSourceListDecorator implements Decorator<List<NodeMetricSources>, TerminalOutput> {
-    private static final String[] HEADERS = {"Node", "Source name", "Description"};
+    private static final String[] HEADERS = {"Node", "Source name", "Availability"};
 
     private final boolean plain;
 

@@ -367,7 +367,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(SelectCountPlan plan, String... expectedExpressions) {
-        List<String> expressions = plan.selectCountNode().expressions().stream()
+        List<String> expressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -376,7 +376,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
                 equalTo(List.of(expectedExpressions))
         );
 
-        RelDataType rowType = plan.selectCountNode().getRowType();
+        RelDataType rowType = plan.getRel().getRowType();
         assertEquals(expectedExpressions.length, rowType.getFieldCount(), "output columns");
     }
 }

@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.internal.configuration.SystemDistributedConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_SYNC_INTERVAL_MILLIS;
+
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /** {@link ConfigurationModule} for cluster-wide system configuration. */
@@ -34,5 +37,17 @@ public class SystemDistributedConfigurationModule implements ConfigurationModule
     @Override
     public Collection<Class<?>> schemaExtensions() {
         return List.of(SystemDistributedExtensionConfigurationSchema.class);
+    }
+
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
+        SystemDistributedExtensionView rootView = superRootChange.viewRoot(SystemDistributedExtensionConfiguration.KEY);
+        SystemDistributedExtensionChange rootChange = superRootChange.changeRoot(SystemDistributedExtensionConfiguration.KEY);
+
+        MetaStorageView metaStorageView = rootView.metaStorage();
+
+        if (metaStorageView.idleSyncTimeInterval() != DEFAULT_IDLE_SAFE_TIME_SYNC_INTERVAL_MILLIS) {
+            rootChange.changeSystem().changeIdleSafeTimeSyncIntervalMillis(metaStorageView.idleSyncTimeInterval());
+        }
     }
 }

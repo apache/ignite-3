@@ -33,7 +33,15 @@ import java.lang.annotation.Target;
 @Documented
 public @interface PublicName {
     /**
-     * Public configuration property name.
+     * Public configuration property name. This name, if present, is used to store this configuration in configuration storage and to render
+     * the configuration to the user. Empty string means that public name matches the schema field name.
      */
-    String value();
+    String value() default "";
+
+    /**
+     * An array of old deprecated names for the configuration. Any of these names should be accounted for when parsing configuration from
+     * any source, but avoided when showing to the user or saving to the configuration storage. These names should also be deleted from the
+     * corresponding configuration storage upon encountering.
+     */
+    String[] legacyNames() default {};
 }

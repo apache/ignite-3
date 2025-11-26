@@ -16,18 +16,24 @@
 
 == Prerequisites
 
-include::includes/prereqs.adoc[]
+=== Recommended Operating System
 
-== Ignite Package Structure
+include::includes/prereqs-os.adoc[]
 
-The Ignite provides 2 archives for the distribution:
+=== Recommended Java Version
 
-- `ignite3-db-3.0.0` - this archive contains everything related to the Ignite database, and when unpacked,  the folder where data will be stored by default. You start Ignite nodes from this folder.
-- `ignite3-cli-3.0.0` - this archive contains the link:ignite-cli-tool[Ignite CLI tool]. This tool is the main way of interacting with Ignite clusters and nodes.
+include::includes/prereqs-java.adoc[]
 
-== Installing Ignite Database
+== Apache Ignite Package Structure
 
-To install the Ignite database, link:https://ignite.apache.org/download.cgi[download] the database archive from the website and then:
+Apache Ignite provides 2 archives for the distribution:
+
+- `ignite3-db-3.1.0` - this archive contains everything related to the Apache Ignite database. When unpacked, it creates the folder where data will be stored by default. You start Apache Ignite nodes from this folder.
+- `ignite3-cli-3.1.0` - this archive contains the link:ignite-cli-tool[Apache Ignite CLI tool]. This tool is the main way of interacting with Apache Ignite clusters and nodes.
+
+== Installing Apache Ignite Database
+
+To install the Apache Ignite database, link:https://ignite.apache.org/download.cgi[download] the database archive from the website and then:
 
 . Unpack the archive:
 +
@@ -36,28 +42,28 @@ To install the Ignite database, link:https://ignite.apache.org/download.cgi[down
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-db-3.0.0.zip && cd ignite3-db-3.0.0
+unzip ignite3-db-3.1.0.zip && cd ignite3-db-3.1.0
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-3.0.0.zip -DestinationPath . ; cd ignite3-db-3.0.0
+Expand-Archive ignite3-3.1.0.zip -DestinationPath . ; cd ignite3-db-3.1.0
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-db-3.0.0.zip & cd ignite3-db-3.0.0
+unzip -xf ignite3-db-3.1.0.zip & cd ignite3-db-3.1.0
 ----
 --
 
-. Create the `IGNITE_HOME` environment variable with the path to the `ignite3-db-3.0.0` folder.
+. Create the `IGNITE_HOME` environment variable with the path to the `ignite3-db-3.1.0` folder.
 
 == Starting the Node
 
-Once you have unpacked the archive, you can start the Ignite node:
+Once you have unpacked the archive, you can start the Apache Ignite node:
 
 [source,shell]
 ----
@@ -68,34 +74,34 @@ By default, the node loads the `etc/ignite-config.conf` configuration file on st
 
 When the node is started, it will enter the cluster if it is already configured and initialized, or will wait for cluster initialization.
 
-== Installing Ignite CLI Tool
+== Installing Apache Ignite CLI Tool
 
-The CLI tool is the primary means of working with the Ignite database. It is not necessary to install on every machine that is running Ignite, as you can connect to the node via REST interface.
+The CLI tool is the primary means of working with the Apache Ignite database. It is not necessary to install on every machine that is running Apache Ignite, as you can connect to the node via REST interface.
 
-To install the Ignite CLI, link:https://ignite.apache.org/download.cgi[download] the database archive from the website and then unpack it:
+To install the Apache Ignite CLI, link:https://ignite.apache.org/download.cgi[download] the database archive from the website and then unpack it:
 
 [tabs]
 --
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-cli-3.0.0.zip && cd ignite3-cli-3.0.0
+unzip ignite3-cli-3.1.0.zip && cd ignite3-cli-3.1.0
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-cli-3.0.0.zip -DestinationPath . ; cd ignite3-cli-3.0.0
+Expand-Archive ignite3-cli-3.1.0.zip -DestinationPath . ; cd ignite3-cli-3.1.0
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-cli-3.0.0.zip & cd ignite3-cli-3.0.0
+unzip -xf ignite3-cli-3.1.0.zip & cd ignite3-cli-3.1.0
 ----
 --
 
 == Next Steps
 
-With the Ignite installed, you can proceed with the link:quick-start/getting-started-guide[Getting Started] or link:developers-guide/table-api[use the available APIs] immediately.
+With Apache Ignite installed, you can proceed with the link:quick-start/getting-started-guide[Getting Started] or link:developers-guide/table-api[use the available APIs] immediately.

@@ -101,7 +101,7 @@ public class NettySender {
      */
     public CompletableFuture<Void> send(OutNetworkObject obj, Runnable triggerChannelRecreation) {
         if (!obj.networkMessage().needAck()) {
-            // We don't care that the client might get an exception like ClosedChannelException or that the message
+            // We don't care that the caller might get an exception like ClosedChannelException or that the message
             // will be lost if the channel is closed as it does not require to be acked.
             return toCompletableFuture(channel.writeAndFlush(obj));
         }
@@ -110,9 +110,7 @@ public class NettySender {
         // We need this to avoid message reordering due to switching from old channel to a new one.
         // Also, we ALWAYS execute the writes on the event loop (by adding them to the event loop queue) even if we are on
         // the event loop thread, to avoid another reordering.
-        channel.eventLoop().execute(() -> writeWithRecovery(obj, channel, triggerChannelRecreation));
-
-        return obj.acknowledgedFuture();
+        return toCompletableFuture(channel.eventLoop().submit(() -> writeWithRecovery(obj, channel, triggerChannelRecreation), null));
     }
 
     private void chainRecoverSendAfterChannelClosure(

@@ -1,0 +1,69 @@
+Sort
+    collation: [REVENUE DESC]
+    fetch: 20
+    est: (rows=20)
+  Project
+      fieldNames: [C_CUSTKEY, C_NAME, REVENUE, C_ACCTBAL, N_NAME, C_ADDRESS, C_PHONE, C_COMMENT]
+      projection: [C_CUSTKEY, C_NAME, REVENUE, C_ACCTBAL, N_NAME, C_ADDRESS, C_PHONE, C_COMMENT]
+      est: (rows=394827)
+    ColocatedHashAggregate
+        fieldNames: [C_CUSTKEY, C_NAME, C_ACCTBAL, C_PHONE, N_NAME, C_ADDRESS, C_COMMENT, REVENUE]
+        group: [C_CUSTKEY, C_NAME, C_ACCTBAL, C_PHONE, N_NAME, C_ADDRESS, C_COMMENT]
+        aggregation: [SUM($f7)]
+        est: (rows=394827)
+      Project
+          fieldNames: [C_CUSTKEY, C_NAME, C_ACCTBAL, C_PHONE, N_NAME, C_ADDRESS, C_COMMENT, $f7]
+          projection: [C_CUSTKEY, C_NAME, C_ACCTBAL, C_PHONE, N_NAME, C_ADDRESS, C_COMMENT, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+          est: (rows=499601)
+        HashJoin
+            predicate: =(L_ORDERKEY, O_ORDERKEY)
+            type: inner
+            est: (rows=499601)
+          Exchange
+              distribution: single
+              est: (rows=1998405)
+            TableScan
+                table: PUBLIC.LINEITEM
+                predicate: =(L_RETURNFLAG, _UTF-8'R')
+                fieldNames: [L_ORDERKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_RETURNFLAG]
+                est: (rows=1998405)
+          HashJoin
+              predicate: =(C_CUSTKEY, O_CUSTKEY)
+              type: inner
+              est: (rows=375000)
+            Exchange
+                distribution: single
+                est: (rows=375000)
+              IndexScan
+                  table: PUBLIC.ORDERS
+                  index: O_OD
+                  type: SORTED
+                  predicate: SEARCH(O_ORDERDATE, Sarg[[1993-10-01..1994-01-01)])
+                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1993-10-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1994-01-01, upperInclude=false]]
+                  fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
+                  collation: [O_ORDERDATE ASC]
+                  est: (rows=375000)
+            MergeJoin
+                predicate: =(C_NATIONKEY, N_NATIONKEY)
+                type: inner
+                est: (rows=150000)
+              Exchange
+                  distribution: single
+                  est: (rows=150000)
+                IndexScan
+                    table: PUBLIC.CUSTOMER
+                    index: C_NK
+                    type: SORTED
+                    fieldNames: [C_CUSTKEY, C_NAME, C_ADDRESS, C_NATIONKEY, C_PHONE, C_ACCTBAL, C_COMMENT]
+                    collation: [C_NATIONKEY ASC]
+                    est: (rows=150000)
+              Exchange
+                  distribution: single
+                  est: (rows=25)
+                Sort
+                    collation: [N_NATIONKEY ASC]
+                    est: (rows=25)
+                  TableScan
+                      table: PUBLIC.NATION
+                      fieldNames: [N_NATIONKEY, N_NAME]
+                      est: (rows=25)

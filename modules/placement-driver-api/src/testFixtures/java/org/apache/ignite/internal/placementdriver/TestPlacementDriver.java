@@ -28,11 +28,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -45,18 +45,21 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         implements PlacementDriver {
     private volatile Supplier<? extends ReplicaMeta> primaryReplicaSupplier;
 
-    /** Auxiliary constructor that will create replica meta by {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)} internally. */
-    public TestPlacementDriver(ClusterNode leaseholder) {
+    /**
+     * Auxiliary constructor that will create replica meta by {@link TestReplicaMetaImpl#TestReplicaMetaImpl(InternalClusterNode)}
+     * internally.
+     */
+    public TestPlacementDriver(InternalClusterNode leaseholder) {
         primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholder);
     }
 
     /**
      * Auxiliary constructor that allows you to create {@link TestPlacementDriver} in cases where the node ID will be known only after the
-     * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)}.
+     * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(InternalClusterNode)}.
      */
-    public TestPlacementDriver(Supplier<ClusterNode> leaseholderSupplier) {
+    public TestPlacementDriver(Supplier<InternalClusterNode> leaseholderSupplier) {
         primaryReplicaSupplier = () -> {
-            ClusterNode leaseholder = leaseholderSupplier.get();
+            InternalClusterNode leaseholder = leaseholderSupplier.get();
             return leaseholder == null ? null : new TestReplicaMetaImpl(leaseholder);
         };
     }
@@ -100,7 +103,13 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     ) {
-        return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
+        return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in TestPlacementDriver yet."));
+    }
+
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+        return failedFuture(new UnsupportedOperationException("awaitNonEmptyAssignments() is not supported in TestPlacementDriver yet."));
     }
 
     private CompletableFuture<ReplicaMeta> getReplicaMetaFuture() {
@@ -130,8 +139,8 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         fireEvent(
                 PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
-                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual value
-                        // doesn't matter there yet.
+                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual
+                        // value doesn't matter there yet.
                         0,
                         replicaMeta.getReplicationGroupId(),
                         replicaMeta.getLeaseholderId(),
@@ -139,7 +148,6 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
                         replicaMeta.getStartTime()
                 )
         );
-
     }
 
     @Override

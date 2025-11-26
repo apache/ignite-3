@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,11 +55,15 @@ public interface RowHandler<RowT> {
      */
     BinaryTuple toBinaryTuple(RowT row);
 
+    default ByteBuffer toByteBuffer(RowT row) {
+        return toBinaryTuple(row).byteBuffer();
+    }
+
     /** String representation. */
     String toString(RowT row);
 
     /** Creates a factory that produces rows with fields defined by the given schema. */
-    RowFactory<RowT> factory(RowSchema rowSchema);
+    RowFactory<RowT> factory(StructNativeType rowSchema);
 
     /**
      * Provide methods for inner row assembly.
@@ -95,7 +100,7 @@ public interface RowHandler<RowT> {
          *
          * @return RowSchema.
          */
-        RowSchema rowSchema();
+        StructNativeType rowSchema();
 
         /**
          * The result row will satisfy the current factory's schema.

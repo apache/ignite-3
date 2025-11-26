@@ -20,6 +20,7 @@
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <IsPackable>false</IsPackable>
+        <IsPublishable>false</IsPublishable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>Apache.Ignite.Tests.snk</AssemblyOriginatorKeyFile>
@@ -56,6 +57,16 @@
             <_Parameter1>15000</_Parameter1>
             <_Parameter1_TypeName>System.Int32</_Parameter1_TypeName>
         </AssemblyAttribute>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Compute\Executor\NewerDotnetJobs\EchoJob.cs" />
+      <Content Include="Compute\Executor\NewerDotnetJobs\EchoJob.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
+      <EmbeddedResource Include="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
     </ItemGroup>
 
 </Project>

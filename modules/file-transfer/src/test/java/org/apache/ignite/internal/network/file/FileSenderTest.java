@@ -195,7 +195,6 @@ class FileSenderTest extends BaseIgniteAbstractTest {
         );
     }
 
-
     @Test
     void maxConcurrentRequestsLimitIsNotExceeded() {
         // Setup mock messaging service to emulate long processing and count concurrent requests.

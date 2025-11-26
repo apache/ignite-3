@@ -1,0 +1,105 @@
+Project
+    fieldNames: [S_NAME, S_ADDRESS]
+    projection: [S_NAME, S_ADDRESS]
+    est: (rows=39960000)
+  HashJoin
+      predicate: =(S_NATIONKEY, N_NATIONKEY)
+      type: inner
+      est: (rows=39960000)
+    HashJoin
+        predicate: =(S_SUPPKEY, PS_SUPPKEY)
+        type: inner
+        est: (rows=120000000)
+      Exchange
+          distribution: single
+          est: (rows=10000)
+        Sort
+            collation: [S_NAME ASC]
+            est: (rows=10000)
+          TableScan
+              table: PUBLIC.SUPPLIER
+              fieldNames: [S_SUPPKEY, S_NAME, S_ADDRESS, S_NATIONKEY]
+              est: (rows=10000)
+      ColocatedSortAggregate
+          collation: [PS_SUPPKEY ASC]
+          group: [PS_SUPPKEY]
+          aggregation: []
+          est: (rows=120000000)
+        Project
+            fieldNames: [PS_SUPPKEY]
+            projection: [PS_SUPPKEY]
+            est: (rows=600000000)
+          Filter
+              predicate: >(CAST(PS_AVAILQTY):DECIMAL(32767, 3) NOT NULL, EXPR$0)
+              est: (rows=600000000)
+            CorrelatedNestedLoopJoin
+                predicate: true
+                type: left
+                correlates: [$cor2]
+                est: (rows=1200000000)
+              Project
+                  fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
+                  projection: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
+                  est: (rows=1200000000)
+                HashJoin
+                    predicate: =(PS_PARTKEY, P_PARTKEY)
+                    type: inner
+                    est: (rows=1200000000)
+                  Exchange
+                      distribution: single
+                      est: (rows=800000)
+                    IndexScan
+                        table: PUBLIC.PARTSUPP
+                        index: PS_SK_PK
+                        type: SORTED
+                        fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
+                        collation: [PS_SUPPKEY ASC, PS_PARTKEY ASC]
+                        est: (rows=800000)
+                  Exchange
+                      distribution: single
+                      est: (rows=10000)
+                    ColocatedHashAggregate
+                        group: [P_PARTKEY]
+                        aggregation: []
+                        est: (rows=10000)
+                      TableScan
+                          table: PUBLIC.PART
+                          predicate: LIKE(P_NAME, _UTF-8'forest%')
+                          fieldNames: [P_PARTKEY]
+                          est: (rows=50000)
+              Project
+                  fieldNames: [EXPR$0]
+                  projection: [*(0.5:DECIMAL(2, 1), $f0)]
+                  est: (rows=1)
+                ReduceSortAggregate
+                    fieldNames: [$f0]
+                    collation: []
+                    group: []
+                    aggregation: [SUM(_ACC0)]
+                    est: (rows=1)
+                  Exchange
+                      distribution: single
+                      est: (rows=1)
+                    MapSortAggregate
+                        fieldNames: [_ACC0]
+                        collation: []
+                        group: []
+                        aggregation: [SUM(L_QUANTITY)]
+                        est: (rows=1)
+                      IndexScan
+                          table: PUBLIC.LINEITEM
+                          index: L_SK_PK
+                          type: SORTED
+                          predicate: AND(=(L_PARTKEY, $cor2.PS_PARTKEY), =(L_SUPPKEY, $cor2.PS_SUPPKEY), SEARCH(L_SHIPDATE, Sarg[[1994-01-01..1995-01-01)]))
+                          searchBounds: [ExactBounds [bound=$cor2.PS_SUPPKEY], ExactBounds [bound=$cor2.PS_PARTKEY]]
+                          fieldNames: [L_QUANTITY]
+                          collation: []
+                          est: (rows=166367)
+    Exchange
+        distribution: single
+        est: (rows=8)
+      TableScan
+          table: PUBLIC.NATION
+          predicate: =(N_NAME, _UTF-8'CANADA')
+          fieldNames: [N_NATIONKEY, N_NAME]
+          est: (rows=8)

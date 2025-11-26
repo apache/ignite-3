@@ -27,6 +27,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -142,7 +143,7 @@ public class ExchangeServiceImpl implements ExchangeService {
         );
     }
 
-    private void onMessage(String nodeName, QueryBatchRequestMessage msg) {
+    private void onMessage(InternalClusterNode node, QueryBatchRequestMessage msg) {
         ExecutionId executionId = new ExecutionId(msg.queryId(), msg.executionToken());
         CompletableFuture<Outbox<?>> outboxFut = mailboxRegistry.outbox(executionId, msg.exchangeId());
 
@@ -150,9 +151,9 @@ public class ExchangeServiceImpl implements ExchangeService {
             try {
                 SharedState state = msg.sharedState();
                 if (state != null) {
-                    outbox.onRewindRequest(nodeName, state, msg.amountOfBatches());
+                    outbox.onRewindRequest(node.name(), state, msg.amountOfBatches());
                 } else {
-                    outbox.onRequest(nodeName, msg.amountOfBatches());
+                    outbox.onRequest(node.name(), msg.amountOfBatches());
                 }
             } catch (Throwable e) {
                 outbox.onError(e);
@@ -168,13 +169,13 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    private void onMessage(String nodeName, QueryBatchMessage msg) {
+    private void onMessage(InternalClusterNode node, QueryBatchMessage msg) {
         ExecutionId executionId = new ExecutionId(msg.queryId(), msg.executionToken());
         Inbox<?> inbox = mailboxRegistry.inbox(executionId, msg.exchangeId());
 
         if (inbox != null) {
             try {
-                inbox.onBatchReceived(nodeName, msg.batchId(), msg.last(), msg.rows());
+                inbox.onBatchReceived(node.name(), msg.batchId(), msg.last(), msg.rows());
             } catch (Throwable e) {
                 inbox.onError(e);
 
@@ -186,7 +187,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             }
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [nodeName={}, executionId={}, fragmentId={}, exchangeId={}, batchId={}]",
-                    nodeName, executionId, msg.fragmentId(), msg.exchangeId(), msg.batchId());
+                    node.name(), executionId, msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
     }
 

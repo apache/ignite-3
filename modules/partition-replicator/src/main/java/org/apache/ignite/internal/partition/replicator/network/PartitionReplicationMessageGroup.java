@@ -21,15 +21,24 @@ import static org.apache.ignite.internal.partition.replicator.network.PartitionR
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
@@ -216,23 +225,61 @@ public interface PartitionReplicationMessageGroup {
      * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
     interface Commands {
-        /** Message type for {@link FinishTxCommand}. */
-        short FINISH_TX = 40;
+        /**
+         * Message type for {@link FinishTxCommandV1}.
+         *
+         * @see #FINISH_TX_V2
+         */
+        short FINISH_TX_V1 = 40;
 
-        /** Message type for {@link WriteIntentSwitchCommand}. */
-        short WRITE_INTENT_SWITCH = 41;
+        /**
+         * Message type for {@link WriteIntentSwitchCommand} for non-collocated distribution zones.
+         *
+         * @see #WRITE_INTENT_SWITCH_V2
+         */
+        short WRITE_INTENT_SWITCH_V1 = 41;
 
-        /** Message type for {@link UpdateAllCommand}. */
-        short UPDATE_ALL = 42;
+        /**
+         * Message type for {@link UpdateAllCommand}.
+         *
+         * @see #UPDATE_ALL_V2
+         */
+        short UPDATE_ALL_V1 = 42;
 
-        /** Message type for {@link UpdateCommand}. */
-        short UPDATE = 43;
+        /**
+         * Message type for {@link UpdateCommand}.
+         *
+         * @see #UPDATE_V2
+         */
+        short UPDATE_V1 = 43;
 
-        /** Message type for {@link BuildIndexCommand}. */
-        short BUILD_INDEX = 44;
+        /**
+         * Message type for {@link BuildIndexCommand}.
+         *
+         * @see #UPDATE_V2
+         */
+        short BUILD_INDEX_V1 = 44;
 
         /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */
         short UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND = 45;
+
+        /** Message type for {@link WriteIntentSwitchCommandV2}. */
+        short WRITE_INTENT_SWITCH_V2 = 46;
+
+        /** Message type for {@link UpdateCommandV2}. */
+        short UPDATE_V2 = 47;
+
+        /** Message type for {@link UpdateAllCommandV2}. */
+        short UPDATE_ALL_V2 = 48;
+
+        /** Message type for {@link BuildIndexCommandV2}. */
+        short BUILD_INDEX_V2 = 49;
+
+        /** Message type for {@link FinishTxCommandV2}. */
+        short FINISH_TX_V2 = 50;
+
+        /** Message type for {@link BuildIndexCommandV3}. */
+        short BUILD_INDEX_V3 = 51;
     }
 
     /**
@@ -247,5 +294,20 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link LocalPartitionStatesResponse}. */
         short LOCAL_PARTITION_STATE_RESPONSE = 102;
+
+        /** Message type for {@link LocalTablePartitionStateMessage}. */
+        short LOCAL_TABLE_PARTITION_STATE = 103;
+
+        /** Message type for {@link LocalTablePartitionStateRequest}. */
+        short LOCAL_TABLE_PARTITION_STATE_REQUEST = 104;
+
+        /** Message type for {@link LocalTablePartitionStateResponse}. */
+        short LOCAL_TABLE_PARTITION_STATE_RESPONSE = 105;
+
+        /** Message type for disaster recovery request forwarding. */
+        short DISASTER_RECOVERY_REQUEST = 106;
+
+        /** Message type for disaster recovery request forwarding response. */
+        short DISASTER_RECOVERY_RESPONSE = 111;
     }
 }

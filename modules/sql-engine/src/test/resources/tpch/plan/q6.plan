@@ -1,0 +1,25 @@
+ReduceSortAggregate
+    fieldNames: [REVENUE]
+    collation: []
+    group: []
+    aggregation: [SUM(_ACC0)]
+    est: (rows=1)
+  Exchange
+      distribution: single
+      est: (rows=1)
+    MapSortAggregate
+        fieldNames: [_ACC0]
+        collation: []
+        group: []
+        aggregation: [SUM($f0)]
+        est: (rows=1)
+      IndexScan
+          table: PUBLIC.LINEITEM
+          index: L_SD
+          type: SORTED
+          predicate: AND(SEARCH(L_SHIPDATE, Sarg[[1994-01-01..1995-01-01)]), SEARCH(L_DISCOUNT, Sarg[[0.05:DECIMAL(4, 2)..0.07:DECIMAL(4, 2)]]:DECIMAL(4, 2)), <(L_QUANTITY, 24.00))
+          searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1994-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1995-01-01, upperInclude=false]]
+          fieldNames: [$f0]
+          projection: [*(L_EXTENDEDPRICE, L_DISCOUNT)]
+          collation: []
+          est: (rows=187538)

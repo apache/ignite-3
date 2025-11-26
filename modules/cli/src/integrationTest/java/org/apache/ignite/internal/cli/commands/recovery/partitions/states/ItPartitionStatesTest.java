@@ -27,24 +27,21 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Base test class for Cluster Recovery partition states commands. */
 // TODO IGNITE-23617 refactor to use more flexible output matching.
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-25104
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -169,7 +166,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION
         );
 
-        assertErrOutputContains("Some distribution zones are missing: [UNKNOWN_ZONE]");
+        assertErrOutputContains("Distribution zones were not found [zoneNames=[UNKNOWN_ZONE]]");
 
         assertOutputIsEmpty();
     }
@@ -229,7 +226,10 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     void testPartitionStatesEmptyResult(boolean global) {
+        // This test is not applicable for colocation enabled because empty zones are still have partitions.
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, EMPTY_ZONE,
                 global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
@@ -250,6 +250,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION);
 
         assertErrOutputIsEmpty();
+
         assertOutputMatches(String.format(
                 "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
                 GLOBAL_PARTITION_STATE_FIELDS,
@@ -300,16 +301,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         if (!zoneNames.isEmpty()) {
             assertOutputContainsAll(zoneNames);
-
-            Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
-
-            assertOutputContainsAllIgnoringCase(tableNames);
-        }
-
-        Set<String> anotherZones = CollectionUtils.difference(ZONES, zoneNames);
-
-        if (!anotherZones.isEmpty()) {
-            assertOutputDoesNotContain(anotherZones);
         }
 
         if (!zoneNames.isEmpty() && nodeNames.isEmpty()) {

@@ -56,6 +56,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
@@ -120,7 +121,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertEquals(INDEX_NAME, index.name());
         assertEquals(CatalogIndexDescriptorType.HASH, index.indexType());
         assertEquals(table.id(), index.tableId());
-        assertEquals(List.of("VAL", "ID"), index.columns());
+        assertEquals(IntList.of(1, 0), index.columnIds());
         assertFalse(index.unique());
         assertEquals(REGISTERED, index.status());
     }
@@ -141,7 +142,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
         assertEquals(INDEX_NAME, index.name());
         assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
-        assertEquals(List.of("VAL", "ID"), index.columns());
+        assertEquals(IntList.of(1, 0), index.columnIds());
         assertFalse(index.unique());
         assertEquals(AVAILABLE, index.status());
     }
@@ -183,7 +184,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertEquals(INDEX_NAME, index.name());
         assertEquals(CatalogIndexDescriptorType.SORTED, index.indexType());
         assertEquals(table.id(), index.tableId());
-        assertEquals(List.of("VAL", "ID"), view(index.columns(), CatalogIndexColumnDescriptor::name));
+        assertEquals(List.of(1, 0), view(index.columns(), CatalogIndexColumnDescriptor::columnId));
         assertEquals(List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST), view(index.columns(), CatalogIndexColumnDescriptor::collation));
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
@@ -211,8 +212,8 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
         assertEquals(INDEX_NAME, index.name());
         assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
-        assertEquals("VAL", index.columns().get(0).name());
-        assertEquals("ID", index.columns().get(1).name());
+        assertEquals(1, index.columns().get(0).columnId());
+        assertEquals(0, index.columns().get(1).columnId());
         assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
@@ -257,7 +258,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertNull(latestCatalog.aliveIndex(SCHEMA_NAME, INDEX_NAME));
         assertNull(latestCatalog.index(index.id()));
     }
-
 
     @Test
     public void testGetTableIdOnDropIndexEvent() {

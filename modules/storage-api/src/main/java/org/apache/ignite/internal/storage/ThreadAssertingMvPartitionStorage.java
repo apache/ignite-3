@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -92,32 +93,41 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.abortWrite(rowId);
+        return partitionStorage.abortWrite(rowId, txId);
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.commitWrite(rowId, timestamp);
+        return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override
@@ -139,6 +149,20 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
         assertThreadAllowsToRead();
 
         return partitionStorage.closestRowId(lowerBound);
+    }
+
+    @Override
+    public @Nullable RowId highestRowId() throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.highestRowId();
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.rowsStartingWith(lowerBoundInclusive, upperBoundInclusive, limit);
     }
 
     @Override

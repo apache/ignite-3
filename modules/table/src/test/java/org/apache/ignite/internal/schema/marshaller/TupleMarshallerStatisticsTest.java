@@ -63,7 +63,7 @@ public class TupleMarshallerStatisticsTest {
 
         assertThat(sizeInBytes(hugeScaledDecimal), is(greaterThan(16384)));
 
-        ValuesWithStatistics statistics = new ValuesWithStatistics();
+        ValuesWithStatistics statistics = new ValuesWithStatistics(1);
         marshaller.gatherStatistics(TuplePart.KEY, tuple, statistics);
         assertThat(statistics.estimatedValueSize(), is(3));
         BigDecimal compactedValue = (BigDecimal) statistics.value("KEY");

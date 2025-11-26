@@ -33,4 +33,9 @@ import java.nio.file.Path;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 public @interface WorkDirectory {
+    /**
+     * If set to {@code true}, the annotated field will be initialized only in the BeforeParameterizedClassInvocation callback on each
+     * class template invocation.
+     */
+    boolean forcePerClassTemplate() default false;
 }

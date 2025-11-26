@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.BiPredicate;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -37,7 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /** HashJoin implementor. */
@@ -104,7 +103,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             case LEFT: {
                 assert projection != null;
 
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new LeftHashJoin<>(ctx, joinInfo, projection, rightRowFactory, nonEquiCondition);
@@ -112,7 +111,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             case RIGHT: {
                 assert projection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
                 return new RightHashJoin<>(ctx, joinInfo, projection, leftRowFactory, nonEquiCondition);
@@ -120,8 +119,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             case FULL: {
                 assert projection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
@@ -269,8 +268,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in LEFT join";
-
             this.outputProjection = outputProjection;
             this.rightRowFactory = rightRowFactory;
         }
@@ -283,6 +280,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                        boolean checkNonEquiCondition = nonEquiCondition != ALWAYS_TRUE;
+
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
@@ -292,6 +291,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             if (rightRows.isEmpty()) {
                                 // Emit empty right row for unmatched left row.
                                 rightIt = Collections.singletonList(rightRowFactory.create()).iterator();
+                                checkNonEquiCondition = false;
                             } else {
                                 rightIt = rightRows.iterator();
                             }
@@ -308,6 +308,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 }
 
                                 RowT right = rightIt.next();
+
+                                if (checkNonEquiCondition && !nonEquiCondition.test(left, right)) {
+                                    right = rightRowFactory.create();
+                                }
 
                                 --requested;
 
@@ -804,6 +808,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         return Collections.emptyList();
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
+    @SuppressWarnings("PMD.UseDiamondOperator")
     private static <RowT> Iterator<RowT> getUntouched(Map<Key, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
             private final Iterator<TouchedCollection<RowT>> it = entries.values().iterator();

@@ -267,7 +267,6 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertTrue(fut2.isDone());
 
-
         CompletableFuture<Lock> fut3 = lockManager.acquire(older, lockKey(), LockMode.S);
         assertFalse(fut3.isDone());
 

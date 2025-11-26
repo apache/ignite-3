@@ -1,74 +1,75 @@
 Sort
     collation: [NATION ASC, O_YEAR DESC]
-    est. row count: 540109
+    est: (rows=540109)
   ColocatedHashAggregate
+      fieldNames: [NATION, O_YEAR, SUM_PROFIT]
       group: [NATION, O_YEAR]
-      aggs: [SUM(AMOUNT)]
-      est. row count: 540109
+      aggregation: [SUM(AMOUNT)]
+      est: (rows=540109)
     Project
-        fields: [NATION, O_YEAR, AMOUNT]
-        exprs: [N_NAME, EXTRACT(FLAG(YEAR), O_ORDERDATE), -(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(PS_SUPPLYCOST, L_QUANTITY))]
-        est. row count: 1500304
+        fieldNames: [NATION, O_YEAR, AMOUNT]
+        projection: [N_NAME, EXTRACT(FLAG(YEAR), O_ORDERDATE), -(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(PS_SUPPLYCOST, L_QUANTITY))]
+        est: (rows=1500304)
       HashJoin
-          condition: AND(=(PS_SUPPKEY, L_SUPPKEY), =(PS_PARTKEY, L_PARTKEY))
-          joinType: inner
-          est. row count: 1500304
+          predicate: AND(=(PS_SUPPKEY, L_SUPPKEY), =(PS_PARTKEY, L_PARTKEY))
+          type: inner
+          est: (rows=1500304)
         HashJoin
-            condition: =(O_ORDERKEY, L_ORDERKEY)
-            joinType: inner
-            est. row count: 1500304
+            predicate: =(O_ORDERKEY, L_ORDERKEY)
+            type: inner
+            est: (rows=1500304)
           HashJoin
-              condition: =(S_SUPPKEY, L_SUPPKEY)
-              joinType: inner
-              est. row count: 1500304
+              predicate: =(S_SUPPKEY, L_SUPPKEY)
+              type: inner
+              est: (rows=1500304)
             HashJoin
-                condition: =(P_PARTKEY, L_PARTKEY)
-                joinType: inner
-                est. row count: 1500304
+                predicate: =(P_PARTKEY, L_PARTKEY)
+                type: inner
+                est: (rows=1500304)
               Exchange
                   distribution: single
-                  est. row count: 6001215
+                  est: (rows=6001215)
                 TableScan
-                    table: [PUBLIC, LINEITEM]
-                    fields: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_QUANTITY, L_EXTENDEDPRICE, L_DISCOUNT]
-                    est. row count: 6001215
+                    table: PUBLIC.LINEITEM
+                    fieldNames: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_QUANTITY, L_EXTENDEDPRICE, L_DISCOUNT]
+                    est: (rows=6001215)
               Exchange
                   distribution: single
-                  est. row count: 50000
+                  est: (rows=50000)
                 TableScan
-                    table: [PUBLIC, PART]
-                    filters: LIKE(P_NAME, _UTF-8'%green%')
-                    fields: [P_PARTKEY, P_NAME]
-                    est. row count: 50000
+                    table: PUBLIC.PART
+                    predicate: LIKE(P_NAME, _UTF-8'%green%')
+                    fieldNames: [P_PARTKEY, P_NAME]
+                    est: (rows=50000)
             HashJoin
-                condition: =(S_NATIONKEY, N_NATIONKEY)
-                joinType: inner
-                est. row count: 10000
+                predicate: =(S_NATIONKEY, N_NATIONKEY)
+                type: inner
+                est: (rows=10000)
               Exchange
                   distribution: single
-                  est. row count: 10000
+                  est: (rows=10000)
                 TableScan
-                    table: [PUBLIC, SUPPLIER]
-                    fields: [S_SUPPKEY, S_NATIONKEY]
-                    est. row count: 10000
+                    table: PUBLIC.SUPPLIER
+                    fieldNames: [S_SUPPKEY, S_NATIONKEY]
+                    est: (rows=10000)
               Exchange
                   distribution: single
-                  est. row count: 25
+                  est: (rows=25)
                 TableScan
-                    table: [PUBLIC, NATION]
-                    fields: [N_NATIONKEY, N_NAME]
-                    est. row count: 25
+                    table: PUBLIC.NATION
+                    fieldNames: [N_NATIONKEY, N_NAME]
+                    est: (rows=25)
           Exchange
               distribution: single
-              est. row count: 1500000
+              est: (rows=1500000)
             TableScan
-                table: [PUBLIC, ORDERS]
-                fields: [O_ORDERKEY, O_ORDERDATE]
-                est. row count: 1500000
+                table: PUBLIC.ORDERS
+                fieldNames: [O_ORDERKEY, O_ORDERDATE]
+                est: (rows=1500000)
         Exchange
             distribution: single
-            est. row count: 800000
+            est: (rows=800000)
           TableScan
-              table: [PUBLIC, PARTSUPP]
-              fields: [PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST]
-              est. row count: 800000
+              table: PUBLIC.PARTSUPP
+              fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST]
+              est: (rows=800000)

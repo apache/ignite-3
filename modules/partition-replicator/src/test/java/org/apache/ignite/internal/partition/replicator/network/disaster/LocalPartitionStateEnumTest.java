@@ -19,28 +19,45 @@ package org.apache.ignite.internal.partition.replicator.network.disaster;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** For {@link LocalPartitionStateEnum} testing. */
 public class LocalPartitionStateEnumTest {
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    private static Stream<Arguments> conditionTypeIds() {
+        return Stream.of(
+                arguments(LocalPartitionStateEnum.UNAVAILABLE, 0),
+                arguments(LocalPartitionStateEnum.HEALTHY, 1),
+                arguments(LocalPartitionStateEnum.INITIALIZING, 2),
+                arguments(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, 3),
+                arguments(LocalPartitionStateEnum.CATCHING_UP, 4),
+                arguments(LocalPartitionStateEnum.BROKEN, 5)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("conditionTypeIds")
+    void testId(LocalPartitionStateEnum conditionType, int expectedId) {
+        assertEquals(expectedId, conditionType.id());
+    }
+
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("conditionTypeIds")
+    void testFromId(LocalPartitionStateEnum expectedEnumEntry, int id) {
+        assertEquals(expectedEnumEntry, LocalPartitionStateEnum.fromId(id));
+
+    }
+
     @Test
-    void testFromOrdinal() {
-        assertEquals(LocalPartitionStateEnum.UNAVAILABLE, LocalPartitionStateEnum.fromOrdinal(0));
-
-        assertEquals(LocalPartitionStateEnum.HEALTHY, LocalPartitionStateEnum.fromOrdinal(1));
-
-        assertEquals(LocalPartitionStateEnum.INITIALIZING, LocalPartitionStateEnum.fromOrdinal(2));
-
-        assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, LocalPartitionStateEnum.fromOrdinal(3));
-
-        assertEquals(LocalPartitionStateEnum.CATCHING_UP, LocalPartitionStateEnum.fromOrdinal(4));
-
-        assertEquals(LocalPartitionStateEnum.BROKEN, LocalPartitionStateEnum.fromOrdinal(5));
-
-        assertThrows(IllegalArgumentException.class, () -> LocalPartitionStateEnum.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> LocalPartitionStateEnum.fromOrdinal(6));
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> LocalPartitionStateEnum.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> LocalPartitionStateEnum.fromId(6));
     }
 }

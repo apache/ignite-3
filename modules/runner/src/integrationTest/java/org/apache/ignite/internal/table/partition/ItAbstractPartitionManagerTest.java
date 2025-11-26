@@ -32,6 +32,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.InternalTable;
@@ -69,7 +70,6 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
             executeUpdate(sql, session);
         });
 
-
         for (int i = 0; i < 1000; i++) {
             executeSql("INSERT INTO " + TABLE_NAME + " (key, val) VALUES (" + i + ", 'one')");
         }
@@ -97,9 +97,10 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
         InternalTable internalTable = tableViewInternal.internalTable();
 
         for (int i = 0; i < partitions; i++) {
-            CompletableFuture<ClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(i);
+            CompletableFuture<InternalClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(i);
 
-            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager().primaryReplicaAsync(new HashPartition(i));
+            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager()
+                    .primaryReplicaAsync(new HashPartition(i));
 
             assertThat(clusterNodeCompletableFuture.join().id(), equalTo(clusterNodeCompletableFuture1.join().id()));
         }

@@ -42,12 +42,15 @@ public interface TxStateStorage extends ManuallyCloseable {
     TxStatePartitionStorage getPartitionStorage(int partitionId);
 
     /**
-     * Destroys transaction state storage.
+     * Destroys transaction state storage for a partition.
+     *
+     * <p>The destruction is not guaranteed to be durable (that is, if a node stops/crashes before persisting this change to disk,
+     * the storage might still be there after node restart).
      *
      * @param partitionId Partition id.
      * @throws IgniteInternalException In case when the operation has failed.
      */
-    void destroyTxStateStorage(int partitionId);
+    void destroyPartitionStorage(int partitionId);
 
     /**
      * Starts the storage.
@@ -64,6 +67,9 @@ public interface TxStateStorage extends ManuallyCloseable {
 
     /**
      * Removes all data from the storage and frees all resources.
+     *
+     * <p>The destruction is not guaranteed to be durable (that is, if a node stops/crashes before persisting this change to disk,
+     * the storage might still be there after node restart).
      *
      * @throws IgniteInternalException In case when the operation has failed.
      */

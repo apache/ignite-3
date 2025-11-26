@@ -32,7 +32,7 @@ win_async_client::win_async_client(SOCKET socket, end_point addr, tcp_range rang
     , m_id(0)
     , m_addr(std::move(addr))
     , m_range(std::move(range))
-    , m_close_err() {
+{
     memset(&m_current_send, 0, sizeof(m_current_send));
     m_current_send.kind = io_operation_kind::SEND;
 
@@ -79,7 +79,7 @@ bool win_async_client::close() {
 HANDLE win_async_client::add_to_iocp(HANDLE iocp) {
     assert(state::CONNECTED == m_state);
 
-    HANDLE res = CreateIoCompletionPort((HANDLE) m_socket, iocp, reinterpret_cast<DWORD_PTR>(this), 0);
+    HANDLE res = CreateIoCompletionPort(reinterpret_cast<HANDLE>(m_socket), iocp, reinterpret_cast<DWORD_PTR>(this), 0);
 
     if (!res)
         return res;
@@ -121,8 +121,8 @@ bool win_async_client::send_next_packet_locked() {
 }
 
 bool win_async_client::receive() {
-    // We do not need locking on receive as we're always reading in a single thread at most.
-    // If this ever changes we'd need to add mutex locking here.
+    // We do not need locking on read as we're always reading in a single thread at most.
+    // If this ever changes, we'd need to add mutex locking here.
     if (state::CONNECTED != m_state && state::IN_POOL != m_state)
         return false;
 
@@ -131,8 +131,8 @@ bool win_async_client::receive() {
 
     DWORD flags = 0;
     WSABUF buffer;
-    buffer.buf = (CHAR *) m_recv_packet.data();
-    buffer.len = (ULONG) m_recv_packet.size();
+    buffer.buf = reinterpret_cast<CHAR *>(m_recv_packet.data());
+    buffer.len = static_cast<ULONG>(m_recv_packet.size());
 
     int ret = ::WSARecv(
         m_socket, &buffer, 1, NULL, &flags, &m_current_recv.overlapped, NULL); // NOLINT(modernize-use-nullptr)

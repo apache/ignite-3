@@ -18,17 +18,22 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.reflect.Modifier.isStatic;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -133,12 +138,14 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
             return;
         }
 
+        String methodName = context.getTestMethod().map(Method::getName).orElse(null);
+
         List<ExecutorService> executorServices = getOrCreateExecutorServiceListInStore(context, forStatic);
 
         for (Field field : fields) {
             checkFieldTypeIsSupported(field);
 
-            ExecutorService executorService = createExecutorService(field);
+            ExecutorService executorService = createExecutorService(field, methodName);
 
             executorServices.add(executorService);
 
@@ -188,12 +195,12 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
         return false;
     }
 
-    private static ExecutorService createExecutorService(Field field) {
+    private static ExecutorService createExecutorService(Field field, @Nullable String methodName) {
         InjectExecutorService injectExecutorService = field.getAnnotation(InjectExecutorService.class);
 
         assert injectExecutorService != null : field;
 
-        return createExecutorService(injectExecutorService, field.getName(), field.getType(), field.getDeclaringClass(), null);
+        return createExecutorService(injectExecutorService, field.getName(), field.getType(), field.getDeclaringClass(), methodName);
     }
 
     private static ExecutorService createExecutorService(
@@ -207,12 +214,21 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
         String threadPrefix = threadPrefix(injectExecutorService, testClass, fieldName, methodName);
         ThreadOperation[] allowedOperations = injectExecutorService.allowedOperations();
 
-        ThreadFactory threadFactory = IgniteThreadFactory.withPrefix(threadPrefix, Loggers.forClass(testClass), allowedOperations);
+        ThreadFactory threadFactory = IgniteThreadFactory.createWithFixedPrefix(
+                threadPrefix,
+                false,
+                Loggers.forClass(testClass),
+                allowedOperations
+        );
+
+        var shutdownExceptionHolder = new AtomicReference<Exception>();
+
+        RejectedExecutionHandler rejectedExecutionHandler = newRejectedExecutionHandler(threadPrefix, shutdownExceptionHolder);
 
         if (fieldType.equals(ScheduledExecutorService.class)) {
-            return newScheduledThreadPool(threadCount == 0 ? 1 : threadCount, threadFactory);
+            return newScheduledThreadPool(threadCount, threadFactory, rejectedExecutionHandler, shutdownExceptionHolder);
         } else if (fieldType.equals(ExecutorService.class)) {
-            return newFixedThreadPool(threadCount == 0 ? CPUS : threadCount, threadFactory);
+            return newFixedThreadPool(threadCount, threadFactory, rejectedExecutionHandler, shutdownExceptionHolder);
         }
 
         throw new AssertionError(
@@ -253,5 +269,60 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
         }
 
         return executorServices;
+    }
+
+    private static RejectedExecutionHandler newRejectedExecutionHandler(
+            String threadPrefix,
+            AtomicReference<Exception> shutdownExceptionHolder
+    ) {
+        return (r, executor) -> {
+            String message = "Task " + r.toString()
+                    + " for threads with prefix " + threadPrefix
+                    + " rejected from " + executor.toString();
+
+            throw new RejectedExecutionException(message, shutdownExceptionHolder.get());
+        };
+    }
+
+    private static ExecutorService newFixedThreadPool(
+            int threadCount,
+            ThreadFactory threadFactory,
+            RejectedExecutionHandler rejectedExecutionHandler,
+            AtomicReference<Exception> shutdownExceptionHolder
+    ) {
+        int poolSize = threadCount == 0 ? CPUS : threadCount;
+
+        return new ThreadPoolExecutor(
+                poolSize,
+                poolSize,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                threadFactory,
+                rejectedExecutionHandler
+        ) {
+            @Override
+            public void shutdown() {
+                shutdownExceptionHolder.compareAndSet(null, new Exception("Shutdown tracker"));
+
+                super.shutdown();
+            }
+        };
+    }
+
+    private static ScheduledExecutorService newScheduledThreadPool(
+            int threadCount,
+            ThreadFactory threadFactory,
+            RejectedExecutionHandler rejectedExecutionHandler,
+            AtomicReference<Exception> shutdownExceptionHolder
+    ) {
+        return new ScheduledThreadPoolExecutor(threadCount == 0 ? 1 : threadCount, threadFactory, rejectedExecutionHandler) {
+            @Override
+            public void shutdown() {
+                shutdownExceptionHolder.compareAndSet(null, new Exception("Shutdown tracker"));
+
+                super.shutdown();
+            }
+        };
     }
 }

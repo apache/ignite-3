@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -859,6 +860,39 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
+    private static class MarshallerReceiver implements DataStreamerReceiver<Nested, MyArg, MyResult> {
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> payloadMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> argumentMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+
+        @Override
+        public CompletableFuture<List<MyResult>> receive(List<Nested> page, DataStreamerReceiverContext ctx, MyArg arg) {
+            List<MyResult> results = new ArrayList<>(page.size());
+
+            for (Nested item : page) {
+                MyResult res = new MyResult();
+                res.data = arg.name + "_" + arg.id;
+                res.nested = item;
+
+                results.add(res);
+            }
+
+            return completedFuture(results);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class PartitionJob implements ComputeJob<Long, Integer> {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
@@ -874,7 +908,7 @@ public class PlatformTestNodeRunner {
     private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
         @Override
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Integer, Void>builder()
                             .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
                             .nodes(Set.of(node))
@@ -885,7 +919,7 @@ public class PlatformTestNodeRunner {
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 
@@ -946,7 +980,7 @@ public class PlatformTestNodeRunner {
         @Override
         public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
             if (arg == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             arg.price = arg.price.add(BigDecimal.ONE);
@@ -1022,8 +1056,7 @@ public class PlatformTestNodeRunner {
                     .options(jobOpts)
                     .build();
 
-            ClusterNode targetNode = context.ignite()
-                    .clusterNodes()
+            ClusterNode targetNode = context.ignite().cluster().nodes()
                     .stream()
                     .filter(n -> n.id().equals(arg.nodeId))
                     .findFirst()

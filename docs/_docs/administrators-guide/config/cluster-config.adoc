@@ -34,17 +34,49 @@ cluster config show ignite.transaction
 
 == Changing Cluster Configuration
 
-Cluster configuration is changed from the CLI tool. To change the configuration:
+Cluster configuration is changed from the CLI tool. You can update it both in the interactive (REPL) and non-interactive mode by passing a configuration file with the `--file` parameter.
 
-- Start the CLI tool and connect to any node in the cluster.
+NOTE: Values set directly via the CLI take precedence over values set in the configuration file.
+
+=== Update via REPL:
+
+Start the CLI tool and connect to any node in the cluster.
+
 - Run the `cluster config update` command and provide the updated configuration as the command argument, for example:
 +
 [source, shell]
 ----
 cluster config update ignite.system.idleSafeTimeSyncIntervalMillis=600
 ----
++
+- To update one or more parameters, pass the configuration file to the `cluster config update` command:
++
+[source, shell]
+----
+cluster config update --file ../ignite-config.conf
+----
++
+- You also can update the configuration combining both approaches:
++
+[source, shell]
+----
+cluster config update --file ../ignite-config.conf ignite.system.idleSafeTimeSyncIntervalMillis=600
+----
 
-The updated configuration will automatically be applied across the cluster,
+The updated configuration will automatically be applied across the cluster.
+
+=== Update via Non-Interactive Mode
+
+You can also modify cluster configuration via link:ignite-cli-tool#non-interactive-cli-mode[non-interactive] CLI mode without starting the CLI tool first.
+
+- Pass the configuration file with the `--file` parameter:
++
+[source, shell]
+----
+bin/ignite3 cluster config update --file ../ignite-config.conf
+----
+
+The updated configuration will automatically be applied across the cluster.
 
 
 == Exporting Cluster Configuration
@@ -237,8 +269,7 @@ bin/ignite3 cluster config show > cluster-config.txt
       "planner" : {
         "estimatedNumberOfQueries" : 1024,
         "maxPlanningTimeMillis" : 15000
-      },
-      "statementMemoryQuota" : "100%"
+      }
     }
   }
 }
@@ -249,16 +280,6 @@ bin/ignite3 cluster config show > cluster-config.txt
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 |planner.estimatedNumberOfQueries|1024|The estimated number of unique queries that are planned to be executed in the cluster in a certain period of time. Used to optimize internal caches and processes. Optional.| Yes | Yes | 0 - Integer.MAX_VALUE
 |planner.maxPlanningTimeMillis|15000|Query planning timeout in milliseconds. Plan optimization process stops when the timeout is reached. "0" means no timeout.| Yes | Yes | 0 - Long.MAX_VALUE
-|statementMemoryQuota|100% a|The amount of memory that can be used by a single SQL statement. A number with a dimension identifier:
-
-* % - percentage of the node's heap memory
-* k - Kb
-* m - Mb
-* g - Gb
-
-"0" with any of he dimension identifiers turns the memory tracking off. | Yes | No a|  * 0-100%
-
-* 0-9223372036854775807k/m/g
 |======
 
 === Transactions Configuration
@@ -268,11 +289,8 @@ bin/ignite3 cluster config show > cluster-config.txt
 {
   "ignite" : {
     "transaction" : {
-      "abandonedCheckTs" : 5000,
-      "attemptsObtainLock" : 3,
-      "implicitTransactionTimeout" : 3000,
-      "rpcTimeout" : 60000,
-      "txnResourceTtl" : 30000
+      "readOnlyTimeoutMillis" : 600000,
+      "readWriteTimeoutMillis" : 30000
     }
   }
 }
@@ -282,14 +300,12 @@ bin/ignite3 cluster config show > cluster-config.txt
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 
-|abandonedCheckTs|5000|The amount of time after which the transaction is considered abandoned.|Yes|Yes|0 - inf
-|attemptsObtainLock|3|The number of attempts to obtain a lock. After this number of attempts, a lock conflict exception is thrown on the transaction.| Yes | Yes | 0 - inf
-|implicitTransactionTimeout|3000|Timeout for implicit transactions. Used for key-value table APIs invoked with `null` instead of an explicit transaction instance. Must be greater than `rpcTimeout`.| Yes | Yes | 0 - inf
-|rpcTimeout|6000|Timeout for the transaction operation. Used for table API operations.| Yes | Yes | 0 - inf
-|txnResourceTtl|30000|Time to live for transaction resources (transaction states, transaction nodes, open cursors, etc.). Should be higher than the lag to spread the actual transaction information across clusters. Otherwise, some transaction operations might take more time to find out the state from the persistence storage). Must be greater than `rpcTimeout`.| Yes | Yes | 0 - inf
+|readOnlyTimeoutMillis|600000|Timeout for read-only transactions. It defines how long the transaction holds acquired resources on participating nodes. If no timeout is specified, or it is set to `0`, a default value of 10 minutes is applied. The transaction is guaranteed to remain active until the timeout expires. Once the timeout is reached, the transaction is aborted but may persist briefly beyond the timeout while corresponding resources are cleaned up. Use instead of deprecated `readOnlyTimeout`. | Yes | No | 1 - inf
+|readWriteTimeoutMillis|30000|Timeout for read-write transactions. It defines how long the transaction holds acquired resources on participating nodes. If no timeout is specified, or it is set to `0`, a default value of 30 seconds is applied. The transaction is guaranteed to remain active until the timeout expires. Once the timeout is reached, the transaction is aborted but may persist briefly beyond the timeout while corresponding resources are cleaned up. Use instead of deprecated `readWriteTimeout`. | Yes | No | 1 - inf
+
 |======
 
-== System Configuration
+=== System Configuration
 
 This section describes internal properties, which are used by a number of Ignite components. Although you can edit these properties in the same way you edit all others - using the `node config update` CLI command - we suggest that you discuss the proposed changes with the Ignite support team. The properties can apply to the cluster as a whole - see below - or to a link:administrators-guide/config/node-config#system-configuration[specific node].
 

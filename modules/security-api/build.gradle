@@ -36,7 +36,4 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 }

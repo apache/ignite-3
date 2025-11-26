@@ -35,18 +35,24 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link PartitionMover} class.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 class PartitionMoverTest extends BaseIgniteAbstractTest {
     private static final long TERM = 123;
 
@@ -55,6 +61,9 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
             Set.of("learner1", "learner2", "learner3")
     );
 
+    @InjectExecutorService
+    private ScheduledExecutorService rebalanceScheduler;
+
     /**
      * Tests that {@link RaftGroupServiceImpl#changePeersAndLearnersAsync} was retried after some exceptions.
      */
@@ -62,16 +71,17 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
     public void testChangePeersAndLearnersAsyncRetryLogic() {
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        when(raftService.changePeersAndLearnersAsync(any(), anyLong()))
+        when(raftService.changePeersAndLearnersAsync(any(), anyLong(), anyLong()))
                 .thenReturn(failedFuture(new RuntimeException()))
                 .thenReturn(failedFuture(new IOException()))
                 .thenReturn(nullCompletedFuture());
 
-        var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), () -> completedFuture(raftService));
+        var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), willCompleteSuccessfully());
+        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
-        verify(raftService, times(3)).changePeersAndLearnersAsync(eq(PEERS_AND_LEARNERS), eq(TERM));
+        verify(raftService, times(3))
+                .changePeersAndLearnersAsync(eq(PEERS_AND_LEARNERS), eq(TERM), eq(Configuration.NO_SEQUENCE_TOKEN));
     }
 
     @Test
@@ -80,11 +90,12 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
 
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        var partitionMover = new PartitionMover(lock, () -> completedFuture(raftService));
+        var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
         lock.block();
 
-        assertThrowsWithCause(() -> partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), NodeStoppingException.class);
+        assertThrowsWithCause(() -> partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN),
+                NodeStoppingException.class);
     }
 
     @Test
@@ -93,11 +104,12 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
 
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        when(raftService.changePeersAndLearnersAsync(any(), anyLong()))
+        when(raftService.changePeersAndLearnersAsync(any(), anyLong(), anyLong()))
                 .then(invocation -> CompletableFuture.runAsync(lock::block));
 
-        var partitionMover = new PartitionMover(lock, () -> completedFuture(raftService));
+        var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
+        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN),
+                willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 }

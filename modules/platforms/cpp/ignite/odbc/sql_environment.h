@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "detail/thread_timer.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 
 #include <set>
@@ -29,8 +30,11 @@ class sql_connection;
  */
 class sql_environment : public diagnosable_adapter {
 public:
+    /** Pointer to the connection. */
+    using sql_connection_ptr = std::shared_ptr<sql_connection>;
+
     /** Connection set type. */
-    typedef std::set<sql_connection *> connection_set;
+    using connection_set = std::set<sql_connection *>;
 
     // Delete
     sql_environment(sql_environment &&) = delete;
@@ -39,14 +43,14 @@ public:
     sql_environment &operator=(const sql_environment &) = delete;
 
     // Default
-    sql_environment() = default;
+    sql_environment();
 
     /**
      * Create connection associated with the environment.
      *
      * @return Pointer to valid instance on success or NULL on failure.
      */
-    sql_connection *create_connection();
+    sql_connection_ptr *create_connection();
 
     /**
      * Deregister connection.
@@ -90,7 +94,7 @@ private:
      * @return Pointer to valid instance on success or NULL on failure.
      * @return Operation result.
      */
-    sql_result internal_create_connection(sql_connection *&connection);
+    sql_result internal_create_connection(sql_connection_ptr *&connection);
 
     /**
      * Perform transaction commit on all the associated connections.
@@ -137,6 +141,9 @@ private:
 
     /** ODBC null-termination of string behaviour. */
     int32_t m_odbc_nts{SQL_TRUE};
+
+    /** Timer thread. */
+    std::shared_ptr<detail::thread_timer> m_timer_thread;
 };
 
 } // namespace ignite

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.nCopies;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
 
@@ -40,6 +41,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -510,6 +512,7 @@ public final class CollectionUtils {
     }
 
     /** Returns immutable copy of the given list or {@code null} if the list is null. */
+    @Contract("!null -> !null")
     public static <T> @Nullable List<T> copyOrNull(@Nullable List<T> list) {
         if (list == null) {
             return null;
@@ -519,6 +522,7 @@ public final class CollectionUtils {
     }
 
     /** Returns immutable copy of the given set or {@code null} if the set is null. */
+    @Contract("!null -> !null")
     public static <T> @Nullable Set<T> copyOrNull(@Nullable Set<T> set) {
         if (set == null) {
             return null;
@@ -618,5 +622,27 @@ public final class CollectionUtils {
                 return list.size();
             }
         };
+    }
+
+    /**
+     * Sets list element at the specified index. Expands a list if needed.
+     *
+     * @param list List to update.
+     * @param i Target index.
+     * @param element Element to put.
+     * @param <T> Type of the list elements.
+     */
+    public static <T> void setListAtIndex(List<T> list, int i, T element) {
+        if (list.size() < i) {
+            list.addAll(nCopies(i - list.size(), null));
+        }
+
+        if (list.size() < i + 1) {
+            list.add(element);
+        } else {
+            T prev = list.set(i, element);
+
+            assert prev == null : String.format("Found previous value %s at index %d", prev, i);
+        }
     }
 }

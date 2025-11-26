@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -46,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+    private final boolean colocationEnabled;
+
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ReplicationGroupId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ReplicationGroupId.class, "commitPart");
@@ -62,9 +63,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
     private volatile CompletableFuture<Void> finishFuture;
 
+    /**
+     * {@code True} if a transaction is externally killed.
+     */
     private boolean killed;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructs an explicit read-write transaction.
@@ -82,9 +84,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,
-            long timeout
+            long timeout,
+            boolean colocationEnabled
     ) {
         super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+
+        this.colocationEnabled = colocationEnabled;
     }
 
     /** {@inheritDoc} */
@@ -140,7 +145,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert (enabledColocation ? replicationGroupId instanceof ZonePartitionId : replicationGroupId instanceof TablePartitionId)
+        assert (colocationEnabled ? replicationGroupId instanceof ZonePartitionId : replicationGroupId instanceof TablePartitionId)
                 : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 
@@ -189,7 +194,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> finish(
-            boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            boolean timeoutExceeded
     ) {
         assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
@@ -249,6 +257,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             commitPart,
                             commit,
                             timeoutExceeded,
+                            false,
                             enlisted,
                             id()
                     );
@@ -296,5 +305,27 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> kill() {
         return finishInternal(false, null, false, false, false);
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        // `finishInternal` is called under the write lock, so reading `timeoutExceeded` under the read lock
+        // in order to avoid data race.
+        enlistPartitionLock.readLock().lock();
+        try {
+            return timeoutExceeded;
+        } finally {
+            enlistPartitionLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Fail the transaction with exception so finishing it is not possible.
+     *
+     * @param e Fail reason.
+     */
+    public void fail(TransactionException e) {
+        // Thread safety is not needed.
+        finishFuture = failedFuture(e);
     }
 }

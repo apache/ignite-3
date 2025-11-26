@@ -27,6 +27,8 @@ import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,11 +99,12 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      *         default value if the value is not initialized yet. It is not guaranteed to execute only once.
      */
     public IncrementalVersionedValue(
+            String name,
             @Nullable RevisionListenerRegistry registry,
             int maxHistorySize,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
-        this.versionedValue = new BaseVersionedValue<>(maxHistorySize, defaultValueSupplier);
+        this.versionedValue = new BaseVersionedValue<>(name, maxHistorySize, defaultValueSupplier);
 
         this.updaterFuture = completedFuture(versionedValue.getDefault());
 
@@ -130,10 +133,11 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      *         default value if the value is not initialized yet. It is not guaranteed to execute only once.
      */
     public IncrementalVersionedValue(
+            String name,
             @Nullable RevisionListenerRegistry registry,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
-        this(registry, DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
+        this(name, registry, DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
     }
 
     /**
@@ -143,8 +147,13 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      *         VersionedValue should be able to listen to, for receiving storage revision updates. This registry is called once on a
      *         construction of this VersionedValue.
      */
-    public IncrementalVersionedValue(RevisionListenerRegistry registry) {
-        this(registry, DEFAULT_MAX_HISTORY_SIZE, null);
+    public IncrementalVersionedValue(String name, RevisionListenerRegistry registry) {
+        this(name, registry, DEFAULT_MAX_HISTORY_SIZE, null);
+    }
+
+    @Override
+    public String name() {
+        return versionedValue.name();
     }
 
     @Override
@@ -212,13 +221,21 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     public CompletableFuture<T> update(long causalityToken, BiFunction<T, Throwable, CompletableFuture<T>> updater) {
         synchronized (updateMutex) {
             if (expectedToken == -1) {
-                assert causalityToken > lastCompleteToken
-                        : String.format("Causality token is outdated, previous token %d, got %d", lastCompleteToken, causalityToken);
+                if (causalityToken <= lastCompleteToken) {
+                    throw new IgniteException(
+                            Common.INTERNAL_ERR,
+                            String.format("Causality token is outdated, previous token %d, got %d", lastCompleteToken, causalityToken)
+                    );
+                }
 
                 expectedToken = causalityToken;
             } else {
-                assert expectedToken == causalityToken
-                        : String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken);
+                if (expectedToken != causalityToken) {
+                    throw new IgniteException(
+                            Common.INTERNAL_ERR,
+                            String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken)
+                    );
+                }
             }
 
             updaterFuture = updaterFuture
@@ -280,9 +297,11 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
             if (updaterFuture.isDone()) {
                 // Since the future has already been completed, there's no need to store a new future object in the history map and we can
                 // save a little bit of memory. This is useful when no "update" calls have been made between two "complete" calls.
-                updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+                updaterFuture = versionedValue.complete(causalityToken, localUpdaterFuture)
+                        .thenCompose(unused -> localUpdaterFuture);
             } else {
-                updaterFuture = updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+                updaterFuture = updaterFuture.thenCompose(v -> versionedValue.complete(causalityToken, localUpdaterFuture))
+                        .thenCompose(unused -> localUpdaterFuture);
             }
 
             return updaterFuture;
@@ -292,11 +311,17 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     private void deleteInternal(long causalityToken) {
         synchronized (updateMutex) {
             assert causalityToken < lastCompleteToken : String.format(
-                    "Causality token must be less than the last completed: [token=%s, lastCompleted=%s]", causalityToken,
-                    lastCompleteToken);
+                    "Causality token must be less than the last completed: [name=%s, token=%s, lastCompleted=%s]",
+                    name(),
+                    causalityToken,
+                    lastCompleteToken
+            );
             assert causalityToken > lastDeletedToken : String.format(
-                    "Causality token must be greater than the last deleted: [token=%s, lastDeleted=%s]", causalityToken,
-                    lastDeletedToken);
+                    "Causality token must be greater than the last deleted: [name=%s, token=%s, lastDeleted=%s]",
+                    name(),
+                    causalityToken,
+                    lastDeletedToken
+            );
 
             lastDeletedToken = causalityToken;
 

@@ -19,6 +19,8 @@ package org.apache.ignite.migrationtools.tablemanagement;
 
 import static org.apache.ignite3.catalog.definitions.ColumnDefinition.column;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite3.catalog.ColumnType;
@@ -36,6 +38,8 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
 
     private final CompletableFuture<KeyValueView<String, TableTypeRecord>> tableFuture;
 
+    private final ObjectMapper jsonObjectMapper = new ObjectMapper();
+
     public PersistentTableTypeRegistryImpl(IgniteClient client) {
         this.client = client;
         this.tableFuture = initTable().thenApply(table -> table.keyValueView(String.class, TableTypeRecord.class));
@@ -49,7 +53,9 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
                 .columns(
                         column("TABLE_KEY", ColumnType.VARCHAR),
                         column("keyClass", ColumnType.VARCHAR),
-                        column("valClass", ColumnType.VARCHAR))
+                        column("valClass", ColumnType.VARCHAR),
+                        column("keyColumnMappings", ColumnType.VARCHAR.nullable(true)),
+                        column("valColumnMappings", ColumnType.VARCHAR.nullable(true)))
                 .primaryKey("TABLE_KEY")
                 .build();
 
@@ -57,24 +63,53 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
     }
 
     @Override
-    public @Nullable Map.Entry<Class<?>, Class<?>> typesForTable(String tableName) throws ClassNotFoundException {
+    public @Nullable TableTypeDescriptor typesForTable(String tableName) {
         var table = this.tableFuture.join();
-        var types = table.get(null, tableName);
-
+        @Nullable TableTypeRecord types = table.get(null, tableName);
         if (types == null) {
             return null;
-        } else {
-            var keyClass = Class.forName(types.keyClass);
-            var valClass = Class.forName(types.valClass);
-            return Map.entry(keyClass, valClass);
+        }
+
+        try {
+            Map<String, String> keyColumnMappings = (types.keyColumnMappings != null)
+                    ? this.jsonObjectMapper.readValue(types.keyColumnMappings, Map.class)
+                    : null;
+
+            Map<String, String> valColumnMappings = (types.valColumnMappings != null)
+                    ? this.jsonObjectMapper.readValue(types.valColumnMappings, Map.class)
+                    : null;
+
+            return new TableTypeDescriptor(types.keyClass, types.valClass, keyColumnMappings, valColumnMappings);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void registerTypesForTable(String tableName, Map.Entry<String, String> tableTypes) {
+    public void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor) {
         var table = this.tableFuture.join();
-        var record = new TableTypeRecord(tableTypes.getKey(), tableTypes.getValue());
-        table.put(null, tableName, record);
+
+        try {
+            String keyColumnMappingsAsJson = (tableDescriptor.keyFieldNameForColumn() != null)
+                    ? jsonObjectMapper.writeValueAsString(tableDescriptor.keyFieldNameForColumn())
+                    : null;
+
+            String valColumnMappingsAsJson = (tableDescriptor.valFieldNameForColumn() != null)
+                    ? jsonObjectMapper.writeValueAsString(tableDescriptor.valFieldNameForColumn())
+                    : null;
+
+            var record = new TableTypeRecord(
+                    tableDescriptor.keyClassName(),
+                    tableDescriptor.valClassName(),
+                    keyColumnMappingsAsJson,
+                    valColumnMappingsAsJson
+            );
+
+            table.put(null, tableName, record);
+        } catch (JsonProcessingException e) {
+            // TODO: Figure out what to do next.
+            throw new RuntimeException(e);
+        }
     }
 
     private static class TableTypeRecord {
@@ -82,13 +117,21 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
 
         private String valClass;
 
+        @Nullable
+        private String keyColumnMappings;
+
+        @Nullable
+        private String valColumnMappings;
+
         public TableTypeRecord() {
             // Intentionally left blank
         }
 
-        public TableTypeRecord(String keyClass, String valClass) {
+        public TableTypeRecord(String keyClass, String valClass, @Nullable String keyColumnMappings, @Nullable String valColumnMappings) {
             this.keyClass = keyClass;
             this.valClass = valClass;
+            this.keyColumnMappings = keyColumnMappings;
+            this.valColumnMappings = valColumnMappings;
         }
     }
 }

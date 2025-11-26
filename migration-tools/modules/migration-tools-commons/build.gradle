@@ -32,6 +32,4 @@ dependencies {
     testImplementation project(":migration-tools-commons-tests")
     testImplementation testFixtures(project(":migration-tools-ai2-test-fixtures"))
     testImplementation libs.assertj.core
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
 }

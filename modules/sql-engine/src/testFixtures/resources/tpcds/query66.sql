@@ -7,7 +7,7 @@ select
  	,w_state
  	,w_country
         ,ship_carriers
-        ,year
+        ,"year"
  	,sum(jan_sales) as jan_sales
  	,sum(feb_sales) as feb_sales
  	,sum(mar_sales) as mar_sales
@@ -53,7 +53,7 @@ select
  	,w_state
  	,w_country
  	,'MSC' || ',' || 'GERMA' as ship_carriers
-       ,d_year as year
+       ,d_year as "year"
  	,sum(case when d_moy = 1 
  		then ws_sales_price* ws_quantity else 0 end) as jan_sales
  	,sum(case when d_moy = 2 
@@ -133,7 +133,7 @@ select
  	,w_state
  	,w_country
  	,'MSC' || ',' || 'GERMA' as ship_carriers
-       ,d_year as year
+       ,d_year as "year"
  	,sum(case when d_moy = 1 
  		then cs_ext_list_price* cs_quantity else 0 end) as jan_sales
  	,sum(case when d_moy = 2 
@@ -213,7 +213,7 @@ select
  	,w_state
  	,w_country
  	,ship_carriers
-       ,year
+       ,"year"
  order by w_warehouse_name
  limit 100;
 

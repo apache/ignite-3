@@ -58,8 +58,8 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -422,7 +422,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 case STRING:
                     res.set(colName, String.valueOf(id));
                     break;
-                case BYTES:
+                case BYTE_ARRAY:
                     res.set(colName, String.valueOf(id).getBytes(StandardCharsets.UTF_8));
                     break;
                 case DATE:
@@ -470,7 +470,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
             String colName = col.name();
             NativeType type = col.type();
-            NativeTypeSpec typeSpec = type.spec();
+            ColumnType typeSpec = type.spec();
 
             switch (typeSpec) {
                 case BOOLEAN:
@@ -494,7 +494,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 case DOUBLE:
                     assertEquals(expected.doubleValue(colName), t.doubleValue(colName));
                     break;
-                case BYTES:
+                case BYTE_ARRAY:
                     assertArrayEquals(expected.value(colName), (byte[]) t.value(colName));
                     break;
                 case STRING:
@@ -546,8 +546,10 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private UUID fuuidN;
         private String fstring;
         private String fstringN;
-        private byte[] fbytes;
-        private byte[] fbytesN;
+        //CHECKSTYLE:OFF
+        private byte[] fbyte_array;
+        private byte[] fbyte_arrayN;
+        //CHECKSTYLE:ON
         private LocalDate fdate;
         private LocalDate fdateN;
         private LocalTime ftime;
@@ -582,8 +584,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             fuuidN = (nulls) ? fuuid : null;
             fstring = String.valueOf(id);
             fstringN = (nulls) ? String.valueOf(id) : null;
-            fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
-            fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
+            fbyte_array = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
+            fbyte_arrayN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
             fdate = LocalDate.ofYearDay(2021, id);
             fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
             ftime = LocalTime.ofSecondOfDay(id);
@@ -612,8 +614,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     && Objects.equals(fint32N, value.fint32N) && Objects.equals(fint64N, value.fint64N)
                     && Objects.equals(ffloatN, value.ffloatN) && Objects.equals(fdoubleN, value.fdoubleN)
                     && Objects.equals(fuuid, value.fuuid) && Objects.equals(fuuidN, value.fuuidN) && Objects.equals(
-                    fstring, value.fstring) && Objects.equals(fstringN, value.fstringN) && Arrays.equals(fbytes, value.fbytes)
-                    && Arrays.equals(fbytesN, value.fbytesN) && Objects.equals(fdate, value.fdate) && Objects.equals(
+                    fstring, value.fstring) && Objects.equals(fstringN, value.fstringN) && Arrays.equals(fbyte_array, value.fbyte_array)
+                    && Arrays.equals(fbyte_arrayN, value.fbyte_arrayN) && Objects.equals(fdate, value.fdate) && Objects.equals(
                     fdateN, value.fdateN) && Objects.equals(ftime, value.ftime) && Objects.equals(ftimeN, value.ftimeN)
                     && Objects.equals(fdatetime, value.fdatetime) && Objects.equals(fdatetimeN, value.fdatetimeN)
                     && Objects.equals(ftimestamp, value.ftimestamp) && Objects.equals(ftimestampN, value.ftimestampN)
@@ -641,8 +643,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fuuidN,
                     fstring,
                     fstringN,
-                    fbytes,
-                    fbytesN,
+                    fbyte_array,
+                    fbyte_arrayN,
                     fdate,
                     fdateN,
                     ftime,
@@ -680,8 +682,10 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private UUID fuuidN;
         private String fstring;
         private String fstringN;
-        private byte[] fbytes;
-        private byte[] fbytesN;
+        //CHECKSTYLE:OFF
+        private byte[] fbyte_array;
+        private byte[] fbyte_arrayN;
+        //CHECKSTYLE:ON
         private LocalDate fdate;
         private LocalDate fdateN;
         private LocalTime ftime;
@@ -719,8 +723,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             fstring = String.valueOf(id);
             fstringN = (nulls) ? String.valueOf(id) : null;
 
-            fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
-            fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
+            fbyte_array = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
+            fbyte_arrayN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
 
             fdate = LocalDate.ofYearDay(2021, id);
             fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
@@ -750,7 +754,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fint32N, row.fint32N) && Objects.equals(fint64N, row.fint64N) && Objects.equals(ffloatN, row.ffloatN)
                     && Objects.equals(fdoubleN, row.fdoubleN) && Objects.equals(fuuid, row.fuuid) && Objects.equals(
                     fuuidN, row.fuuidN) && Objects.equals(fstring, row.fstring) && Objects.equals(fstringN, row.fstringN)
-                    && Arrays.equals(fbytes, row.fbytes) && Arrays.equals(fbytesN, row.fbytesN) && Objects.equals(
+                    && Arrays.equals(fbyte_array, row.fbyte_array) && Arrays.equals(fbyte_arrayN, row.fbyte_arrayN) && Objects.equals(
                     fdate, row.fdate) && Objects.equals(fdateN, row.fdateN) && Objects.equals(ftime, row.ftime)
                     && Objects.equals(ftimeN, row.ftimeN) && Objects.equals(fdatetime, row.fdatetime)
                     && Objects.equals(fdatetimeN, row.fdatetimeN) && Objects.equals(ftimestamp, row.ftimestamp)
@@ -780,8 +784,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fuuidN,
                     fstring,
                     fstringN,
-                    fbytes,
-                    fbytesN,
+                    fbyte_array,
+                    fbyte_arrayN,
                     fdate,
                     fdateN,
                     ftime,

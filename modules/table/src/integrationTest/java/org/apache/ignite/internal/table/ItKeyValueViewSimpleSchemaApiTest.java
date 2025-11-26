@@ -27,14 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.Column;
@@ -42,7 +42,6 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -85,7 +84,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         }
 
         // Validate all types are tested.
-        Set<NativeTypeSpec> nativeTypes = EnumSet.allOf(NativeTypeSpec.class);
+        var nativeTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         assertEquals(nativeTypes,
                 SchemaTestUtils.ALL_TYPES.stream().map(NativeType::spec).collect(Collectors.toSet()));
@@ -881,7 +880,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     private List<Arguments> generateTestCasesForType(NativeType nativeType, List<Arguments> arguments) {
         String tableName = "T_" + nativeType.spec().name();
 
-        Class<?> valueClass = NativeTypeSpec.toClass(nativeType.spec(), true);
+        Class<?> valueClass = nativeType.spec().javaClass();
 
         TestCaseFactory factory = getFactory(tableName);
 

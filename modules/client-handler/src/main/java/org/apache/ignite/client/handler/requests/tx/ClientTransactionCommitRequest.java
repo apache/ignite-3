@@ -24,10 +24,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -48,7 +49,6 @@ public class ClientTransactionCommitRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param resources Resources.
      * @param metrics Metrics.
      * @param clockService Clock service.
@@ -56,25 +56,20 @@ public class ClientTransactionCommitRequest {
      * @param enableDirectMapping Enable direct mapping flag.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             ClockService clockService,
             IgniteTablesInternal igniteTables,
-            boolean enableDirectMapping
+            boolean enableDirectMapping,
+            HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
         InternalTransaction tx = resources.remove(resourceId).get(InternalTransaction.class);
 
         // Attempt to merge server and client mappings.
         if (enableDirectMapping && !tx.isReadOnly()) {
-            long causality = in.unpackLong();
-
-            // Update causality.
-            clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
-
             int cnt = in.unpackInt(); // Number of direct enlistments.
 
             List<IgniteTuple3<TablePartitionId, String, Long>> list = new ArrayList<>();
@@ -85,6 +80,13 @@ public class ClientTransactionCommitRequest {
                 long token = in.unpackLong();
 
                 list.add(new IgniteTuple3<>(new TablePartitionId(tableId, partId), consistentId, token));
+            }
+
+            if (cnt > 0) {
+                long causality = in.unpackLong();
+
+                // Update causality.
+                clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
             }
 
             Exception ex = null;
@@ -117,7 +119,7 @@ public class ClientTransactionCommitRequest {
 
                 Exception finalEx = ex;
 
-                return tx.rollbackAsync().whenComplete((res, err) -> {
+                return tx.rollbackAsync().handle((res, err) -> {
                     if (err != null) {
                         finalEx.addSuppressed(err);
                     }
@@ -125,16 +127,24 @@ public class ClientTransactionCommitRequest {
                     metrics.transactionsActiveDecrement();
 
                     ExceptionUtils.sneakyThrow(finalEx);
+
+                    return null;
                 });
             }
         }
 
-        return tx.commitAsync().whenComplete((res, err) -> {
+        return tx.commitAsync().handle((res, err) -> {
             if (!tx.isReadOnly()) {
-                out.meta(clockService.current());
+                tsTracker.update(clockService.current());
             }
 
             metrics.transactionsActiveDecrement();
+
+            if (err != null) {
+                throw ExceptionUtils.sneakyThrow(err);
+            }
+
+            return null;
         });
     }
 

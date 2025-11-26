@@ -62,12 +62,9 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
@@ -399,7 +396,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
     @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
     private boolean coerceSourceRowType(
-            @org.checkerframework.checker.nullness.qual.Nullable SqlValidatorScope sourceScope,
+            @Nullable SqlValidatorScope sourceScope,
             SqlNode query,
             int columnIndex,
             RelDataType targetType) {
@@ -465,9 +462,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
                 return true;
             }
-        } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            // IgniteCustomType: whether we need implicit cast from one type to another.
-            return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
         } else if (SqlTypeUtil.isNull(fromType)) {
             // Need to cast NULL literal because type-checkers of built-in function cannot properly handle explicit NULL
             // since it belongs to a particular type family.
@@ -620,46 +614,20 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return null;
         }
 
-        // IgniteCustomType: If one of the arguments is a custom data type,
-        // check whether it is possible to convert another type to it.
-        // Returns not null to indicate that a CAST operation can be added
-        // to convert another type to this custom data type.
-        if (type1 instanceof IgniteCustomType) {
-            IgniteCustomType to = (IgniteCustomType) type1;
-            return tryCustomTypeCoercionRules(type2, to);
-        } else if (type2 instanceof IgniteCustomType) {
-            IgniteCustomType to = (IgniteCustomType) type2;
-            return tryCustomTypeCoercionRules(type1, to);
-        } else {
-            SqlTypeName t1 = type1.getSqlTypeName();
-            SqlTypeName t2 = type2.getSqlTypeName();
+        SqlTypeName t1 = type1.getSqlTypeName();
+        SqlTypeName t2 = type2.getSqlTypeName();
 
-            if (t1 == SqlTypeName.TIMESTAMP && t2 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-                    || t1 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE && t2 == SqlTypeName.TIMESTAMP) {
-                return typeFactory.leastRestrictive(List.of(type1, type2));
-            } else {
-                return super.commonTypeForBinaryComparison(type1, type2);
-            }
-        }
-    }
-
-    private @Nullable RelDataType tryCustomTypeCoercionRules(RelDataType from, IgniteCustomType to) {
-        IgniteCustomTypeCoercionRules typeCoercionRules = typeFactory.getCustomTypeCoercionRules();
-        if (typeCoercionRules.needToCast(from, to)) {
-            return to;
+        if (t1 == SqlTypeName.TIMESTAMP && t2 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                || t1 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE && t2 == SqlTypeName.TIMESTAMP) {
+            return typeFactory.leastRestrictive(List.of(type1, type2));
         } else {
-            return null;
+            return super.commonTypeForBinaryComparison(type1, type2);
         }
     }
 
     private static SqlNode castTo(SqlNode node, RelDataType type) {
         SqlDataTypeSpec targetDataType;
-        if (type instanceof IgniteCustomType) {
-            var customType = (IgniteCustomType) type;
-            var nameSpec = customType.createTypeNameSpec();
-
-            targetDataType = new SqlDataTypeSpec(nameSpec, SqlParserPos.ZERO);
-        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+        if (type.getSqlTypeName() == SqlTypeName.UUID) {
             targetDataType = new SqlDataTypeSpec(
                     new SqlBasicTypeNameSpec(SqlTypeName.UUID, SqlParserPos.ZERO), null, type.isNullable(), SqlParserPos.ZERO
             );

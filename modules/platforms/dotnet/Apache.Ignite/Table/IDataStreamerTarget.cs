@@ -68,7 +68,7 @@ public interface IDataStreamerTarget<T>
     }
 
     /// <summary>
-    /// Streams data into the underlying table with receiver that returns results.
+    /// Streams data into the underlying table with a receiver that returns results.
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="keySelector">Key selector.</param>
@@ -87,6 +87,7 @@ public interface IDataStreamerTarget<T>
     /// <typeparam name="TPayload">Payload type.</typeparam>
     /// <typeparam name="TArg">Argument type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
+    [Obsolete("Use StreamDataAsync<TSource, TPayload, TArg, TResult> with ReceiverDescriptor<TPayload, TArg, TResult> instead.")]
     IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, T> keySelector,
@@ -95,10 +96,48 @@ public interface IDataStreamerTarget<T>
         TArg receiverArg,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
+        where TPayload : notnull
+    {
+        var newReceiver = new ReceiverDescriptor<TPayload, TArg, TResult>(
+            receiver.ReceiverClassName,
+            receiver.DeploymentUnits,
+            receiver.Options);
+
+        return StreamDataAsync(data, newReceiver, keySelector, payloadSelector, receiverArg, options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Streams data into the underlying table with a receiver that returns results.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="receiver">Streamer receiver descriptor.</param>
+    /// <param name="keySelector">Key selector.</param>
+    /// <param name="payloadSelector">Payload selector.</param>
+    /// <param name="receiverArg">Receiver argument.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// A <see cref="IAsyncEnumerable{T}"/> with the results from the receiver.
+    /// <para />
+    /// The resulting async enumerator applies back-pressure to the data source, so it should be either fully consumed
+    /// or disposed to complete the streaming. Disposing the enumerator before it is fully consumed will ignore the remaining results.
+    /// </returns>
+    /// <typeparam name="TSource">Source item type.</typeparam>
+    /// <typeparam name="TPayload">Payload type.</typeparam>
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    /// <typeparam name="TResult">Result type.</typeparam>
+    IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
+        IAsyncEnumerable<TSource> data,
+        ReceiverDescriptor<TPayload, TArg, TResult> receiver,
+        Func<TSource, T> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        TArg receiverArg,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default)
         where TPayload : notnull;
 
     /// <summary>
-    /// Streams data into the underlying table with receiver, ignoring receiver results (if any).
+    /// Streams data into the underlying table with a receiver, ignoring receiver results (if any).
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="keySelector">Key selector.</param>

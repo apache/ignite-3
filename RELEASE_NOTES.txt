@@ -1,6 +1,148 @@
 Apache Ignite 3 Release Notes
 ===========================
 
+Apache Ignite In-Memory Distributed Database 3.1.0
+-----------------------------------------------------------
+
+Ignite:
+* Fixed different bugs related to Metastorage compaction.
+* Fixed bugs and numerous improvements during huge number of tables creation.
+* Fixed deadlock in data streamer.
+* Fixed different bugs related to B+Tree.
+* Fixed index creation failure after node restart.
+* Table based replication is deprecated, current implementation relies on zone replication.
+* Numerous compatibility tests are appended.
+* Fixed a data corruption in "aimem" and "aipersist" engines when inserting data entries with certain very specific payload sizes.
+* Examples are expanded.
+* Numerous logging related changes.
+* Fixed data streamer with receiver tuples support.
+* Throttling metrics are introduced.
+* Table metrics are introduced.
+* Transaction metrics are introduced.
+* JVM and Os metrics are introduced.
+* SQL related metrics are introduced.
+* Data region metrics are introduced.
+* Cluster topology metrics introduced.
+* Fixed race between increasing partition generation and performing write operations to it.
+* Fixed allow unaligned memory access on Aarch64.
+* Support configuration deprecation\rename\deletion.
+* Fixed do not log 'Not leader' as ERROR on leader miss.
+* Fixed relax mapper requirements to allow unmapped columns.
+* Optimize implicit RO transaction flow.
+* Fixed rebalancing via raft snapshot does not work after low watermark update.
+* Fixed error saving FreeList metadata causing checkpointer to crash.
+* Fixed do not allow MG repair to be run when MG has majority.
+* Fixed RAFT messages incompatibility.
+* Fixed commit/rollback from client is executed in network thread.
+* Fixed sensitive data gets logged when doing CMG disaster recovery.
+* Add Cluster API.
+* Fixed catalog compaction hangs and holds network thread.
+* Fixed reduce message verbosity and stacktrace printing for node join issues.
+* Extended public CLI API for partition restart with cleanup functionality.
+* Extended public REST API for partition restart with cleanup functionality.
+* Fixed heap lock manager behave incorrectly in case of overflow.
+* Fixed log jvm info to the server log at startup.
+* Fixed catalog compaction never happens after zone was dropped with all its tables.
+* Fixed open telemetry exporter doesn't work if it was disabled and then enabled while cluster running.
+* Fixed incorrect tuple comparison in B-tree prefix.
+* Fixed huge log message with assignment.
+* Fixed extend Compute API with supporting qualified names.
+* Fixed extend IgniteCatalog API with supporting qualified names.
+* Fixed add the ability to rollback any transaction by ID.
+* Fixed log node configuration on start.
+* Fixed it is possible to call enlist on a rollbacked transaction and cause a resource leak.
+
+SQL:
+* Partition pruning introduced.
+* Partition awareness introduced.
+* Fixed different bugs related to Hash Join algorithm.
+* Updated Calcite version to 1.40.
+* Fixed NullPointerException when building multi-bounds for a hash index.
+* Fixed query in explicit RO tx fails when one replica is not available.
+* Fixed result of script parsing with single statement is cached incorrectly.
+* Fixed read column with valid quoted identifier using client kv view.
+* Fixed failure upon creating a table with default TIMESTAMP column.
+* Support CURRENT_USER function.
+* Fixed Time, Timestamp, Timestamp with local time zone and insert/update with cast operation ignores target precision.
+* Optimize row values conversion by sql engine to/from internal representation.
+* Optimize sql row serialization.
+* Migrate to calcite's UUID.
+* Fixed switch sql request processing to another thread pool.
+* Changed explain output.
+* Fixed improve OrderedMergePublisher performance.
+* Fixed query optimizer hangs while preparing UNION with huge number of tables.
+* Fixed increase maximum precision for VARBINARY and VARCHAR types.
+* Fixed query with ORDER BY returns unsorted result.
+* Fixed freezes in MergeJoin[type=RIGHT].
+* Fixed similar CAST expressions produce completely different results.
+* Numerous different system views changes.
+* Fixed MergeJoin is failed with IndexOutOfBoundsException.
+* Fixed unable to create SCHEMA and TABLE in the same script.
+* Fixed explain plan show incorrect collation for join.
+* Fixed NPE when querying system.locks table.
+* Fixed query plan does not use the most optimal table index.
+* Fixed partition pruning, support UUID literals.
+* Fixed correlated sub-query in ON classes of join cannot be rewritten.
+* Fixed remove Limit if there is Sort with fetch.
+* Fixed drop cached SQL plans through CLI and REST.
+* Fixed Time, Timestamp, Timestamp LTZ. Cast Format. Sub-millsecond fractional format is broken.
+* Fixed TIMESTAMP_WITH_LOCAL_TIME_ZONE interval arithmetic.
+* Fixed batching DDL statement for scripts.
+* System Views implemented.
+* Fixed update cached query plans when related statistics changed.
+* Fixed improve row count estimation for all join types.
+
+C++:
+* Support C++ code compilation with the C++23 standard.
+* Document C++ Heartbeats feature.
+* Implement heartbeats.
+* ODBC 3.0: Add SSL/TLS support.
+* Fixed remove unixODBC dependency.
+* Implement transaction timeouts.
+
+Python:
+* Fixed DB API Driver 3: Wheels created by GitHub Actions are failing on import.
+* DB API Driver 3: Add a macOS support.
+* DB API Driver 3: Add SSL/TLS support.
+* Fixed gradlew platforms:updateVersion is broken.
+
+cli:
+* Add sorting in the list of metrics for cli by name.
+* Fixed cannot get partitions status using AI3 CLI.
+
+Java thin client:
+* Fixed switch sql request processing to another thread pool.
+* Fixed client connector produces excessive logs when SSL connection fails.
+
+Ignite .NET:
+* Fixed UpsertAll failures on large collections.
+* Fixed compute executor for jobs executions with different Ignite versions.
+* Improve xmldoc for ColumnType.
+* Fixed IndexOutOfRangeException in data streamer with receiver on empty key.
+* Fixed incomplete marshaller support in Data Streamer Receiver.
+* Fixed error logged on graceful disconnect.
+* Fixed update NuGet README with platform compute info.
+* Fixed extend .NET Client API with supporting qualified names.
+* Add platform job execution public APIs.
+* Platform job executor appended.
+* Fixed update protocol to support platform job execution.
+* Platform streamer receiver implemented.
+* Implemented essential ADO.NET classes.
+* Implemented APIs to cancel / release resources.
+
+JDBC:
+* Fixed JDBC doesn't know schemas except a PUBLIC one.
+* Fixed improve test coverage for JDBC transactions.
+
+Migration tools:
+* Implement Migration Tools for data migration from Ignite 2 to Ignite 3.
+* Fixed windows startup scripts.
+* Fixed support client credentials in migration tools.
+* Fixed docker version for migration tools tests.
+* Fixed improve migration tools cache migartion error messages.
+* Fixed upgrade Ignite 2 dependecy in the Migration Tools modules.
+* Fixed support Table Schemas.
+
 Apache Ignite In-Memory Distributed Database 3.0.0
 -----------------------------------------------------------
 

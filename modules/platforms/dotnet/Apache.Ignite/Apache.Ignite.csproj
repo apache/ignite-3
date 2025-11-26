@@ -28,13 +28,10 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
-
-    <PackageValidationBaselineVersion />
-    <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JetBrains.Annotations" Version="2024.3.0" PrivateAssets="all" />
+    <PackageReference Include="JetBrains.Annotations" Version="2025.2.2" PrivateAssets="all" />
     <PackageReference Include="NodaTime" Version="[3.*,)" />
     <PackageReference Include="Remotion.Linq" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[6.*,)" />

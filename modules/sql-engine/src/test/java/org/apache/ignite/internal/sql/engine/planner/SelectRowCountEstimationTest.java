@@ -140,7 +140,7 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE SQRT(CS_SOLD_DATE_SK) > 10", COMPARISON_SELECTIVITY),
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL",
                         IS_NOT_NULL_SELECTIVITY),
-                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK = 10 OR LENGTH('12') = 2", EQ_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK = 10 OR LENGTH(CURRENT_DATE::VARCHAR) = 2", EQ_SELECTIVITY),
                 // IS NOT NULL over NOT NULL column
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK IS NOT NULL", 1.0)
         );

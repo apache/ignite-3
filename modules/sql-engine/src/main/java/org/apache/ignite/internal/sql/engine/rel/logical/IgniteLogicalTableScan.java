@@ -23,7 +23,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,7 +52,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
             @Nullable List<String> names,
             @Nullable List<RexNode> projections,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         return new IgniteLogicalTableScan(cluster, traits, hints, table, names, projections, condition, requiredColumns);
     }
@@ -65,7 +65,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(cluster, traits, hints, tbl, names, proj, cond, requiredColumns);
     }
@@ -74,6 +74,12 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     @Override
     public IgniteLogicalTableScan withHints(List<RelHint> hintList) {
         return new IgniteLogicalTableScan(getCluster(), getTraitSet(), hintList, getTable(), names, projects, condition, requiredColumns);
+    }
+
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteLogicalTableScan(getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
     }
 
     /** {@inheritDoc} */

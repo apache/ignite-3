@@ -27,7 +27,8 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,14 +51,16 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
      * @param table Target system view to read data from.
      * @param reqColumns Participating columns.
      */
-    public IgniteSystemViewScan(RelOptCluster cluster, RelTraitSet traitSet,
+    public IgniteSystemViewScan(
+            RelOptCluster cluster,
+            RelTraitSet traitSet,
             List<RelHint> hints,
             RelOptTable table,
             @Nullable List<String> names,
             @Nullable List<RexNode> projections,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet reqColumns) {
-
+            @Nullable ImmutableIntList reqColumns
+    ) {
         this(-1, cluster, traitSet, hints, table, names, projections, condition, reqColumns);
     }
 
@@ -77,7 +80,8 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
         }
     }
 
-    private IgniteSystemViewScan(long sourceId,
+    private IgniteSystemViewScan(
+            long sourceId,
             RelOptCluster cluster,
             RelTraitSet traitSet,
             List<RelHint> hints,
@@ -85,8 +89,8 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet reqColumns) {
-
+            @Nullable ImmutableIntList reqColumns
+    ) {
         super(cluster, traitSet, hints, table, names, proj, cond, reqColumns);
 
         this.sourceId = sourceId;
@@ -118,6 +122,12 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
                 names, projects, condition, requiredColumns);
     }
 
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteSystemViewScan(sourceId, getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteSystemViewScan withHints(List<RelHint> hintList) {
@@ -136,5 +146,11 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(
+            IgniteRelWriter writer) {
+        return explainAttributes(writer);
     }
 }

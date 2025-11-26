@@ -124,6 +124,42 @@ public class CatalogSerializationUtils {
         return entries;
     }
 
+    /** Reads nullable long. */
+    public static @Nullable Long readNullableLong(DataInput in) throws IOException {
+        if (!in.readBoolean()) {
+            return null;
+        }
+
+        return in.readLong();
+    }
+
+    /** Reads nullable double. */
+    public static @Nullable Double readNullableDouble(DataInput in) throws IOException {
+        if (!in.readBoolean()) {
+            return null;
+        }
+
+        return in.readDouble();
+    }
+
+    /** Writes nullable long. */
+    public static void writeNullableLong(@Nullable Long value, DataOutput out) throws IOException {
+        out.writeBoolean(value != null);
+
+        if (value != null) {
+            out.writeLong(value);
+        }
+    }
+
+    /** Writes nullable long. */
+    public static void writeNullableDouble(@Nullable Double value, DataOutput out) throws IOException {
+        out.writeBoolean(value != null);
+
+        if (value != null) {
+            out.writeDouble(value);
+        }
+    }
+
     /** Writes list of objects. */
     public static <T> void writeList(List<T> items, CatalogObjectSerializer<T> serializer,
             CatalogObjectDataOutput output) throws IOException {

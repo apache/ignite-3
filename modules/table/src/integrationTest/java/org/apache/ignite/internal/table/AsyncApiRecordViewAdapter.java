@@ -29,8 +29,8 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.DataStreamerTarget;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
@@ -46,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
 public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     private final RecordView<V> delegate;
 
-    public AsyncApiRecordViewAdapter(RecordView<V> delegate) {
+    AsyncApiRecordViewAdapter(RecordView<V> delegate) {
         this.delegate = delegate;
     }
 
@@ -128,6 +128,11 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     @Override
     public List<V> deleteAll(@Nullable Transaction tx, Collection<V> keyRecs) {
         return await(delegate.deleteAllAsync(tx, keyRecs));
+    }
+
+    @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        await(delegate.deleteAllAsync(tx));
     }
 
     @Override
@@ -216,6 +221,11 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     }
 
     @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        throw new UnsupportedOperationException("Must not be called");
+    }
+
+    @Override
     public CompletableFuture<List<V>> deleteAllExactAsync(@Nullable Transaction tx, Collection<V> recs) {
         throw new UnsupportedOperationException("Must not be called");
     }
@@ -258,9 +268,9 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     }
 
     @Override
-    public <E, V1, R, A> CompletableFuture<Void> streamData(Publisher<E> publisher, Function<E, V> keyFunc, Function<E, V1> payloadFunc,
-            ReceiverDescriptor<A> receiver, @Nullable Subscriber<R> resultSubscriber, @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+    public <E, V1, A, R> CompletableFuture<Void> streamData(Publisher<E> publisher, DataStreamerReceiverDescriptor<V1, A, R> receiver,
+            Function<E, V> keyFunc, Function<E, V1> payloadFunc, @Nullable A receiverArg, @Nullable Subscriber<R> resultSubscriber,
+            @Nullable DataStreamerOptions options) {
         throw new UnsupportedOperationException();
     }
 }

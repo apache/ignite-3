@@ -57,7 +57,7 @@ namespace Apache.Ignite.Tests
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
             Assert.IsNotNull(table);
-            Assert.AreEqual(FakeServer.ExistingTableName, table!.Name);
+            Assert.AreEqual(FakeServer.ExistingTableName, table!.QualifiedName.ObjectName);
         }
 
         [Test]

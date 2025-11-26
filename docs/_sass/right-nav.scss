@@ -17,14 +17,15 @@
     padding: 12px 26px;
     overflow-y: auto;
     height: calc(100vh - var(--header-height));
-    top: 0;
+    top: var(--header-height);
     position: -webkit-sticky;
     position: sticky;
     display: flex;
     flex-direction: column;
     font-family: 'Open sans';
     padding-top: var(--padding-top);
-
+    background-color: #ffffff;
+    
     h6 {
         margin: 12px 0;
         font-size: 16px;
@@ -70,4 +71,32 @@
             --nesting-level: #{$i - 1};
         }
     }
+
+    .promo-nav {
+        bottom: 3rem;
+        left: 50%;
+        width: 90%;
+        max-width: 237px;
+        margin: auto 0 2rem;
+    }
+}
+@media (max-width: 1200px) {
+    .right-nav {
+        width: 230px;
+    }
+}
+
+
+@media (max-width: 800px) {
+    .right-nav {
+
+        .promo-nav {
+            width: 230px;
+            bottom: 0;
+
+            .right-ad {
+                display: none;
+            }
+        }
+    }        
 }

@@ -74,7 +74,6 @@ public class ExtendedProjectedTuple extends ProjectedTuple {
                 }
             };
 
-
             for (int columnIndex : projection) {
                 if (extraColumns.containsKey(columnIndex)) {
                     stats.estimatedValueSize += 8;

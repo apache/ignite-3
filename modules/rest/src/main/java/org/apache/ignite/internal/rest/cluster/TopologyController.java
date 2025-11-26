@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNode;
@@ -64,7 +65,7 @@ public class TopologyController implements TopologyApi, ResourceHolder {
                 .thenApply(TopologyController::toClusterNodeDtosFromLogicalNodes);
     }
 
-    private static List<ClusterNode> toClusterNodeDtos(Collection<org.apache.ignite.network.ClusterNode> nodes) {
+    private static List<ClusterNode> toClusterNodeDtos(Collection<InternalClusterNode> nodes) {
         return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
     }
 
@@ -72,7 +73,7 @@ public class TopologyController implements TopologyApi, ResourceHolder {
         return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
     }
 
-    private static ClusterNode toClusterNodeDto(org.apache.ignite.network.ClusterNode node) {
+    private static ClusterNode toClusterNodeDto(InternalClusterNode node) {
         org.apache.ignite.network.NetworkAddress addr = node.address();
 
         var addrDto = new NetworkAddress(addr.host(), addr.port());

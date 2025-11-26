@@ -22,13 +22,13 @@ import static org.apache.ignite.internal.network.NetworkMessageTypes.CLUSTER_NOD
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
- * {@link ClusterNode} as a network message class.
+ * {@link InternalClusterNode} as a network message class.
  */
 @Transferable(CLUSTER_NODE_MESSAGE)
 public interface ClusterNodeMessage extends NetworkMessage, Serializable {
@@ -44,8 +44,8 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
     /** Port (part of the {@link NetworkAddress} of the node. */
     int port();
 
-    /** Converts this message to the corresponding {@link ClusterNode} instance. */
-    default ClusterNode asClusterNode() {
+    /** Converts this message to the corresponding {@link InternalClusterNode} instance. */
+    default InternalClusterNode asClusterNode() {
         return new ClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()));
     }
 }

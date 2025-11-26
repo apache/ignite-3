@@ -95,12 +95,10 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
      */
     @Test
     public void testNoThrottling() {
-        AtomicInteger messageCounter = new AtomicInteger();
-
         LogInspector logInspector = new LogInspector(
                 FailureManager.class.getName(),
-                evt -> evt.getMessage().getFormattedMessage().startsWith(THREAD_DUMP_MSG),
-                messageCounter::incrementAndGet);
+                evt -> evt.getMessage().getFormattedMessage().startsWith(THREAD_DUMP_MSG)
+        );
 
         logInspector.start();
         try {
@@ -116,7 +114,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
             logInspector.stop();
         }
 
-        assertThat(messageCounter.get(), is(2));
+        assertThat(logInspector.timesMatched().sum(), is(2));
     }
 
     /**

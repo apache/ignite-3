@@ -1,0 +1,309 @@
+Sort
+    collation: [SALES_CNT_DIFF ASC, SALES_AMT_DIFF ASC]
+    fetch: 100
+    est: (rows=100)
+  Project
+      fieldNames: [PREV_YEAR, year, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, PREV_YR_CNT, CURR_YR_CNT, SALES_CNT_DIFF, SALES_AMT_DIFF]
+      projection: [D_YEAR$0, D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT$0, SALES_CNT, -(SALES_CNT, SALES_CNT$0), -(SALES_AMT, SALES_AMT$0)]
+      est: (rows=49404956)
+    HashJoin
+        predicate: AND(=(I_BRAND_ID, I_BRAND_ID$0), =(I_CLASS_ID, I_CLASS_ID$0), =(I_CATEGORY_ID, I_CATEGORY_ID$0), =(I_MANUFACT_ID, I_MANUFACT_ID$0), <(/(CAST(SALES_CNT):DECIMAL(17, 2), CAST(SALES_CNT$0):DECIMAL(17, 2)), 0.90000000000000000000))
+        fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT, D_YEAR$0, I_BRAND_ID$0, I_CLASS_ID$0, I_CATEGORY_ID$0, I_MANUFACT_ID$0, SALES_CNT$0, SALES_AMT$0]
+        type: inner
+        est: (rows=49404956)
+      ColocatedHashAggregate
+          group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID]
+          aggregation: [SUM(SALES_CNT), SUM(SALES_AMT)]
+          est: (rows=441792)
+        ColocatedHashAggregate
+            group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+            aggregation: []
+            est: (rows=441792)
+          UnionAll
+              est: (rows=559029)
+            Project
+                fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+                projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(CS_QUANTITY, CASE(IS NOT NULL(CR_RETURN_QUANTITY), CAST(CR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(CS_EXT_SALES_PRICE, CASE(IS NOT NULL(CR_RETURN_AMOUNT), CAST(CR_RETURN_AMOUNT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
+                est: (rows=159852)
+              HashJoin
+                  predicate: AND(=(CS_ORDER_NUMBER, CR_ORDER_NUMBER), =(CS_ITEM_SK, CR_ITEM_SK))
+                  type: left
+                  est: (rows=159852)
+                HashJoin
+                    predicate: =(D_DATE_SK, CS_SOLD_DATE_SK)
+                    type: inner
+                    est: (rows=159852)
+                  HashJoin
+                      predicate: =(I_ITEM_SK, CS_ITEM_SK)
+                      type: inner
+                      est: (rows=480035)
+                    Exchange
+                        distribution: single
+                        est: (rows=1441548)
+                      TableScan
+                          table: PUBLIC.CATALOG_SALES
+                          fieldNames: [CS_SOLD_DATE_SK, CS_ITEM_SK, CS_ORDER_NUMBER, CS_QUANTITY, CS_EXT_SALES_PRICE]
+                          est: (rows=1441548)
+                    Exchange
+                        distribution: single
+                        est: (rows=5994)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Sports')
+                          fieldNames: [I_ITEM_SK, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_CATEGORY, I_MANUFACT_ID]
+                          est: (rows=5994)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2001)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=144067)
+                  TableScan
+                      table: PUBLIC.CATALOG_RETURNS
+                      fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_RETURN_QUANTITY, CR_RETURN_AMOUNT]
+                      est: (rows=144067)
+            Project
+                fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+                projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(SS_QUANTITY, CASE(IS NOT NULL(SR_RETURN_QUANTITY), CAST(SR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(SS_EXT_SALES_PRICE, CASE(IS NOT NULL(SR_RETURN_AMT), CAST(SR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
+                est: (rows=319405)
+              HashJoin
+                  predicate: AND(=(SS_TICKET_NUMBER, SR_TICKET_NUMBER), =(SS_ITEM_SK, SR_ITEM_SK))
+                  type: left
+                  est: (rows=319405)
+                HashJoin
+                    predicate: =(D_DATE_SK, SS_SOLD_DATE_SK)
+                    type: inner
+                    est: (rows=319405)
+                  HashJoin
+                      predicate: =(I_ITEM_SK, SS_ITEM_SK)
+                      type: inner
+                      est: (rows=959175)
+                    Exchange
+                        distribution: single
+                        est: (rows=2880404)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_TICKET_NUMBER, SS_QUANTITY, SS_EXT_SALES_PRICE]
+                          est: (rows=2880404)
+                    Exchange
+                        distribution: single
+                        est: (rows=5994)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Sports')
+                          fieldNames: [I_ITEM_SK, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_CATEGORY, I_MANUFACT_ID]
+                          est: (rows=5994)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2001)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=287514)
+                  TableScan
+                      table: PUBLIC.STORE_RETURNS
+                      fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER, SR_RETURN_QUANTITY, SR_RETURN_AMT]
+                      est: (rows=287514)
+            Project
+                fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+                projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(WS_QUANTITY, CASE(IS NOT NULL(WR_RETURN_QUANTITY), CAST(WR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(WS_EXT_SALES_PRICE, CASE(IS NOT NULL(WR_RETURN_AMT), CAST(WR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
+                est: (rows=79772)
+              HashJoin
+                  predicate: AND(=(WS_ORDER_NUMBER, WR_ORDER_NUMBER), =(WS_ITEM_SK, WR_ITEM_SK))
+                  type: left
+                  est: (rows=79772)
+                HashJoin
+                    predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
+                    type: inner
+                    est: (rows=79772)
+                  HashJoin
+                      predicate: =(I_ITEM_SK, WS_ITEM_SK)
+                      type: inner
+                      est: (rows=239555)
+                    Exchange
+                        distribution: single
+                        est: (rows=719384)
+                      TableScan
+                          table: PUBLIC.WEB_SALES
+                          fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_ORDER_NUMBER, WS_QUANTITY, WS_EXT_SALES_PRICE]
+                          est: (rows=719384)
+                    Exchange
+                        distribution: single
+                        est: (rows=5994)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Sports')
+                          fieldNames: [I_ITEM_SK, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_CATEGORY, I_MANUFACT_ID]
+                          est: (rows=5994)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2001)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=71763)
+                  TableScan
+                      table: PUBLIC.WEB_RETURNS
+                      fieldNames: [WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_QUANTITY, WR_RETURN_AMT]
+                      est: (rows=71763)
+      ColocatedHashAggregate
+          group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID]
+          aggregation: [SUM(SALES_CNT), SUM(SALES_AMT)]
+          est: (rows=441792)
+        ColocatedHashAggregate
+            group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+            aggregation: []
+            est: (rows=441792)
+          UnionAll
+              est: (rows=559029)
+            Project
+                fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+                projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(CS_QUANTITY, CASE(IS NOT NULL(CR_RETURN_QUANTITY), CAST(CR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(CS_EXT_SALES_PRICE, CASE(IS NOT NULL(CR_RETURN_AMOUNT), CAST(CR_RETURN_AMOUNT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
+                est: (rows=159852)
+              HashJoin
+                  predicate: AND(=(CS_ORDER_NUMBER, CR_ORDER_NUMBER), =(CS_ITEM_SK, CR_ITEM_SK))
+                  type: left
+                  est: (rows=159852)
+                HashJoin
+                    predicate: =(D_DATE_SK, CS_SOLD_DATE_SK)
+                    type: inner
+                    est: (rows=159852)
+                  HashJoin
+                      predicate: =(I_ITEM_SK, CS_ITEM_SK)
+                      type: inner
+                      est: (rows=480035)
+                    Exchange
+                        distribution: single
+                        est: (rows=1441548)
+                      TableScan
+                          table: PUBLIC.CATALOG_SALES
+                          fieldNames: [CS_SOLD_DATE_SK, CS_ITEM_SK, CS_ORDER_NUMBER, CS_QUANTITY, CS_EXT_SALES_PRICE]
+                          est: (rows=1441548)
+                    Exchange
+                        distribution: single
+                        est: (rows=5994)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Sports')
+                          fieldNames: [I_ITEM_SK, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_CATEGORY, I_MANUFACT_ID]
+                          est: (rows=5994)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2000)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=144067)
+                  TableScan
+                      table: PUBLIC.CATALOG_RETURNS
+                      fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_RETURN_QUANTITY, CR_RETURN_AMOUNT]
+                      est: (rows=144067)
+            Project
+                fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+                projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(SS_QUANTITY, CASE(IS NOT NULL(SR_RETURN_QUANTITY), CAST(SR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(SS_EXT_SALES_PRICE, CASE(IS NOT NULL(SR_RETURN_AMT), CAST(SR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
+                est: (rows=319405)
+              HashJoin
+                  predicate: AND(=(SS_TICKET_NUMBER, SR_TICKET_NUMBER), =(SS_ITEM_SK, SR_ITEM_SK))
+                  type: left
+                  est: (rows=319405)
+                HashJoin
+                    predicate: =(D_DATE_SK, SS_SOLD_DATE_SK)
+                    type: inner
+                    est: (rows=319405)
+                  HashJoin
+                      predicate: =(I_ITEM_SK, SS_ITEM_SK)
+                      type: inner
+                      est: (rows=959175)
+                    Exchange
+                        distribution: single
+                        est: (rows=2880404)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_TICKET_NUMBER, SS_QUANTITY, SS_EXT_SALES_PRICE]
+                          est: (rows=2880404)
+                    Exchange
+                        distribution: single
+                        est: (rows=5994)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Sports')
+                          fieldNames: [I_ITEM_SK, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_CATEGORY, I_MANUFACT_ID]
+                          est: (rows=5994)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2000)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=287514)
+                  TableScan
+                      table: PUBLIC.STORE_RETURNS
+                      fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER, SR_RETURN_QUANTITY, SR_RETURN_AMT]
+                      est: (rows=287514)
+            Project
+                fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
+                projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(WS_QUANTITY, CASE(IS NOT NULL(WR_RETURN_QUANTITY), CAST(WR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(WS_EXT_SALES_PRICE, CASE(IS NOT NULL(WR_RETURN_AMT), CAST(WR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
+                est: (rows=79772)
+              HashJoin
+                  predicate: AND(=(WS_ORDER_NUMBER, WR_ORDER_NUMBER), =(WS_ITEM_SK, WR_ITEM_SK))
+                  type: left
+                  est: (rows=79772)
+                HashJoin
+                    predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
+                    type: inner
+                    est: (rows=79772)
+                  HashJoin
+                      predicate: =(I_ITEM_SK, WS_ITEM_SK)
+                      type: inner
+                      est: (rows=239555)
+                    Exchange
+                        distribution: single
+                        est: (rows=719384)
+                      TableScan
+                          table: PUBLIC.WEB_SALES
+                          fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_ORDER_NUMBER, WS_QUANTITY, WS_EXT_SALES_PRICE]
+                          est: (rows=719384)
+                    Exchange
+                        distribution: single
+                        est: (rows=5994)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Sports')
+                          fieldNames: [I_ITEM_SK, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_CATEGORY, I_MANUFACT_ID]
+                          est: (rows=5994)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2000)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=71763)
+                  TableScan
+                      table: PUBLIC.WEB_RETURNS
+                      fieldNames: [WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_QUANTITY, WR_RETURN_AMT]
+                      est: (rows=71763)

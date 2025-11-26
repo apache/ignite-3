@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.pagememory.PageMemory;

@@ -100,16 +100,15 @@ INSERT INTO dates VALUES (date '10000-01-01')
 statement error: Invalid DATE value, '10000-00-01'
 INSERT INTO dates VALUES ('10000-00-01'::DATE)
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-25010 This should be parser error
-statement error: DATE out of range
+statement error: Invalid value for MonthOfYear
 INSERT INTO dates VALUES (CAST('9999-99-99' AS DATE FORMAT 'YYYY-MM-DD'))
 
 # The value is less than the minimum allowed
 statement error: DATE out of range
-INSERT INTO dates VALUES (DATE '0001-01-01' - INTERVAL 1 DAYS)
+INSERT INTO dates VALUES (DATE '0001-01-01' - INTERVAL '1' DAYS)
 
 statement error: DATE out of range
-INSERT INTO dates VALUES ('0001-01-01'::DATE - INTERVAL 1 DAYS)
+INSERT INTO dates VALUES ('0001-01-01'::DATE - INTERVAL '1' DAYS)
 
 statement error: Invalid default value for column 'D'
 CREATE TABLE default_overflow(d DATE DEFAULT '0000-01-01');
@@ -122,10 +121,10 @@ CREATE TABLE default_overflow(d DATE DEFAULT '0001-01-00');
 
 # THe value is greater than the maximum allowed
 statement error: DATE out of range
-INSERT INTO dates VALUES (DATE '9999-12-31' + INTERVAL 1 DAYS)
+INSERT INTO dates VALUES (DATE '9999-12-31' + INTERVAL '1' DAYS)
 
 statement error: DATE out of range
-INSERT INTO dates VALUES ('9999-12-31'::DATE + INTERVAL 1 DAYS)
+INSERT INTO dates VALUES ('9999-12-31'::DATE + INTERVAL '1' DAYS)
 
 statement error: DATE out of range
 INSERT INTO dates VALUES (DATE_FROM_UNIX_DATE(2932896 + 1))

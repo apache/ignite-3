@@ -64,8 +64,8 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -412,10 +412,20 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         });
     }
 
+    @Override
+    public void removeAll(@Nullable Transaction tx) {
+        sync(removeAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
         return sync(removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -806,14 +816,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     }
 
     @Override
-    public <E, V1, R, A> CompletableFuture<Void> streamData(
+    public <E, V1, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V1, A, R> receiver,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, V1> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

@@ -105,7 +105,7 @@ public:
         if (!m_resource_id)
             return false;
 
-        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) { writer.write(id); };
+        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer, auto) { writer.write(id); };
 
         auto reader_func = [weak_self = weak_from_this()](protocol::reader &) {
             auto self = weak_self.lock();
@@ -184,7 +184,7 @@ public:
         if (!m_has_more_pages)
             throw ignite_error("There are no more pages");
 
-        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) { writer.write(id); };
+        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer, auto) { writer.write(id); };
 
         auto reader_func = [weak_self = weak_from_this()](protocol::reader &reader) {
             auto self = weak_self.lock();
@@ -195,8 +195,11 @@ public:
             self->m_has_more_pages = reader.read_bool();
         };
 
-        m_connection->perform_request<void>(
+        auto req_id = m_connection->perform_request<void>(
             protocol::client_operation::SQL_CURSOR_NEXT_PAGE, writer_func, std::move(reader_func), std::move(callback));
+
+        if (!req_id)
+            throw ignite_error(error::code::CONNECTION, "Connection associated with the cursor is closed");
     }
 
 private:

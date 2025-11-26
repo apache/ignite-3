@@ -32,7 +32,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,10 +47,14 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -75,12 +78,14 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private ComputeExecutor computeExecutor;
 
-    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
 
     @BeforeEach
     void setUp() {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
-        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService);
+        computeExecutor = new ComputeExecutorImpl(
+                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()), EventLog.NOOP);
+
         computeExecutor.start();
     }
 
@@ -95,6 +100,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.DEFAULT,
                 InterruptingJob.class.getName(),
                 jobClassLoader,
+                ComputeEventMetadata.builder(),
                 null
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
@@ -125,6 +131,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.DEFAULT,
                 CancellingJob.class.getName(),
                 jobClassLoader,
+                ComputeEventMetadata.builder(),
                 null
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
@@ -160,6 +167,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class.getName(),
                 jobClassLoader,
+                ComputeEventMetadata.builder(),
                 null
         );
 
@@ -188,6 +196,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class.getName(),
                 jobClassLoader,
+                ComputeEventMetadata.builder(),
                 SharedComputeUtils.marshalArgOrResult(maxRetries, null)
         );
 
@@ -221,6 +230,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class.getName(),
                 jobClassLoader,
+                ComputeEventMetadata.builder(),
                 null
         );
 
@@ -268,6 +278,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.DEFAULT,
                 SimpleJob.class.getName(),
                 jobClassLoader,
+                ComputeEventMetadata.builder(),
                 null
         );
 

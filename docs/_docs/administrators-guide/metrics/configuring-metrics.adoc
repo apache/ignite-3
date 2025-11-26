@@ -90,6 +90,54 @@ After you do, JMX monitoring tools will be able to collect enabled metrics from 
 
 image::images/jmc-metrics.png[]
 
+You can also open internal JDK modules required for JMX, enable the remote JMX agent, configure the connection port, authentication, and SSL.
+Add the following JVM options to your Ignite node configuration:
+
+[source, bash]
+----
+--add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED
+
+-Dcom.sun.management.jmxremote
+-Dcom.sun.management.jmxremote.port=<PORT_NUMBER>
+-Dcom.sun.management.jmxremote.authenticate=true|false
+-Dcom.sun.management.jmxremote.ssl=true|false
+----
+
+=== Log Exporter
+
+Log exporter writes metrics data to the application log, so they can be consumed by log collectors or inspected manually. To configure it, use the following parameters:
+
+[cols="30%,60%,10%",opts="header"]
+|===
+|Name
+|Description
+|Default value
+
+|periodMillis|Export interval for the metrics, in milliseconds.|30000
+|oneLinePerMetricSource|Define whether to print all metrics from one metric source on a single log line.|true
+|enabledMetrics|List of enabled metric sources. If this list is non-empty, only the listed metric sources will be printed, all others will be skipped. A wildcard can be used to match a prefix (for example, `jvm.*`). By default, the metrics of some background activities are printed. |"metastorage", "placement-driver", "resource.vacuum"
+|===
+
+To add log exporter to cluster exporters list, run the following command and define all the metrics to print in `enabledMetrics` list:
+[source, bash]
+----
+cluster config update ignite.metrics.exporters.logPush '{"exporterName":"logPush","periodMillis":30000,"oneLinePerMetricSource":true,"enabledMetrics":[]}'
+----
+
+Updated exporters configuration should look like this:
+
+----
+exporters=[
+    {
+        enabledMetrics=[]
+        exporterName=logPush
+        name=logPush
+        oneLinePerMetricSource=true
+        periodMillis=30000
+    }
+]
+----
+
 === OpenTelemetry
 
 The link:https://opentelemetry.io/[OpenTelemetry] exporter connects to an OpenTelemetry service that is provided in configuration and sends cluster information to it. Each node sends metrics independently, and requires access to the specified endpoint.
@@ -166,7 +214,7 @@ cluster config update ignite.metrics.exporters.test: {exporterName:otlp, endpoin
 
 ==== Connection to Prometheus
 
-When connecting to Prometheus, you need to use the protobuf protocol and send metrics to the `/api/v1/otlp/v1/metrics` after the otlp metrics receiver is enabled as described in link:https://prometheus.io/docs/guides/opentelemetry/[Prometheus documentation]:
+When connecting to Prometheus, you need to use the protobuf protocol and send metrics to the `/api/v1/otlp/v1/metrics` after the OTLP metrics receiver is enabled as described in link:https://prometheus.io/docs/guides/opentelemetry/[Prometheus documentation]:
 
 ----
 cluster config update ignite.metrics.exporters.test: {exporterName:otlp, endpoint:"http://localhost:9090/api/v1/otlp/v1/metrics", protocol:"http/protobuf"}

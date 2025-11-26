@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.proto;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -78,6 +79,17 @@ public final class ClientComputeJobUnpacker {
         ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker);
 
         return new Job(deploymentUnits, jobClassName, options.build(), args);
+    }
+
+    /**
+     * Unpacks compute job task ID.
+     *
+     * @param unpacker Unpacker.
+     * @param enableTaskId {@code true} if {@link ProtocolBitmaskFeature#COMPUTE_TASK_ID} is supported.
+     * @return Task ID.
+     */
+    public static @Nullable UUID unpackTaskId(ClientMessageUnpacker unpacker, boolean enableTaskId) {
+        return enableTaskId ? unpacker.unpackUuidNullable() : null;
     }
 
     /** Job info. */

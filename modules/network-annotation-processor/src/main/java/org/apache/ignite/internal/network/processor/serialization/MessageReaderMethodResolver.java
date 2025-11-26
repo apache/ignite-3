@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.CodeBlock;
 import java.util.List;
@@ -59,12 +60,12 @@ class MessageReaderMethodResolver {
     CodeBlock resolveReadMethod(ExecutableElement getter) {
         TypeMirror parameterType = getter.getReturnType();
 
-        String parameterName = getter.getSimpleName().toString();
+        String propertyName = propertyName(getter);
 
         if (getter.getAnnotation(Marshallable.class) != null) {
-            parameterName = addByteArrayPostfix(parameterName);
+            propertyName = addByteArrayPostfix(propertyName);
             return CodeBlock.builder()
-                    .add("readByteArray($S)", parameterName)
+                    .add("readByteArray($S)", propertyName)
                     .build();
         }
 
@@ -72,17 +73,17 @@ class MessageReaderMethodResolver {
 
         switch (methodName) {
             case "ObjectArray":
-                return resolveReadObjectArray((ArrayType) parameterType, parameterName);
+                return resolveReadObjectArray((ArrayType) parameterType, propertyName);
             case "Collection":
-                return resolveReadCollection((DeclaredType) parameterType, parameterName);
+                return resolveReadCollection((DeclaredType) parameterType, propertyName);
             case "List":
-                return resolveReadList((DeclaredType) parameterType, parameterName);
+                return resolveReadList((DeclaredType) parameterType, propertyName);
             case "Set":
-                return resolveReadSet((DeclaredType) parameterType, parameterName);
+                return resolveReadSet((DeclaredType) parameterType, propertyName);
             case "Map":
-                return resolveReadMap((DeclaredType) parameterType, parameterName);
+                return resolveReadMap((DeclaredType) parameterType, propertyName);
             default:
-                return CodeBlock.builder().add("read$L($S)", methodName, parameterName).build();
+                return CodeBlock.builder().add("read$L($S)", methodName, propertyName).build();
         }
     }
 

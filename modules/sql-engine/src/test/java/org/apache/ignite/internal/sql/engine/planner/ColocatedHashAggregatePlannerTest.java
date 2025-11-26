@@ -304,10 +304,8 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_17,
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
                         .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteLimit.class)
-                                        .and(input(isInstanceOf(IgniteSort.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
                 ),
@@ -527,6 +525,18 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_26);
 
         checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
+    }
+
+    /**
+     * Validates a plan for a query with GROUPING aggregate.
+     */
+    @Test
+    public void groupsWithGroupingAggregate() throws Exception {
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1A);
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1B);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2B);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {

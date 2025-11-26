@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-#include "ignite/protocol/messages.h"
+#include "ignite/protocol/bitmask_feature.h"
 #include "ignite/protocol/buffer_adapter.h"
+#include "ignite/protocol/messages.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/writer.h"
@@ -36,8 +37,8 @@ std::vector<std::byte> make_handshake_request(
 
         writer.write(client_type);
 
-        // Features.
-        writer.write_binary_empty();
+        auto features = all_supported_bitmask_features();
+        writer.write_binary(features);
 
         // Extensions.
         writer.write_map(extensions);
@@ -62,8 +63,8 @@ handshake_response parse_handshake_response(bytes_view message) {
     if (res.error)
         return res;
 
-    UNUSED_VALUE reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
-    UNUSED_VALUE reader.skip(); // Cluster node ID. Needed for partition-aware compute.
+    res.idle_timeout_ms = reader.read_int64();
+    reader.skip(); // Cluster node ID. Needed for partition-aware compute.
     UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
     auto cluster_ids_len = reader.read_int32();
@@ -91,7 +92,9 @@ handshake_response parse_handshake_response(bytes_view message) {
     res.context.set_server_version(
         {dbms_ver_major, dbms_ver_minor, dbms_ver_maintenance, dbms_ver_patch, dbms_ver_pre_release});
 
-    reader.skip(); // Features.
+    auto features = reader.read_binary();
+    res.context.set_features({features.begin(), features.end()});
+
     reader.skip(); // Extensions.
 
     return res;

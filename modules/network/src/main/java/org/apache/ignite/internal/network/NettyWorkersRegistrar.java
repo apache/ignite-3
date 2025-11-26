@@ -54,7 +54,6 @@ public class NettyWorkersRegistrar implements IgniteComponent {
      * of the worker corresponding to an event loop. If an event loop's thread is blocked, the hearbeat will not
      * be updated, and the worker watchdog will treat the event loop worker as blocked.
      */
-
     private final CriticalWorkerRegistry criticalWorkerRegistry;
 
     private final ScheduledExecutorService scheduler;
@@ -96,7 +95,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
-        for (EventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
+        for (EventLoopGroup group : bootstrapFactory.eventLoopGroupsForBlockedThreadsDetection()) {
             registerWorkersFor(group, nettyWorkers);
         }
         workers = List.copyOf(nettyWorkers);

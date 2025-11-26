@@ -77,7 +77,7 @@ import org.immutables.value.Value;
  * @see CoreRules#PROJECT_SUB_QUERY_TO_CORRELATE
  * @see CoreRules#JOIN_SUB_QUERY_TO_CORRELATE
  *
- * Need to be removed after https://issues.apache.org/jira/browse/IGNITE-25255
+ * Need to be removed after https://issues.apache.org/jira/browse/IGNITE-25801
  */
 @Value.Enclosing
 public class IgniteSubQueryRemoveRule

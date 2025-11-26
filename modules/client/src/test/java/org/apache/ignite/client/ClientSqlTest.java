@@ -17,6 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,11 +36,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.client.sql.ClientDirectTxMode;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
@@ -45,7 +57,12 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * SQL tests.
@@ -199,5 +216,116 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(
                 "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
+    }
+
+    @Test
+    void partitionAwarenessMetas() {
+        IgniteSql sql = client.sql();
+
+        Statement statement1 = sql.statementBuilder()
+                .query("SELECT PA")
+                .defaultSchema("SCHEMA_1")
+                .build();
+        Statement statement2 = sql.statementBuilder()
+                .query("SELECT PA")
+                .defaultSchema("SCHEMA_2")
+                .build();
+
+        sql.execute(null, statement1);
+        sql.execute(null, statement2);
+
+        List<PartitionMappingProvider> metas = ((ClientSql) sql).partitionAwarenessCachedMetas();
+        assertThat(metas.size(), CoreMatchers.is(2));
+
+        for (PartitionMappingProvider meta : metas) {
+            assertThat(meta.tableId(), CoreMatchers.is(1));
+            assertThat(meta.indexes(), CoreMatchers.is(new int[] {0, -1, -2, 2}));
+            assertThat(meta.hash(), CoreMatchers.is(new int[] {100, 500}));
+            assertThat(meta.directTxMode(), CoreMatchers.is(ClientDirectTxMode.SUPPORTED_TRACKING_REQUIRED));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 8, 16})
+    void partitionAwarenessMetadataCacheOverflow(int size) throws InterruptedException {
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE, 1);
+
+        try (IgniteClient client = createClientWithPaCacheOfSize(size)) {
+            IgniteSql sql = client.sql();
+
+            // use (size + 1) to account for size=0 case
+            for (int i = 0; i < 2 * (size + 1); i++) {
+                Statement statement1 = sql.statementBuilder()
+                        .query("SELECT PA")
+                        .defaultSchema("SCHEMA_" + i)
+                        .build();
+
+                sql.execute(null, statement1);
+            }
+
+            assertTrue(waitForCondition(
+                    () -> ((ClientSql) sql).partitionAwarenessCachedMetas().size() <= size, 5_000
+            ));
+        }
+    }
+
+    @ParameterizedTest(name = "{0} => {1}")
+    @MethodSource("testQueryModifiersArgs")
+    void testQueryModifiers(QueryModifier modifier, String expectedQueryTypes) {
+        IgniteSql sql = client.sql();
+
+        AsyncResultSet<SqlRow> results = await(((ClientSql) sql).executeAsyncInternal(
+                null, null, null, Set.of(modifier), sql.createStatement("SELECT ALLOWED QUERY TYPES")));
+
+        assertTrue(results.hasRowSet());
+
+        SqlRow row = results.currentPage().iterator().next();
+
+        assertThat(row.stringValue(0), equalTo(expectedQueryTypes));
+    }
+
+    private static List<Arguments> testQueryModifiersArgs() {
+        List<Arguments> res = new ArrayList<>();
+
+        for (QueryModifier modifier : QueryModifier.values()) {
+            String expected;
+
+            switch (modifier) {
+                case ALLOW_ROW_SET_RESULT:
+                    expected = "EXPLAIN, QUERY";
+                    break;
+
+                case ALLOW_AFFECTED_ROWS_RESULT:
+                    expected = "DML";
+                    break;
+
+                case ALLOW_APPLIED_RESULT:
+                    expected = "DDL, KILL";
+                    break;
+
+                case ALLOW_TX_CONTROL:
+                    expected = "TX_CONTROL";
+                    break;
+
+                case ALLOW_MULTISTATEMENT:
+                    expected = "MULTISTATEMENT";
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unexpected type: " + modifier);
+            }
+
+            res.add(Arguments.of(modifier, expected));
+        }
+
+        return res;
+    }
+
+    private static IgniteClient createClientWithPaCacheOfSize(int cacheSize) {
+        var builder = IgniteClient.builder()
+                .addresses(new String[]{"127.0.0.1:" + serverPort})
+                .sqlPartitionAwarenessMetadataCacheSize(cacheSize);
+
+        return builder.build();
     }
 }

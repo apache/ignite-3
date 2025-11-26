@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.configuration.presentation;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.exception.ConfigurationApplyException;
+import org.apache.ignite.internal.configuration.exception.ConfigurationParseException;
+import org.apache.ignite.internal.configuration.exception.ConfigurationValidationIgniteException;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -67,7 +67,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
     @Override
     public CompletableFuture<Void> update(String cfgUpdate) {
         if (cfgUpdate.isBlank()) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Empty configuration"));
+            return CompletableFuture.failedFuture(new ConfigurationParseException("Empty configuration."));
         }
 
         Config config;
@@ -75,24 +75,22 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
         try {
             config = ConfigFactory.parseString(cfgUpdate);
         } catch (ConfigException.Parse e) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException(e));
+            return CompletableFuture.failedFuture(new ConfigurationParseException("Failed to parse configuration.", e));
         }
 
         return registry.change(HoconConverter.hoconSource(config.root(), registry.keyIgnorer()))
                 .exceptionally(e -> {
-                    if (e instanceof CompletionException) {
-                        e = e.getCause();
+                    e = ExceptionUtils.unwrapCause(e);
+
+                    if (e instanceof ConfigurationChangeException) {
+                        e =  e.getCause();
                     }
 
-                    if (e instanceof IllegalArgumentException) {
-                        throw (RuntimeException) e;
-                    } else if (e instanceof ConfigurationValidationException) {
-                        throw (RuntimeException) e;
-                    } else if (e instanceof ConfigurationChangeException) {
-                        throw (RuntimeException) e.getCause();
-                    } else {
-                        throw new IgniteException(INTERNAL_ERR, e);
+                    if (e instanceof ConfigurationValidationException) {
+                        throw new ConfigurationValidationIgniteException((ConfigurationValidationException) e);
                     }
+
+                    throw new ConfigurationApplyException("Failed to apply configuration.", e);
                 });
     }
 }

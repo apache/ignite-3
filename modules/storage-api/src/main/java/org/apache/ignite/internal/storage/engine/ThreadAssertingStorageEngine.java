@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
+import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
+
+import java.util.Set;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.wrapper.Wrapper;
 
 /**
  * {@link StorageEngine} that wraps storages it creates to perform thread assertions read/write operations.
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingStorageEngine implements StorageEngine {
+public class ThreadAssertingStorageEngine implements StorageEngine, Wrapper {
     private final StorageEngine storageEngine;
 
     /** Constructor. */
@@ -41,6 +46,8 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
+        assertThreadAllowsToWrite();
+
         storageEngine.start();
     }
 
@@ -61,7 +68,21 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
-        storageEngine.dropMvTable(tableId);
+    public void destroyMvTable(int tableId) {
+        assertThreadAllowsToWrite();
+
+        storageEngine.destroyMvTable(tableId);
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        assertThreadAllowsToRead();
+
+        return storageEngine.tableIdsOnDisk();
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(storageEngine);
     }
 }

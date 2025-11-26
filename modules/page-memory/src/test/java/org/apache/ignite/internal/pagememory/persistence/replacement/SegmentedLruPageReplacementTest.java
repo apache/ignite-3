@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.ReplacementMode.SEGMENTED_LRU;
+
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 
 /**
  * Tests for the {@link SegmentedLruPageReplacementPolicy}.
  */
 public class SegmentedLruPageReplacementTest extends AbstractPageReplacementTest {
     @Override
-    protected String replacementMode() {
-        return SEGMENTED_LRU_REPLACEMENT_MODE;
+    protected ReplacementMode replacementMode() {
+        return SEGMENTED_LRU;
     }
 }

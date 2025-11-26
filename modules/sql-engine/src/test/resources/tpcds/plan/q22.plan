@@ -1,0 +1,44 @@
+Sort
+    collation: [QOH ASC, I_PRODUCT_NAME ASC, I_BRAND ASC, I_CLASS ASC, I_CATEGORY ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      fieldNames: [I_PRODUCT_NAME, I_BRAND, I_CLASS, I_CATEGORY, QOH]
+      group: [I_PRODUCT_NAME, I_BRAND, I_CLASS, I_CATEGORY]
+      groupSets: [[I_PRODUCT_NAME, I_BRAND, I_CLASS, I_CATEGORY], [I_PRODUCT_NAME, I_BRAND, I_CLASS], [I_PRODUCT_NAME, I_BRAND], [I_PRODUCT_NAME], []]
+      aggregation: [AVG(INV_QUANTITY_ON_HAND)]
+      est: (rows=1733562)
+    Project
+        fieldNames: [I_PRODUCT_NAME, I_BRAND, I_CLASS, I_CATEGORY, INV_QUANTITY_ON_HAND]
+        projection: [I_PRODUCT_NAME, I_BRAND, I_CLASS, I_CATEGORY, INV_QUANTITY_ON_HAND]
+        est: (rows=2936250)
+      HashJoin
+          predicate: =(INV_ITEM_SK, I_ITEM_SK)
+          type: inner
+          est: (rows=2936250)
+        HashJoin
+            predicate: =(INV_DATE_SK, D_DATE_SK)
+            type: inner
+            est: (rows=2936250)
+          Exchange
+              distribution: single
+              est: (rows=11745000)
+            TableScan
+                table: PUBLIC.INVENTORY
+                fieldNames: [INV_DATE_SK, INV_ITEM_SK, INV_QUANTITY_ON_HAND]
+                est: (rows=11745000)
+          Exchange
+              distribution: single
+              est: (rows=18262)
+            TableScan
+                table: PUBLIC.DATE_DIM
+                predicate: SEARCH(D_MONTH_SEQ, Sarg[[1186..1197]])
+                fieldNames: [D_DATE_SK, D_MONTH_SEQ]
+                est: (rows=18262)
+        Exchange
+            distribution: single
+            est: (rows=18000)
+          TableScan
+              table: PUBLIC.ITEM
+              fieldNames: [I_ITEM_SK, I_BRAND, I_CLASS, I_CATEGORY, I_PRODUCT_NAME]
+              est: (rows=18000)

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -157,7 +157,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
     @Override
     @Test
-    public void cancelBatch() throws InterruptedException {
+    public void cancelBatch() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
@@ -205,13 +205,13 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         assertThat(txManager().pending(), is(0));
     }
 
-    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) throws InterruptedException {
+    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) {
         CancelHandle cancelHandle = CancelHandle.create();
 
         // Run statement in another thread
         CompletableFuture<long[]> f = execute.apply(cancelHandle.token());
 
-        waitUntilRunningQueriesCount(greaterThan(0));
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
         assertThat(f.isDone(), is(false));
 
         cancelHandle.cancelAsync();
@@ -223,7 +223,12 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        waitForCondition(() -> txManager().pending() == 0, 5000);
+        assertThat(txManager().pending(), is(0));
+
+        // Cancellation future is completed before query is deregistered.
+        // Let's wait until all signs of query are wiped out to avoid interference
+        // between several executions of this method.
+        waitUntilRunningQueriesCount(equalTo(0));
     }
 
     private static class DrainResultSet implements Executable {

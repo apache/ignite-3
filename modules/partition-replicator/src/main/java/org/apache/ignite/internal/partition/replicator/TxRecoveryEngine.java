@@ -25,10 +25,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Transaction recovery logic.
@@ -38,14 +38,14 @@ public class TxRecoveryEngine {
     private final ClusterNodeResolver clusterNodeResolver;
 
     private final ReplicationGroupId replicationGroupId;
-    private final Function<ClusterNode, PendingTxPartitionEnlistment> abandonedTxRecoveryEnlistmentFactory;
+    private final Function<InternalClusterNode, PendingTxPartitionEnlistment> abandonedTxRecoveryEnlistmentFactory;
 
     /** Constructor. */
     public TxRecoveryEngine(
             TxManager txManager,
             ClusterNodeResolver clusterNodeResolver,
             ReplicationGroupId replicationGroupId,
-            Function<ClusterNode, PendingTxPartitionEnlistment> abandonedTxRecoveryEnlistmentFactory
+            Function<InternalClusterNode, PendingTxPartitionEnlistment> abandonedTxRecoveryEnlistmentFactory
     ) {
         this.txManager = txManager;
         this.clusterNodeResolver = clusterNodeResolver;
@@ -69,10 +69,8 @@ public class TxRecoveryEngine {
                         replicationGroupId,
                         false,
                         false,
-                        Map.of(
-                                replicationGroupId,
-                                abandonedTxRecoveryEnlistmentFactory.apply(clusterNodeResolver.getById(senderId))
-                        ),
+                        true,
+                        Map.of(replicationGroupId, abandonedTxRecoveryEnlistmentFactory.apply(clusterNodeResolver.getById(senderId))),
                         txId
                 )
                 .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));

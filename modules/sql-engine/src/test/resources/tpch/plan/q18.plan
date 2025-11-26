@@ -1,0 +1,77 @@
+Sort
+    collation: [O_TOTALPRICE DESC, O_ORDERDATE ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      fieldNames: [C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE, EXPR$5]
+      group: [C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE]
+      aggregation: [SUM(L_QUANTITY)]
+      est: (rows=2017368)
+    Project
+        fieldNames: [C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE, L_QUANTITY]
+        projection: [C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE, L_QUANTITY]
+        est: (rows=3000608)
+      MergeJoin
+          predicate: =(O_ORDERKEY, L_ORDERKEY)
+          fieldNames: [L_ORDERKEY, L_QUANTITY, O_ORDERKEY, O_CUSTKEY, O_TOTALPRICE, O_ORDERDATE, L_ORDERKEY$0, C_CUSTKEY, C_NAME]
+          type: inner
+          est: (rows=3000608)
+        Exchange
+            distribution: single
+            est: (rows=6001215)
+          IndexScan
+              table: PUBLIC.LINEITEM
+              index: L_OK
+              type: SORTED
+              fieldNames: [L_ORDERKEY, L_QUANTITY]
+              collation: [L_ORDERKEY ASC]
+              est: (rows=6001215)
+        HashJoin
+            predicate: =(C_CUSTKEY, O_CUSTKEY)
+            type: inner
+            est: (rows=600121)
+          Sort
+              collation: [O_ORDERKEY ASC]
+              est: (rows=600121)
+            HashJoin
+                predicate: =(O_ORDERKEY, L_ORDERKEY)
+                type: inner
+                est: (rows=600121)
+              Exchange
+                  distribution: single
+                  est: (rows=1500000)
+                TableScan
+                    table: PUBLIC.ORDERS
+                    fieldNames: [O_ORDERKEY, O_CUSTKEY, O_TOTALPRICE, O_ORDERDATE]
+                    est: (rows=1500000)
+              Project
+                  fieldNames: [L_ORDERKEY]
+                  projection: [L_ORDERKEY]
+                  est: (rows=600121)
+                Filter
+                    predicate: >($f1, 300.00)
+                    est: (rows=600121)
+                  ReduceHashAggregate
+                      fieldNames: [L_ORDERKEY, $f1]
+                      group: [L_ORDERKEY]
+                      aggregation: [SUM(_ACC0)]
+                      est: (rows=1200243)
+                    Exchange
+                        distribution: single
+                        est: (rows=1200243)
+                      MapHashAggregate
+                          fieldNames: [L_ORDERKEY, _ACC0, _GROUP_ID]
+                          group: [L_ORDERKEY]
+                          aggregation: [SUM(L_QUANTITY)]
+                          est: (rows=1200243)
+                        TableScan
+                            table: PUBLIC.LINEITEM
+                            fieldNames: [L_ORDERKEY, L_QUANTITY]
+                            est: (rows=6001215)
+          Exchange
+              distribution: single
+              est: (rows=150000)
+            TableScan
+                table: PUBLIC.CUSTOMER
+                fieldNames: [C_CUSTKEY, C_NAME]
+                est: (rows=150000)

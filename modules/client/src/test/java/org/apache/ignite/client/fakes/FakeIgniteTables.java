@@ -359,7 +359,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                 });
     }
 
-
     /**
      * Gets the schema.
      *

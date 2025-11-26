@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.bounds;
 
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,7 +42,7 @@ public abstract class SearchBounds {
     /**
      * Condition.
      */
-    public RexNode condition() {
+    public @Nullable RexNode condition() {
         return condition;
     }
 
@@ -49,6 +50,11 @@ public abstract class SearchBounds {
      * Returns bounds type.
      */
     public abstract Type type();
+
+    /**
+     * Applies this shuttle and returns a new SearchBounds instance if changed.
+     */
+    public abstract SearchBounds accept(RexShuttle shuttle);
 
     /**
      * Search bounds type.

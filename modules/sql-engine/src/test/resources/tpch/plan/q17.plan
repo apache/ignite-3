@@ -1,0 +1,86 @@
+Project
+    fieldNames: [AVG_YEARLY]
+    projection: [/($f0, 7.0:DECIMAL(2, 1))]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [SUM(L_EXTENDEDPRICE)]
+      est: (rows=1)
+    Project
+        fieldNames: [L_EXTENDEDPRICE]
+        projection: [L_EXTENDEDPRICE]
+        est: (rows=332734)
+      Filter
+          predicate: <(CAST(L_QUANTITY):DECIMAL(31, 17) NOT NULL, EXPR$0)
+          est: (rows=332734)
+        CorrelatedNestedLoopJoin
+            predicate: true
+            type: left
+            correlates: [$cor1]
+            est: (rows=665469)
+          Project
+              fieldNames: [L_QUANTITY, L_EXTENDEDPRICE, P_PARTKEY]
+              projection: [L_QUANTITY, L_EXTENDEDPRICE, P_PARTKEY]
+              est: (rows=665469)
+            MergeJoin
+                predicate: =(P_PARTKEY, L_PARTKEY)
+                type: inner
+                est: (rows=665469)
+              Exchange
+                  distribution: single
+                  est: (rows=6001215)
+                IndexScan
+                    table: PUBLIC.LINEITEM
+                    index: L_PK_SK
+                    type: SORTED
+                    fieldNames: [L_PARTKEY, L_QUANTITY, L_EXTENDEDPRICE]
+                    collation: [L_PARTKEY ASC]
+                    est: (rows=6001215)
+              Exchange
+                  distribution: single
+                  est: (rows=22178)
+                Sort
+                    collation: [P_PARTKEY ASC]
+                    est: (rows=22178)
+                  TableScan
+                      table: PUBLIC.PART
+                      predicate: AND(=(P_BRAND, _UTF-8'Brand#23'), =(P_CONTAINER, _UTF-8'MED BOX'))
+                      fieldNames: [P_PARTKEY, P_BRAND, P_CONTAINER]
+                      est: (rows=22178)
+          Project
+              fieldNames: [EXPR$0]
+              projection: [*(0.2:DECIMAL(2, 1), $f0)]
+              est: (rows=1)
+            Project
+                fieldNames: [$f0]
+                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(29, 16), DECIMAL_DIVIDE(f0_0, f1_1, 29, 16))]
+                est: (rows=1)
+              ReduceSortAggregate
+                  fieldNames: [f0_0, f1_1]
+                  collation: []
+                  group: []
+                  aggregation: [SUM(0), $SUM0(1)]
+                  est: (rows=1)
+                Project
+                    fieldNames: [0, 1]
+                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                    est: (rows=1)
+                  Exchange
+                      distribution: single
+                      est: (rows=1)
+                    MapSortAggregate
+                        fieldNames: [_ACC0, _ACC1]
+                        collation: []
+                        group: []
+                        aggregation: [SUM(L_QUANTITY), COUNT(L_QUANTITY)]
+                        est: (rows=1)
+                      IndexScan
+                          table: PUBLIC.LINEITEM
+                          index: L_PK_SK
+                          type: SORTED
+                          predicate: =(L_PARTKEY, $cor1.P_PARTKEY)
+                          searchBounds: [ExactBounds [bound=$cor1.P_PARTKEY]]
+                          fieldNames: [L_QUANTITY]
+                          collation: []
+                          est: (rows=1998405)

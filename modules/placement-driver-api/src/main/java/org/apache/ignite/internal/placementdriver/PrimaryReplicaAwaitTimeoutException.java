@@ -22,12 +22,13 @@ import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * The exception is thrown when a primary replica await process has times out.
  */
-public class PrimaryReplicaAwaitTimeoutException extends IgniteInternalException {
+public class PrimaryReplicaAwaitTimeoutException extends IgniteInternalException implements RetriableTransactionException {
     private static final long serialVersionUID = -1450288033816499192L;
 
     /**

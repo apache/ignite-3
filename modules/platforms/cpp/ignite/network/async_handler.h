@@ -27,7 +27,7 @@
 namespace ignite::network {
 
 /**
- * Asynchronous events handler.
+ * Asynchronous event handler.
  */
 class async_handler {
 public:
@@ -45,7 +45,7 @@ public:
     virtual void on_connection_success(const end_point &addr, uint64_t id) = 0;
 
     /**
-     * Callback that called on error during connection establishment.
+     * Callback that called on error during a connection establishment.
      *
      * @param addr Connection address.
      * @param err Error.
@@ -53,15 +53,15 @@ public:
     virtual void on_connection_error(const end_point &addr, ignite_error err) = 0;
 
     /**
-     * Callback that called on error during connection establishment.
+     * Callback that called on error during a connection establishment.
      *
      * @param id Async client ID.
-     * @param err Error. Can be null if connection closed without error.
+     * @param err Error. Can be null if connection closed without an error.
      */
     virtual void on_connection_closed(uint64_t id, std::optional<ignite_error> err) = 0;
 
     /**
-     * Callback that called when new message is received.
+     * Callback that called when a new message is received.
      *
      * @param id Async client ID.
      * @param msg Received message.
@@ -69,7 +69,7 @@ public:
     virtual void on_message_received(uint64_t id, bytes_view msg) = 0;
 
     /**
-     * Callback that called when message is sent.
+     * Callback that called when a message is sent.
      *
      * @param id Async client ID.
      */

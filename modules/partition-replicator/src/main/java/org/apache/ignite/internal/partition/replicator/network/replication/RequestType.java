@@ -21,46 +21,53 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
  * Transaction operation type.
  */
 public enum RequestType {
-    RW_GET,
+    RW_GET(0),
 
-    RW_GET_ALL,
+    RW_GET_ALL(1),
 
-    RW_DELETE,
+    RW_DELETE(2),
 
-    RW_DELETE_ALL,
+    RW_DELETE_ALL(3),
 
-    RW_DELETE_EXACT,
+    RW_DELETE_EXACT(4),
 
-    RW_DELETE_EXACT_ALL,
+    RW_DELETE_EXACT_ALL(5),
 
-    RW_INSERT,
+    RW_INSERT(6),
 
-    RW_INSERT_ALL,
+    RW_INSERT_ALL(7),
 
-    RW_UPSERT,
+    RW_UPSERT(8),
 
-    RW_UPSERT_ALL,
+    RW_UPSERT_ALL(9),
 
-    RW_REPLACE,
+    RW_REPLACE(10),
 
-    RW_REPLACE_IF_EXIST,
+    RW_REPLACE_IF_EXIST(11),
 
-    RW_GET_AND_DELETE,
+    RW_GET_AND_DELETE(12),
 
-    RW_GET_AND_REPLACE,
+    RW_GET_AND_REPLACE(13),
 
-    RW_GET_AND_UPSERT,
+    RW_GET_AND_UPSERT(14),
 
-    RW_SCAN,
+    RW_SCAN(15),
 
-    RO_GET,
+    RO_GET(16),
 
-    RO_GET_ALL,
+    RO_GET_ALL(17),
 
-    RO_SCAN;
+    RO_SCAN(18);
 
-    /** Cached array with all enum values. */
-    private static final RequestType[] VALUES = values();
+    private final int requestTypeId;
+
+    RequestType(int id) {
+        this.requestTypeId = id;
+    }
+
+    public int id() {
+        return requestTypeId;
+    }
 
     /**
      * Returns {@code true} if the operation is an RW read.
@@ -101,16 +108,34 @@ public enum RequestType {
     }
 
     /**
-     * Returns the enumerated value from its ordinal.
+     * Returns the enumerated value from its id.
      *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     * @param requestTypeId Id of request type.
+     * @throws IllegalArgumentException If there is no request type with such id.
      */
-    public static RequestType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+    public static RequestType fromId(int requestTypeId) throws IllegalArgumentException {
+        switch (requestTypeId) {
+            case 0: return RW_GET;
+            case 1: return RW_GET_ALL;
+            case 2: return RW_DELETE;
+            case 3: return RW_DELETE_ALL;
+            case 4: return RW_DELETE_EXACT;
+            case 5: return RW_DELETE_EXACT_ALL;
+            case 6: return RW_INSERT;
+            case 7: return RW_INSERT_ALL;
+            case 8: return RW_UPSERT;
+            case 9: return RW_UPSERT_ALL;
+            case 10: return RW_REPLACE;
+            case 11: return RW_REPLACE_IF_EXIST;
+            case 12: return RW_GET_AND_DELETE;
+            case 13: return RW_GET_AND_REPLACE;
+            case 14: return RW_GET_AND_UPSERT;
+            case 15: return RW_SCAN;
+            case 16: return RO_GET;
+            case 17: return RO_GET_ALL;
+            case 18: return RO_SCAN;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + requestTypeId);
         }
-
-        return VALUES[ordinal];
     }
 }

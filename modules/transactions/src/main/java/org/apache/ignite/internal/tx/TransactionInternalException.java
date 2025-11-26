@@ -44,7 +44,6 @@ public class TransactionInternalException extends IgniteInternalException {
         super(code, message);
     }
 
-
     /**
      * Creates a new transaction exception with the given trace id, error code and cause.
      *

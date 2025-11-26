@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAM
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -64,8 +63,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -289,11 +286,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", randomUUID(), clock.now());
 
-        if (enabledColocation()) {
-            verify(indexBuilder).stopBuildingZoneIndexes(zoneId(), PARTITION_ID);
-        } else {
-            verify(indexBuilder).stopBuildingTableIndexes(tableId(), PARTITION_ID);
-        }
+        verify(indexBuilder).stopBuildingZoneIndexes(zoneId(), PARTITION_ID);
     }
 
     @Test
@@ -357,7 +350,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     ) {
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, leaseholderId, startTime));
 
-        assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaId(partitionId), replicaMetaFuture), willCompleteSuccessfully());
+        assertThat(placementDriver.setPrimaryReplicaMeta(0, new ZonePartitionId(zoneId(), partitionId), replicaMetaFuture),
+                willCompleteSuccessfully());
     }
 
     private int tableId() {
@@ -376,21 +370,13 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
     }
 
-    private ReplicationGroupId replicaId(int partitionId) {
-        if (enabledColocation()) {
-            return new ZonePartitionId(zoneId(), partitionId);
-        } else {
-            return new TablePartitionId(tableId(), partitionId);
-        }
-    }
-
     private ReplicaMeta replicaMetaForOneSecond(String leaseholder, UUID leaseholderId, HybridTimestamp startTime) {
         return new Lease(
                 leaseholder,
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                enabledColocation() ? new ZonePartitionId(zoneId(), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
+                new ZonePartitionId(zoneId(), PARTITION_ID)
         );
     }
 }

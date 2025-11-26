@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -51,7 +53,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.server.counter.CounterListener;
@@ -143,15 +145,33 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create(service.nodeName(), Loza.CLIENT_POOL_NAME, logger()));
 
-        client1 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, executor, cmdMarshaller);
+        ThrottlingContextHolder throttlingContextHolder = throttlingContextHolder();
+
+        client1 = RaftGroupServiceImpl.start(
+                COUNTER_GROUP_ID_0,
+                clientNode1,
+                FACTORY,
+                raftConfiguration,
+                memberConfiguration,
+                executor,
+                cmdMarshaller,
+                throttlingContextHolder
+        );
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
-        client2 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, executor, cmdMarshaller);
+        client2 = RaftGroupServiceImpl.start(
+                COUNTER_GROUP_ID_1,
+                clientNode2,
+                FACTORY,
+                raftConfiguration,
+                memberConfiguration,
+                executor,
+                cmdMarshaller,
+                throttlingContextHolder
+        );
 
         assertTrue(waitForTopology(service, 3, 10_000));
         assertTrue(waitForTopology(clientNode1, 3, 10_000));

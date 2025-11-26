@@ -59,7 +59,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
@@ -490,19 +489,9 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Set<ColumnType> schemaTypes = fullSchema.columns().stream()
                 .map(Column::type)
                 .map(NativeType::spec)
-                .map(NativeTypeSpec::asColumnType)
                 .collect(Collectors.toSet());
 
-        for (ColumnType columnType : ColumnType.values()) {
-            if (columnType == ColumnType.NULL) {
-                continue;
-            }
-
-            if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-17373: Not supported yet.
-                continue;
-            }
-
+        for (ColumnType columnType : NativeType.nativeTypes()) {
             assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);
         }
     }

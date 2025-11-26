@@ -123,7 +123,7 @@ public class IndexManager implements IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.lowWatermark = lowWatermark;
 
-        handleMetastoreEventVv = new IncrementalVersionedValue<>(registry);
+        handleMetastoreEventVv = new IncrementalVersionedValue<>("IndexManager#handleMetastoreEvent", registry);
     }
 
     @Override
@@ -211,8 +211,8 @@ public class IndexManager implements IgniteComponent {
 
             if (LOG.isInfoEnabled()) {
                 LOG.info(
-                        "Creating local index: name={}, id={}, tableId={}, token={}",
-                        index.name(), indexId, tableId, causalityToken
+                        "Creating local index: name={}, id={}, tableId={}, token={}, type={}",
+                        index.name(), indexId, tableId, causalityToken, index.indexType()
                 );
             }
 

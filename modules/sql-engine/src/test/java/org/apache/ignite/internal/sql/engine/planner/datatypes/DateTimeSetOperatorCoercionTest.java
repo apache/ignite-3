@@ -234,7 +234,6 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofJustType(Types.TIMESTAMP_9)),
 
-
                 // TIMESTAMP LTZ 3
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3)
@@ -272,7 +271,6 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofJustType(Types.TIMESTAMP_9)),
-
 
                 // TIMESTAMP LTZ 9
 

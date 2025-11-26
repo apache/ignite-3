@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 using Common;
 using Ignite.Sql;
@@ -133,7 +134,8 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             _transaction,
             statement,
             cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, selectorOptions),
-            queryData.Parameters)
+            queryData.Parameters,
+            CancellationToken.None)
             .ConfigureAwait(false);
 
         return resultSet;

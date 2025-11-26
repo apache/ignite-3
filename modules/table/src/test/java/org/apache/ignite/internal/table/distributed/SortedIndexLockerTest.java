@@ -65,7 +65,7 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
                 PARTITION_ID,
                 new StorageSortedIndexDescriptor(
                         1,
-                        List.of(new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true)),
+                        List.of(new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true, false)),
                         false
                 )
         );

@@ -69,10 +69,11 @@ public class WatchListenerInhibitor {
     }
 
     /**
-     * Starts inhibiting events.
+     * Starts inhibiting events. Schema sync-related safe time (currently implemented as Catalog safe time) will keep advancing
+     * unless some Catalog update event notification is inhibited.
      */
     public void startInhibit() {
-        watchProcessor.enqueue(() -> inhibitFuture, () -> "<inhibiting>");
+        watchProcessor.enqueue(() -> inhibitFuture, f -> {}, () -> "<inhibiting>");
     }
 
     /**

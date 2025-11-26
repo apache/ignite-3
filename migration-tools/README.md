@@ -78,11 +78,10 @@ migration-tools \
     list-caches
 ```
 
-TODO: GG-41668
 ```
-Found 2 caches
-CacheName:Country CacheId:-1672482954 
-CacheName:City CacheId:2100619 
+id      name
+-1672482954      Country
+2100619      City
 ```
 
 Show `list-caches` command help:

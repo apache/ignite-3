@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrap;
 import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
@@ -96,8 +95,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         localExecutionManager = executionManager(localNode);
         remoteExecutionManager = executionManager(remoteNode);
 
-        localNodes = Set.of(unwrapIgniteImpl(localNode).node());
-        remoteNodes = Set.of(unwrapIgniteImpl(remoteNode).node());
+        localNodes = Set.of(clusterNode(localNode));
+        remoteNodes = Set.of(clusterNode(remoteNode));
     }
 
     private static ExecutionManager executionManager(Ignite ignite) {
@@ -237,7 +236,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     @Test
     void failover() throws Exception {
         TestingJobExecution<Object> execution = submit(
-                Set.of(unwrapIgniteImpl(CLUSTER.node(1)).node(), unwrapIgniteImpl(CLUSTER.node(2)).node())
+                Set.of(clusterNode(1), clusterNode(2))
         );
         UUID jobId = execution.idSync();
 

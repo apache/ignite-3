@@ -51,7 +51,7 @@ public final class CatalogToSchemaDescriptorConverter {
         Map<String, NativeType> tmp = new HashMap<>(types.size(), 1.0f);
 
         for (NativeType type : types) {
-            if (!type.spec().fixedLength()) {
+            if (!type.fixedLength()) {
                 continue;
             }
 
@@ -81,7 +81,6 @@ public final class CatalogToSchemaDescriptorConverter {
 
                 return NativeTypes.stringOf(strLen);
 
-            case "BYTES":
             case "BYTE_ARRAY":
                 int blobLen = columnDescriptor.length();
 
@@ -175,8 +174,8 @@ public final class CatalogToSchemaDescriptorConverter {
         return new SchemaDescriptor(
                 tableVersion,
                 columns,
-                tableDescriptor.primaryKeyColumns(),
-                tableDescriptor.colocationColumns()
+                tableDescriptor.primaryKeyColumnNames(),
+                tableDescriptor.colocationColumnNames()
         );
     }
 

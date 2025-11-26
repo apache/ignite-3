@@ -20,11 +20,14 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
@@ -66,6 +69,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .app("CREATE TABLE assignments(developer_id INT, project_id INT, primary key(developer_id, project_id));").nl()
                 .app("CREATE TABLE t1 (id INT PRIMARY KEY, val INT);").nl()
                 .app("CREATE INDEX t1_idx on t1(val DESC);").nl()
+                .app("CREATE INDEX t1_val_asc_nulls_last_idx on t1(val ASC NULLS LAST);").nl()
+                .app("CREATE INDEX t1_val_asc_nulls_first_idx on t1(val ASC NULLS FIRST);").nl()
                 .toString();
 
         sqlScript(query);
@@ -193,7 +198,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(matchesOnce("KeyValueGet.*?table: \\[PUBLIC, DEVELOPER\\]"))
+                .matches(matchesOnce("KeyValueGet.*?table: PUBLIC\\.DEVELOPER"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -595,7 +600,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsUnion(true))
+                .matches(containsUnion())
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(3, "Bach", 1, "Leipzig", 55)
@@ -619,7 +624,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByDepId() {
         assertQuery("SELECT depid FROM Developer ORDER BY depId")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .matches(not(containsSubPlan("Sort")))
                 .returns(1) // Bach
                 .returns(2) // Beethoven or Strauss
@@ -685,7 +690,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     void ensurePartitionStreamsAreMergedCorrectlyWithRegardToProjection() {
         assertQuery("SELECT /*+ FORCE_INDEX(" + NAME_CITY_IDX + ") */ name FROM Developer WHERE id % 2 = 0 ORDER BY name DESC")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
                 .matches(not(containsSubPlan("Sort")))
                 .returns("Zimmer")
                 .returns("Stravinsky")
@@ -705,7 +710,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByNameCityDesc() {
         assertQuery("SELECT ID, NAME, DEPID, CITY, AGE FROM Developer ORDER BY name DESC, city DESC")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
                 .matches(not(containsSubPlan("Sort")))
                 .returns(16, "Zimmer", 15, "", -1)
                 .returns(19, "Yiruma", 18, "", -1)
@@ -791,7 +796,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testIndexedNullableFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val > 4")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .returns(5, 5)
                 .returns(6, 6)
                 .check();
@@ -805,14 +814,16 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId < 2 AND depId < ?")
                 .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=null, upperBound=$LEAST2(2, ?0)"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=null, lowerInclude=true," 
+                        + " shouldComputeUpper=true, upperBound=$LEAST2(2, ?0), upperInclude=false]]"))
                 .returns(3)
                 .check();
 
         assertQuery("SELECT id FROM Developer WHERE depId > 19 AND depId > ?")
                 .withParams(20)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(19, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(19, ?0)," 
+                        + " lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -820,7 +831,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId > 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(20, ?0)," 
+                        + " lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -828,7 +840,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId >= 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(20, ?0)," 
+                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
                 .returns(21)
                 .returns(22)
                 .returns(23)
@@ -837,7 +850,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? AND ? AND depId > 19")
                 .withParams(19, 21)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(?0, 19), upperBound=?1"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(?0, 19)," 
+                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=?1, upperInclude=true]]"))
                 .returns(21)
                 .returns(22)
                 .check();
@@ -846,8 +860,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
                 .withParams("Bach")
                 .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65536) "
-                        + "CHARACTER SET \"UTF-8\", ?0), upperBound=_UTF-8'D':VARCHAR(65536) CHARACTER SET \"UTF-8\""))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(_UTF-8'B', ?0)," 
+                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=_UTF-8'D', upperInclude=true]]"))
                 .returns(2)
                 .returns(6)
                 .check();
@@ -860,7 +874,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testIndexedNullableFieldLessThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val <= 5")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .returns(3, 3)
                 .returns(4, 4)
                 .returns(5, 5)
@@ -915,7 +933,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullCondition1() {
         assertQuery("SELECT * FROM T1 WHERE val is null")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .matches(not(containsUnion()))
                 .returns(1, null)
                 .returns(2, null)
@@ -927,7 +949,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testNullCondition2() {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .matches(not(containsUnion()))
                 .returns(1, null)
                 .returns(2, null)
@@ -942,7 +968,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testNullCondition3() {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .matches(not(containsUnion()))
                 .returns(1, null)
                 .returns(2, null)
@@ -1007,7 +1037,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                     .check();
 
             assertQuery("SELECT i1, i2 FROM t WHERE i2 IS NULL ORDER BY i1")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_IDX"))
                     .returns(1, null)
                     .returns(3, null)
                     .check();
@@ -1172,6 +1202,35 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    void nullsOrderingTest() {
+        assertQuery("SELECT val FROM t1 ORDER BY val ASC NULLS FIRST")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX"))
+                .matches(not(matches("Sort")))
+                .ordered()
+                .returns(null)
+                .returns(null)
+                .returns(null)
+                .returns(3)
+                .returns(4)
+                .returns(5)
+                .returns(6)
+                .check();
+
+        assertQuery("SELECT val FROM t1 ORDER BY val ASC NULLS LAST")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"))
+                .matches(not(matches("Sort")))
+                .ordered()
+                .returns(3)
+                .returns(4)
+                .returns(5)
+                .returns(6)
+                .returns(null)
+                .returns(null)
+                .returns(null)
+                .check();
+    }
+
     @ParameterizedTest
     @CsvSource(value = {
             // type, literal
@@ -1205,5 +1264,31 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         sql(format("CREATE INDEX tt_idx_{} ON tt_{} (field_1)", id, id));
 
         sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
+    }
+
+    @Test
+    void testHashIndexMultiBounds() {
+        int id = TABLE_IDX.getAndIncrement();
+
+        sql(format("CREATE TABLE tt_{} (id INT PRIMARY KEY, val1 INT, val2 INT)", id));
+        sql(format("CREATE INDEX tt_val_id_idx_hash ON tt_{} USING HASH(val1, val2)", id));
+        sql(format("INSERT INTO tt_{} values (1, 1, 1), (2, 2, 2), (3, 3, 3), (7, 4, 7)," 
+                + " (17, 3, 17), (27, 6, 27), (-38, 7, -38)", id));
+
+        assertQuery(format("SELECT /*+ FORCE_INDEX(tt_val_id_idx_hash) */ id, val1 " 
+                + " FROM tt_{} WHERE val1 IN (2, 3, 6) AND val2 IN (3, 17, -38)", id))
+                .matches(containsIndexScan("PUBLIC", "T", "TT_VAL_ID_IDX_HASH"))
+                .returns(3, 3)
+                .returns(17, 3)
+                .check();
+
+        // Ensure that attempting to use range multi-bounds on a hash index doesn't produce errors.
+        assertQuery(format("SELECT /*+ FORCE_INDEX(TT_{}_PK) */ id, val1 "
+                + " FROM tt_{} WHERE id < 2 OR id = 3", id, id))
+                .matches(containsTableScan("PUBLIC", "T"))
+                .returns(-38, 7)
+                .returns(1, 1)
+                .returns(3, 3)
+                .check();
     }
 }

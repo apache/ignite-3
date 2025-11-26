@@ -25,4 +25,8 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 public class SystemDistributedExtensionConfigurationSchema extends ClusterConfigurationSchema {
     @ConfigValue
     public SystemDistributedConfigurationSchema system;
+
+    @ConfigValue
+    @Deprecated
+    public MetaStorageConfigurationSchema metaStorage;
 }

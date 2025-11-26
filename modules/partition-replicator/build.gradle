@@ -46,6 +46,7 @@ dependencies {
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-failure-handler')
     testImplementation project(':ignite-table')
+    testImplementation project(':ignite-rocksdb-common')
     testImplementation testFixtures(project(':ignite-catalog'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-core'))
@@ -56,9 +57,8 @@ dependencies {
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-raft'))
+    testImplementation testFixtures(project(':ignite-distribution-zones'))
 
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -95,11 +95,14 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation project(':ignite-sql-engine-api') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-sql-engine') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-system-view-api') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-system-view') // TODO: IGNITE-22522 - remove.

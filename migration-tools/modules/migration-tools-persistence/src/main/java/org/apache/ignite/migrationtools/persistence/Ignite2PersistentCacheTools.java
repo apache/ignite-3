@@ -20,6 +20,7 @@ package org.apache.ignite.migrationtools.persistence;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -34,17 +35,20 @@ import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.lang.GridCursor;
+import org.apache.ignite.migrationtools.persistence.exceptions.MigrateCacheException;
 import org.apache.ignite.migrationtools.persistence.mappers.CacheDataRowProcessor;
+import org.apache.ignite.migrationtools.persistence.utils.pubsub.BasicProcessor;
 import org.apache.ignite.migrationtools.persistence.utils.pubsub.StreamerPublisher;
 import org.apache.ignite.migrationtools.sql.SqlDdlGenerator;
 import org.apache.ignite.migrationtools.tablemanagement.SchemaUtils;
 import org.apache.ignite.migrationtools.types.converters.StaticTypeConverterFactory;
 import org.apache.ignite.migrationtools.types.converters.TypeConverterFactory;
+import org.apache.ignite3.catalog.definitions.TableDefinition;
 import org.apache.ignite3.client.IgniteClient;
 import org.apache.ignite3.internal.client.table.ClientSchema;
 import org.apache.ignite3.internal.client.table.ClientTable;
-import org.apache.ignite3.lang.util.IgniteNameUtils;
 import org.apache.ignite3.table.DataStreamerItem;
+import org.apache.ignite3.table.QualifiedName;
 import org.apache.ignite3.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -184,18 +188,24 @@ public class Ignite2PersistentCacheTools {
                 .orElseThrow(() -> new RuntimeException("Could not find the requested cache: " + cacheName));
 
         // TODO: GG-40802 Allow injecting custom aliases/fieldNameForColumn mappings
-        String quotedName = IgniteNameUtils.quoteIfNeeded(cacheName);
-        @Nullable ClientTable table = (ClientTable) client.tables().table(quotedName);
+        QualifiedName qualifiedName = SqlDdlGenerator.qualifiedName(cacheCfg);
+        @Nullable ClientTable table = (ClientTable) client.tables().table(qualifiedName);
         SqlDdlGenerator.GenerateTableResult tableDefinition = sqlGenerator.generate(cacheCfg);
-        Map<String, String> columnToFieldMappings = tableDefinition.fieldNameForColumnMappings();
+        Map<String, String> columnToFieldMappings = tableDefinition.fieldToColumnMappings();
         if (table == null) {
+            TableDefinition tblDef = tableDefinition.tableDefinition();
+            if (!"PUBLIC".equals(tblDef.schemaName())) {
+                client.sql().executeAsync(null, "CREATE SCHEMA IF NOT EXISTS " + tblDef.schemaName() + ";").join();
+            }
+
             table = (ClientTable) client.catalog()
-                    .createTableAsync(tableDefinition.tableDefinition())
+                    .createTableAsync(tblDef)
                     .join();
         }
 
         var view = table.keyValueView();
         ClientSchema schema = SchemaUtils.getLatestSchemaForTable(table).join();
+        String tableName = table.name();
 
         // TODO: GG-40802 Allow more control on the converters side.
         // Call dump table
@@ -206,6 +216,24 @@ public class Ignite2PersistentCacheTools {
                                 schema,
                                 columnToFieldMappings,
                                 StaticTypeConverterFactory.DEFAULT_INSTANCE))
+                        .map(itemPublisher -> {
+                                var p = new BasicProcessor<DataStreamerItem<Map.Entry<Tuple, Tuple>>,
+                                        DataStreamerItem<Map.Entry<Tuple, Tuple>>>() {
+                                    @Override
+                                    public void onNext(DataStreamerItem<Entry<Tuple, Tuple>> item) {
+                                        subscriber.onNext(item);
+                                    }
+
+                                    @Override
+                                    public void onError(Throwable throwable) {
+                                        super.onError(new MigrateCacheException(cacheName, tableName, throwable));
+                                    }
+                                };
+
+                                itemPublisher.subscribe(p);
+                                return p;
+                            }
+                        )
                         .map((itemPublisher) -> view.streamData(itemPublisher, null)));
     }
 

@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.BIND_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
@@ -50,6 +51,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -87,8 +90,15 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
             ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
+            ProtocolBitmaskFeature.COMPUTE_TASK_ID,
             ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS,
-            ProtocolBitmaskFeature.TX_DELAYED_ACKS
+            ProtocolBitmaskFeature.TX_DELAYED_ACKS,
+            ProtocolBitmaskFeature.TX_PIGGYBACK,
+            ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
+            ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
+            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT
     ));
 
     /** Connection id generator.
@@ -184,6 +194,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
+            NodeProperties nodeProperties,
             Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
@@ -202,6 +213,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
+        assert nodeProperties != null;
         assert partitionOperationsExecutor != null;
 
         this.queryProcessor = queryProcessor;
@@ -218,7 +230,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
-                lowWatermark);
+                lowWatermark, nodeProperties);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
@@ -338,12 +350,17 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                                 ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                             }
 
-                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, connectionId);
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
+                                    bootstrapFactory.handshakeEventLoopSwitcher(),
+                                    configuration,
+                                    connectionId
+                            );
 
                             //noinspection TestOnlyProblems
                             handler = messageHandler;
 
                             ch.pipeline().addLast(
+                                    new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                                     new ClientMessageDecoder(),
                                     messageHandler
                             );
@@ -387,11 +404,11 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                // TODO IGNITE-21614
+                String address = addresses.length == 0 ? "" : addresses[0];
                 result.completeExceptionally(
                         new IgniteException(
-                                PORT_IN_USE_ERR,
-                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                BIND_ERR,
+                                "Cannot start thin client connector endpoint at address=" + address + ", port=" + port,
                                 bindFut.cause())
                 );
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {
@@ -414,7 +431,11 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         return result;
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, long connectionId) {
+    private ClientInboundMessageHandler createInboundMessageHandler(
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            ClientConnectorView configuration,
+            long connectionId
+    ) {
         return new ClientInboundMessageHandler(
                 igniteTables,
                 txManager,
@@ -433,7 +454,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
                 Map.of(),
-                computeExecutors::remove
+                computeExecutors::remove,
+                handshakeEventLoopSwitcher
         );
     }
 

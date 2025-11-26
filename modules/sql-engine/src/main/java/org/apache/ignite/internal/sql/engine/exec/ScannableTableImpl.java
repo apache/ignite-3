@@ -18,24 +18,28 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 
-import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,36 +60,16 @@ public class ScannableTableImpl implements ScannableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-            RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
-
-        Publisher<BinaryRow> pub;
-        TxAttributes txAttributes = ctx.txAttributes();
+            RowFactory<RowT> rowFactory, int @Nullable [] requiredColumns) {
+        TxContext txContext = transactionalContextFrom(ctx.txAttributes(), partWithConsistencyToken.enlistmentConsistencyToken());
 
         int partId = partWithConsistencyToken.partId();
 
-        if (txAttributes.readOnly()) {
-            HybridTimestamp readTime = txAttributes.time();
-
-            assert readTime != null;
-
-            pub = internalTable.scan(partId, txAttributes.id(), readTime, ctx.localNode(),
-                    txAttributes.coordinatorId());
-        } else {
-            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken());
-
-            pub = internalTable.scan(
-                    partId,
-                    txAttributes.id(),
-                    txAttributes.commitPartition(),
-                    txAttributes.coordinatorId(),
-                    recipient,
-                    null,
-                    null,
-                    null,
-                    0,
-                    null
-            );
-        }
+        Publisher<BinaryRow> pub = internalTable.scan(
+                partId,
+                ctx.localNode(),
+                OperationContext.create(txContext)
+        );
 
         TableRowConverter rowConverter = converterFactory.create(requiredColumns, partId);
 
@@ -101,12 +85,12 @@ public class ScannableTableImpl implements ScannableTable {
             int indexId,
             List<String> columns,
             @Nullable RangeCondition<RowT> cond,
-            @Nullable BitSet requiredColumns
+            int @Nullable [] requiredColumns
     ) {
-        TxAttributes txAttributes = ctx.txAttributes();
+        TxContext txContext = transactionalContextFrom(ctx.txAttributes(), partWithConsistencyToken.enlistmentConsistencyToken());
+
         RowHandler<RowT> handler = rowFactory.handler();
 
-        Publisher<BinaryRow> pub;
         BinaryTuplePrefix lower;
         BinaryTuplePrefix upper;
 
@@ -120,43 +104,19 @@ public class ScannableTableImpl implements ScannableTable {
             lower = toBinaryTuplePrefix(columns.size(), handler, cond.lower());
             upper = toBinaryTuplePrefix(columns.size(), handler, cond.upper());
 
-            flags |= (cond.lowerInclude()) ? GREATER_OR_EQUAL : 0;
-            flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : 0;
+            flags |= (cond.lowerInclude()) ? GREATER_OR_EQUAL : GREATER;
+            flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : LESS;
         }
 
         int partId = partWithConsistencyToken.partId();
 
-        if (txAttributes.readOnly()) {
-            HybridTimestamp readTime = txAttributes.time();
-
-            assert readTime != null;
-
-            pub = internalTable.scan(
-                    partId,
-                    txAttributes.id(),
-                    readTime,
-                    ctx.localNode(),
-                    indexId,
-                    lower,
-                    upper,
-                    flags,
-                    requiredColumns,
-                    txAttributes.coordinatorId()
-            );
-        } else {
-            pub = internalTable.scan(
-                    partId,
-                    txAttributes.id(),
-                    txAttributes.commitPartition(),
-                    txAttributes.coordinatorId(),
-                    new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
-                    indexId,
-                    lower,
-                    upper,
-                    flags,
-                    requiredColumns
-            );
-        }
+        Publisher<BinaryRow> pub = internalTable.scan(
+                partId,
+                ctx.localNode(),
+                indexId,
+                IndexScanCriteria.range(lower, upper, flags),
+                OperationContext.create(txContext)
+        );
 
         TableRowConverter rowConverter = converterFactory.create(requiredColumns, partId);
 
@@ -172,11 +132,11 @@ public class ScannableTableImpl implements ScannableTable {
             int indexId,
             List<String> columns,
             RowT key,
-            @Nullable BitSet requiredColumns
+            int @Nullable [] requiredColumns
     ) {
-        TxAttributes txAttributes = ctx.txAttributes();
+        TxContext txContext = transactionalContextFrom(ctx.txAttributes(), partWithConsistencyToken.enlistmentConsistencyToken());
+
         RowHandler<RowT> handler = rowFactory.handler();
-        Publisher<BinaryRow> pub;
 
         BinaryTuple keyTuple = handler.toBinaryTuple(key);
 
@@ -185,33 +145,13 @@ public class ScannableTableImpl implements ScannableTable {
 
         int partId = partWithConsistencyToken.partId();
 
-        if (txAttributes.readOnly()) {
-            HybridTimestamp readTime = txAttributes.time();
-
-            assert readTime != null;
-
-            pub = internalTable.lookup(
-                    partId,
-                    txAttributes.id(),
-                    readTime,
-                    ctx.localNode(),
-                    indexId,
-                    keyTuple,
-                    null,
-                    txAttributes.coordinatorId()
-            );
-        } else {
-            pub = internalTable.lookup(
-                    partId,
-                    txAttributes.id(),
-                    txAttributes.commitPartition(),
-                    txAttributes.coordinatorId(),
-                    new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
-                    indexId,
-                    keyTuple,
-                    null
-            );
-        }
+        Publisher<BinaryRow> pub = internalTable.scan(
+                partId,
+                ctx.localNode(),
+                indexId,
+                IndexScanCriteria.lookup(keyTuple),
+                OperationContext.create(txContext)
+        );
 
         TableRowConverter rowConverter = converterFactory.create(requiredColumns, partId);
 
@@ -224,7 +164,7 @@ public class ScannableTableImpl implements ScannableTable {
             InternalTransaction tx,
             RowFactory<RowT> rowFactory,
             RowT key,
-            BitSet requiredColumns
+            int @Nullable [] requiredColumns
     ) {
         assert tx != null;
 
@@ -252,12 +192,36 @@ public class ScannableTableImpl implements ScannableTable {
             RowHandler<RowT> handler,
             @Nullable RowT prefix
     ) {
-        if (prefix == null || handler.columnCount(prefix) == 0) {
+        if (prefix == null) {
             return null;
         }
 
-        assert searchBoundSize >= handler.columnCount(prefix) : "Invalid range condition";
+        int columnsCount = handler.columnCount(prefix);
+
+        if (columnsCount == 0) {
+            return null;
+        }
+
+        if (searchBoundSize < columnsCount) {
+            throw new IllegalStateException("Invalid range condition");
+        }
 
         return BinaryTuplePrefix.fromBinaryTuple(searchBoundSize, handler.toBinaryTuple(prefix));
+    }
+
+    private static TxContext transactionalContextFrom(TxAttributes txAttributes, long enlistmentConsistencyToken) {
+        if (txAttributes.readOnly()) {
+            HybridTimestamp timestamp = txAttributes.time();
+
+            assert timestamp != null;
+
+            return TxContext.readOnly(txAttributes.id(), txAttributes.coordinatorId(), timestamp);
+        }
+
+        ReplicationGroupId commitPartition = txAttributes.commitPartition();
+
+        assert commitPartition != null;
+
+        return TxContext.readWrite(txAttributes.id(), txAttributes.coordinatorId(), commitPartition, enlistmentConsistencyToken);
     }
 }

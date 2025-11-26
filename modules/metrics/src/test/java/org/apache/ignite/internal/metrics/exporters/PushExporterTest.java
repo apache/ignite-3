@@ -33,6 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestPushExporterConfigurationSchema;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestPushExporterView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -110,12 +111,12 @@ public class PushExporterTest extends BaseIgniteAbstractTest {
     /**
      * Test push exporter.
      */
-    private static class TestPushExporter extends PushMetricExporter<TestPushExporterView> {
+    private static class TestPushExporter extends PushMetricExporter {
         final AtomicBoolean metricReported = new AtomicBoolean(false);
 
         @Override
-        protected long period() {
-            return configuration().periodMillis();
+        protected long period(ExporterView exporterView) {
+            return ((TestPushExporterView) exporterView).periodMillis();
         }
 
         @Override
@@ -129,7 +130,7 @@ public class PushExporterTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public synchronized void stop() {
+        public void stop() {
             super.stop();
 
             metricReported.set(false);

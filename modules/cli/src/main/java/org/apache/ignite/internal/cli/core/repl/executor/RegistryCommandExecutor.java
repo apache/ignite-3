@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
-
 import java.util.ArrayList;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;

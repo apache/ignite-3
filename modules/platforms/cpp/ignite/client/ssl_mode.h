@@ -28,7 +28,7 @@ namespace ignite
 /** SSL Mode. */
 enum class ssl_mode
 {
-    /** Do not try establish SSL/TLS connection. */
+    /** Do not try to establish SSL/TLS connection. */
     DISABLE = 0,
 
     /** Try to establish SSL/TLS connection. Fail if the server does not support SSL/TLS. */

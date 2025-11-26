@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -44,7 +45,9 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.sql.IgniteSql;
@@ -54,6 +57,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -81,6 +85,8 @@ public class TableImpl implements TableViewInternal {
 
     private final int pkId;
 
+    private volatile TableStatsStalenessConfiguration configuration;
+
     /**
      * Constructor.
      *
@@ -99,7 +105,8 @@ public class TableImpl implements TableViewInternal {
             MarshallersProvider marshallers,
             IgniteSql sql,
             FailureProcessor failureProcessor,
-            int pkId
+            int pkId,
+            TableStatsStalenessConfiguration tableStatsStalenessConfiguration
     ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
@@ -108,6 +115,7 @@ public class TableImpl implements TableViewInternal {
         this.sql = sql;
         this.failureProcessor = failureProcessor;
         this.pkId = pkId;
+        this.configuration = tableStatsStalenessConfiguration;
     }
 
     /**
@@ -136,7 +144,8 @@ public class TableImpl implements TableViewInternal {
                 new ReflectionMarshallersProvider(),
                 sql,
                 new FailureManager(new NoOpFailureHandler()),
-                pkId
+                pkId,
+                new TableStatsStalenessConfiguration(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
         );
 
         this.schemaReg = schemaReg;
@@ -230,15 +239,15 @@ public class TableImpl implements TableViewInternal {
         return tbl.partitionId(keyRow);
     }
 
-    /** Returns a supplier of index storage wrapper factories for given partition. */
+    @Override
     public TableIndexStoragesSupplier indexStorageAdapters(int partitionId) {
         return () -> {
             var factories = new ArrayList<>(indexWrapperById.values());
 
             var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
 
-            for (int i = 0; i < factories.size(); i++) {
-                TableSchemaAwareIndexStorage storage = factories.get(i).getStorage(partitionId);
+            for (IndexWrapper factory : factories) {
+                TableSchemaAwareIndexStorage storage = factory.getStorage(partitionId);
 
                 if (storage != null) {
                     adapters.put(storage.id(), storage);
@@ -249,7 +258,7 @@ public class TableImpl implements TableViewInternal {
         };
     }
 
-    /** Returns a supplier of index locker factories for given partition. */
+    @Override
     public Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId) {
         return () -> {
             List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
@@ -274,10 +283,7 @@ public class TableImpl implements TableViewInternal {
     ) {
         int indexId = indexDescriptor.id();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
-        partitions.stream().forEach(partitionId -> {
-            tbl.storage().createHashIndex(partitionId, indexDescriptor);
-        });
+        partitions.stream().forEach(partitionId -> tbl.storage().createHashIndex(partitionId, indexDescriptor));
 
         indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
@@ -291,10 +297,7 @@ public class TableImpl implements TableViewInternal {
     ) {
         int indexId = indexDescriptor.id();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
-        partitions.stream().forEach(partitionId -> {
-            tbl.storage().createSortedIndex(partitionId, indexDescriptor);
-        });
+        partitions.stream().forEach(partitionId -> tbl.storage().createSortedIndex(partitionId, indexDescriptor));
 
         indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
@@ -309,5 +312,22 @@ public class TableImpl implements TableViewInternal {
                         failureProcessor.process(new FailureContext(e, String.format("Unable to destroy index %s", indexId)));
                     }
                 });
+    }
+
+    @Override
+    public TableMetricSource metrics() {
+        return tbl.metrics();
+    }
+
+    @Override
+    public void updateStalenessConfiguration(@Nullable Double staleRowsFraction, @Nullable Long minStaleRowsCount) {
+        TableStatsStalenessConfiguration configuration = this.configuration;
+
+        this.configuration = configuration.update(staleRowsFraction, minStaleRowsCount);
+    }
+
+    @Override
+    public TableStatsStalenessConfiguration stalenessConfiguration() {
+        return configuration;
     }
 }

@@ -50,9 +50,9 @@ class CreateFromDefinitionTest {
         ZoneDefinition zone = ZoneDefinition.builder("zone_test")
                 .ifNotExists()
                 .partitions(3)
-                .replicas(3)
+                .replicas(5)
+                .quorumSize(2)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
@@ -62,9 +62,9 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
+                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';")
         );
     }
@@ -76,7 +76,6 @@ class CreateFromDefinitionTest {
                 .partitions(1)
                 .replicas(3)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
@@ -131,31 +130,32 @@ class CreateFromDefinitionTest {
         );
     }
 
-
     @Test
     void createFromTableBuilderQuoteNames() {
-        TableDefinition table = TableDefinition.builder("builder test")
+        TableDefinition table = TableDefinition.builder("\"builder test\"")
                 .ifNotExists()
-                .schema("sche ma")
+                .schema("\"sche ma\"")
                 .colocateBy("id", "id str")
                 .zone("zone test")
                 .columns(
                         column("id", INTEGER),
                         column("id str", VARCHAR),
-                        column("f name", ColumnType.varchar(20).notNull().defaultValue("a"))
+                        column("f name", ColumnType.varchar(20).notNull().defaultValue("a")),
+                        column("\"LName\"", VARCHAR)
                 )
                 .primaryKey("id", "id str")
-                .index("id str", "f name")
+                .index("id str", "f name", "\"LName\"")
                 .index("ix test", IndexType.SORTED, column("id str").asc(), column("f name").sort(DESC_NULLS_LAST))
                 .build();
 
         assertThat(
                 createTable(table),
                 is("CREATE TABLE IF NOT EXISTS \"sche ma\".\"builder test\""
-                        + " (ID INT, \"id str\" VARCHAR, \"f name\" VARCHAR(20) NOT NULL DEFAULT 'a', PRIMARY KEY (ID, \"id str\"))"
-                        + " COLOCATE BY (ID, \"id str\") ZONE \"zone test\";"
+                        + " (ID INT, \"id str\" VARCHAR, \"f name\" VARCHAR(20) NOT NULL DEFAULT 'a', \"LName\" VARCHAR,"
+                        + " PRIMARY KEY (ID, \"id str\")) COLOCATE BY (ID, \"id str\") ZONE \"zone test\";"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS \"ix_id str_f name\" ON \"sche ma\".\"builder test\" (\"id str\", \"f name\");"
+                        + "CREATE INDEX IF NOT EXISTS \"ix_id str_f name_\"\"LName\"\"\" ON \"sche ma\".\"builder test\" (\"id str\","
+                        + " \"f name\", \"LName\");"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS \"ix test\" ON \"sche ma\".\"builder test\" USING SORTED"
                         + " (\"id str\" ASC, \"f name\" DESC NULLS LAST);")
@@ -235,6 +235,37 @@ class CreateFromDefinitionTest {
                 createTable(tableDefinition),
                 is("CREATE TABLE PUBLIC.PRIMITIVE_TEST (ID INT, PRIMARY KEY (ID));")
         );
+    }
+
+    @Test
+    void createFromDefinitionDifferentCase() {
+        String tableName = "Table";
+        String quoted = String.format("\"%s\"", tableName);
+
+        {
+            TableDefinition definition = TableDefinition.builder(quoted)
+                    .columns(column("id", INTEGER), column("col1", VARCHAR), column("col2", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            assertThat(
+                    createTable(definition),
+                    is("CREATE TABLE PUBLIC.\"Table\" (ID INT, COL1 VARCHAR, COL2 VARCHAR, PRIMARY KEY (ID));")
+            );
+        }
+
+        {
+            TableDefinition definition = TableDefinition.builder(quoted)
+                    .schema("\"Nice\"")
+                    .columns(column("id", INTEGER), column("col1", VARCHAR), column("col2", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            assertThat(
+                    createTable(definition),
+                    is("CREATE TABLE \"Nice\".\"Table\" (ID INT, COL1 VARCHAR, COL2 VARCHAR, PRIMARY KEY (ID));")
+            );
+        }
     }
 
     @SuppressWarnings("unused")

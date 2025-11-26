@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -367,16 +368,13 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         assertThat(deleteAllFut, willCompleteSuccessfully());
 
         List<BinaryRow> res = deleteAllFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
+        List<Tuple> keyTups = res.stream().map(r -> TableRow.tuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, r))).collect(toList());
 
         for (BinaryRowEx key : keyRows) {
-            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+            Tuple tuple = TableRow.tuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key));
 
-            if (i % 2 == 1) {
-                Tuple rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+            if (tuple.longValue("key") % 2 == 1) {
+                assertTrue(keyTups.contains(tuple));
             }
         }
     }
@@ -393,18 +391,13 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         assertThat(deleteAllExactFut, willCompleteSuccessfully());
 
         List<BinaryRow> res = deleteAllExactFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
+        List<Tuple> tups = res.stream().map(r -> TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, r))).collect(toList());
 
         for (BinaryRowEx key : rowsToLookup) {
-            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+            Tuple tuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key));
 
-            if (i % 2 == 1) {
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            if (tuple.longValue("key") % 2 == 1) {
+                assertTrue(tups.contains(tuple));
             }
         }
     }
@@ -421,18 +414,15 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         assertThat(insertAllFut, willCompleteSuccessfully());
 
         List<BinaryRow> res = insertAllFut.join();
+        List<Tuple> tups = res.stream().map(r -> TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, r))).collect(toList());
 
-        Iterator<BinaryRow> resIter = res.iterator();
+        assertEquals(rowsToLookup.size(), res.size() * 2, "Expecting the half returned");
 
         for (BinaryRowEx key : rowsToLookup) {
-            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+            Tuple tuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key));
 
-            if (i % 2 == 0) {
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            if (tuple.longValue("key") % 2 == 0) {
+                assertTrue(tups.contains(tuple));
             }
         }
     }
@@ -511,7 +501,7 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
 
         var keyRows = new ArrayList<BinaryRowEx>();
 
-        for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < 16; i++) {
             keyRows.add(keyOnly ? createKeyRow(i) : createKeyValueRow(i, i, "some string row" + i));
 
             if (i % 2 == 0) {
@@ -540,7 +530,6 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         assertEquals(15, retrievedItems.size());
     }
 
-
     /**
      * Scans all table entries.
      *
@@ -560,8 +549,10 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         InternalTransaction roTx =
                 (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
 
+        OperationContext operationContext = OperationContext.create(TxContext.readOnly(roTx));
+
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
+            Publisher<BinaryRow> res = internalTable.scan(i, node.node(), operationContext);
 
             res.subscribe(new Subscriber<>() {
                 @Override

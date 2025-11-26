@@ -140,13 +140,16 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
+        // Assign common task ID to all jobs
+        UUID taskId = UUID.randomUUID();
+
         if (target instanceof AllNodesBroadcastJobTarget) {
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
             Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
 
             //noinspection unchecked
             CompletableFuture<SubmitResult>[] futures = nodes.stream()
-                    .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, arg))
+                    .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, taskId, arg))
                     .toArray(CompletableFuture[]::new);
 
             return mapSubmitFutures(futures, descriptor, cancellationToken);
@@ -158,7 +161,7 @@ public class ClientCompute implements IgniteCompute {
                     .thenCompose(replicas -> {
                         //noinspection unchecked
                         CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
-                                .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                                .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, taskId, arg))
                                 .toArray(CompletableFuture[]::new);
 
                         return mapSubmitFutures(futures, descriptor, cancellationToken);
@@ -208,7 +211,7 @@ public class ClientCompute implements IgniteCompute {
         if (target instanceof AnyNodeJobTarget) {
             AnyNodeJobTarget anyNodeJobTarget = (AnyNodeJobTarget) target;
 
-            return executeOnAnyNodeAsync(anyNodeJobTarget.nodes(), descriptor, arg);
+            return executeOnAnyNodeAsync(anyNodeJobTarget.nodes(), descriptor, null, arg);
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -317,14 +320,18 @@ public class ClientCompute implements IgniteCompute {
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
                 w -> packTask(w.out(), taskDescriptor, arg),
                 ClientCompute::unpackSubmitTaskResult,
-                null,
-                null,
+                (String) null,
                 null,
                 true
         );
     }
 
-    private <T, R> CompletableFuture<SubmitResult> executeOnAnyNodeAsync(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor, T arg) {
+    private <T, R> CompletableFuture<SubmitResult> executeOnAnyNodeAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable UUID taskId,
+            @Nullable T arg
+    ) {
         ClusterNode node = randomNode(nodes);
 
         return ch.serviceAsync(
@@ -332,10 +339,10 @@ public class ClientCompute implements IgniteCompute {
                 w -> {
                     packNodeNames(w.out(), nodes);
                     packJob(w, descriptor, arg);
+                    packTaskId(w, taskId);
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
-                null,
                 null,
                 true
         );
@@ -406,6 +413,7 @@ public class ClientCompute implements IgniteCompute {
                     keyWriter.accept(outputChannel, schema);
 
                     packJob(outputChannel, descriptor, arg);
+                    packTaskId(outputChannel, null); // Placeholder for a possible future usage
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
@@ -417,14 +425,15 @@ public class ClientCompute implements IgniteCompute {
             QualifiedName tableName,
             Partition partition,
             JobDescriptor<T, R> descriptor,
+            UUID taskId,
             @Nullable T arg
     ) {
-        return getTable(tableName).thenCompose(table -> executePartitioned(table, partition, descriptor, arg)
+        return getTable(tableName).thenCompose(table -> executePartitioned(table, partition, descriptor, taskId, arg)
                 .handle((res, err) -> handleMissingTable(
                         tableName,
                         res,
                         err,
-                        () -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                        () -> doExecutePartitionedAsync(tableName, partition, descriptor, taskId, arg))
                 )
                 .thenCompose(Function.identity()));
     }
@@ -433,6 +442,7 @@ public class ClientCompute implements IgniteCompute {
             ClientTable t,
             Partition partition,
             JobDescriptor<T, R> descriptor,
+            UUID taskId,
             @Nullable T arg
     ) {
         int partitionId = ((HashPartition) partition).partitionId();
@@ -446,6 +456,7 @@ public class ClientCompute implements IgniteCompute {
                     w.packInt(partitionId);
 
                     packJob(outputChannel, descriptor, arg);
+                    packTaskId(outputChannel, taskId);
                 },
                 ClientCompute::unpackSubmitResult,
                 PartitionAwarenessProvider.of(partitionId),
@@ -514,6 +525,12 @@ public class ClientCompute implements IgniteCompute {
                 .isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB);
 
         ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out());
+    }
+
+    private static void packTaskId(PayloadOutputChannel out, @Nullable UUID taskId) {
+        if (out.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.COMPUTE_TASK_ID)) {
+            out.out().packUuidNullable(taskId);
+        }
     }
 
     private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {

@@ -17,31 +17,15 @@
 
 package org.apache.ignite.internal.metrics;
 
-import java.util.Map;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-
 /**
  * Read-only metrics registry.
  */
-public class MetricProvider {
-    /** Metrics registry. */
-    private MetricRegistry metricRegistry;
-
-    /**
-     * Constructor.
-     *
-     * @param metricRegistry Metrics registry.
-     */
-    public MetricProvider(MetricRegistry metricRegistry) {
-        this.metricRegistry = metricRegistry;
-    }
-
+@FunctionalInterface
+public interface MetricProvider {
     /**
      * Returns a map of (metricSetName -> metricSet) pairs with available metrics from {@link MetricRegistry}.
      *
-     * @return map of metrics
+     * @return Metrics snapshot.
      */
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
-        return metricRegistry.metricSnapshot();
-    }
+    MetricSnapshot snapshot();
 }

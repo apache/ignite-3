@@ -21,7 +21,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
 /**
@@ -41,7 +41,7 @@ public class TimerManager implements Scheduler {
             .poolName(name) //
             .coreThreads(workerNum) //
             .enableMetric(true) //
-            .threadFactory(new NamedThreadFactory(name, true, LOG)) //
+            .threadFactory(IgniteThreadFactory.createWithFixedPrefix(name, true, LOG)) //
             .build();
     }
 

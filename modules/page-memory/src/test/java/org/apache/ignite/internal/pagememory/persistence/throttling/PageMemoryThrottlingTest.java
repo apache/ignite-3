@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -41,34 +40,37 @@ import java.nio.file.OpenOption;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakePartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -84,7 +86,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests {@link PersistentPageMemory} and {@link PagesWriteThrottlePolicy} interactions.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static final int PAGE_SIZE = 4096;
 
@@ -99,11 +101,10 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static PageIoRegistry ioRegistry;
 
     // We use very small readLock timeout here on purpose.
-    @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeoutMillis = 50}")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
-
-    @InjectConfiguration("mock.engine = aipersist")
-    private StorageProfileConfiguration profileConfig;
+    private CheckpointConfiguration checkpointConfig = CheckpointConfiguration.builder()
+            .checkpointThreads(1)
+            .readLockTimeoutMillis(() -> 50)
+            .build();
 
     private FilePageStoreManager pageStoreManager;
 
@@ -114,6 +115,9 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private FileIoFactory fileIoFactory;
 
     private DataRegion<PersistentPageMemory> dataRegion;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @BeforeAll
     static void beforeAll() {
@@ -132,7 +136,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         FailureManager failureManager = mock(FailureManager.class);
         when(failureManager.process(any())).thenThrow(new AssertionError("Unexpected error"));
 
-        fileIoFactory = spy(new AsyncFileIoFactory());
+        fileIoFactory = spy(new RandomAccessFileIoFactory());
         pageStoreManager = new FilePageStoreManager("test", workDir, fileIoFactory, PAGE_SIZE, failureManager);
 
         List<DataRegion<PersistentPageMemory>> dataRegions = new CopyOnWriteArrayList<>();
@@ -149,20 +153,20 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 dataRegions,
                 ioRegistry,
                 () -> {},
+                executorService,
+                new CheckpointMetricSource("test"),
                 PAGE_SIZE
         );
 
-        var aiPersistProfileConfig = (PersistentPageMemoryProfileConfiguration) fixConfiguration(profileConfig);
-
         pageMemory = new PersistentPageMemory(
-                aiPersistProfileConfig,
+                PersistentDataRegionConfiguration.builder().pageSize(PAGE_SIZE).size(SEGMENT_SIZE + CHECKPOINT_BUFFER_SIZE).build(),
                 new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 new long[]{SEGMENT_SIZE},
                 CHECKPOINT_BUFFER_SIZE,
                 pageStoreManager,
                 (pageMem, pageId, pageBuf) -> {
-                    checkpointManager.writePageToDeltaFilePageStore(pageMem, pageId, pageBuf);
+                    checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf);
 
                     // Almost the same code that happens in data region, but here the region is mocked.
                     CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
@@ -171,8 +175,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                     checkpointProgress.evictedPagesCounter().incrementAndGet();
                 },
                 checkpointManager.checkpointTimeoutLock(),
-                PAGE_SIZE,
-                new OffheapReadWriteLock(2)
+                new OffheapReadWriteLock(2),
+                checkpointManager.partitionDestructionLockManager()
         );
 
         pageStoreManager.start();
@@ -189,12 +193,17 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         filePageStore.ensure();
 
         pageStoreManager.addStore(groupPartitionId, filePageStore);
-        partitionMetaManager.addMeta(groupPartitionId, partitionMetaManager.readOrCreateMeta(
+        PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                 null,
                 groupPartitionId,
                 filePageStore,
-                ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN)
-        ));
+                ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN),
+                pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
+        );
+
+        partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
+
+        filePageStore.pages(partitionMeta.pageCount());
     }
 
     @AfterEach
@@ -395,7 +404,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         // Unlike regular "for" loop, "forEach" makes "i" effectively final.
         IntStream.range(0, SEGMENT_SIZE / PAGE_SIZE * 2).forEach(i -> runInLock(() -> {
             // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
-            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
             long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
@@ -407,7 +416,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         for (int i = 0; i < pageIds.length * 10; i++) {
             runInLock(() -> {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
-                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
                 long pageId = pageIds[ThreadLocalRandom.current().nextInt(pageIds.length)];
 

@@ -26,10 +26,10 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.StructNativeType;
 
 /** Implementor which implements {@link SqlScalar} returning list of rows. */
 class ValuesImplementor {
@@ -51,12 +51,12 @@ class ValuesImplementor {
     <RowT> SqlScalar<RowT, List<RowT>> implement(List<List<RexLiteral>> values, RelDataType rowType) {
         List<RelDataType> typeList = RelOptUtil.getFieldTypeList(rowType);
 
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+        StructNativeType structNativeType = TypeUtils.structuredTypeFromRelTypeList(typeList);
         List<Class<?>> types = Commons.transform(typeList, type -> Primitives.wrap((Class<?>) typeFactory.getJavaClass(type)));
 
         return context -> {
             List<RowT> results = new ArrayList<>(values.size());
-            RowBuilder<RowT> rowBuilder = context.rowHandler().factory(rowSchema).rowBuilder();
+            RowBuilder<RowT> rowBuilder = context.rowHandler().factory(structNativeType).rowBuilder();
 
             for (List<RexLiteral> row : values) {
                 for (int i = 0; i < types.size(); i++) {

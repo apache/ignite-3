@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.bounds;
 
 import java.util.Objects;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -44,6 +45,19 @@ public class ExactBounds extends SearchBounds {
     @Override
     public Type type() {
         return Type.EXACT;
+    }
+
+    @Override
+    public SearchBounds accept(RexShuttle shuttle) {
+        RexNode condition = condition();
+        RexNode newCondition = shuttle.apply(condition);
+        RexNode newBound = shuttle.apply(bound);
+
+        if (newCondition == condition && newBound == bound) {
+            return this;
+        }
+
+        return new ExactBounds(newCondition, newBound);
     }
 
     /** {@inheritDoc} */

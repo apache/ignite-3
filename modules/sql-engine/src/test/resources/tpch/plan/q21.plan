@@ -1,133 +1,133 @@
-Limit
+Sort
+    collation: [NUMWAIT DESC, S_NAME ASC]
     fetch: 100
-    est. row count: 100
-  Sort
-      collation: [NUMWAIT DESC, S_NAME ASC]
-      fetch: 100
-      est. row count: 100
-    ColocatedSortAggregate
-        group: [S_NAME]
-        aggs: [COUNT()]
-        collation: [S_NAME ASC]
-        est. row count: 332203730726418
-      Project
-          fields: [S_NAME]
-          exprs: [S_NAME]
-          est. row count: 1661018653632089
-        Filter
-            condition: IS NULL(i)
-            est. row count: 1661018653632089
+    est: (rows=100)
+  ColocatedSortAggregate
+      fieldNames: [S_NAME, NUMWAIT]
+      collation: [S_NAME ASC]
+      group: [S_NAME]
+      aggregation: [COUNT()]
+      est: (rows=332203730726418)
+    Project
+        fieldNames: [S_NAME]
+        projection: [S_NAME]
+        est: (rows=1661018653632089)
+      Filter
+          predicate: IS NULL(i)
+          est: (rows=1661018653632089)
+        CorrelatedNestedLoopJoin
+            predicate: true
+            type: left
+            correlates: [$cor5]
+            est: (rows=6644074614528357)
           CorrelatedNestedLoopJoin
-              condition: true
-              joinType: left
-              variablesSet: [$cor5]
-              est. row count: 6644074614528357
-            CorrelatedNestedLoopJoin
-                condition: true
-                joinType: inner
-                variablesSet: [$cor6]
-                est. row count: 66493788407
-              Sort
-                  collation: [S_NAME ASC]
-                  est. row count: 332734
-                Project
-                    fields: [S_NAME, L_ORDERKEY, L_SUPPKEY]
-                    exprs: [S_NAME, L_ORDERKEY, L_SUPPKEY]
-                    est. row count: 332734
+              predicate: true
+              type: inner
+              correlates: [$cor6]
+              est: (rows=66493788407)
+            Sort
+                collation: [S_NAME ASC]
+                est: (rows=332734)
+              Project
+                  fieldNames: [S_NAME, L_ORDERKEY, L_SUPPKEY]
+                  projection: [S_NAME, L_ORDERKEY, L_SUPPKEY]
+                  est: (rows=332734)
+                HashJoin
+                    predicate: =(O_ORDERKEY, L_ORDERKEY)
+                    type: inner
+                    est: (rows=332734)
                   HashJoin
-                      condition: =(O_ORDERKEY, L_ORDERKEY)
-                      joinType: inner
-                      est. row count: 332734
-                    HashJoin
-                        condition: =(S_SUPPKEY, L_SUPPKEY)
-                        joinType: inner
-                        est. row count: 999202
-                      Exchange
-                          distribution: single
-                          est. row count: 3000608
-                        TableScan
-                            table: [PUBLIC, LINEITEM]
-                            filters: >(L_RECEIPTDATE, L_COMMITDATE)
-                            fields: [L_ORDERKEY, L_SUPPKEY, L_COMMITDATE, L_RECEIPTDATE]
-                            est. row count: 3000608
-                      MergeJoin
-                          condition: =(S_NATIONKEY, N_NATIONKEY)
-                          joinType: inner
-                          leftCollation: [S_NATIONKEY ASC]
-                          rightCollation: [S_SUPPKEY ASC]
-                          est. row count: 3330
-                        Exchange
-                            distribution: single
-                            est. row count: 10000
-                          IndexScan
-                              table: [PUBLIC, SUPPLIER]
-                              index: S_NK
-                              type: SORTED
-                              fields: [S_SUPPKEY, S_NAME, S_NATIONKEY]
-                              collation: [S_NATIONKEY ASC]
-                              est. row count: 10000
-                        Exchange
-                            distribution: single
-                            est. row count: 8
-                          Sort
-                              collation: [N_NATIONKEY ASC]
-                              est. row count: 8
-                            TableScan
-                                table: [PUBLIC, NATION]
-                                filters: =(N_NAME, _UTF-8'SAUDI ARABIA')
-                                fields: [N_NATIONKEY, N_NAME]
-                                est. row count: 8
+                      predicate: =(S_SUPPKEY, L_SUPPKEY)
+                      type: inner
+                      est: (rows=999202)
                     Exchange
                         distribution: single
-                        est. row count: 499500
+                        est: (rows=3000608)
                       TableScan
-                          table: [PUBLIC, ORDERS]
-                          filters: =(O_ORDERSTATUS, _UTF-8'F')
-                          fields: [O_ORDERKEY, O_ORDERSTATUS]
-                          est. row count: 499500
-              Project
-                  fields: []
-                  exprs: []
-                  est. row count: 199840
-                ReduceHashAggregate
-                    rowType: RecordType(BOOLEAN i)
-                    group: [i]
-                    est. row count: 199840
+                          table: PUBLIC.LINEITEM
+                          predicate: >(L_RECEIPTDATE, L_COMMITDATE)
+                          fieldNames: [L_ORDERKEY, L_SUPPKEY, L_COMMITDATE, L_RECEIPTDATE]
+                          est: (rows=3000608)
+                    MergeJoin
+                        predicate: =(S_NATIONKEY, N_NATIONKEY)
+                        type: inner
+                        est: (rows=3330)
+                      Exchange
+                          distribution: single
+                          est: (rows=10000)
+                        IndexScan
+                            table: PUBLIC.SUPPLIER
+                            index: S_NK
+                            type: SORTED
+                            fieldNames: [S_SUPPKEY, S_NAME, S_NATIONKEY]
+                            collation: [S_NATIONKEY ASC]
+                            est: (rows=10000)
+                      Exchange
+                          distribution: single
+                          est: (rows=8)
+                        Sort
+                            collation: [N_NATIONKEY ASC]
+                            est: (rows=8)
+                          TableScan
+                              table: PUBLIC.NATION
+                              predicate: =(N_NAME, _UTF-8'SAUDI ARABIA')
+                              fieldNames: [N_NATIONKEY, N_NAME]
+                              est: (rows=8)
                   Exchange
                       distribution: single
-                      est. row count: 199840
-                    MapHashAggregate
-                        group: [i]
-                        aggs: []
-                        est. row count: 199840
-                      IndexScan
-                          table: [PUBLIC, LINEITEM]
-                          index: L_OK
-                          type: SORTED
-                          searchBounds: [ExactBounds [bound=$cor6.L_ORDERKEY]]
-                          filters: AND(=(L_ORDERKEY, $cor6.L_ORDERKEY), <>(L_SUPPKEY, $cor6.L_SUPPKEY))
-                          fields: [i]
-                          projects: [true]
-                          collation: []
-                          est. row count: 999202
-            ReduceHashAggregate
-                rowType: RecordType(BOOLEAN i)
-                group: [i]
-                est. row count: 99920
-              Exchange
-                  distribution: single
-                  est. row count: 99920
-                MapHashAggregate
-                    group: [i]
-                    aggs: []
-                    est. row count: 99920
-                  IndexScan
-                      table: [PUBLIC, LINEITEM]
-                      index: L_OK
-                      type: SORTED
-                      searchBounds: [ExactBounds [bound=$cor5.L_ORDERKEY]]
-                      filters: AND(=(L_ORDERKEY, $cor5.L_ORDERKEY), <>(L_SUPPKEY, $cor5.L_SUPPKEY), >(L_RECEIPTDATE, L_COMMITDATE))
-                      fields: [i]
-                      projects: [true]
-                      collation: []
-                      est. row count: 499601
+                      est: (rows=499500)
+                    TableScan
+                        table: PUBLIC.ORDERS
+                        predicate: =(O_ORDERSTATUS, _UTF-8'F')
+                        fieldNames: [O_ORDERKEY, O_ORDERSTATUS]
+                        est: (rows=499500)
+            Project
+                fieldNames: []
+                projection: []
+                est: (rows=199840)
+              ReduceHashAggregate
+                  fieldNames: [i]
+                  group: [i]
+                  aggregation: []
+                  est: (rows=199840)
+                Exchange
+                    distribution: single
+                    est: (rows=199840)
+                  MapHashAggregate
+                      fieldNames: [i, _GROUP_ID]
+                      group: [i]
+                      aggregation: []
+                      est: (rows=199840)
+                    IndexScan
+                        table: PUBLIC.LINEITEM
+                        index: L_OK
+                        type: SORTED
+                        predicate: AND(=(L_ORDERKEY, $cor6.L_ORDERKEY), <>(L_SUPPKEY, $cor6.L_SUPPKEY))
+                        searchBounds: [ExactBounds [bound=$cor6.L_ORDERKEY]]
+                        fieldNames: [i]
+                        projection: [true]
+                        collation: []
+                        est: (rows=999202)
+          ReduceHashAggregate
+              fieldNames: [i]
+              group: [i]
+              aggregation: []
+              est: (rows=99920)
+            Exchange
+                distribution: single
+                est: (rows=99920)
+              MapHashAggregate
+                  fieldNames: [i, _GROUP_ID]
+                  group: [i]
+                  aggregation: []
+                  est: (rows=99920)
+                IndexScan
+                    table: PUBLIC.LINEITEM
+                    index: L_OK
+                    type: SORTED
+                    predicate: AND(=(L_ORDERKEY, $cor5.L_ORDERKEY), <>(L_SUPPKEY, $cor5.L_SUPPKEY), >(L_RECEIPTDATE, L_COMMITDATE))
+                    searchBounds: [ExactBounds [bound=$cor5.L_ORDERKEY]]
+                    fieldNames: [i]
+                    projection: [true]
+                    collation: []
+                    est: (rows=499601)

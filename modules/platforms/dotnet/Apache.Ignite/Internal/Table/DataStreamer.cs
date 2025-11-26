@@ -213,14 +213,10 @@ internal static class DataStreamer
         Batch<T> Add0(DataStreamerItem<T> item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
             var columnCount = schema0.Columns.Length;
-
-            // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
-            // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
-            Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
+            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSet);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -375,11 +371,11 @@ internal static class DataStreamer
             while (!flushCt.IsCancellationRequested)
             {
                 await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
-                var ts = Stopwatch.GetTimestamp();
 
                 foreach (var batch in batches.Values)
                 {
-                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
+                    if (batch is { Count: > 0, Task.IsCompleted: true } &&
+                        Stopwatch.GetElapsedTime(batch.LastFlush) > options.AutoFlushInterval)
                     {
                         await SendAsync(batch).ConfigureAwait(false);
                     }

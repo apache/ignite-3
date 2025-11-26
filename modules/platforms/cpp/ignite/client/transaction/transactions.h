@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/transaction/transaction.h"
+#include "ignite/client/transaction/transaction_options.h"
 
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
@@ -31,7 +32,7 @@ class transactions_impl;
 }
 
 /**
- * Ignite transactions.
+ * @brief Ignite Transactions API facade.
  */
 class transactions {
     friend class ignite_client;
@@ -43,11 +44,29 @@ public:
     /**
      * Starts a new transaction.
      *
+     * @param tx_opts Transaction options.
+     * @return A new transaction.
+     */
+    IGNITE_API transaction begin(transaction_options tx_opts) {
+        return sync<transaction>([this, &tx_opts](auto callback) { begin_async(tx_opts, std::move(callback)); });
+    }
+
+    /**
+     * Starts a new transaction.
+     *
      * @return A new transaction.
      */
     IGNITE_API transaction begin() {
-        return sync<transaction>([this](auto callback) { begin_async(std::move(callback)); });
+        return begin({});
     }
+
+    /**
+     * Starts a new transaction asynchronously.
+     *
+     * @param tx_opts Transaction options.
+     * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
+     */
+    IGNITE_API void begin_async(transaction_options tx_opts, ignite_callback<transaction> callback);
 
     /**
      * Starts a new transaction asynchronously.

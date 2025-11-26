@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -50,7 +51,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Closure for executing write operations on the storage. All write operations, such as
-     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
+     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite},
      * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
      * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)}) must hold lock on
      * the corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
@@ -86,6 +87,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
          *      {@code false} if lock is not held by the current thread and the attempt to acquire it has failed.
          */
         boolean tryLock(RowId rowId);
+
+        /**
+         * Returns {@code true} if the engine needs resources and the user should consider stopping the execution preemptively.
+         *
+         * <p>This method is intended to prevent stalling critical engine operations (such as checkpointing) when user code
+         * is performing long-running work inside {@link WriteClosure}. User code should check this method periodically
+         * and stop the execution if it returns {@code true}.
+         *
+         * <p>For most storage engines, this method always returns {@code false}. Only engines that require exclusive access
+         * to resources (like {@code aipersist} waiting for checkpoint write lock) will return {@code true} when they need
+         * the resources.
+         *
+         * @return {@code true} if the engine needs resources and the user should release the lock, {@code false} otherwise.
+         */
+        boolean shouldRelease();
     }
 
     /**
@@ -171,58 +187,73 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
-     * In details:
-     * - if there is no uncommitted version, a new uncommitted version is added
-     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
-     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
      *
-     * @param rowId Row id.
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li>If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li>If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * </ul>
+     *
+     * @param rowId Row ID.
      * @param row Table row to update. {@code null} means value removal.
-     * @param txId Transaction id.
-     * @param commitTableOrZoneId Commit table/zone id.
-     * @param commitPartitionId Commit partitionId.
-     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
-     *     exists before this call
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param txId Transaction ID.
+     * @param commitZoneId Commit zone ID.
+     * @param commitPartitionId Commit partition ID.
+     * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException;
+    AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) throws StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * @param rowId Row id.
-     * @return Previous uncommitted row version associated with the row id.
+     * @param rowId Row ID.
+     * @param txId Transaction ID that abort write intent.
+     * @return Result of abort write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
+     * @param txId Transaction ID that commit write intent.
+     * @return Result of commit write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+    CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**
      * Creates a committed version.
-     * In details:
-     * - if there is no uncommitted version, a new committed version is added
-     * - if there is an uncommitted version, this method may fail with a system exception (this method should not be called if there
-     *   is already something uncommitted for the given row).
      *
-     * @param rowId Row id.
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new committed version is added.</li>
+     * <li>If there is an uncommitted version, nothing will happen.</li>
+     * </ul>
+     *
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
+     * @return Result of add write intent committed.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException;
 
     /**
      * Scans all versions of a single row.
@@ -248,10 +279,27 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
      *
-     * @param lowerBound Lower bound.
+     * @param lowerBound Lower bound (inclusive).
      * @throws StorageException If failed to read data from the storage.
      */
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
+
+    /**
+     * Returns the greatest row ID, existing in the storage. {@code null} if the storage is empty.
+     *
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable RowId highestRowId() throws StorageException;
+
+    /**
+     * Returns a batch of rows with subsequent IDs which IDs are greater or equal than the lower bound.
+     *
+     * @param lowerBoundInclusive Lower bound (inclusive).
+     * @param upperBoundInclusive Upper bound (inclusive).
+     * @param limit Maximum number of rows to return.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException;
 
     /**
      * Returns the head of GC queue.

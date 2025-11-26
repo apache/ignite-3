@@ -105,10 +105,23 @@ public interface RaftServer extends IgniteComponent {
     /**
      * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
      *
+     * <p>No durability guarantees are provided. If a node crashes, the storage may come to life.
+     *
      * @param nodeId ID of the Raft node.
      * @param groupOptions Options for this group.
      */
     void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions);
+
+    /**
+     * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
+     *
+     * <p>Destruction is durable: that is, if this method returns and after that the node crashes, after it starts up, the storage
+     * will not be there.
+     *
+     * @param nodeId ID of the Raft node.
+     * @param groupOptions Options for this group.
+     */
+    void destroyRaftNodeStoragesDurably(RaftNodeId nodeId, RaftGroupOptions groupOptions);
 
     /**
      * Returns information about index and term of the given node, or {@code null} if the group is not started.

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.serialization.PerSessionSeriali
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -70,7 +72,6 @@ import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -78,6 +79,8 @@ import org.jetbrains.annotations.TestOnly;
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
+
+    private final boolean longHandlingLoggingEnabled = IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false);
 
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
@@ -119,9 +122,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @Nullable
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
+    private final LocalIpAddresses localIpAddresses = new LocalIpAddresses();
+
     /**
-     * Cache of {@link RecipientInetAddress} of recipient nodes ({@link ClusterNode}) by {@link ClusterNode#id} that are in the topology
-     * and not stale.
+     * Cache of {@link RecipientInetAddress} of recipient nodes ({@link InternalClusterNode}) by {@link InternalClusterNode#id} that are in
+     * the topology and not stale.
      *
      * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
      */
@@ -191,18 +196,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+    public void weakSend(InternalClusterNode recipient, NetworkMessage msg) {
         send(recipient, msg);
     }
 
     @Override
-    public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
-        return send0(recipient, channelType, msg, null);
+    public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+        return send0(recipient, channelType, msg, null, true);
     }
 
     @Override
     public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
-        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+        InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
             return failedFuture(
@@ -210,17 +215,29 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return send0(recipient, channelType, msg, null);
+        return send0(recipient, channelType, msg, null, false);
     }
 
     @Override
-    public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
-        return send0(recipient, type, msg, correlationId);
+    public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+        InternalClusterNode recipient = topologyService.getByAddress(recipientNetworkAddress);
+
+        // Create a fake node for nodes that are not in the topology yet.
+        if (recipient == null) {
+            recipient = new ClusterNodeImpl(null, null, recipientNetworkAddress);
+        }
+
+        return send0(recipient, channelType, msg, null, false);
+    }
+
+    @Override
+    public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
+        return send0(recipient, type, msg, correlationId, true);
     }
 
     @Override
     public CompletableFuture<Void> respond(String recipientConsistentId, ChannelType type, NetworkMessage msg, long correlationId) {
-        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+        InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
             return failedFuture(
@@ -228,18 +245,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return respond(recipient, type, msg, correlationId);
+        return send0(recipient, type, msg, correlationId, false);
     }
 
     @Override
-    public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
-        return invoke0(recipient, type, msg, timeout);
+    public CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+        return invoke0(recipient, type, msg, timeout, true);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelType type, NetworkMessage msg, long timeout) {
-        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+        InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
             return failedFuture(
@@ -247,7 +264,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return invoke0(recipient, type, msg, timeout);
+        return invoke0(recipient, type, msg, timeout, false);
     }
 
     /**
@@ -256,9 +273,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipient Target cluster node.
      * @param msg Message.
      * @param correlationId Correlation id. Not null iff the message is a response to a {@link #invoke} request.
+     * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
+     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return Future of the send operation.
      */
-    private CompletableFuture<Void> send0(ClusterNode recipient, ChannelType type, NetworkMessage msg, @Nullable Long correlationId) {
+    private CompletableFuture<Void> send0(
+            InternalClusterNode recipient,
+            ChannelType type,
+            NetworkMessage msg,
+            @Nullable Long correlationId,
+            boolean strictIdCheck
+    ) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -282,10 +307,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck);
     }
 
-    private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
+    private boolean shouldDropMessage(InternalClusterNode recipient, NetworkMessage msg) {
         BiPredicate<String, NetworkMessage> predicate = dropMessagesPredicate;
 
         return predicate != null && predicate.test(recipient.name(), msg);
@@ -297,9 +322,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipient Target cluster node.
      * @param msg Message.
      * @param timeout Invocation timeout.
+     * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
+     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return A future holding the response or error if the expected response was not received.
      */
-    private CompletableFuture<NetworkMessage> invoke0(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+    private CompletableFuture<NetworkMessage> invoke0(
+            InternalClusterNode recipient,
+            ChannelType type,
+            NetworkMessage msg,
+            long timeout,
+            boolean strictIdCheck
+    ) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -325,7 +358,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck)
+                .thenCompose(unused -> responseFuture);
     }
 
     /**
@@ -335,17 +369,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param type Channel type for send.
      * @param addr Target address.
      * @param message Message.
-     *
+     * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
+     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> sendViaNetwork(
             UUID nodeId,
             ChannelType type,
             InetSocketAddress addr,
-            NetworkMessage message
+            NetworkMessage message,
+            boolean strictIdCheck
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message), outboundExecutor)
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message, strictIdCheck), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
@@ -358,10 +394,31 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         return connectionManager.channel(nodeId, type, addr)
-                .thenComposeToCompletable(sender -> sender.send(
-                        new OutNetworkObject(message, descriptors),
-                        () -> triggerChannelCreation(nodeId, type, addr)
-                ));
+                .thenComposeToCompletable(sender -> {
+                    if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
+                        // The destination node has been rebooted, so it's a different node instance.
+                        throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
+                    }
+
+                    return sender.send(
+                            new OutNetworkObject(message, descriptors),
+                            () -> triggerChannelCreation(nodeId, type, addr)
+                    );
+                })
+                .whenComplete((res, ex) -> {
+                    if (hasCause(ex, CriticalHandshakeException.class)) {
+                        LOG.error(
+                                "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
+                                nodeId, type, addr, connectionManager.localBindAddress()
+                        );
+                    } else if (ex != null && !hasCause(ex, NodeStoppingException.class) && LOG.isInfoEnabled()) {
+                        // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
+                        LOG.info(
+                                "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
+                                ex.getMessage(), nodeId, type, addr, connectionManager.localBindAddress()
+                        );
+                    }
+                });
     }
 
     private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {
@@ -436,22 +493,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
-            long startedNanos = System.nanoTime();
+            long startedNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
-                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
+                    long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                if (tookMillis > 100 && IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false)) {
-                    LOG.warn(
-                            "Processing of {} from {} took {} ms",
-                            LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
-                            inNetworkObject.sender(),
-                            tookMillis
-                    );
+                    if (tookMillis > 100) {
+                        LOG.warn(
+                                "Processing of {} from {} took {} ms",
+                                LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                                inNetworkObject.sender(),
+                                tookMillis
+                        );
+                    }
                 }
             }
         });
@@ -623,13 +682,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Starts the service.
      */
     public void start() {
+        localIpAddresses.start();
+
         new IgniteThread(timeoutWorker).start();
 
         criticalWorkerRegistry.register(outboundExecutor);
 
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 recipientInetAddrByNodeId.remove(member.id());
             }
         });
@@ -743,19 +804,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param recipientNode Target cluster node.
      */
-    @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
-        // Node name is {@code null} if the node has not been added to the topology.
-        if (recipientNode.name() != null) {
+    @Nullable InetSocketAddress resolveRecipientAddress(InternalClusterNode recipientNode) {
+        // Node ID is {@code null} if this is a Scalecube request when the node does not know yet whose this address is.
+        if (recipientNode.id() != null) {
             return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
-        return RecipientInetAddress.create(connectionManager.localAddress(), recipientNode.address()).address();
+        return RecipientInetAddress.create(connectionManager.localBindAddress(), recipientNode.address(), localIpAddresses).address();
     }
 
-    private @Nullable InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
-        assert recipientNode.name() != null : "Node has not been added to the topology: " + recipientNode.id();
+    private @Nullable InetSocketAddress getFromCacheOrCreateResolved(InternalClusterNode recipientNode) {
+        assert recipientNode.id() != null : "Node has not been added to the topology: " + recipientNode.id();
 
-        InetSocketAddress localAddress = connectionManager.localAddress();
+        InetSocketAddress localBindAddress = connectionManager.localBindAddress();
         NetworkAddress recipientAddress = recipientNode.address();
 
         RecipientInetAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, existingAddress) -> {
@@ -763,11 +824,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 return null;
             }
 
-            return existingAddress != null ? existingAddress : RecipientInetAddress.create(localAddress, recipientAddress);
+            return existingAddress != null ? existingAddress
+                    : RecipientInetAddress.create(localBindAddress, recipientAddress, localIpAddresses);
         });
 
         if (address == null) {
-            address = RecipientInetAddress.create(localAddress, recipientAddress);
+            address = RecipientInetAddress.create(localBindAddress, recipientAddress, localIpAddresses);
         }
 
         return address.address();

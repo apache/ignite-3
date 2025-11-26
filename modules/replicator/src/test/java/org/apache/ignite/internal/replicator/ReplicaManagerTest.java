@@ -67,7 +67,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -116,7 +116,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create(nodeName, "partition-operations", log)
+                IgniteThreadFactory.create(nodeName, "partition-operations", log)
         );
 
         RaftGroupOptionsConfigurer partitionsConfigurer = mock(RaftGroupOptionsConfigurer.class);
@@ -136,8 +136,9 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 raftManager,
                 partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
-                ForkJoinPool.commonPool(),
-                replicaGrpId -> nullCompletedFuture()
+                Executors.newSingleThreadScheduledExecutor(),
+                replicaGrpId -> nullCompletedFuture(),
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -146,14 +147,14 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     @AfterEach
     void stopReplicaManager() {
         CompletableFuture<?>[] replicaStopFutures = replicaManager.startedGroups().stream()
-            .map(id -> {
-                try {
-                    return replicaManager.stopReplica(id);
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError(e);
-                }
-            })
-            .toArray(CompletableFuture[]::new);
+                .map(id -> {
+                    try {
+                        return replicaManager.stopReplica(id);
+                    } catch (NodeStoppingException e) {
+                        throw new AssertionError(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 

@@ -53,12 +53,7 @@ public class Person implements Persistable<Long> {
         this.name = name;
         this.direction = Direction.LEFT;
         this.flag = false;
-        this.ref = new AggregateReference<Person, Long>() {
-            @Override
-            public Long getId() {
-                return 0L;
-            }
-        };
+        this.ref = () -> 0L;
     }
 
     @Override

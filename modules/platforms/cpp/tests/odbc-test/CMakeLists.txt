@@ -30,11 +30,12 @@ set(SOURCES
     many_cursors_test.cpp
     meta_queries_test.cpp
     queries_test.cpp
+    ssl_test.cpp
     timeout_test.cpp
     transaction_test.cpp
 )
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client ${ODBC_LIBRARY})
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client-static ${ODBC_LIBRARY})
 
 if (WIN32)
     remove_definitions(-DUNICODE=1)

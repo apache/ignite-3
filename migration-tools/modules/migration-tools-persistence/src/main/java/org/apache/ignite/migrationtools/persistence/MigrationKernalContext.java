@@ -46,7 +46,6 @@ import org.apache.ignite.internal.managers.indexing.GridIndexingManager;
 import org.apache.ignite.internal.managers.systemview.GridSystemViewManager;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
 import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProcessorImpl;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessorImpl;
 import org.apache.ignite.internal.processors.cache.persistence.wal.reader.StandaloneGridKernalContext;
 import org.apache.ignite.internal.processors.cache.persistence.wal.reader.StandaloneNoopCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.persistence.wal.reader.StandaloneNoopDiscoverySpi;
@@ -64,6 +63,7 @@ import org.apache.ignite.internal.processors.security.NoOpIgniteSecurityProcesso
 import org.apache.ignite.internal.processors.subscription.GridInternalSubscriptionProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.migrationtools.persistence.marshallers.ForeignJdkMarshaller;
 import org.apache.ignite.spi.deployment.local.LocalDeploymentSpi;
 import org.apache.ignite.spi.encryption.noop.NoopEncryptionSpi;
 import org.apache.ignite.spi.eventstorage.NoopEventStorageSpi;
@@ -72,8 +72,8 @@ import org.apache.ignite.spi.metric.noop.NoopMetricExporterSpi;
 
 /**
  * Minimal kernal context used to read an Apache Ignite 2 cluster working dir.
- * <p></p>
- * Inspired in the {@link StandaloneGridKernalContext}.
+ *
+ * <p>Inspired in the {@link StandaloneGridKernalContext}.
  */
 public class MigrationKernalContext extends GridKernalContextImpl {
 
@@ -82,6 +82,8 @@ public class MigrationKernalContext extends GridKernalContextImpl {
     private static final Field GRID_FIELD;
 
     private static final Field MARSH_CTX_FIELD;
+
+    private static final Field JDK_MARSHALLER_FIELD;
 
     static {
         try {
@@ -93,6 +95,9 @@ public class MigrationKernalContext extends GridKernalContextImpl {
 
             MARSH_CTX_FIELD = GridKernalContextImpl.class.getDeclaredField("marshCtx");
             MARSH_CTX_FIELD.setAccessible(true);
+
+            JDK_MARSHALLER_FIELD = MarshallerContextImpl.class.getDeclaredField("jdkMarsh");
+            JDK_MARSHALLER_FIELD.setAccessible(true);
         } catch (NoSuchFieldException e) {
             throw new RuntimeException(e);
         }
@@ -128,6 +133,7 @@ public class MigrationKernalContext extends GridKernalContextImpl {
 
         try {
             CFG_FIELD.set(this, adaptedConfiguration);
+            JDK_MARSHALLER_FIELD.set(marshCtx, new ForeignJdkMarshaller());
             MARSH_CTX_FIELD.set(this, marshCtx);
 
             // Unnecessarily required by CacheObjectBinaryProcessorImpl & by GridCacheDefaultAffinityKeyMapper#ignite
@@ -152,7 +158,6 @@ public class MigrationKernalContext extends GridKernalContextImpl {
         this.add(new GridMetricManager(this), false);
         this.add(new GridTimeoutProcessor(this), false);
         this.add(new GridDeploymentManager(this), false);
-        this.add(new MvccProcessorImpl(this), false);
         this.add(new GridContinuousProcessor(this), false);
         this.add(new PlatformNoopProcessor(this), false);
 
@@ -221,7 +226,7 @@ public class MigrationKernalContext extends GridKernalContextImpl {
             // This just happens in the migration tools context because we allow skipping errors while loading the beans.
             for (int i = 0; i < cacheCfgs.length; i++) {
                 if (cacheCfgs[i] == null) {
-                    cacheCfgs[i] = new CacheConfiguration();
+                    cacheCfgs[i] = new CacheConfiguration<>();
                 }
             }
         }

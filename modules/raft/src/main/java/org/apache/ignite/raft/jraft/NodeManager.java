@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
@@ -38,6 +39,7 @@ import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.CoalescedHeartbeatRequestBuilder;
+import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
@@ -134,22 +136,31 @@ public class NodeManager implements Lifecycle<NodeOptions> {
                     queue.addAll(blocked);
 
                     try {
-                        rpcClient.invokeAsync(peer, builder.build(), null, (result, err) -> {
-                            if (err != null) {
-                                for (CompletableFuture<Message> fut : futs) {
-                                    fut.completeExceptionally(err);
+                        rpcClient.invokeAsync(peer, builder.build(), null, new InvokeCallback() {
+                            @Override
+                            public void complete(Object result, Throwable err) {
+                                if (err != null) {
+                                    for (CompletableFuture<Message> fut : futs) {
+                                        fut.completeExceptionally(err);
+                                    }
+
+                                    return;
                                 }
 
-                                return;
+                                CoalescedHeartbeatResponse resp = (CoalescedHeartbeatResponse) result;
+
+                                assert resp.messages().size() == futs.size();
+
+                                int i = 0;
+                                for (Message message : resp.messages()) {
+                                    futs.get(i++).complete(message); // Future completion will trigger callbacks.
+                                }
+
                             }
 
-                            CoalescedHeartbeatResponse resp = (CoalescedHeartbeatResponse) result;
-
-                            assert resp.messages().size() == futs.size();
-
-                            int i = 0;
-                            for (Message message : resp.messages()) {
-                                futs.get(i++).complete(message); // Future completion will trigger callbacks.
+                            @Override
+                            public Executor executor() {
+                                return options.getStripedExecutor().next();
                             }
                         }, options.getElectionTimeoutMs() / 2);
                     } catch (Exception e) {

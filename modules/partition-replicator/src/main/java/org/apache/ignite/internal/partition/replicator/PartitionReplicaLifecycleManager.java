@@ -21,8 +21,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -45,21 +45,24 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_DESTROYED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.assignmentListToString;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.COLLECTION_LIMIT;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -68,10 +71,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -90,6 +93,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescr
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -106,7 +110,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -120,6 +123,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
@@ -151,6 +155,8 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.thread.ThreadUtils;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -158,7 +164,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -190,6 +195,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
 
@@ -202,7 +209,8 @@ public class PartitionReplicaLifecycleManager extends
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
-    private final Set<ZonePartitionId> replicationGroupIds = ConcurrentHashMap.newKeySet();
+    /** Tracks starting and started replicas. */
+    private final StartedReplicationGroups startedReplicationGroups = new StartedReplicationGroups();
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-25347
     /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
@@ -255,7 +263,6 @@ public class PartitionReplicaLifecycleManager extends
     /**
      * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17592
     private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
 
     /**
@@ -287,6 +294,7 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -308,6 +316,7 @@ public class PartitionReplicaLifecycleManager extends
                 topologyService,
                 lowWatermark,
                 failureProcessor,
+                nodeProperties,
                 ioExecutor,
                 rebalanceScheduler,
                 partitionOperationsExecutor,
@@ -325,7 +334,8 @@ public class PartitionReplicaLifecycleManager extends
                         topologyService,
                         catalogService,
                         failureProcessor,
-                        partitionOperationsExecutor
+                        partitionOperationsExecutor,
+                        replicaMgr
                 )
         );
     }
@@ -339,6 +349,7 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -358,6 +369,7 @@ public class PartitionReplicaLifecycleManager extends
         this.topologyService = topologyService;
         this.lowWatermark = lowWatermark;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -386,7 +398,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        if (!enabledColocation()) {
+        if (!nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
         }
 
@@ -555,7 +567,7 @@ public class PartitionReplicaLifecycleManager extends
             int partitionCount,
             boolean onNodeRecovery
     ) {
-        assert stableAssignmentsForZone != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
+        assert stableAssignmentsForZone != null : format("Zone has empty assignments [id={}].", zoneId);
 
         Supplier<CompletableFuture<Void>> createZoneReplicationNodes = () -> inBusyLockAsync(busyLock, () -> {
             var partitionsStartFutures = new CompletableFuture<?>[stableAssignmentsForZone.size()];
@@ -650,8 +662,8 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localAssignment} is not
-     * null, meaning that the local node is part of the assignment.
+     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localAssignment} is not null,
+     * meaning that the local node is part of the assignment.
      *
      * @param zonePartitionId Zone Partition ID.
      * @param localAssignment Assignment of the local member, or null if local member is not part of the assignment.
@@ -677,9 +689,7 @@ public class PartitionReplicaLifecycleManager extends
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
-        RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
-                ? createRaftGroupEventsListener(zonePartitionId)
-                : RaftGroupEventsListener.noopLsnr;
+        RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zonePartitionId);
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
@@ -690,6 +700,8 @@ public class PartitionReplicaLifecycleManager extends
                     partitionCount,
                     storageIndexTracker
             );
+
+            startedReplicationGroups.beforeStartingGroup(zonePartitionId);
 
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
@@ -712,6 +724,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
+                                                nodeProperties,
                                                 topologyService.localMember(),
                                                 zonePartitionId
                                         );
@@ -732,9 +745,15 @@ public class PartitionReplicaLifecycleManager extends
                             return failedFuture(e);
                         }
                     })
+                    .whenComplete((replica, throwable) -> {
+                        if (throwable != null) {
+                            startedReplicationGroups.startingFailed(zonePartitionId);
+                        }
+                    })
                     .thenCompose(v -> {
                         Supplier<CompletableFuture<Void>> addReplicationGroupIdFuture = () -> {
-                            replicationGroupIds.add(zonePartitionId);
+                            startedReplicationGroups.startingCompleted(zonePartitionId);
+
                             return nullCompletedFuture();
                         };
 
@@ -747,7 +766,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenApply(unused -> true);
         };
 
-        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
+        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments, revision)
                 .whenComplete((res, ex) -> {
                     if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         String errorMessage = String.format(
@@ -781,7 +800,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, () -> {
+        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
             CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
             if (replicaFut == null) {
                 return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
@@ -804,7 +823,7 @@ public class PartitionReplicaLifecycleManager extends
         );
     }
 
-    private ClusterNode localNode() {
+    private InternalClusterNode localNode() {
         return topologyService.localMember();
     }
 
@@ -822,7 +841,8 @@ public class PartitionReplicaLifecycleManager extends
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        cleanUpPartitionsResources(replicationGroupIds);
+        startedReplicationGroups.waitForStartingReplicas();
+        cleanUpPartitionsResources(startedReplicationGroups.streamStartedReplicationGroups());
     }
 
     /**
@@ -982,9 +1002,12 @@ public class PartitionReplicaLifecycleManager extends
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-25107 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
-        assert zonePartitionsLocks.get(zonePartitionId.zoneId()).isReadLocked() : zonePartitionId;
+        assert Optional.ofNullable(zonePartitionsLocks.get(zonePartitionId.zoneId()))
+                .map(NaiveAsyncReadWriteLock::isReadLocked)
+                .orElse(false)
+                : zonePartitionId;
 
-        return replicationGroupIds.contains(zonePartitionId);
+        return startedReplicationGroups.hasReplicationGroupStarted(zonePartitionId);
     }
 
     /**
@@ -1199,7 +1222,23 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartitionInternal(zonePartitionId, AFTER_REPLICA_STOPPED, revision, replica -> {})
+                () -> stopPartitionInternal(zonePartitionId, BEFORE_REPLICA_STOPPED, AFTER_REPLICA_STOPPED, revision, replica -> {})
+        );
+    }
+
+    /**
+     * Stops all resources associated with a given partition and destroys its storage, like replicas and partition trackers.
+     * Calls {@link ReplicaManager#weakStopReplica} in order to change the replica state.
+     *
+     * @param zonePartitionId Partition ID.
+     * @param revision Revision.
+     * @return Future that will be completed after all resources have been closed and destroyed.
+     */
+    private CompletableFuture<Void> stopPartitionAndDestroyForRestart(ZonePartitionId zonePartitionId, long revision) {
+        return replicaMgr.weakStopReplica(
+                zonePartitionId,
+                WeakReplicaStopReason.RESTART,
+                () -> stopAndDestroyPartition(zonePartitionId, revision)
         );
     }
 
@@ -1213,7 +1252,7 @@ public class PartitionReplicaLifecycleManager extends
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
-        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
+        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -1230,10 +1269,12 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId.partitionId(),
                         zonePartitionId.zoneId(),
                         localNode().address(),
-                        pendingAssignments,
+                        pendingAssignmentsQueue,
                         revision
                 );
             }
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             return handleChangePendingAssignmentEvent(
                     zonePartitionId,
@@ -1241,7 +1282,7 @@ public class PartitionReplicaLifecycleManager extends
                     pendingAssignments,
                     revision,
                     isRecovery
-            ).thenCompose(v -> {
+            ).thenRun(() -> {
                 boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
                         zonePartitionId,
                         stableAssignments,
@@ -1250,7 +1291,7 @@ public class PartitionReplicaLifecycleManager extends
                 );
 
                 if (!isLocalNodeInStableOrPending) {
-                    return nullCompletedFuture();
+                    return;
                 }
 
                 // A node might exist in stable yet we don't want to start the replica
@@ -1260,14 +1301,21 @@ public class PartitionReplicaLifecycleManager extends
                 // Then A and B go back online. In this case
                 // stable = [A, B, C], pending = [C, force] and only C should be started.
                 if (isRecovery && !replicaMgr.isReplicaStarted(zonePartitionId)) {
-                    return nullCompletedFuture();
+                    return;
                 }
 
-                return changePeersOnRebalance(
+                changePeersOnRebalance(
                         replicaMgr,
                         zonePartitionId,
                         pendingAssignments.nodes(),
                         revision);
+            }).whenComplete((v, ex) -> {
+                if (ex != null) {
+                    LOG.debug(
+                            "Failed to handle change pending assignment event "
+                                    + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
+                            zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
+                }
             });
         } finally {
             busyLock.leaveBusy();
@@ -1312,22 +1360,7 @@ public class PartitionReplicaLifecycleManager extends
         // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
         // For forced assignments, we should do the same thing, but only for the subset of stable set that is alive right now. Dead nodes
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
-        Assignments computedStableAssignments;
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
-        //  when we will have a proper handling of empty stable assignments
-        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
-            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
-            // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes, pendingAssignments.timestamp());
-        } else if (pendingAssignmentsAreForced) {
-            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
-            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
-            // have a live majority.
-            computedStableAssignments = pendingAssignments;
-        } else {
-            computedStableAssignments = stableAssignments;
-        }
+        Assignments computedStableAssignments = getComputedStableAssignments(stableAssignments, pendingAssignments);
 
         CompletableFuture<?> localServicesStartFuture;
 
@@ -1350,9 +1383,8 @@ public class PartitionReplicaLifecycleManager extends
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
-            }, ioExecutor);
+            localServicesStartFuture =
+                    replicaMgr.resetWithRetry(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -1386,6 +1418,7 @@ public class PartitionReplicaLifecycleManager extends
                     }
 
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                            + ", groupId=" + replicaGrpId
                             + ", stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
@@ -1401,6 +1434,23 @@ public class PartitionReplicaLifecycleManager extends
                 }), ioExecutor);
     }
 
+    private static Assignments getComputedStableAssignments(@Nullable Assignments stableAssignments, Assignments pendingAssignments) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
+        //  when we will have a proper handling of empty stable assignments
+        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
+            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
+            // In this case new initial configuration must match new forced assignments.
+            return Assignments.forced(pendingAssignments.nodes(), pendingAssignments.timestamp());
+        } else if (pendingAssignments.force()) {
+            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
+            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
+            // have a live majority.
+            return pendingAssignments;
+        } else {
+            return stableAssignments;
+        }
+    }
+
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
         Catalog catalog = catalogService.activeCatalog(timestamp);
         assert catalog != null : "Catalog is not available at " + nullableHybridTimestamp(timestamp);
@@ -1411,13 +1461,14 @@ public class PartitionReplicaLifecycleManager extends
         return zoneDescriptor;
     }
 
-    private CompletableFuture<Void> changePeersOnRebalance(
+    private void changePeersOnRebalance(
             ReplicaManager replicaMgr,
             ZonePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
     ) {
-        return replicaMgr.replica(replicaGrpId)
+        // According to the rebalance logic, it's safe to react to pending assignments change in async manner.
+        replicaMgr.replica(replicaGrpId)
                 .thenApply(Replica::raftClient)
                 .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
                         .exceptionally(throwable -> {
@@ -1426,20 +1477,13 @@ public class PartitionReplicaLifecycleManager extends
                                         "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
                                         replicaGrpId
                                 );
-
-                                return LeaderWithTerm.NO_LEADER;
-                            }
-                            if (hasCause(throwable, ComponentStoppingException.class)) {
+                            } else if (hasCause(throwable, ComponentStoppingException.class)) {
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
-
-                                return LeaderWithTerm.NO_LEADER;
+                            } else {
+                                LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
                             }
 
-                            throw new IgniteInternalException(
-                                    INTERNAL_ERR,
-                                    "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
-                                    throwable
-                            );
+                            return LeaderWithTerm.NO_LEADER;
                         })
                         .thenCompose(leaderWithTerm -> {
                             if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
@@ -1462,10 +1506,16 @@ public class PartitionReplicaLifecycleManager extends
 
                                         PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
+                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term(), revision)
                                                 .exceptionally(e -> null);
                                     });
-                        }));
+                        }))
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
+                        LOG.warn("Failed to change peers [grp={}].", ex, replicaGrpId);
+                    }
+                });
     }
 
     private boolean isLocalPeer(Peer peer) {
@@ -1557,7 +1607,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        if (!enabledColocation()) {
+        if (!nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
         }
 
@@ -1577,47 +1627,41 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Stops zone replica, executes a given action and fires a given local event after.
+     * Stops zone replica, executes a given action and fires given local events.
      *
-     * @param zonePartitionId Zone's replication group identifier.
-     * @param afterReplicaStopAction A consumer that will be executed if it is not null after zone replica stop process will be finished and
-     *      stopping result will be given to the consumer.
-     * @param afterReplicaStoppedEvent A local event type that if not null should be fired in the end of the method.
-     * @param afterReplicaStoppedEventRevision A revision parameter of the local event if the last is presented. Must not be null if the
-     *      event isn't null too.
-     *
-     * @return Future that will be completed after zone replica was stopped and all given non-null actions are done, the future's result
-     *      answers was replica was stopped correctly or not.
+     * @return Future that will be completed after zone replica was stopped and event handling was finished.
      */
     @VisibleForTesting
     public CompletableFuture<Void> stopPartitionInternal(
             ZonePartitionId zonePartitionId,
+            LocalPartitionReplicaEvent beforeReplicaStoppedEvent,
             LocalPartitionReplicaEvent afterReplicaStoppedEvent,
-            long afterReplicaStoppedEventRevision,
+            long eventRevision,
             Consumer<Boolean> afterReplicaStopAction
     ) {
+        // Not using the busy lock here, because this method is called on component stop.
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
-            try {
-                return replicaMgr.stopReplica(zonePartitionId)
-                        .thenCompose(replicaWasStopped -> {
-                            afterReplicaStopAction.accept(replicaWasStopped);
+            var eventParameters = new LocalPartitionReplicaEventParameters(zonePartitionId, eventRevision, false);
 
-                            if (!replicaWasStopped) {
-                                return nullCompletedFuture();
-                            }
+            return fireEvent(beforeReplicaStoppedEvent, eventParameters)
+                    .thenCompose(v -> {
+                        try {
+                            return replicaMgr.stopReplica(zonePartitionId)
+                                    .thenComposeAsync(replicaWasStopped -> {
+                                        afterReplicaStopAction.accept(replicaWasStopped);
 
-                            replicationGroupIds.remove(zonePartitionId);
+                                        if (!replicaWasStopped) {
+                                            return nullCompletedFuture();
+                                        }
 
-                            assert afterReplicaStoppedEvent != null;
+                                        startedReplicationGroups.afterStoppingGroup(zonePartitionId);
 
-                            return fireEvent(
-                                    afterReplicaStoppedEvent,
-                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision, false)
-                            );
-                        });
-            } catch (NodeStoppingException e) {
-                return nullCompletedFuture();
-            }
+                                        return fireEvent(afterReplicaStoppedEvent, eventParameters);
+                                    }, ioExecutor);
+                        } catch (NodeStoppingException e) {
+                            return nullCompletedFuture();
+                        }
+                    });
         });
     }
 
@@ -1626,16 +1670,45 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param partitionIds Partitions to stop.
      */
-    private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
-        CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
-                .map(zonePartitionId -> stopPartitionInternal(zonePartitionId, AFTER_REPLICA_STOPPED, -1L, replicaWasStopped -> {}))
+    private void cleanUpPartitionsResources(Stream<ZonePartitionId> partitionIds) {
+        CompletableFuture<?>[] stopPartitionsFuture = partitionIds
+                .map(zonePartitionId -> stopPartitionInternal(
+                        zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
+                        AFTER_REPLICA_STOPPED,
+                        -1L,
+                        replicaWasStopped -> {}
+                ))
                 .toArray(CompletableFuture[]::new);
 
         try {
-            allOf(stopPartitionsFuture).get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            LOG.error("Unable to clean up zones resources", e);
+            CompletableFuture<Void> fut = allOf(stopPartitionsFuture);
+
+            delayedExecutor(30, TimeUnit.SECONDS, Runnable::run)
+                    .execute(() -> {
+                        if (!fut.isDone()) {
+                            printPartitionState(partitionIds);
+                        }
+                    });
+
+            fut.get();
+        } catch (Throwable e) {
+            failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
         }
+    }
+
+    private void printPartitionState(Stream<ZonePartitionId> partitionIds) {
+        List<ZonePartitionId> nonStoppedPartitions = partitionIds
+                .filter(partId -> replicaMgr.replica(partId) != null)
+                .collect(toList());
+
+        int exceedLimit = nonStoppedPartitions.size() - COLLECTION_LIMIT;
+
+        String partitionsStr = "There are still some partitions that are being stopped: "
+                + S.toString(nonStoppedPartitions, (sb, e, i) -> sb.app(e).app(i < nonStoppedPartitions.size() - 1 ? ", " : ""))
+                + (exceedLimit > 0 ? format(" and {} more; ", exceedLimit) : "; ");
+
+        ThreadUtils.dumpThreads(LOG, partitionsStr, false);
     }
 
     /**
@@ -1704,11 +1777,48 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param zonePartitionId Zone partition id.
      * @param tableId Table's identifier.
-     *
      * @return A future that gets completed after all resources have been unloaded.
      */
     public CompletableFuture<Void> unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
         return zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
+    }
+
+    /**
+     * Restarts the zone's partition including the replica and raft node with storage cleanup.
+     *
+     * @param zonePartitionId Zone's partition that needs to be restarted.
+     * @param revision Metastore revision.
+     * @param assignmentsTimestamp Timestamp of the assignments.
+     * @return Operation future.
+     */
+    public CompletableFuture<?> restartPartitionWithCleanUp(ZonePartitionId zonePartitionId, long revision, long assignmentsTimestamp) {
+        return inBusyLockAsync(busyLock, () -> stopPartitionAndDestroyForRestart(zonePartitionId, revision).thenComposeAsync(unused -> {
+            Assignments stableAssignments = zoneStableAssignmentsGetLocally(metaStorageMgr, zonePartitionId, revision);
+
+            assert stableAssignments != null : "zonePartitionId=" + zonePartitionId + ", revision=" + revision;
+
+            return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
+                Assignment localAssignment = localAssignment(stableAssignments);
+
+                if (localAssignment == null) {
+                    // (0) in case if node not in the assignments
+                    return nullCompletedFuture();
+                }
+
+                CatalogZoneDescriptor zoneDescriptor = zoneDescriptorAt(zonePartitionId.zoneId(), assignmentsTimestamp);
+
+                return createZonePartitionReplicationNode(
+                        zonePartitionId,
+                        localAssignment,
+                        stableAssignments,
+                        revision,
+                        zoneDescriptor.partitions(),
+                        isVolatileZone(zoneDescriptor),
+                        false,
+                        false
+                );
+            }));
+        }, ioExecutor));
     }
 
     /**
@@ -1782,14 +1892,15 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
         return stopPartitionInternal(
                 zonePartitionId,
-                LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                BEFORE_REPLICA_DESTROYED,
+                AFTER_REPLICA_DESTROYED,
                 revision,
                 replicaWasStopped -> {
                     if (replicaWasStopped) {
                         zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
 
                         try {
-                            replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, false);
+                            replicaMgr.destroyReplicationProtocolStoragesDurably(zonePartitionId, false);
                         } catch (NodeStoppingException e) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
                         }

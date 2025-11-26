@@ -1,0 +1,43 @@
+Project
+    fieldNames: [PROMO_REVENUE]
+    projection: [/(*(100.00:DECIMAL(5, 2), $f0), $f1)]
+    est: (rows=1)
+  ReduceSortAggregate
+      fieldNames: [$f0, $f1]
+      collation: []
+      group: []
+      aggregation: [SUM(_ACC0), SUM(_ACC1)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      MapSortAggregate
+          fieldNames: [_ACC0, _ACC1]
+          collation: []
+          group: []
+          aggregation: [SUM($f0), SUM($f1)]
+          est: (rows=1)
+        Project
+            fieldNames: [$f0, $f1]
+            projection: [CASE(=(SUBSTRING(P_TYPE, 1, 5), _UTF-8'PROMO'), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), 0), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+            est: (rows=1500304)
+          HashJoin
+              predicate: =(L_PARTKEY, P_PARTKEY)
+              type: inner
+              est: (rows=1500304)
+            Exchange
+                distribution: table PUBLIC.PART in zone "Default" by [L_PARTKEY]
+                est: (rows=1500304)
+              IndexScan
+                  table: PUBLIC.LINEITEM
+                  index: L_SD
+                  type: SORTED
+                  predicate: SEARCH(L_SHIPDATE, Sarg[[1995-09-01..1995-10-01)])
+                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1995-09-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1995-10-01, upperInclude=false]]
+                  fieldNames: [L_PARTKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_SHIPDATE]
+                  collation: [L_SHIPDATE ASC]
+                  est: (rows=1500304)
+            TableScan
+                table: PUBLIC.PART
+                fieldNames: [P_PARTKEY, P_TYPE]
+                est: (rows=200000)

@@ -48,10 +48,8 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
 
     @BeforeAll
     public static void startServer2() {
-        TestHybridClock clock = new TestHybridClock(currentServerTimestamp::get);
-
-        ignite = new FakeIgnite("server-2");
-        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, clock, true);
+        ignite = new FakeIgnite("server-2", new TestHybridClock(currentServerTimestamp::get));
+        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, true, null);
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }
@@ -74,27 +72,27 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
 
         // RW TX does not propagate timestamp.
         var rwTx = client.transactions().begin();
-        ClientLazyTransaction.ensureStarted(rwTx, ch, null).join();
+        ClientLazyTransaction.ensureStarted(rwTx, ch).get1().join();
 
         // RO TX propagates timestamp.
         var roTx = client.transactions().begin(roOpts);
-        ClientLazyTransaction.ensureStarted(roTx, ch, null).join();
+        ClientLazyTransaction.ensureStarted(roTx, ch).get1().join();
         assertEquals(1, lastObservableTimestamp(ch));
 
         // Increase timestamp on server - client does not know about it initially.
         currentServerTimestamp.set(11);
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
         assertEquals(1, lastObservableTimestamp(ch));
 
         // Subsequent RO TX propagates latest known timestamp.
         client.tables().tables();
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
         assertEquals(11, lastObservableTimestamp(ch));
 
         // Smaller timestamp from server is ignored by client.
         currentServerTimestamp.set(9);
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
         assertEquals(11, lastObservableTimestamp(ch));
     }
 

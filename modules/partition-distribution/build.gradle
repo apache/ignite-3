@@ -25,6 +25,4 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
 }

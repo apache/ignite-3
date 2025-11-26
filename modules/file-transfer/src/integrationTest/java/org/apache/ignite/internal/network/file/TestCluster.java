@@ -37,11 +37,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.TestInfo;
 
@@ -102,7 +102,7 @@ public class TestCluster {
         if (initial) {
             clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
                 @Override
-                public void onAppeared(ClusterNode member) {
+                public void onAppeared(InternalClusterNode member) {
                     startupLatch.countDown();
                 }
             });

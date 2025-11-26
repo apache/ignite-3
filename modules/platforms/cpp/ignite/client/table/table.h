@@ -19,6 +19,7 @@
 
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/table/key_value_view.h"
+#include "ignite/client/table/qualified_name.h"
 #include "ignite/client/table/record_view.h"
 #include "ignite/common/detail/config.h"
 
@@ -35,7 +36,7 @@ class tables_impl;
 } // namespace detail
 
 /**
- * Table view.
+ * @brief Abstraction for Ignite table.
  */
 class table {
     friend class detail::table_impl;
@@ -52,11 +53,18 @@ public:
     table &operator=(const table &) = delete;
 
     /**
-     * Gets table name.
+     * Gets the table name.
      *
      * @return Table name.
      */
     [[nodiscard]] IGNITE_API const std::string &get_name() const noexcept;
+
+    /**
+     * Gets the table qualified name.
+     *
+     * @return Table qualified name.
+     */
+    [[nodiscard]] IGNITE_API const qualified_name &get_qualified_name() const noexcept;
 
     /**
      * Gets the record binary view.

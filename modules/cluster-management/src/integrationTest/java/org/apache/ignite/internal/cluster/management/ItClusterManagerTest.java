@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -33,18 +36,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration tests for {@link ClusterManagementGroupManager}.
@@ -57,10 +76,26 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         stopCluster();
     }
 
-    private void startCluster(int numNodes) {
-        cluster.addAll(createNodes(numNodes));
+    private void startCluster(int numNodes, BiConsumer<Integer, RaftGroupConfiguration> onConfigurationCommittedListener) {
+        cluster.addAll(createNodes(numNodes, onConfigurationCommittedListener));
 
         cluster.parallelStream().forEach(MockNode::startAndJoin);
+    }
+
+    private void startCluster(int numNodes) {
+        startCluster(numNodes, (i, config) -> {});
+    }
+
+    private void startNode(int idx, int clusterSize, Consumer<RaftGroupConfiguration> onConfigurationCommittedListener) {
+        MockNode node = createNode(idx, clusterSize, onConfigurationCommittedListener);
+
+        cluster.add(node);
+
+        node.startAndJoin();
+    }
+
+    private void startNode(int idx, int clusterSize) {
+        startNode(idx, clusterSize, config -> {});
     }
 
     private void stopCluster() throws Exception {
@@ -204,6 +239,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     /**
      * Tests executing the init command with incorrect node names.
      */
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     void testInitInvalidNodes() throws Exception {
         startCluster(2);
@@ -262,6 +298,170 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 clusterManager.initClusterAsync(List.of(cluster.get(1).name()), List.of(), "cluster"),
                 willThrow(InitException.class, "Init CMG request denied, reason: CMG node names do not match.")
         );
+    }
+
+    @Test
+    void testNoConfigurationReordering() throws Exception {
+        // Here we will be storing the raft configuration history for all nodes.
+        Map<Integer, List<RaftGroupConfiguration>> configs = new ConcurrentHashMap<>();
+
+        startCluster(5, (i, config) ->
+                configs.computeIfAbsent(i, k -> new CopyOnWriteArrayList<>()).add(config)
+        );
+
+        ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
+
+        List<String> votingNodes = cluster.stream().map(MockNode::name).limit(3).collect(toList());
+
+        assertThat(
+                clusterManager.initClusterAsync(votingNodes, List.of(), "cluster"),
+                willCompleteSuccessfully()
+        );
+
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        }
+
+        // Wait for the initial cluster reconfiguration to complete.
+        assertLearnerSize(2);
+
+        // Same as above, but check that all 5 nodes see the same number of learners (which is 2 actually).
+        assertTrue(waitForCondition(() ->
+                        configs.size() == 5 && configs.values().stream()
+                                .map(list -> list.get(list.size() - 1))
+                                .mapToInt(raftGroupConfiguration -> raftGroupConfiguration.learners().size())
+                                .allMatch(size -> size == 2),
+                30_000
+        ));
+
+        String node3Name = cluster.get(3).name();
+
+        AtomicBoolean blockMessage = new AtomicBoolean(true);
+
+        // Block the first reconfiguration to simulate network issues.
+        // We stop node 4, that should produce a ResetLearnersRequest with only one learner - node 3.
+        blockMessage((recipientName, networkMessage) -> {
+            if (!blockMessage.get()) {
+                return false;
+            }
+
+            if (networkMessage instanceof ResetLearnersRequest) {
+                ResetLearnersRequest rlr = (ResetLearnersRequest) networkMessage;
+
+                if (rlr.learnersList().contains(node3Name) &&  rlr.learnersList().size() == 1) {
+                    logger().info("Block message {} to {}", networkMessage, recipientName);
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        logger().info("Stop the node [4].");
+        MockNode node4 = cluster.remove(cluster.size() - 1);
+        stopNodes(List.of(node4));
+
+        logger().info("Stop the node [3].");
+        MockNode node3 = cluster.remove(cluster.size() - 1);
+        stopNodes(List.of(node3));
+
+        // There should be still two learner nodes since the previous reconfiguration was blocked.
+        assertLearnerSize(2);
+
+        // The configs will be properly updated when new 3 and 4 are started, so remove the history for the stopped nodes.
+        configs.remove(3);
+        configs.remove(4);
+
+        // Start nodes 3 and 4 back, so that the topology is back to normal and no node availability issues are expected.
+        logger().info("Start nodes [3] and [4].");
+        // Start node 4 first to avoid clashing with the earlier blocked message (as we get ResetLearnersRequest(3)
+        // both when we move from [3, 4] to [3] and when we move from [] to [3]).
+        startNode(4, 5, config ->
+                configs.computeIfAbsent(4, k -> new CopyOnWriteArrayList<>()).add(config)
+        );
+        startNode(3, 5, config ->
+                configs.computeIfAbsent(3, k -> new CopyOnWriteArrayList<>()).add(config)
+        );
+
+        // Wait for the nodes 3 and 4 to start.
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        }
+
+        logger().info("Nodes started.");
+        assertLearnerSize(2);
+
+        // Unblock the first reconfiguration.
+        logger().info("Unblock message.");
+        blockMessage.set(false);
+
+        // Now we need to wait for the reconfiguration to complete.
+        // To check it we will look through the raft configuration history and verify that all nodes have same transition history
+        // with regards to the learner nodes: [] -> [3] -> [3, 4] -> [4] -> [3, 4].
+        // Basically should be enough to check learners size only.
+        int[] counts = {0, 1, 2, 1, 2};
+        assertTrue(waitForCondition(() ->
+                        configs.values().stream()
+                                .allMatch(transition -> checkLearnerTransitionsCorrect(transition, counts)),
+                30_000
+        ));
+    }
+
+    /**
+     * Checks proper configuration history.
+     *
+     * @param configs Node configuration transitions history.
+     * @param counts Expected number of learner nodes for each transition.
+     * @return {@code true} if the history is correct, {@code false} otherwise.
+     */
+    private static boolean checkLearnerTransitionsCorrect(List<RaftGroupConfiguration> configs, int[] counts) {
+        if (configs.size() != counts.length) {
+            return false;
+        }
+
+        for (int i = 0; i < configs.size(); i++) {
+            if (configs.get(i).learners().size() != counts[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void assertLearnerSize(int size) throws InterruptedException {
+        assertTrue(waitForCondition(() ->
+                        cluster.stream()
+                                .filter(node -> {
+                                    try {
+                                        return node.clusterManager().isCmgLeader().get(10, SECONDS);
+                                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .mapToInt(node -> {
+                                    try {
+                                        return node.clusterManager().learnerNodes().get(10, SECONDS).size();
+                                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .min().orElseThrow() == size,
+                30_000
+        ));
+    }
+
+    private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
+        cluster.stream().map(node -> node.clusterService().messagingService()).forEach(messagingService -> {
+            DefaultMessagingService dms = (DefaultMessagingService) messagingService;
+
+            BiPredicate<String, NetworkMessage> oldPredicate = dms.dropMessagesPredicate();
+
+            if (oldPredicate == null) {
+                dms.dropMessages(predicate);
+            } else {
+                dms.dropMessages(oldPredicate.or(predicate));
+            }
+        });
     }
 
     /**
@@ -376,7 +576,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(
                 secondNode.startFuture(),
-                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
+                willThrow(JoinDeniedException.class, "Cluster tags do not match")
         );
     }
 
@@ -487,13 +687,13 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .orElseThrow();
     }
 
-    private List<ClusterNode> currentPhysicalTopology() {
+    private List<InternalClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
-    private static LogicalNode[] toLogicalNodes(List<ClusterNode> clusterNodes) {
+    private static LogicalNode[] toLogicalNodes(List<InternalClusterNode> clusterNodes) {
         return clusterNodes.stream().map(LogicalNode::new).toArray(LogicalNode[]::new);
     }
 
@@ -512,7 +712,6 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
             return logicalTopology.join().size() == cluster.size();
         }, 10000));
     }
-
 
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException {
         initCluster(metaStorageNodes, cmgNodes, null);
@@ -533,5 +732,52 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27071")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) {
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
+        startNode(0, 2);
+
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(!colocationEnabled));
+        startNode(1, 2);
+
+        String[] cmgNodes = clusterNodeNames();
+
+        assertThrowsWithCause(
+                () -> initCluster(cmgNodes, cmgNodes),
+                InitException.class,
+                "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException: IGN-CMN-65535"
+                        + " Initialization of node \"icmt_tifodecmwcn_10001\" failed: Colocation modes do not match"
+                        + " [initInitiatorNodeName=icmt_tifodecmwcn_10000, initInitiatorColocationMode=" + colocationEnabled
+                        + ", recipientColocationMode=" + !colocationEnabled + "]."
+        );
+    }
+
+    @Test
+    void testJoinFailsOnDifferentEnabledColocationModesWithinCmgNodes() throws Exception {
+        startCluster(1);
+
+        String[] cmgNodes = clusterNodeNames();
+        initCluster(cmgNodes, cmgNodes);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27071
+        // Perhaps, this test should be re-worked along with testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes
+        MockNode secondNode = createNode(
+                cluster.size(), cluster.size(), config -> {}, () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString()));
+
+        cluster.add(secondNode);
+
+        secondNode.startAndJoin();
+
+        assertThrowsWithCause(
+                () -> secondNode.startFuture().get(),
+                InvalidNodeConfigurationException.class,
+                IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
+                        + " cluster colocation mode is: {}", false, true)
+        );
     }
 }

@@ -18,31 +18,30 @@
 package org.apache.ignite.internal.network;
 
 import java.util.UUID;
-import org.apache.ignite.network.ClusterNode;
 
 /**
- * A class that returns a single {@link ClusterNode} for every request.
+ * A class that returns a single {@link InternalClusterNode} for every request.
  */
 public class SingleClusterNodeResolver implements ClusterNodeResolver {
 
-    private final ClusterNode clusterNode;
+    private final InternalClusterNode clusterNode;
 
     /**
      * Constructor.
      *
      * @param clusterNode Default cluster node that will be returned as a result of all method calls.
      */
-    public SingleClusterNodeResolver(ClusterNode clusterNode) {
+    public SingleClusterNodeResolver(InternalClusterNode clusterNode) {
         this.clusterNode = clusterNode;
     }
 
     @Override
-    public ClusterNode getByConsistentId(String consistentId) {
+    public InternalClusterNode getByConsistentId(String consistentId) {
         return clusterNode;
     }
 
     @Override
-    public ClusterNode getById(UUID id) {
+    public InternalClusterNode getById(UUID id) {
         return clusterNode;
     }
 }

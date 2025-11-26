@@ -89,10 +89,10 @@ import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Assumptions;
@@ -260,8 +260,8 @@ public class KvMarshallerTest {
                 valueColumns
         );
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
+        MarshallerException ex = assertThrows(
+                MarshallerException.class,
                 () -> factory.create(schema, Integer.class, TestObjectWithAllTypes.class)
         );
 
@@ -355,7 +355,7 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
+        assertThrows(MarshallerException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
     }
 
     @ParameterizedTest
@@ -820,7 +820,7 @@ public class KvMarshallerTest {
      * @param act Actual value.
      */
     private void compareObjects(NativeType type, Object exp, Object act) {
-        if (type.spec() == NativeTypeSpec.BYTES) {
+        if (type.spec() == ColumnType.BYTE_ARRAY) {
             assertArrayEquals((byte[]) exp, (byte[]) act);
         } else {
             assertEquals(exp, act);
@@ -909,10 +909,10 @@ public class KvMarshallerTest {
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), nullable),
         };
         // Validate all types are tested.
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
+        Set<ColumnType> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

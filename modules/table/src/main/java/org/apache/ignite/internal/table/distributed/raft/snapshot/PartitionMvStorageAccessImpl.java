@@ -36,9 +36,15 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResultStatus;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -157,7 +163,11 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            AddWriteResult result = mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+            if (result.status() == AddWriteResultStatus.TX_MISMATCH) {
+                throw new TxIdMismatchException(result.currentWriteIntentTxId(), txId);
+            }
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
                 indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());
@@ -182,7 +192,11 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+            AddWriteCommittedResult result = mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+
+            if (result.status() == AddWriteCommittedResultStatus.WRITE_INTENT_EXISTS) {
+                throw new StorageException("Write intent already exists: [rowId={}]", rowId);
+            }
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
                 indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());
@@ -245,6 +259,11 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     @Override
     public void updateLowWatermark(HybridTimestamp newLowWatermark) {
         lowWatermark.updateLowWatermark(newLowWatermark);
+    }
+
+    @Override
+    public boolean isVolatile() {
+        return mvTableStorage.isVolatile();
     }
 
     private MvPartitionStorage getMvPartitionStorage() {

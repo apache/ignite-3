@@ -131,7 +131,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         Mockito.when(node.getRaftOptions()).thenReturn(new RaftOptions());
         options = new NodeOptions();
-        options.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        options.setCommonExecutor(JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus()));
         options.setScheduler(timerManager);
         Mockito.when(node.getOptions()).thenReturn(options);
         Mockito.when(node.getRpcClientService()).thenReturn(raftClientService);
@@ -396,7 +396,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     public void testNotDoSnapshotWithIntervalDist() throws Exception {
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setSnapshotLogIndexMargin(10);
-        ExecutorService testExecutor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        ExecutorService testExecutor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         executorService = testExecutor;
         nodeOptions.setCommonExecutor(testExecutor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
@@ -412,7 +412,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     public void testDoSnapshotWithIntervalDist() throws Exception {
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setSnapshotLogIndexMargin(5);
-        ExecutorService testExecutor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        ExecutorService testExecutor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         executorService = testExecutor;
         nodeOptions.setCommonExecutor(testExecutor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);

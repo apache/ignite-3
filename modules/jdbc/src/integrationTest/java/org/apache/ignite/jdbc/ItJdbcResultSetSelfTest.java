@@ -36,8 +36,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.util.GregorianCalendar;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
@@ -94,6 +96,48 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                     + "VALUES (2, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', "
                     + "date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01', 'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID)");
         }
+    }
+
+    @Test
+    public void testIntervalResult() throws SQLException {
+        assertEquals(Duration.ofDays(4), eval("INTERVAL '4' DAYS"));
+        assertEquals(Duration.ofSeconds(1), eval("INTERVAL '1' SECONDS"));
+        assertEquals(Duration.ofSeconds(-1), eval("INTERVAL - '1' SECONDS"));
+        assertEquals(Duration.ofSeconds(-1), eval("INTERVAL '-1' SECONDS"));
+        assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS"));
+        assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS(3)"));
+        assertEquals(Duration.ofMinutes(2), eval("INTERVAL '2' MINUTES"));
+        assertEquals(Duration.ofHours(3), eval("INTERVAL '3' HOURS"));
+        assertEquals(Duration.ofDays(4), eval("INTERVAL '4' DAYS"));
+        assertEquals(Period.ofMonths(5), eval("INTERVAL '5' MONTHS"));
+        assertEquals(Period.ofMonths(-5), eval("INTERVAL - '5' MONTHS"));
+        assertEquals(Period.ofMonths(-5), eval("INTERVAL '-5' MONTHS"));
+        assertEquals(Period.ofYears(6), eval("INTERVAL '6' YEARS"));
+        assertEquals(Period.of(1, 2, 0), eval("INTERVAL '1-2' YEAR TO MONTH"));
+        assertEquals(Duration.ofHours(25), eval("INTERVAL '1 1' DAY TO HOUR"));
+        assertEquals(Duration.ofMinutes(62), eval("INTERVAL '1:2' HOUR TO MINUTE"));
+        assertEquals(Duration.ofSeconds(63), eval("INTERVAL '1:3' MINUTE TO SECOND"));
+        assertEquals(Duration.ofSeconds(3723), eval("INTERVAL '1:2:3' HOUR TO SECOND"));
+        assertEquals(Duration.ofMillis(3723456), eval("INTERVAL '0 1:2:3.456' DAY TO SECOND"));
+        assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS"));
+        assertEquals(Duration.ofMillis(123987), eval("INTERVAL '123.987' SECONDS"));
+    }
+
+    @Test
+    public void testTemporalArithmetic() throws SQLException {
+        assertEquals(LocalDate.parse("2021-01-02"), eval("DATE '2021-01-01' + interval '1' days"));
+        assertEquals(Period.ofMonths(2), eval("(DATE '2021-03-01' - DATE '2021-01-01') months"));
+        assertEquals(Duration.ofHours(24), eval("(DATE '2021-03-02' - DATE '2021-03-01') hours"));
+        assertEquals(Duration.ofHours(48), eval("INTERVAL '3' DAYS - INTERVAL '1' DAYS"));
+        assertEquals(Period.ofMonths(1), eval("INTERVAL '5' MONTHS - INTERVAL '4' MONTHS"));
+        assertEquals(Duration.ofSeconds(1), eval("INTERVAL '5' SECONDS - INTERVAL '4' SECONDS"));
+        assertEquals(Duration.ofSeconds(10), eval("INTERVAL '5' SECONDS * 2"));
+    }
+
+    private Object eval(String exp) throws SQLException {
+        ResultSet r = stmt.executeQuery("SELECT " + exp);
+        r.next();
+        return r.getObject(1);
     }
 
     @Test
@@ -331,7 +375,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1.0, rs.getFloat("floatVal"));
 
-                assertTrue(rs.getBoolean(7));
                 assertEquals(1, rs.getByte(7));
                 assertEquals(1, rs.getShort(7));
                 assertEquals(1, rs.getInt(7));
@@ -341,7 +384,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(new BigDecimal(1), rs.getBigDecimal(7));
                 assertEquals(rs.getString(7), "1.0");
 
-                assertTrue(rs.getObject(7, Boolean.class));
                 assertEquals((byte) 1, rs.getObject(7, Byte.class));
                 assertEquals((short) 1, rs.getObject(7, Short.class));
                 assertEquals(1, rs.getObject(7, Integer.class));
@@ -369,7 +411,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1.0, rs.getDouble("doubleVal"));
 
-                assertTrue(rs.getBoolean(8));
                 assertEquals(1, rs.getByte(8));
                 assertEquals(1, rs.getShort(8));
                 assertEquals(1, rs.getInt(8));
@@ -379,7 +420,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(new BigDecimal(1), rs.getBigDecimal(8));
                 assertEquals(rs.getString(8), "1.0");
 
-                assertTrue(rs.getObject(8, Boolean.class));
                 assertEquals((byte) 1, rs.getObject(8, Byte.class));
                 assertEquals((short) 1, rs.getObject(8, Short.class));
                 assertEquals(1, rs.getObject(8, Integer.class));
@@ -407,7 +447,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1, rs.getBigDecimal("bigVal").intValue());
 
-                assertTrue(rs.getBoolean(9));
                 assertEquals(1, rs.getByte(9));
                 assertEquals(1, rs.getShort(9));
                 assertEquals(1, rs.getInt(9));
@@ -417,7 +456,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(new BigDecimal("1.000"), rs.getBigDecimal(9));
                 assertEquals(rs.getString(9), "1.000");
 
-                assertTrue(rs.getObject(9, Boolean.class));
                 assertEquals((byte) 1, rs.getObject(9, Byte.class));
                 assertEquals((short) 1, rs.getObject(9, Short.class));
                 assertEquals(1, rs.getObject(9, Integer.class));

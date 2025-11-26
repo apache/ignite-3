@@ -23,6 +23,7 @@
 
 #include <cassert>
 #include <random>
+#include <memory>
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
@@ -38,14 +39,10 @@ fibonacci_sequence<10> fibonacci10;
 } // namespace
 
 win_async_connecting_thread::win_async_connecting_thread()
-    : m_thread()
-    , m_client_pool(nullptr)
+    : m_client_pool(nullptr)
     , m_stopping(false)
     , m_failed_attempts(0)
     , m_min_addrs(0)
-    , m_addrs_mutex()
-    , m_connect_needed()
-    , m_non_connected()
     , m_addr_position_seed(std::random_device()()) {
 }
 
@@ -63,9 +60,9 @@ void win_async_connecting_thread::run() {
         if (!client) {
             ++m_failed_attempts;
 
-            auto msToWait = static_cast<DWORD>(1000 * fibonacci10.get_value(m_failed_attempts));
-            if (msToWait)
-                Sleep(msToWait);
+            auto ms_to_wait = static_cast<DWORD>(1000 * fibonacci10.get_value(m_failed_attempts));
+            if (ms_to_wait)
+                Sleep(ms_to_wait);
 
             continue;
         }
@@ -97,7 +94,8 @@ void win_async_connecting_thread::run() {
         } catch (const ignite_error &err) {
             client->close();
 
-            m_client_pool->handle_connection_error(client->address(), err);
+            if (m_client_pool)
+                m_client_pool->handle_connection_error(client->address(), err);
 
             continue;
         }
@@ -165,14 +163,14 @@ SOCKET win_async_connecting_thread::try_connect(const end_point &addr) {
 
     std::stringstream converter;
     converter << addr.port;
-    std::string strPort = converter.str();
+    std::string str_port = converter.str();
 
     // Resolve the server address and port
     addrinfo *result = NULL;
-    int res = getaddrinfo(addr.host.c_str(), strPort.c_str(), &hints, &result);
+    int res = getaddrinfo(addr.host.c_str(), str_port.c_str(), &hints, &result);
 
     if (res != 0)
-        throw ignite_error(error::code::CONNECTION, "Can not resolve host: " + addr.host + ":" + strPort);
+        throw ignite_error(error::code::CONNECTION, "Can not resolve host: " + addr.host + ":" + str_port);
 
     std::string last_error_msg = "Failed to resolve host";
 

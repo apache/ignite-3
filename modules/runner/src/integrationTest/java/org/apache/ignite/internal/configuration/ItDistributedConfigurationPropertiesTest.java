@@ -64,6 +64,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -113,7 +114,10 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static SystemDistributedConfiguration systemConfiguration;
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -155,7 +159,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 Path workDir,
                 NetworkAddress addr,
                 List<NetworkAddress> memberAddrs,
-                RaftConfiguration raftConfiguration
+                RaftConfiguration raftConfiguration,
+                SystemLocalConfiguration systemLocalConfiguration
         ) {
             vaultManager = new VaultManager(new InMemoryVaultService());
 
@@ -179,6 +184,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
@@ -202,6 +208,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
+            MetricManager metricManager = new NoOpMetricManager();
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     new SystemDisasterRecoveryStorage(vaultManager),
@@ -213,7 +221,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -243,8 +252,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
-                    systemConfiguration,
+                    metricManager,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -369,7 +378,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 workDir.resolve("firstNode"),
                 firstNodeAddr,
                 allNodes,
-                raftConfiguration
+                raftConfiguration,
+                systemLocalConfiguration
         );
 
         secondNode = new Node(
@@ -377,7 +387,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 workDir.resolve("secondNode"),
                 secondNodeAddr,
                 allNodes,
-                raftConfiguration
+                raftConfiguration,
+                systemLocalConfiguration
         );
 
         Stream.of(firstNode, secondNode).parallel().forEach(Node::startUpToCmgManager);

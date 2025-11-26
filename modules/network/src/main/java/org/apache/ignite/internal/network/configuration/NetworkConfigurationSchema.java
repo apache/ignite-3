@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -28,7 +29,7 @@ import org.apache.ignite.configuration.validation.Range;
 @Config
 public class NetworkConfigurationSchema {
     /** Default network port. */
-    public static final int DEFAULT_PORT = 47500;
+    public static final int DEFAULT_PORT = 3344;
 
     /** Network port. */
     @Range(min = 1024, max = 0xFFFF)
@@ -46,6 +47,7 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "shutdownQuietPeriod")
     public final long shutdownQuietPeriodMillis = 0;
 
     /**
@@ -54,13 +56,14 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "shutdownTimeout")
     public final long shutdownTimeoutMillis = 15_000;
 
-    /** Server configuration. */
+    /** Inbound (TCP server) configuration. */
     @ConfigValue
     public InboundConfigurationSchema inbound;
 
-    /** Client configuration. */
+    /** Outbound (TCP client of server-to-server protocol) configuration. */
     @ConfigValue
     public OutboundConfigurationSchema outbound;
 

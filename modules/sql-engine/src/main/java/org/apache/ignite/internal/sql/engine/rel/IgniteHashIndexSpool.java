@@ -101,9 +101,14 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool {
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(cond);
+        RexNode condition0 = shuttle.apply(cond);
+        List<RexNode> searchRow0 = shuttle.apply(searchRow);
 
-        return super.accept(shuttle);
+        if (condition0 == cond && searchRow0 == searchRow) {
+            return this;
+        }
+
+        return new IgniteHashIndexSpool(getCluster(), getTraitSet(), getInput(), searchRow0, condition0, allowNulls);
     }
 
     @Override

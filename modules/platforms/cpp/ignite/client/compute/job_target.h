@@ -19,6 +19,7 @@
 
 #include "ignite/common/detail/config.h"
 #include "ignite/client/network/cluster_node.h"
+#include "ignite/client/table/qualified_name.h"
 #include "ignite/client/detail/compute/job_target_type.h"
 
 #include <set>
@@ -31,7 +32,7 @@ class compute;
 class job_target;
 
 /**
- * Job execution target.
+ * @brief Information about what nodes may be used for job execution.
  */
 class job_target {
     friend class compute;
@@ -67,6 +68,14 @@ public:
      * @param key Key.
      */
     [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> colocated(std::string_view table_name, const ignite_tuple &key);
+
+    /**
+     * Creates a colocated job target for a specific table and key.
+     *
+     * @param table_name Table name.
+     * @param key Key.
+     */
+    [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> colocated(qualified_name table_name, const ignite_tuple &key);
 
 protected:
     // Default

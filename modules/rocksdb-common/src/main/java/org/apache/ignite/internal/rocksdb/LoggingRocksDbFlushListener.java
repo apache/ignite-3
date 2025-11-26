@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rocksdb;
 
+import static java.util.stream.Collectors.toList;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_COMPACTION_BEGIN;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_COMPACTION_COMPLETED;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BEGIN;
@@ -25,7 +26,6 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_CO
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.rocksdb.AbstractEventListener;
@@ -42,6 +42,9 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
 
     /** Listener name, for logs. */
     private final String name;
+
+    /** Node name, for logs. */
+    private final String nodeName;
 
     /**
      * Type of last processed flush event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all
@@ -62,18 +65,23 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
      * Constructor.
      *
      * @param name Listener name, for logs.
+     * @param nodeName Node name, for logs.
      */
-    public LoggingRocksDbFlushListener(String name) {
+    public LoggingRocksDbFlushListener(String name, String nodeName) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED, ON_COMPACTION_BEGIN, ON_COMPACTION_COMPLETED);
 
         this.name = name;
+        this.nodeName = nodeName;
     }
 
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastFlushEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
             if (LOG.isInfoEnabled()) {
-                LOG.info("Starting rocksdb flush process [name='{}', reason={}]", name, flushJobInfo.getFlushReason());
+                LOG.info(
+                        "Starting rocksdb flush process [name='{}', nodeName='{}', reason={}]",
+                        name, nodeName, flushJobInfo.getFlushReason()
+                );
 
                 lastFlushStartTimeNanos = System.nanoTime();
             }
@@ -88,7 +96,10 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
             if (LOG.isInfoEnabled()) {
                 long duration = System.nanoTime() - lastFlushStartTimeNanos;
 
-                LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
+                LOG.info(
+                        "Finishing rocksdb flush process [name='{}', nodeName='{}', duration={}ms]",
+                        name, nodeName, TimeUnit.NANOSECONDS.toMillis(duration)
+                );
             }
 
             onFlushCompletedCallback(db, flushJobInfo);
@@ -107,12 +118,13 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
     public void onCompactionBegin(RocksDB db, CompactionJobInfo compactionJobInfo) {
         if (lastCompactionEventType.compareAndSet(ON_COMPACTION_COMPLETED, ON_COMPACTION_BEGIN)) {
             if (LOG.isInfoEnabled()) {
-                LOG.info("Starting rocksdb compaction process [name='{}', reason={}, input={}, output={}]",
+                LOG.info("Starting rocksdb compaction process [name='{}', nodeName='{}', reason={}, input={}, output={}]",
                         name,
+                        nodeName,
                         compactionJobInfo.compactionReason(),
                         // Extract file names from full paths.
-                        compactionJobInfo.inputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList()),
-                        compactionJobInfo.outputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList())
+                        compactionJobInfo.inputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(toList()),
+                        compactionJobInfo.outputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(toList())
                 );
 
                 lastCompactionStartTimeNanos = System.nanoTime();
@@ -126,7 +138,10 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
             if (LOG.isInfoEnabled()) {
                 long duration = System.nanoTime() - lastCompactionStartTimeNanos;
 
-                LOG.info("Finishing rocksdb compaction process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
+                LOG.info(
+                        "Finishing rocksdb compaction process [name='{}', nodeName='{}', duration={}ms]",
+                        name, nodeName, TimeUnit.NANOSECONDS.toMillis(duration)
+                );
             }
         }
     }

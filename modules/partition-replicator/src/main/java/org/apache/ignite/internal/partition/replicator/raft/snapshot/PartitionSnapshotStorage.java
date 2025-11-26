@@ -18,15 +18,21 @@
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
@@ -55,6 +61,8 @@ import org.jetbrains.annotations.Nullable;
  * {@code true}, and {@link SnapshotWriter#addFile(String)} throws an exception.
  */
 public class PartitionSnapshotStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionSnapshotStorage.class);
+
     /** Default number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
     private static final int DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS = 3000;
 
@@ -71,13 +79,11 @@ public class PartitionSnapshotStorage {
     private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId = synchronize(new Int2ObjectOpenHashMap<>());
 
     /**
-     * Future that represents an ongoing snapshot operation (either incoming or outgoing). Is {@code null} when there are no operations
-     * in progress.
+     * Map with ongoing snapshot operations (either incoming or outgoing).
      *
      * <p>Concurrent access is guarded by {@link #snapshotOperationLock}.
      */
-    @Nullable
-    private CompletableFuture<Void> ongoingSnapshotOperation;
+    private final Map<UUID, CompletableFuture<Void>> ongoingSnapshotOperations = new HashMap<>();
 
     private final Object snapshotOperationLock = new Object();
 
@@ -92,6 +98,8 @@ public class PartitionSnapshotStorage {
 
     private final long waitForMetadataCatchupMs;
 
+    private final LogStorageAccess logStorage;
+
     /** Constructor. */
     public PartitionSnapshotStorage(
             PartitionKey partitionKey,
@@ -100,7 +108,8 @@ public class PartitionSnapshotStorage {
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
-            Executor incomingSnapshotsExecutor
+            Executor incomingSnapshotsExecutor,
+            LogStorageAccess logStorage
     ) {
         this(
                 partitionKey,
@@ -110,7 +119,8 @@ public class PartitionSnapshotStorage {
                 catalogService,
                 failureProcessor,
                 incomingSnapshotsExecutor,
-                DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS
+                DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS,
+                logStorage
         );
     }
 
@@ -123,7 +133,8 @@ public class PartitionSnapshotStorage {
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
-            long waitForMetadataCatchupMs
+            long waitForMetadataCatchupMs,
+            LogStorageAccess logStorage
     ) {
         this.partitionKey = partitionKey;
         this.topologyService = topologyService;
@@ -133,6 +144,7 @@ public class PartitionSnapshotStorage {
         this.failureProcessor = failureProcessor;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
+        this.logStorage = logStorage;
     }
 
     public PartitionKey partitionKey() {
@@ -166,7 +178,7 @@ public class PartitionSnapshotStorage {
     public void addMvPartition(int tableId, PartitionMvStorageAccess partition) {
         PartitionMvStorageAccess prev = partitionsByTableId.put(tableId, partition);
 
-        assert prev == null : "Partition storage for table ID " + tableId + " already exists.";
+        assert prev == null : partitionKey + ": partition storage for table ID " + tableId + " already exists.";
     }
 
     /**
@@ -176,12 +188,12 @@ public class PartitionSnapshotStorage {
      */
     public CompletableFuture<Void> removeMvPartition(int tableId) {
         synchronized (snapshotOperationLock) {
-            if (ongoingSnapshotOperation == null) {
+            if (ongoingSnapshotOperations.isEmpty()) {
                 partitionsByTableId.remove(tableId);
 
                 return nullCompletedFuture();
             } else {
-                return ongoingSnapshotOperation.thenCompose(v -> removeMvPartition(tableId));
+                return allOf(ongoingSnapshotOperations.values()).thenCompose(v -> removeMvPartition(tableId));
             }
         }
     }
@@ -211,7 +223,11 @@ public class PartitionSnapshotStorage {
      * Starts an incoming snapshot.
      */
     public SnapshotCopier startIncomingSnapshot(String uri) {
-        startSnapshotOperation();
+        UUID snapshotId = UUID.randomUUID();
+
+        LOG.info("Starting incoming snapshot [partitionKey={}, uri={}, snapshotId={}]", partitionKey, uri, snapshotId);
+
+        startSnapshotOperation(snapshotId);
 
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
@@ -221,7 +237,7 @@ public class PartitionSnapshotStorage {
                 try {
                     super.close();
                 } finally {
-                    completeSnapshotOperation();
+                    completeSnapshotOperation(snapshotId);
                 }
             }
         };
@@ -235,37 +251,41 @@ public class PartitionSnapshotStorage {
      * Starts an outgoing snapshot.
      */
     public SnapshotReader startOutgoingSnapshot() {
-        startSnapshotOperation();
+        UUID snapshotId = UUID.randomUUID();
 
-        return new OutgoingSnapshotReader(this) {
+        LOG.info("Starting outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
+        startSnapshotOperation(snapshotId);
+
+        return new OutgoingSnapshotReader(snapshotId, this) {
             @Override
             public void close() throws IOException {
                 try {
                     super.close();
                 } finally {
-                    completeSnapshotOperation();
+                    completeSnapshotOperation(snapshotId);
                 }
             }
         };
     }
 
-    private void startSnapshotOperation() {
+    private void startSnapshotOperation(UUID snapshotId) {
         synchronized (snapshotOperationLock) {
-            assert ongoingSnapshotOperation == null : "A snapshot is in progress";
+            CompletableFuture<Void> previousFuture = ongoingSnapshotOperations.put(snapshotId, new CompletableFuture<>());
 
-            ongoingSnapshotOperation = new CompletableFuture<>();
+            assert previousFuture == null :
+                    String.format("Snapshot already in progress [partitionId=%s, snapshotId=%s]", partitionKey, snapshotId);
         }
     }
 
-    private void completeSnapshotOperation() {
+    private void completeSnapshotOperation(UUID snapshotId) {
         synchronized (snapshotOperationLock) {
-            assert this.ongoingSnapshotOperation != null;
+            CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 
-            CompletableFuture<Void> ongoingSnapshotOperation = this.ongoingSnapshotOperation;
+            assert operationFuture != null :
+                    String.format("No snapshot in progress [partitionId=%s, snapshotId=%s]", partitionKey, snapshotId);
 
-            this.ongoingSnapshotOperation = null;
-
-            ongoingSnapshotOperation.complete(null);
+            operationFuture.complete(null);
         }
     }
 
@@ -317,15 +337,15 @@ public class PartitionSnapshotStorage {
 
         RaftGroupConfiguration configuration = txState.committedGroupConfiguration();
 
-        assert configuration != null : "Empty configuration in startup snapshot.";
+        assert configuration != null : partitionKey + ": empty configuration in startup snapshot.";
 
         return startupSnapshotMeta(lastAppliedIndex, txState.lastAppliedTerm(), configuration);
     }
 
-    private static SnapshotMeta startupSnapshotMetaFromPartitionStorage(PartitionMvStorageAccess partitionStorage) {
+    private SnapshotMeta startupSnapshotMetaFromPartitionStorage(PartitionMvStorageAccess partitionStorage) {
         RaftGroupConfiguration configuration = partitionStorage.committedGroupConfiguration();
 
-        assert configuration != null : "Empty configuration in startup snapshot.";
+        assert configuration != null : partitionKey + ": empty configuration in startup snapshot.";
 
         return startupSnapshotMeta(partitionStorage.lastAppliedIndex(), partitionStorage.lastAppliedTerm(), configuration);
     }
@@ -341,5 +361,10 @@ public class PartitionSnapshotStorage {
                 .learnersList(configuration.learners())
                 .oldLearnersList(configuration.oldLearners())
                 .build();
+    }
+
+    /** Returns the replication log storage. */
+    public LogStorageAccess logStorage() {
+        return logStorage;
     }
 }

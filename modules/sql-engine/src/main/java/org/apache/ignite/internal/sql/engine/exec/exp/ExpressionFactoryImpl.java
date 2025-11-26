@@ -61,7 +61,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private final SearchBoundsImplementor searchBoundsImplementor;
     private final ValuesImplementor valuesImplementor;
 
-
     /**
      * Constructs the object.
      *
@@ -139,8 +138,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType) {
-        return projectionImplementor.implement(projects, rowType);
+    public SqlProjection<RowT> project(List<RexNode> projects, RelDataType inputRowType) {
+        return projectionImplementor.implement(projects, inputRowType);
     }
 
     /** {@inheritDoc} */
@@ -174,7 +173,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RelDataType rowType,
             @Nullable SqlComparator<RowT> comparator
     ) {
-        return searchBoundsImplementor.implement(searchBounds, rowType, comparator, this::rowSource);
+        return searchBoundsImplementor.implement(searchBounds, rowType, comparator, this::rowSource, this::scalar);
     }
 
     static String digest(Class<?> clazz, List<? extends RexNode> nodes, @Nullable RelDataType type) {
@@ -201,8 +200,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 continue;
             }
 
-            b.append(':');
-            b.append(node.getType().getFullTypeString());
+            b.append(':').append(node.getType().getFullTypeString());
 
             new RexShuttle() {
                 @Override

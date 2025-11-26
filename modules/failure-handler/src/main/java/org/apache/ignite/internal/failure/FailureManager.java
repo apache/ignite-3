@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.failure;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
@@ -26,7 +27,10 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorView;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -55,11 +59,11 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
     /** Failure log message. */
     private static final String FAILURE_LOG_MSG = "Critical system error detected. "
-            + "Will be handled accordingly to configured handler [hnd={}, failureCtx={}]";
+            + "Will be handled accordingly to configured handler [hnd={}, failureCtx={}, failureCtxId={}]";
 
     /** Ignored failure log message. */
     private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed according to a configured handler "
-            + "[hnd={}, failureCtx={}]";
+            + "[hnd={}, failureCtx={}, failureCtxId={}]";
 
     /** Failure processor configuration. */
     private final FailureProcessorConfiguration configuration;
@@ -88,6 +92,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Thread dump per failure type timestamps. */
     private volatile @Nullable Map<FailureType, Long> threadDumpPerFailureTypeTs;
 
+    /** Failure handler configuration listener. */
+    private final FailureHandlerConfigurationListener configurationListener = new FailureHandlerConfigurationListener();
+
     /**
      * Creates a new instance of a failure processor.
      *
@@ -114,13 +121,19 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         initFailureHandler();
 
-        LOG.info("Configured failure handler: [hnd={}]", handler);
+        if (configuration != null) {
+            configuration.listen(configurationListener);
+        }
 
         return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        if (configuration != null) {
+            configuration.stopListen(configurationListener);
+        }
+
         return nullCompletedFuture();
     }
 
@@ -131,6 +144,24 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      */
     public FailureContext failureContext() {
         return failureCtx;
+    }
+
+    /**
+     * Returns {@code true} if the failure processor prints threads dump on failure.
+     *
+     * @return {@code true} if the failure processor prints threads dump on failure.
+     **/
+    public boolean dumpThreadsOnFailure() {
+        return dumpThreadsOnFailure;
+    }
+
+    /**
+     * Returns timeout for throttling of thread dumps generation (millis).
+     *
+     * @return Timeout for throttling of thread dumps generation (millis).
+     **/
+    public long dumpThreadsThrottlingTimeout() {
+        return dumpThreadsThrottlingTimeout;
     }
 
     @Override
@@ -160,17 +191,19 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
         var exceptionForLogging = new StackTraceCapturingException(failureCtx.message(), failureCtx.error());
         if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
-            LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
+            LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type(), failureCtx.id());
         } else {
-            LOG.error(FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
+            LOG.error(FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type(), failureCtx.id());
         }
 
         if (reserveBuf != null && failureCtx.error() != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 
-        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx.type())) {
-            ThreadUtils.dumpThreads(LOG, !handler.ignoredFailureTypes().contains(failureCtx.type()));
+        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx)) {
+            String ctxIdMsg = format(" [failureCtxId={}]", failureCtx.id());
+
+            ThreadUtils.dumpThreads(LOG, ctxIdMsg, !handler.ignoredFailureTypes().contains(failureCtx.type()));
         }
 
         boolean invalidated = handler.onFailure(failureCtx);
@@ -191,8 +224,17 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             return;
         }
 
-        dumpThreadsOnFailure = configuration.dumpThreadsOnFailure().value();
-        dumpThreadsThrottlingTimeout = configuration.dumpThreadsThrottlingTimeoutMillis().value();
+        reconfigure(configuration.value());
+    }
+
+    /**
+     * Reconfigure failure processor.
+     *
+     * @param newConfiguration Configuration to be applied.
+     */
+    private synchronized void reconfigure(FailureProcessorView newConfiguration) {
+        dumpThreadsOnFailure = newConfiguration.dumpThreadsOnFailure();
+        dumpThreadsThrottlingTimeout = newConfiguration.dumpThreadsThrottlingTimeoutMillis();
         threadDumpPerFailureTypeTs = null;
 
         if (dumpThreadsOnFailure) {
@@ -207,11 +249,13 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             }
         }
 
-        reserveBuf = new byte[configuration.oomBufferSizeBytes().value()];
+        if (reserveBuf == null || reserveBuf.length != newConfiguration.oomBufferSizeBytes()) {
+            reserveBuf = new byte[newConfiguration.oomBufferSizeBytes()];
+        }
 
         AbstractFailureHandler hnd;
 
-        FailureHandlerView handlerView = configuration.handler().value();
+        FailureHandlerView handlerView = newConfiguration.handler();
 
         switch (handlerView.type()) {
             case NoOpFailureHandlerConfigurationSchema.TYPE:
@@ -246,6 +290,8 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         hnd.ignoredFailureTypes(ignoredFailureTypesSet);
 
         handler = hnd;
+
+        LOG.info("Configured failure handler: [hnd={}]", handler);
     }
 
     /**
@@ -272,10 +318,11 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * This method should be called under synchronization, see {@link #process(FailureContext, FailureHandler)},
      * because it can modify throttling timeout for the given failure type {@link #threadDumpPerFailureTypeTs}.
      *
-     * @param type Failure type.
+     * @param failureContext Failure context.
      * @return {@code true} if thread dump generation should be throttled for given failure type.
      */
-    private boolean throttleThreadDump(FailureType type) {
+    private boolean throttleThreadDump(FailureContext failureContext) {
+        FailureType type = failureContext.type();
         Map<FailureType, Long> dumpPerFailureTypeTs = threadDumpPerFailureTypeTs;
         long dumpThrottlingTimeout = dumpThreadsThrottlingTimeout;
 
@@ -295,9 +342,21 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             dumpPerFailureTypeTs.put(type, curr);
         } else {
             LOG.info("Thread dump is hidden due to throttling settings. "
-                    + "Set 'dumpThreadsThrottlingTimeoutMillis' property to 0 to see all thread dumps.");
+                    + "Set 'dumpThreadsThrottlingTimeoutMillis' property to 0 to see all thread dumps "
+                    + "[failureCtxId={}].",
+                    failureContext.id()
+            );
         }
 
         return throttle;
+    }
+
+    private class FailureHandlerConfigurationListener implements ConfigurationListener<FailureProcessorView> {
+        @Override
+        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<FailureProcessorView> ctx) {
+            reconfigure(ctx.newValue());
+
+            return nullCompletedFuture();
+        }
     }
 }

@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
- * MessageListener interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Listener interface for receiving messages from other nodes in the cluster.
  */
+@FunctionalInterface
 public interface MessageListener {
     /**
-     * OnMessage.
+     * Callback invoked when a message is received from a remote cluster node.
      *
-     * @param nodeName Sender node consistent ID.
-     * @param msg Message.
+     * @param sender The cluster node that sent the message.
+     * @param msg The received message.
      */
-    void onMessage(String nodeName, NetworkMessage msg);
+    void onMessage(InternalClusterNode sender, NetworkMessage msg);
 }

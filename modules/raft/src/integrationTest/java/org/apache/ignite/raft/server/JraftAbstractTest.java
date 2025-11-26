@@ -46,6 +46,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.ThrottlingContextHolderImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
@@ -57,7 +58,7 @@ import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructio
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -118,9 +119,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before() {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, logger()));
 
-        initialMembersConf = IntStream.range(0, NODES)
+        initialMembersConf = IntStream.range(0, nodesCount())
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
@@ -163,6 +164,11 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
             JraftServerImpl server = iterSrv.next();
 
             iterSrv.remove();
+
+            if (server == null) {
+                // This means it was already stopped.
+                continue;
+            }
 
             for (RaftNodeId nodeId : server.localNodes()) {
                 server.stopRaftNode(nodeId);
@@ -227,7 +233,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
                 replicationGroupId -> groupName,
-                Map.of(groupName, workingDir.basePath()),
+                Map.of(groupName, workingDir.metaPath()),
                 Map.of(groupName, partitionsLogStorageFactory)
         );
 
@@ -270,11 +276,23 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(clientNode.serializationRegistry());
 
-        RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, executor, commandsMarshaller);
+        RaftGroupService client = RaftGroupServiceImpl.start(
+                groupId,
+                clientNode,
+                FACTORY,
+                raftConfiguration,
+                configuration,
+                executor,
+                commandsMarshaller,
+                new ThrottlingContextHolderImpl(raftConfiguration)
+        );
 
         clients.add(client);
 
         return client;
+    }
+
+    protected int nodesCount() {
+        return NODES;
     }
 }

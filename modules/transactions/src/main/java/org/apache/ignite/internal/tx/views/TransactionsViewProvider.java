@@ -122,9 +122,13 @@ public class TransactionsViewProvider {
         }
 
         private static String deriveTransactionType(@Nullable InternalTransaction tx) {
-            assert tx != null;
-
-            return tx.isReadOnly() ? READ_ONLY : READ_WRITE;
+            // The transaction tx can be null under some circumstances,
+            // even though this node is a transaction coordinator.
+            if (tx != null) {
+                return tx.isReadOnly() ? READ_ONLY : READ_WRITE;
+            } else {
+                return "n/a";
+            }
         }
     }
 

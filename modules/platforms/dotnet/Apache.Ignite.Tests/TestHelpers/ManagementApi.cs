@@ -26,6 +26,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Apache.Ignite.Compute;
+using Compute;
 using Internal.Common;
 using NUnit.Framework;
 
@@ -41,7 +42,7 @@ public static class ManagementApi
         PropertyNameCaseInsensitive = true
     };
 
-    public static async Task UnitDeploy(string unitId, string unitVersion, IList<string> unitContent)
+    public static async Task<DeploymentUnit> UnitDeploy(string unitId, string unitVersion, IList<string> unitContent)
     {
         // See DeployUnitClient.java
         var url = GetUnitUrl(unitId, unitVersion);
@@ -82,32 +83,41 @@ public static class ManagementApi
             timeoutMs: 5000,
             () => $"Failed to deploy unit {unitId} version {unitVersion}: {GetUnitStatusString()}");
 
+        return new DeploymentUnit(unitId, unitVersion);
+
         string? GetUnitStatusString() =>
             GetUnitStatus(unitId).GetAwaiter().GetResult()?
                 .SelectMany(x => x.VersionToStatus)
                 .StringJoin();
     }
 
-    public static async Task UnitUndeploy(DeploymentUnit unit)
+    public static async Task UnitUndeploy(DeploymentUnit? unit)
     {
+        if (unit == null)
+        {
+            return;
+        }
+
         using var client = new HttpClient();
         await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).Uri);
     }
 
     public static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
+        using var tempDir = new TempDir();
         var testsDll = typeof(ManagementApi).Assembly.Location;
+        var newerDotNetDll = await DotNetJobs.WriteNewerDotnetJobsAssembly(tempDir.Path, "NewerDotnetJobs");
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
-        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
+        var unitVersion0 = unitVersion ?? GetRandomUnitVersion();
 
-        await UnitDeploy(
+        return await UnitDeploy(
             unitId: unitId0,
             unitVersion: unitVersion0,
-            unitContent: [testsDll]);
-
-        return new DeploymentUnit(unitId0, unitVersion0);
+            unitContent: [testsDll, newerDotNetDll]);
     }
+
+    public static string GetRandomUnitVersion() => DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
 
     private static async Task<DeploymentUnitStatus[]?> GetUnitStatus(string unitId)
     {

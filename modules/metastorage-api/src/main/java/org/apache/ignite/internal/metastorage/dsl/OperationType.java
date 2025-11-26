@@ -22,28 +22,37 @@ package org.apache.ignite.internal.metastorage.dsl;
  */
 public enum OperationType {
     /** No-op operation. */
-    NO_OP,
+    NO_OP(0),
 
     /** Put (insert/replace) operation. */
-    PUT,
+    PUT(1),
 
     /** Remove operation. */
-    REMOVE;
+    REMOVE(2);
 
-    /** Cached array with all enum values. */
-    private static final OperationType[] VALUES = values();
+    private final int id;
+
+    OperationType(int id) {
+        this.id = id;
+    }
 
     /**
-     * Returns the enumerated value from its ordinal.
+     * Returns the enumerated value from its id.
      *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
      */
-    public static OperationType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+    public static OperationType fromId(int id) throws IllegalArgumentException {
+        switch (id) {
+            case 0: return NO_OP;
+            case 1: return PUT;
+            case 2: return REMOVE;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + id);
         }
+    }
 
-        return VALUES[ordinal];
+    public int id() {
+        return id;
     }
 }

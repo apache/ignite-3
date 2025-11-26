@@ -1,4 +1,4 @@
-# pyignite-dbapi
+# pyignite_dbapi
 Apache Ignite 3 DB API Driver.
 
 ## Prerequisites
@@ -9,9 +9,9 @@ Apache Ignite 3 DB API Driver.
 ## Installation
 
 ### From repository
-This is a recommended way for users. If you only want to use the `pyignite-dbapi` module in your project, do:
+This is a recommended way for users. If you only want to use the `pyignite_dbapi` module in your project, do:
 ```
-$ pip install pyignite-dbapi
+$ pip install pyignite_dbapi
 ```
 
 ### From sources
@@ -25,7 +25,7 @@ $ cd <pyignite_dbapi_path>
 $ pip install -e .
 ```
 
-This will install the repository version of `pyignite-dbapi` into your environment in so-called “develop” or “editable”
+This will install the repository version of `pyignite_dbapi` into your environment in so-called “develop” or “editable”
 mode. You may read more about [editable installs](https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs)
 in the `pip` manual.
 
@@ -45,7 +45,6 @@ for the most common platforms, but you may need to build it if your platform is 
 Linux building requirements:
 - GCC (and G++);
 - CMake version >=3.18;
-- unixODBC (dev version of the package);
 - OpenSSL (dev version of the package);
 - Docker to build wheels;
 - Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13).
@@ -70,13 +69,13 @@ Ready wheels will be located in `distr` directory.
 
 To upgrade an existing package, use the following command:
 ```
-pip install --upgrade pyignite-dbapi
+pip install --upgrade pyignite_dbapi
 ```
 
 To install the latest version of a package:
 
 ```
-pip install pyignite-dbapi
+pip install pyignite_dbapi
 ```
 
 To install a specific version:

@@ -27,17 +27,16 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -53,7 +52,6 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -62,8 +60,9 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRe
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,6 +101,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     @BeforeEach
     void setUp() throws Exception {
         String nodeName = "test";
+        UUID nodeId = UUID.randomUUID();
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -127,21 +127,26 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         components.add(catalogManager);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
+                IgniteThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
         );
 
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
+                () -> nodeId,
                 revisionUpdater,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,
                 systemDistributedConfiguration,
-                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService))
+                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService)),
+                new NoOpMetricManager()
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
+        assertThat(
+                startAsync(new ComponentContext(), components),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
@@ -168,7 +173,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected void startDistributionZoneManager() {
         assertThat(
                 distributionZoneManager.startAsync(new ComponentContext())
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                        .thenCompose(unused -> metaStorageManager.deployWatches())
+                        .thenCompose(unused -> catalogManager.catalogInitializationFuture()),
                 willCompleteSuccessfully()
         );
     }
@@ -230,15 +236,13 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
 
-    protected CatalogZoneDescriptor zoneDescriptor(String zoneName, HybridTimestamp timestamp) {
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(timestamp.longValue()).zone(zoneName);
-
-        assertNotNull(zoneDescriptor);
-
-        return zoneDescriptor;
+    protected void setDefaultZone(String zoneName) {
+        DistributionZonesTestUtil.setDefaultZone(catalogManager, zoneName);
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
-        return CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
+
+        return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }
 }

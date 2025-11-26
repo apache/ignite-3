@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -134,13 +135,13 @@ class LifecycleManager implements StateProvider, Debuggable {
      *
      * @return Future that will be completed when all components start futures will be completed.
      */
-    synchronized CompletableFuture<Void> allComponentsStartFuture() {
+    synchronized CompletableFuture<Void> allComponentsStartFuture(Executor startExecutor) {
         return allOf(allComponentsStartFutures.toArray(CompletableFuture[]::new))
-                .whenComplete((v, e) -> {
+                .whenCompleteAsync((v, e) -> {
                     synchronized (this) {
                         allComponentsStartFutures.clear();
                     }
-                });
+                }, startExecutor);
     }
 
     /**

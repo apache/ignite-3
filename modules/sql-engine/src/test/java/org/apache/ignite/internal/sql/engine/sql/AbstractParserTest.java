@@ -53,12 +53,12 @@ public abstract class AbstractParserTest {
      * @param pred Addition check that would be applied to the object.
      * @return {@code true} in case the object if instance of the given class and matches the predicat.
      */
-    static <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
+    static <WiderT, SpecificT extends WiderT> Matcher<WiderT> ofTypeMatching(String desc, Class<SpecificT> cls, Predicate<SpecificT> pred) {
         return new CustomMatcher<>(desc) {
             /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {
-                return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
+                return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((SpecificT) item);
             }
         };
     }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_METRIC_GROUP;
 import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
@@ -84,7 +83,7 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
 
         node.metricManager().enable(expectedMetricSourceName);
 
-        DynamicMBean metricSourceMbean = metricSourceMbean(expectedMetricSourceName);
+        DynamicMBean metricSourceMbean = metricSourceMbean(node.name(), expectedMetricSourceName);
 
         assertEquals(0L, metricSourceMbean.getAttribute("UnavailablePartitionCount"));
         assertEquals(1L, metricSourceMbean.getAttribute("HealthyPartitionCount"));
@@ -107,8 +106,8 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
         assertThat(registeredMetricSourceNames(node), not(hasItem(expectedMetricSourceName)));
     }
 
-    private DynamicMBean metricSourceMbean(String metricSourceName) throws Exception {
-        ObjectName mbeanName = makeMbeanName(JMX_METRIC_GROUP, metricSourceName);
+    private DynamicMBean metricSourceMbean(String nodeName, String metricSourceName) throws Exception {
+        ObjectName mbeanName = makeMbeanName(nodeName, null, metricSourceName);
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, DynamicMBean.class, false);
     }

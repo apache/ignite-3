@@ -66,7 +66,7 @@ public class CacheDdlCreationFromWorkDirTest {
     void testCreateDdlForMySimpleCache() {
         var sqlStr = generateSqlDdlForCache("MySimpleMap");
         assertThat(sqlStr)
-                .startsWith("CREATE TABLE PUBLIC.\"MySimpleMap\"")
+                .startsWith("CREATE TABLE MY_CUSTOM_SCHEMA.\"MySimpleMap\"")
                 .contains("PRIMARY KEY (ID)")
                 .contains("ID VARCHAR")
                 .contains("VAL INT");

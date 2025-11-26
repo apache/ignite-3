@@ -21,13 +21,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.ignite.migrationtools.cli.exceptions.DataStreamerExceptionHandler;
+import org.apache.ignite.migrationtools.cli.exceptions.DefaultMigrateCacheExceptionHandler;
+import org.apache.ignite.migrationtools.cli.exceptions.ErrorLoadingInputConfigurationHandlers;
 import org.apache.ignite.migrationtools.cli.exceptions.IgniteClientConnectionExceptionHandler;
 import org.apache.ignite.migrationtools.cli.persistence.calls.MigrateCacheCall;
 import org.apache.ignite.migrationtools.cli.persistence.calls.RetriableMigrateCacheCall;
+import org.apache.ignite.migrationtools.cli.persistence.params.IgniteClientAuthenticatorParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.MigrateCacheParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.RetrieableMigrateCacheParams;
 import org.apache.ignite3.internal.cli.commands.BaseCommand;
 import org.apache.ignite3.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite3.internal.cli.core.exception.handler.DefaultExceptionHandlers;
 import picocli.CommandLine;
 
 /** Migrate cache command. */
@@ -45,14 +50,25 @@ public class MigrateCacheCmd extends BaseCommand implements Callable<Integer> {
     @CommandLine.Mixin
     private RetrieableMigrateCacheParams retryParams;
 
+    @CommandLine.Mixin
+    private IgniteClientAuthenticatorParams clientAuthenticatorParams;
+
     @Override
     public Integer call() throws Exception {
         var migrateCacheCall = new MigrateCacheCall();
         var call = new RetriableMigrateCacheCall(migrateCacheCall);
         return runPipeline(
                 CallExecutionPipeline.builder(call)
+                        .defaultExceptionHandler(new DefaultExceptionHandlers(DefaultMigrateCacheExceptionHandler.INSTANCE))
                         .exceptionHandler(new IgniteClientConnectionExceptionHandler())
-                        .inputProvider(() -> new RetriableMigrateCacheCall.Input(parent.params(), migrateCacheParams, retryParams))
+                        .exceptionHandler(new DataStreamerExceptionHandler())
+                        .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
+                        .inputProvider(() -> new RetriableMigrateCacheCall.Input(
+                                parent.params(),
+                                migrateCacheParams,
+                                retryParams,
+                                clientAuthenticatorParams)
+                        )
                         .decorator(ouput -> () -> {
                             List<String> parts = new ArrayList<>(2);
                             if (StringUtils.isNotBlank(ouput.getMsg())) {

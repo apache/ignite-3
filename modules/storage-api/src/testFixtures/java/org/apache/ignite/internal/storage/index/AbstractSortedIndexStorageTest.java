@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow.TestIndexPrefix;
-import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matchers;
@@ -90,7 +90,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
     @Override
     protected SortedIndexStorage createIndexStorage(String name, boolean built, ColumnType... columnTypes) {
-        return createIndexStorage(name, built, toCatalogIndexColumnDescriptors(columnTypes));
+        CatalogTableDescriptor table = Objects.requireNonNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
+        return createIndexStorage(name, built, toCatalogIndexColumnDescriptors(table, columnTypes));
     }
 
     /**
@@ -102,14 +103,15 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * @see #completeBuildIndex(IndexStorage)
      */
     protected SortedIndexStorage createIndexStorage(String name, boolean built, List<ColumnParams> columns) {
+        CatalogTableDescriptor table = Objects.requireNonNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
         return createIndexStorage(
                 name,
                 built,
                 columns.stream()
                         .map(ColumnParams::name)
                         .map(columnName -> new CatalogIndexColumnDescriptor(
-                                columnName,
-                                random.nextBoolean() ? ASC_NULLS_FIRST : DESC_NULLS_LAST
+                                table.column(columnName).id(),
+                                random.nextBoolean() ? ASC_NULLS_LAST : DESC_NULLS_FIRST
                         ))
                         .toArray(CatalogIndexColumnDescriptor[]::new)
         );
@@ -173,7 +175,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             boolean built,
             ColumnType... columnTypes
     ) {
-        return createCatalogIndexDescriptor(tableId, indexId, indexName, built, toCatalogIndexColumnDescriptors(columnTypes));
+        CatalogTableDescriptor table = Objects.requireNonNull(catalog.table(tableId));
+        return createCatalogIndexDescriptor(tableId, indexId, indexName, built, toCatalogIndexColumnDescriptors(table, columnTypes));
     }
 
     private CatalogSortedIndexDescriptor createCatalogIndexDescriptor(
@@ -231,7 +234,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Tests the Put-Get-Remove case when an index is created using a single column.
      */
     @ParameterizedTest
-    @VariableSource("ALL_TYPES_COLUMN_PARAMS")
+    @MethodSource("allTypesColumnParams")
     void testSingleColumnIndex(ColumnParams columnParms) {
         testPutGetRemove(List.of(columnParms));
     }
@@ -383,16 +386,18 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         ColumnType string = ColumnType.STRING;
         ColumnType int32 = ColumnType.INT32;
 
+        CatalogTableDescriptor table = Objects.requireNonNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
+
         SortedIndexStorage index1 = createIndexStorage(
                 "TEST_INDEX_1",
-                new CatalogIndexColumnDescriptor(columnName(string), ASC_NULLS_LAST),
-                new CatalogIndexColumnDescriptor(columnName(int32), ASC_NULLS_LAST)
+                new CatalogIndexColumnDescriptor(table.column(columnName(string)).id(), ASC_NULLS_LAST),
+                new CatalogIndexColumnDescriptor(table.column(columnName(int32)).id(), ASC_NULLS_LAST)
         );
 
         SortedIndexStorage index2 = createIndexStorage(
                 "TEST_INDEX_2",
-                new CatalogIndexColumnDescriptor(columnName(string), ASC_NULLS_LAST),
-                new CatalogIndexColumnDescriptor(columnName(int32), DESC_NULLS_LAST)
+                new CatalogIndexColumnDescriptor(table.column(columnName(string)).id(), ASC_NULLS_LAST),
+                new CatalogIndexColumnDescriptor(table.column(columnName(int32)).id(), DESC_NULLS_LAST)
         );
 
         Object[] val1090 = {"10", 90};
@@ -1686,10 +1691,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         }
     }
 
-    private static CatalogIndexColumnDescriptor[] toCatalogIndexColumnDescriptors(ColumnType... columnTypes) {
+    private static CatalogIndexColumnDescriptor[] toCatalogIndexColumnDescriptors(
+            CatalogTableDescriptor table, ColumnType... columnTypes
+    ) {
         return Stream.of(columnTypes)
                 .map(AbstractIndexStorageTest::columnName)
-                .map(columnName -> new CatalogIndexColumnDescriptor(columnName, ASC_NULLS_FIRST))
+                .map(columnName -> new CatalogIndexColumnDescriptor(table.column(columnName).id(), ASC_NULLS_FIRST))
                 .toArray(CatalogIndexColumnDescriptor[]::new);
     }
 }

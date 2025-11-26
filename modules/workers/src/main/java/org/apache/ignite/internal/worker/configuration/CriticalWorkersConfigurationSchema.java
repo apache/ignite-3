@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.worker.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -26,6 +27,10 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class CriticalWorkersConfigurationSchema {
+    public static final int DEFAULT_LIVENESS_CHECK_INTERVAL_MILLIS = 2000;
+    public static final int DEFAULT_MAX_ALLOWED_LAG_MILLIS = 5000;
+    public static final int DEFAULT_NETTY_THREADS_HEARTBEAT_INTERVAL_MILLIS = 1000;
+
     /**
      * Interval between liveness checks (ms) performed by the critical workers infrastructure.
      *
@@ -33,7 +38,8 @@ public class CriticalWorkersConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long livenessCheckIntervalMillis = 200;
+    @PublicName(legacyNames = "livenessCheckInterval")
+    public long livenessCheckIntervalMillis = DEFAULT_LIVENESS_CHECK_INTERVAL_MILLIS;
 
     /**
      * Maximum allowed delay of the last heartbeat from current time; if it's exceeded, the critical worker is considered to be blocked.
@@ -42,12 +48,14 @@ public class CriticalWorkersConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long maxAllowedLagMillis = 500;
+    @PublicName(legacyNames = "maxAllowedLag")
+    public long maxAllowedLagMillis = DEFAULT_MAX_ALLOWED_LAG_MILLIS;
 
     /**
      * Interval between heartbeats used to update Netty threads heartbeat timestamps.
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long nettyThreadsHeartbeatIntervalMillis = 100;
+    @PublicName(legacyNames = "nettyThreadsHeartbeatInterval")
+    public long nettyThreadsHeartbeatIntervalMillis = DEFAULT_NETTY_THREADS_HEARTBEAT_INTERVAL_MILLIS;
 }

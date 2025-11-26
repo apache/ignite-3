@@ -20,7 +20,7 @@ package org.apache.ignite.tx.distributed;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.Iterator;
 import java.util.Set;
@@ -51,8 +52,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.table.RecordView;
@@ -122,6 +124,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private final ExecutorService txStateStorageExecutor = Executors.newSingleThreadExecutor(
             IgniteThreadFactory.create("test", "tx-state-storage-test-pool-itrvt", log, ThreadOperation.STORAGE_READ)
     );
+
+    @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[]{0, 1, 2};
+    }
 
     @BeforeEach
     public void setup() {
@@ -204,11 +211,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> nodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), partId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), partId)
         );
-
 
         view.upsert(tx, tuple);
         view.upsert(parallelTx1, tupleForParallelTx);
@@ -296,15 +302,19 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxnsAreNotVacuumizedUntilRecovered() throws InterruptedException {
         setTxResourceTtl(1);
 
-        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(0));
-
-        Tuple tuple = findTupleToBeHostedOnNode(leaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
+        Tuple tuple = INITIAL_TUPLE;
 
         int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
 
-        PartitionGroupId groupId = enabledColocation()
+        PartitionGroupId groupId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId)
                 : new TablePartitionId(tableId(anyNode(), TABLE_NAME), partId);
+
+        ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(anyNode(), groupId);
+        assertNotNull(replicaMeta);
+        assertNotNull(replicaMeta.getLeaseholder());
+
+        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(cluster.nodeIndex(replicaMeta.getLeaseholder())));
 
         Set<String> txNodes = partitionAssignment(anyNode(), groupId);
 
@@ -355,7 +365,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *
      * <ul>
      *     <li>Start a transaction;</li>
-     *     <li>Generate some tuple and define on which nodes it would be hosted;</li>
+     *     <li>Take some tuple and define on which nodes it would be hosted;</li>
      *     <li>Choose one more node that doesn't host the first tuple and choose a tuple that will be sent on this node as primary;</li>
      *     <li>Upsert both tuples within a transaction;</li>
      *     <li>Block {@link TxCleanupMessage}-s from commit partition primary;</li>
@@ -378,12 +388,12 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: Loading the data [tx={}].", txId);
 
-        // Generate some tuple and define on which nodes it would be hosted.
-        Tuple tuple0 = findTupleToBeHostedOnNode(node, TABLE_NAME, tx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        // Take some tuple and define on which nodes it would be hosted.
+        Tuple tuple0 = INITIAL_TUPLE;
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
-        PartitionGroupId commitPartGrpId = enabledColocation()
+        PartitionGroupId commitPartGrpId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                 : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
 
@@ -392,7 +402,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
         );
@@ -496,7 +506,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        PartitionGroupId commitPartGrpId = enabledColocation()
+        PartitionGroupId commitPartGrpId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                 : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
 
@@ -505,7 +515,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
         );
@@ -515,7 +525,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        boolean[] cleanupAllowed = new boolean[1];
+        AtomicBoolean cleanupAllowed = new AtomicBoolean();
 
         commitPartitionLeaseholder.dropMessages((n, msg) -> {
             if (msg instanceof TxCleanupMessage) {
@@ -523,7 +533,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
                 cleanupStarted.complete(null);
 
-                if (!cleanupAllowed[0]) {
+                if (!cleanupAllowed.get()) {
                     log.info("Test: dropping cleanup on [node= {}].", n);
 
                     return true;
@@ -545,7 +555,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 commitPartNodes::contains
         );
 
-        cleanupAllowed[0] = true;
+        cleanupAllowed.set(true);
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -594,7 +604,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        PartitionGroupId commitPartGrpId = enabledColocation()
+        PartitionGroupId commitPartGrpId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                 : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
 
@@ -603,7 +613,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
         );
@@ -697,7 +707,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartitionNodes = partitionAssignment(
                 commitPartitionLeaseholder,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(commitPartitionLeaseholder, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(commitPartitionLeaseholder, TABLE_NAME), commitPartId)
         );
@@ -868,7 +878,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         runningNodes().forEach(node -> {
             log.info("Test: triggering vacuum manually on node: " + node.name());
 
-            CompletableFuture<Void> vacuumFut = unwrapIgniteImpl(node).txManager().vacuum();
+            CompletableFuture<Void> vacuumFut = unwrapIgniteImpl(node).txManager().vacuum(mock(ResourceVacuumMetrics.class));
             assertThat(vacuumFut, willCompleteSuccessfully());
         });
     }
@@ -1048,7 +1058,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         if (checkCpPrimaryOnly) {
             IgniteImpl node = anyNode();
 
-            PartitionGroupId partitionGroupId = enabledColocation()
+            PartitionGroupId partitionGroupId = colocationEnabled()
                     ? new ZonePartitionId(zoneId(node, tableName), partId)
                     : new TablePartitionId(tableId(node, tableName), partId);
 
@@ -1123,7 +1133,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             InternalTable internalTable = table(node, tableName).internalTable();
 
             TxStatePartitionStorage txStatePartitionStorage =
-                    enabledColocation()
+                    colocationEnabled()
                     ? node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), partId)
                     : internalTable.txStateStorage().getPartitionStorage(partId);
 
@@ -1131,14 +1141,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
             return txStatePartitionStorage.get(txId);
         });
-    }
-
-    private IgniteImpl findNode(Predicate<IgniteImpl> filter) {
-        return cluster.runningNodes()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .filter(n -> n != null && filter.test(n))
-                .findFirst()
-                .get();
     }
 
 }

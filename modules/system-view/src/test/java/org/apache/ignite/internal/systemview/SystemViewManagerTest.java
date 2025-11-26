@@ -67,20 +67,21 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -150,8 +151,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(NativeTypeSpec.class)
-    public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Mode.EXCLUDE)
+    public void registerAllColumnTypes(ColumnType typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
         when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
@@ -354,7 +355,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < allNodes.size(); i++) {
             String name = allNodes.get(i);
 
-            ClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
+            InternalClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
 
             Map<String, String> systemAttributes;
             if (owningNodesSet.get(i)) {

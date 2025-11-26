@@ -26,7 +26,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
@@ -35,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.junit.jupiter.api.Test;
 
 /** Assignments resolution test. */
@@ -93,11 +93,11 @@ public class PartitionsResolutionTest {
         return extractor.partition(row);
     }
 
-    private final RowSchema rowSchema = RowSchema.builder()
-            .addField(NativeTypes.STRING)
-            .addField(NativeTypes.INT32)
-            .addField(NativeTypes.INT32)
-            .addField(NativeTypes.INT32)
+    private final StructNativeType rowSchema = NativeTypes.rowBuilder()
+            .addField("C1", NativeTypes.STRING, true)
+            .addField("C2", NativeTypes.INT32, true)
+            .addField("C3", NativeTypes.INT32, true)
+            .addField("C4", NativeTypes.INT32, true)
             .build();
 
     private static TableDescriptor createTableDescriptor(List<Integer> distrKeys) {
@@ -110,6 +110,6 @@ public class PartitionsResolutionTest {
 
         RelDataType rowType =  rowTypeBuilder.build();
 
-        return new TestTableDescriptor(() -> IgniteDistributions.affinity(distrKeys, 1, 1), rowType);
+        return new TestTableDescriptor(() -> IgniteDistributions.affinity(distrKeys, 1, 1, "test"), rowType);
     }
 }

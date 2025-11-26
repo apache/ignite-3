@@ -26,8 +26,8 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -137,8 +137,8 @@ public class DifferentFamiliesInTypeCoercionTest extends BaseTypeCoercionTest {
 
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        String firstLiteral = generateLiteral(typePair.first(), typePair.second().spec() == NativeTypeSpec.INT16);
-        String secondLiteral = generateLiteral(typePair.second(), typePair.first().spec() == NativeTypeSpec.INT16);
+        String firstLiteral = generateLiteral(typePair.first(), typePair.second().spec() == ColumnType.INT16);
+        String secondLiteral = generateLiteral(typePair.second(), typePair.first().spec() == ColumnType.INT16);
 
         IgniteTestUtils.assertThrows(
                 CalciteContextException.class,
@@ -167,8 +167,8 @@ public class DifferentFamiliesInTypeCoercionTest extends BaseTypeCoercionTest {
 
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        String firstLiteral = generateLiteral(typePair.first(), typePair.second().spec() == NativeTypeSpec.INT16);
-        String secondLiteral = generateLiteral(typePair.second(), typePair.first().spec() == NativeTypeSpec.INT16);
+        String firstLiteral = generateLiteral(typePair.first(), typePair.second().spec() == ColumnType.INT16);
+        String secondLiteral = generateLiteral(typePair.second(), typePair.first().spec() == ColumnType.INT16);
 
         IgniteTestUtils.assertThrows(
                 CalciteContextException.class,

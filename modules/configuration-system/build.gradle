@@ -30,11 +30,8 @@ dependencies {
     implementation project(':ignite-workers')
     implementation libs.auto.service.annotations
 
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
 }
 
 description = 'ignite-configuration-system'

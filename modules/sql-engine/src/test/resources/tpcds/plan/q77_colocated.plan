@@ -1,0 +1,255 @@
+Sort
+    collation: [CHANNEL ASC, ID ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      group: [CHANNEL, ID]
+      groupSets: [[CHANNEL, ID], [CHANNEL], []]
+      aggregation: [SUM(SALES), SUM(RETURNS), SUM(PROFIT)]
+      est: (rows=328274245)
+    UnionAll
+        est: (rows=519378729)
+      Project
+          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):INTEGER, SALES, CAST(RETURNS):DECIMAL(32767, 2), PROFIT]
+          est: (rows=144020)
+        Project
+            fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
+            projection: [_UTF-8'store channel', S_STORE_SK, SALES, CASE(IS NOT NULL(RETURNS), CAST(RETURNS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)), -(PROFIT, CASE(IS NOT NULL(PROFIT_LOSS), CAST(PROFIT_LOSS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)))]
+            est: (rows=144020)
+          HashJoin
+              predicate: =(S_STORE_SK, S_STORE_SK$0)
+              fieldNames: [S_STORE_SK, SALES, PROFIT, S_STORE_SK$0, RETURNS, PROFIT_LOSS]
+              type: left
+              est: (rows=144020)
+            ColocatedHashAggregate
+                fieldNames: [S_STORE_SK, SALES, PROFIT]
+                group: [S_STORE_SK]
+                aggregation: [SUM(SS_EXT_SALES_PRICE), SUM(SS_NET_PROFIT)]
+                est: (rows=144020)
+              Project
+                  fieldNames: [S_STORE_SK, SS_EXT_SALES_PRICE, SS_NET_PROFIT]
+                  projection: [S_STORE_SK, SS_EXT_SALES_PRICE, SS_NET_PROFIT]
+                  est: (rows=720101)
+                HashJoin
+                    predicate: =(SS_STORE_SK, S_STORE_SK)
+                    type: inner
+                    est: (rows=720101)
+                  HashJoin
+                      predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                      type: inner
+                      est: (rows=720101)
+                    Exchange
+                        distribution: single
+                        est: (rows=2880404)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          fieldNames: [SS_SOLD_DATE_SK, SS_STORE_SK, SS_EXT_SALES_PRICE, SS_NET_PROFIT]
+                          est: (rows=2880404)
+                    Exchange
+                        distribution: single
+                        est: (rows=18262)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=18262)
+                  Exchange
+                      distribution: single
+                      est: (rows=12)
+                    TableScan
+                        table: PUBLIC.STORE
+                        fieldNames: [S_STORE_SK]
+                        est: (rows=12)
+            ColocatedHashAggregate
+                fieldNames: [S_STORE_SK, RETURNS, PROFIT_LOSS]
+                group: [S_STORE_SK]
+                aggregation: [SUM(SR_RETURN_AMT), SUM(SR_NET_LOSS)]
+                est: (rows=14376)
+              Project
+                  fieldNames: [S_STORE_SK, SR_RETURN_AMT, SR_NET_LOSS]
+                  projection: [S_STORE_SK, SR_RETURN_AMT, SR_NET_LOSS]
+                  est: (rows=71879)
+                HashJoin
+                    predicate: =(SR_STORE_SK, S_STORE_SK)
+                    type: inner
+                    est: (rows=71879)
+                  HashJoin
+                      predicate: =(SR_RETURNED_DATE_SK, D_DATE_SK)
+                      type: inner
+                      est: (rows=71879)
+                    Exchange
+                        distribution: single
+                        est: (rows=287514)
+                      TableScan
+                          table: PUBLIC.STORE_RETURNS
+                          fieldNames: [SR_RETURNED_DATE_SK, SR_STORE_SK, SR_RETURN_AMT, SR_NET_LOSS]
+                          est: (rows=287514)
+                    Exchange
+                        distribution: single
+                        est: (rows=18262)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=18262)
+                  Exchange
+                      distribution: single
+                      est: (rows=12)
+                    TableScan
+                        table: PUBLIC.STORE
+                        fieldNames: [S_STORE_SK]
+                        est: (rows=12)
+      Project
+          fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
+          projection: [_UTF-8'catalog channel', CS_CALL_CENTER_SK, SALES, RETURNS, -(PROFIT, PROFIT_LOSS)]
+          est: (rows=519198739)
+        NestedLoopJoin
+            predicate: true
+            type: inner
+            est: (rows=519198739)
+          ColocatedHashAggregate
+              fieldNames: [CS_CALL_CENTER_SK, SALES, PROFIT]
+              group: [CS_CALL_CENTER_SK]
+              aggregation: [SUM(CS_EXT_SALES_PRICE), SUM(CS_NET_PROFIT)]
+              est: (rows=72077)
+            Project
+                fieldNames: [CS_CALL_CENTER_SK, CS_EXT_SALES_PRICE, CS_NET_PROFIT]
+                projection: [CS_CALL_CENTER_SK, CS_EXT_SALES_PRICE, CS_NET_PROFIT]
+                est: (rows=360387)
+              HashJoin
+                  predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=360387)
+                Exchange
+                    distribution: single
+                    est: (rows=1441548)
+                  TableScan
+                      table: PUBLIC.CATALOG_SALES
+                      fieldNames: [CS_SOLD_DATE_SK, CS_CALL_CENTER_SK, CS_EXT_SALES_PRICE, CS_NET_PROFIT]
+                      est: (rows=1441548)
+                Exchange
+                    distribution: single
+                    est: (rows=18262)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
+                      fieldNames: [D_DATE_SK, D_DATE]
+                      est: (rows=18262)
+          ColocatedHashAggregate
+              fieldNames: [CR_CALL_CENTER_SK, RETURNS, PROFIT_LOSS]
+              group: [CR_CALL_CENTER_SK]
+              aggregation: [SUM(CR_RETURN_AMOUNT), SUM(CR_NET_LOSS)]
+              est: (rows=7203)
+            Project
+                fieldNames: [CR_CALL_CENTER_SK, CR_RETURN_AMOUNT, CR_NET_LOSS]
+                projection: [CR_CALL_CENTER_SK, CR_RETURN_AMOUNT, CR_NET_LOSS]
+                est: (rows=36017)
+              HashJoin
+                  predicate: =(CR_RETURNED_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=36017)
+                Exchange
+                    distribution: single
+                    est: (rows=144067)
+                  TableScan
+                      table: PUBLIC.CATALOG_RETURNS
+                      fieldNames: [CR_RETURNED_DATE_SK, CR_CALL_CENTER_SK, CR_RETURN_AMOUNT, CR_NET_LOSS]
+                      est: (rows=144067)
+                Exchange
+                    distribution: single
+                    est: (rows=18262)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
+                      fieldNames: [D_DATE_SK, D_DATE]
+                      est: (rows=18262)
+      Project
+          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):INTEGER, SALES, CAST(RETURNS):DECIMAL(32767, 2), PROFIT]
+          est: (rows=35969)
+        Project
+            fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
+            projection: [_UTF-8'web channel', WP_WEB_PAGE_SK, SALES, CASE(IS NOT NULL(RETURNS), CAST(RETURNS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)), -(PROFIT, CASE(IS NOT NULL(PROFIT_LOSS), CAST(PROFIT_LOSS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)))]
+            est: (rows=35969)
+          HashJoin
+              predicate: =(WP_WEB_PAGE_SK, WP_WEB_PAGE_SK$0)
+              fieldNames: [WP_WEB_PAGE_SK, SALES, PROFIT, WP_WEB_PAGE_SK$0, RETURNS, PROFIT_LOSS]
+              type: left
+              est: (rows=35969)
+            ColocatedHashAggregate
+                fieldNames: [WP_WEB_PAGE_SK, SALES, PROFIT]
+                group: [WP_WEB_PAGE_SK]
+                aggregation: [SUM(WS_EXT_SALES_PRICE), SUM(WS_NET_PROFIT)]
+                est: (rows=35969)
+              Project
+                  fieldNames: [WP_WEB_PAGE_SK, WS_EXT_SALES_PRICE, WS_NET_PROFIT]
+                  projection: [WP_WEB_PAGE_SK, WS_EXT_SALES_PRICE, WS_NET_PROFIT]
+                  est: (rows=179846)
+                HashJoin
+                    predicate: =(WS_WEB_PAGE_SK, WP_WEB_PAGE_SK)
+                    type: inner
+                    est: (rows=179846)
+                  HashJoin
+                      predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                      type: inner
+                      est: (rows=179846)
+                    Exchange
+                        distribution: single
+                        est: (rows=719384)
+                      TableScan
+                          table: PUBLIC.WEB_SALES
+                          fieldNames: [WS_SOLD_DATE_SK, WS_WEB_PAGE_SK, WS_EXT_SALES_PRICE, WS_NET_PROFIT]
+                          est: (rows=719384)
+                    Exchange
+                        distribution: single
+                        est: (rows=18262)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=18262)
+                  Exchange
+                      distribution: single
+                      est: (rows=60)
+                    TableScan
+                        table: PUBLIC.WEB_PAGE
+                        fieldNames: [WP_WEB_PAGE_SK]
+                        est: (rows=60)
+            ColocatedHashAggregate
+                fieldNames: [WP_WEB_PAGE_SK, RETURNS, PROFIT_LOSS]
+                group: [WP_WEB_PAGE_SK]
+                aggregation: [SUM(WR_RETURN_AMT), SUM(WR_NET_LOSS)]
+                est: (rows=3588)
+              Project
+                  fieldNames: [WP_WEB_PAGE_SK, WR_RETURN_AMT, WR_NET_LOSS]
+                  projection: [WP_WEB_PAGE_SK, WR_RETURN_AMT, WR_NET_LOSS]
+                  est: (rows=17941)
+                HashJoin
+                    predicate: =(WR_WEB_PAGE_SK, WP_WEB_PAGE_SK)
+                    type: inner
+                    est: (rows=17941)
+                  HashJoin
+                      predicate: =(WR_RETURNED_DATE_SK, D_DATE_SK)
+                      type: inner
+                      est: (rows=17941)
+                    Exchange
+                        distribution: single
+                        est: (rows=71763)
+                      TableScan
+                          table: PUBLIC.WEB_RETURNS
+                          fieldNames: [WR_RETURNED_DATE_SK, WR_WEB_PAGE_SK, WR_RETURN_AMT, WR_NET_LOSS]
+                          est: (rows=71763)
+                    Exchange
+                        distribution: single
+                        est: (rows=18262)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=18262)
+                  Exchange
+                      distribution: single
+                      est: (rows=60)
+                    TableScan
+                        table: PUBLIC.WEB_PAGE
+                        fieldNames: [WP_WEB_PAGE_SK]
+                        est: (rows=60)

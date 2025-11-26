@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -35,14 +33,16 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -82,7 +82,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet reqColumns
+            @Nullable ImmutableIntList reqColumns
     ) {
         super(cluster, traitSet, hints, table, names, proj, cond, reqColumns);
 
@@ -103,17 +103,27 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        if (searchBounds != null) {
-            List<RexNode> expressions = searchBounds.stream()
-                    .filter(Objects::nonNull)
-                    .map(SearchBounds::condition)
-                    .collect(Collectors.toList());
+        RexNode condition0 = shuttle.apply(condition);
+        List<RexNode> projects0 = shuttle.apply(projects);
+        List<SearchBounds> searchBounds0 = RexUtils.processSearchBounds(shuttle, searchBounds);
 
-            shuttle.apply(expressions);
+        if (condition0 == condition && projects0 == projects && searchBounds == searchBounds0) {
+            return this;
         }
 
-        return super.accept(shuttle);
+        return copy(projects0, condition0, searchBounds0);
     }
+
+    @Override
+    protected final ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        throw new IllegalStateException("Should never be called.");
+    }
+
+    protected abstract AbstractIndexScan copy(
+            @Nullable List<RexNode> newProjects,
+            @Nullable RexNode newCondition,
+            @Nullable List<SearchBounds> newSearchBounds
+    );
 
     /** Return index name. */
     public String indexName() {
@@ -174,5 +184,17 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
      */
     public List<SearchBounds> searchBounds() {
         return searchBounds;
+    }
+
+    @Override
+    public IgniteRelWriter explainAttributes(IgniteRelWriter writer) {
+        super.explainAttributes(writer)
+                .addIndex(idxName, type);
+
+        if (searchBounds != null) {
+            writer.addSearchBounds(searchBounds);
+        }
+
+        return writer;
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -30,6 +31,8 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.StripedThreadPoolMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -44,6 +47,8 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
 
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
 
+    private static final String QUERY_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-executor";
+
     private final String nodeName;
 
     private volatile StripedThreadPoolExecutor stripedThreadPoolExecutor;
@@ -52,20 +57,28 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
 
     private final FailureManager failureManager;
 
+    private final MetricManager metricManager;
+
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param concurrencyLevel concurrency Level for execution thread pool.
      * @param failureManager Failure processor.
+     * @param metricManager Metric manager.
      */
-    public QueryTaskExecutorImpl(String nodeName, int concurrencyLevel, FailureManager failureManager) {
+    public QueryTaskExecutorImpl(
+            String nodeName,
+            int concurrencyLevel,
+            FailureManager failureManager,
+            MetricManager metricManager
+    ) {
         this.nodeName = nodeName;
         this.concurrencyLevel = concurrencyLevel;
         this.failureManager = failureManager;
+        this.metricManager = metricManager;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
@@ -74,9 +87,11 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                 false,
                 0
         );
+
+        metricManager.registerSource(new StripedThreadPoolMetricSource(QUERY_EXECUTOR_SOURCE_NAME, null, stripedThreadPoolExecutor));
+        metricManager.enable(QUERY_EXECUTOR_SOURCE_NAME);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
         int commandIdx = hash(qryId, fragmentId);
@@ -105,7 +120,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public void execute(Runnable command) {
         execute(
@@ -115,7 +129,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
@@ -126,15 +139,15 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
         return IgniteUtils.safeAbs(31 * (31 + (qryId != null ? qryId.hashCode() : 0)) + Long.hashCode(fragmentId));
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() {
         if (stripedThreadPoolExecutor != null) {
             stripedThreadPoolExecutor.shutdownNow();
+
+            metricManager.unregisterSource(QUERY_EXECUTOR_SOURCE_NAME);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
         return stripedThreadPoolExecutor.awaitTermination(timeout, unit);

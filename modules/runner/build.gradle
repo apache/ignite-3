@@ -95,6 +95,7 @@ dependencies {
     implementation project(':ignite-catalog-compaction')
     implementation project(':ignite-system-disaster-recovery')
     implementation project(':ignite-system-disaster-recovery-api')
+    implementation project(':ignite-configuration-storage')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -119,11 +120,6 @@ dependencies {
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-jdbc'))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.hamcrest.path
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation(libs.jsonpath.assert) {
         //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -176,7 +172,9 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation project(':ignite-eventlog')
-    integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation project(':ignite-configuration-presentation')
+    integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
@@ -196,8 +194,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation testFixtures(project(':ignite-replicator'))
-    integrationTestImplementation(testFixtures(project(':ignite-catalog')))
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
@@ -225,19 +222,40 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-placement-driver-api')
+    testFixturesImplementation project(':ignite-partition-distribution')
+    testFixturesImplementation project(':ignite-partition-replicator')
+    testFixturesImplementation project(':ignite-distribution-zones')
+    testFixturesImplementation project(':ignite-configuration-storage')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.typesafe.config
+    testFixturesImplementation libs.awaitility
 }
 
-tasks.register("runnerPlatformTest", JavaExec) {
-    mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
+tasks.register('postRelease', JavaExec) {
+    def testResourcePath = sourceSets.test.resources.srcDirs.iterator().next().absolutePath
+    def snapshotFilePath = java.nio.file.Path.of(testResourcePath, "compatibility/configuration", "ignite-${projectVersion}.bin").toString()
+
+    description = 'Generates compatibility snapshot for the project.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.apache.ignite.internal.configuration.compatibility.GenerateConfigurationSnapshot'
+    args = [snapshotFilePath]
+    jvmArgs += defaultJvmArgs
+
+    doFirst {
+        if (version.toString().endsWith('-SNAPSHOT')) {
+            throw new GradleException("The task can be executed only on release version: ${version}")
+        }
+    }
+}
+
+tasks.register('runnerPlatformTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
+    mainClass = 'org.apache.ignite.internal.runner.app.PlatformTestNodeRunner'
 
     jvmArgs += defaultJvmArgs
 
@@ -246,8 +264,8 @@ tasks.register("runnerPlatformTest", JavaExec) {
     enableAssertions = true
 }
 
-tasks.register("runnerPlatformBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
+tasks.register('runnerPlatformBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner'
 
     jvmArgs += defaultJvmArgs
 
@@ -256,38 +274,60 @@ tasks.register("runnerPlatformBenchmark", JavaExec) {
     enableAssertions = true
 }
 
-tasks.register("runUpsertBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.benchmark.UpsertKvBenchmark"
+tasks.register('runUpsertBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.UpsertKvBenchmark'
 
-    jvmArgs += addOpens + ["-Dio.netty.tryReflectionSetAccessible=true", "-Xmx16g"]
-
-    classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
-}
-
-tasks.register("runClientBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.benchmark.ClientKvBenchmark"
-
-    jvmArgs += addOpens + ["-Dio.netty.tryReflectionSetAccessible=true", "-Xmx16g"]
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
 }
 
-tasks.register("runRemoteBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.benchmark.RemoteKvBenchmark"
+tasks.register('runClientPutBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvPutBenchmark'
 
-    jvmArgs += addOpens + ["-Dio.netty.tryReflectionSetAccessible=true", "-Xmx16g"]
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('runClientGetBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetBenchmark'
+
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('runClientGetAllBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetAllBenchmark'
+
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('runClientGetAllExplicitBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetAllExplicitBenchmark'
+
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
 }
 
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
+                'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
         )
     }
 }
@@ -295,7 +335,7 @@ jar {
 
 tasks.register('defaultsJar', Jar) {
     from sourceSets.defaultsGenerator.output
-    archiveAppendix = "generator"
+    archiveAppendix = 'generator'
 }
 
 artifacts {

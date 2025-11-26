@@ -25,15 +25,20 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelInput;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Relational operator that represents a {@code SELECT COUNT(*) FROM table} queries such as:
@@ -101,6 +106,17 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
         return visitor.visit(this);
     }
 
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        List<RexNode> newExpressions = shuttle.apply(expressions);
+
+        if (newExpressions == expressions) {
+            return this;
+        }
+
+        return new IgniteSelectCount(getCluster(), getTraitSet(), table, newExpressions);
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
@@ -138,5 +154,18 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
         return costFactory.makeTinyCost();
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        RelDataTypeFactory typeFactory = getCluster().getTypeFactory();
+
+        RelDataType rowType = typeFactory.builder()
+                .add("$COUNT_ALL", typeFactory.createSqlType(SqlTypeName.BIGINT))
+                .build();
+
+        return writer
+                .addTable(table)
+                .addProjection(expressions, rowType);
     }
 }

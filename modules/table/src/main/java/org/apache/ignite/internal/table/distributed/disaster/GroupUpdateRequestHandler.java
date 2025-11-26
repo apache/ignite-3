@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_IDLE_ERR;
 
 import java.util.ArrayList;
@@ -100,64 +101,67 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
     }
 
     public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long msRevision, HybridTimestamp msTimestamp) {
-        int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msTimestamp.longValue());
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msTimestamp.longValue());
 
-        if (request.catalogVersion() != catalogVersion) {
-            return failedFuture(
-                    new DisasterRecoveryException(CLUSTER_NOT_IDLE_ERR, "Cluster is not idle, concurrent DDL update detected.")
-            );
-        }
-
-        Catalog catalog = disasterRecoveryManager.catalogManager.catalog(catalogVersion);
-
-        int zoneId = request.zoneId();
-
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-
-        Set<Integer> allZonePartitionsToReset = new HashSet<>();
-        request.partitionIds().values().forEach(allZonePartitionsToReset::addAll);
-
-        CompletableFuture<Set<String>> dataNodesFuture =
-                disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
-
-        CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture =
-                localStatesFuture(disasterRecoveryManager, Set.of(zoneDescriptor.name()), allZonePartitionsToReset, catalog);
-
-        return dataNodesFuture.thenCombine(localStatesFuture, (dataNodes, localStatesMap) -> {
-            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
-
-            List<CompletableFuture<Void>> assignmentsUpdateFuts = new ArrayList<>(request.partitionIds().size());
-
-            for (Entry<Integer, Set<Integer>> partitionEntry : request.partitionIds().entrySet()) {
-
-                int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionEntry.getValue(), zoneDescriptor.partitions());
-
-                assignmentsUpdateFuts.add(forceAssignmentsUpdate(
-                        partitionEntry.getKey(),
-                        zoneDescriptor,
-                        dataNodes,
-                        nodeConsistentIds,
-                        msRevision,
-                        msTimestamp,
-                        disasterRecoveryManager.metaStorageManager,
-                        localStatesMap,
-                        catalog.time(),
-                        partitionIdsArray,
-                        request.manualUpdate()
-                ));
+            if (request.catalogVersion() != catalogVersion) {
+                return failedFuture(
+                        new DisasterRecoveryException(CLUSTER_NOT_IDLE_ERR, "Cluster is not idle, concurrent DDL update detected.")
+                );
             }
 
-            return allOf(assignmentsUpdateFuts.toArray(new CompletableFuture[]{}));
-        })
-        .thenCompose(Function.identity())
-        .whenComplete((unused, throwable) -> {
-            // TODO: IGNITE-23635 Add fail handling for failed resetPeers
-            if (throwable != null) {
-                LOG.error("Failed to reset partition", throwable);
-            }
+            Catalog catalog = disasterRecoveryManager.catalogManager.catalog(catalogVersion);
+
+            int zoneId = request.zoneId();
+
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+            Set<Integer> allZonePartitionsToReset = new HashSet<>();
+            request.partitionIds().values().forEach(allZonePartitionsToReset::addAll);
+
+            CompletableFuture<Set<String>> dataNodesFuture =
+                    disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
+
+            CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture =
+                    localStatesFuture(disasterRecoveryManager, Set.of(zoneDescriptor.name()), allZonePartitionsToReset, catalog);
+
+            return dataNodesFuture.thenCombine(localStatesFuture, (dataNodes, localStatesMap) -> {
+                return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+                    Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
+                            .stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(toSet());
+
+                    List<CompletableFuture<Void>> assignmentsUpdateFuts = new ArrayList<>(request.partitionIds().size());
+
+                    for (Entry<Integer, Set<Integer>> partitionEntry : request.partitionIds().entrySet()) {
+
+                        int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionEntry.getValue(), zoneDescriptor.partitions());
+
+                        assignmentsUpdateFuts.add(forceAssignmentsUpdate(
+                                partitionEntry.getKey(),
+                                zoneDescriptor,
+                                dataNodes,
+                                nodeConsistentIds,
+                                msRevision,
+                                msTimestamp,
+                                disasterRecoveryManager.metaStorageManager,
+                                localStatesMap,
+                                catalog.time(),
+                                partitionIdsArray,
+                                request.manualUpdate(),
+                                disasterRecoveryManager
+                        ));
+                    }
+
+                    return allOf(assignmentsUpdateFuts.toArray(new CompletableFuture[]{}));
+                }).whenComplete((unused, throwable) -> {
+                    // TODO: IGNITE-23635 Add fail handling for failed resetPeers
+                    if (throwable != null) {
+                        LOG.error("Failed to reset partition", throwable);
+                    }
+                });
+            }).thenCompose(Function.identity());
         });
     }
 
@@ -188,31 +192,35 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Map<T, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
             int[] partitionIds,
-            boolean manualUpdate
+            boolean manualUpdate,
+            DisasterRecoveryManager disasterRecoveryManager
     ) {
-        CompletableFuture<Map<Integer, Assignments>> stableAssignments =
-                stableAssignments(metaStorageManager, replicationId, partitionIds);
-        return stableAssignments
-                .thenCompose(assignments -> {
-                    if (assignments.isEmpty()) {
-                        return nullCompletedFuture();
-                    }
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            CompletableFuture<Map<Integer, Assignments>> stableAssignments =
+                    stableAssignments(metaStorageManager, replicationId, partitionIds);
+            return stableAssignments
+                    .thenCompose(assignments -> inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+                        if (assignments.isEmpty()) {
+                            return nullCompletedFuture();
+                        }
 
-                    return updateAssignments(
-                            replicationId,
-                            zoneDescriptor,
-                            dataNodes,
-                            aliveNodesConsistentIds,
-                            revision,
-                            timestamp,
-                            metaStorageManager,
-                            localStatesMap,
-                            assignmentsTimestamp,
-                            partitionIds,
-                            assignments,
-                            manualUpdate
-                    );
-                });
+                        return updateAssignments(
+                                replicationId,
+                                zoneDescriptor,
+                                dataNodes,
+                                aliveNodesConsistentIds,
+                                revision,
+                                timestamp,
+                                metaStorageManager,
+                                localStatesMap,
+                                assignmentsTimestamp,
+                                partitionIds,
+                                assignments,
+                                manualUpdate,
+                                disasterRecoveryManager
+                        );
+                    }));
+        });
     }
 
     private CompletableFuture<Void> updateAssignments(
@@ -227,40 +235,44 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             long assignmentsTimestamp,
             int[] partitionIds,
             Map<Integer, Assignments> stableAssignments,
-            boolean manualUpdate
+            boolean manualUpdate,
+            DisasterRecoveryManager disasterRecoveryManager
     ) {
-        Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
+            CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
 
-        for (int i = 0; i < partitionIds.length; i++) {
-            T replicaGrpId = replicationGroupId(replicationId, partitionIds[i]);
-            LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
-                    ? localStatesMap.get(replicaGrpId)
-                    : new LocalPartitionStateMessageByNode(emptyMap());
+            for (int i = 0; i < partitionIds.length; i++) {
+                T replicaGrpId = replicationGroupId(replicationId, partitionIds[i]);
+                LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
+                        ? localStatesMap.get(replicaGrpId)
+                        : new LocalPartitionStateMessageByNode(emptyMap());
 
-            futures[i] = partitionUpdate(
-                    replicaGrpId,
-                    aliveDataNodes,
-                    aliveNodesConsistentIds,
-                    zoneDescriptor.partitions(),
-                    zoneDescriptor.replicas(),
-                    zoneDescriptor.consensusGroupSize(),
-                    revision,
-                    timestamp,
-                    metaStorageManager,
-                    stableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                    localStatesByNode,
-                    assignmentsTimestamp,
-                    manualUpdate
-            ).thenAccept(res -> {
-                DisasterRecoveryManager.LOG.info(
-                        "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
-                );
-            });
-        }
+                futures[i] = partitionUpdate(
+                        replicaGrpId,
+                        aliveDataNodes,
+                        aliveNodesConsistentIds,
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
+                        revision,
+                        timestamp,
+                        metaStorageManager,
+                        stableAssignments.get(replicaGrpId.partitionId()).nodes(),
+                        localStatesByNode,
+                        assignmentsTimestamp,
+                        manualUpdate,
+                        disasterRecoveryManager
+                ).thenAccept(res -> {
+                    DisasterRecoveryManager.LOG.info(
+                            "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
+                    );
+                });
+            }
 
-        return allOf(futures);
+            return allOf(futures);
+        });
     }
 
     private CompletableFuture<Integer> partitionUpdate(
@@ -276,51 +288,63 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
             long assignmentsTimestamp,
-            boolean manualUpdate
+            boolean manualUpdate,
+            DisasterRecoveryManager disasterRecoveryManager
     ) {
-        Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
-        Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
+            Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
 
-        if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
-            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
+            if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
+                return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            }
 
-        if (aliveStableNodes.isEmpty() && !manualUpdate) {
-            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
+            if (aliveStableNodes.isEmpty() && !manualUpdate) {
+                return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            }
 
-        if (manualUpdate) {
-            enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
-        }
+            if (manualUpdate) {
+                enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
+            }
 
-        Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
+            // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
+            partAssignments = calculateAssignmentForPartition(
+                    partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
+                    partId.partitionId(),
+                    partitions,
+                    replicas,
+                    consensusGroupSize
+            );
 
-        boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
+            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
-        assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
-                "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
-                partAssignments,
-                nextAssignment
-        );
+            boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
 
-        // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
-        // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
-        // for the case of the manual update, that was triggered by a user.
-        AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
-                .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
-                .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
-                .toQueue();
+            assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
+                    "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
+                    partAssignments,
+                    nextAssignment
+            );
 
-        return invoke(
-                partId,
-                revision,
-                timestamp,
-                metaStorageMgr,
-                assignmentsTimestamp,
-                assignmentsQueue,
-                isProposedPendingEqualsProposedPlanned,
-                partAssignments
-        );
+            // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
+            // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
+            // for the case of the manual update, that was triggered by a user.
+            AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
+                    .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
+                    .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
+                    .toQueue();
+
+            return invoke(
+                    partId,
+                    revision,
+                    timestamp,
+                    metaStorageMgr,
+                    assignmentsTimestamp,
+                    assignmentsQueue,
+                    isProposedPendingEqualsProposedPlanned,
+                    partAssignments
+            );
+        });
     }
 
     /**
@@ -351,7 +375,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
      * Returns a modifiable set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
      * {@link LocalPartitionStateEnum#CATCHING_UP}.
      */
-    private static Set<Assignment> getAliveNodesWithData(
+    static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
@@ -362,7 +386,11 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             LocalPartitionStateEnum state = entry.getValue().state();
 
             if (aliveNodesConsistentIds.contains(nodeName) && (state == HEALTHY || state == CATCHING_UP)) {
-                partAssignments.add(Assignment.forPeer(nodeName));
+                if (entry.getValue().isLearner()) {
+                    partAssignments.add(Assignment.forLearner(nodeName));
+                } else {
+                    partAssignments.add(Assignment.forPeer(nodeName));
+                }
             }
         }
 
@@ -393,7 +421,11 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 break;
             }
 
-            partAssignments.add(calcAssignment);
+            // It's required to add calcAssignment if there's no such in partAssignments already either in peer or learner form.
+            if (!partAssignments.contains(Assignment.forPeer(calcAssignment.consistentId()))
+                    && !partAssignments.contains(Assignment.forLearner(calcAssignment.consistentId()))) {
+                partAssignments.add(calcAssignment);
+            }
         }
     }
 

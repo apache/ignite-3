@@ -29,6 +29,7 @@ import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
 /** Serializes events to JSON. Uses provided json serializer to serialize events of specified class. */
 public class JacksonBasedJsonSerializer implements EventSerializer {
@@ -65,24 +66,16 @@ public class JacksonBasedJsonSerializer implements EventSerializer {
     }
 
     private static class EventUserJacksonSerializer extends StdSerializer<EventUser> {
-        private EventUser value;
-        private JsonGenerator jgen;
-        private SerializerProvider provider;
-
         EventUserJacksonSerializer() {
             this(null);
         }
 
-        EventUserJacksonSerializer(Class<EventUser> e) {
+        EventUserJacksonSerializer(@Nullable Class<EventUser> e) {
             super(e);
         }
 
         @Override
         public void serialize(EventUser value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-            this.value = value;
-            this.jgen = jgen;
-            this.provider = provider;
-
             jgen.writeStartObject();
             jgen.writeStringField("username", value.username());
             jgen.writeStringField("authenticationProvider", value.authenticationProvider());

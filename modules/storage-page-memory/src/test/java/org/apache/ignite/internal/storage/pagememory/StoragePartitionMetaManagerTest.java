@@ -129,7 +129,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new StoragePartitionMeta(4, 100, 10, 34, 1000, new UUID(1, 1), 12, 900, 300, 200, 400, 200)
+                        new StoragePartitionMeta(4, 1, 100, 10, 34, 1000, new UUID(1, 1), 12, 900, 300, 200, 400, 200)
                                 .init(null)
                                 .metaSnapshot(null),
                         buffer.rewind()
@@ -202,7 +202,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
         ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
         try {
-            return (StoragePartitionMeta) manager.readOrCreateMeta(null, partId, filePageStore, buffer);
+            return (StoragePartitionMeta) manager.readOrCreateMeta(null, partId, filePageStore, buffer, 1);
         } finally {
             freeBuffer(buffer);
         }

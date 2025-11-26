@@ -353,14 +353,14 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     private void clearAndPopulateMergeTable2() {
         sql("DROP TABLE IF EXISTS test2 ");
-        sql("CREATE TABLE test2 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
+        sql("CREATE TABLE test2 (k1 int, k2 int, a int, b int, c varchar, PRIMARY KEY (k1, k2))");
         sql("INSERT INTO test2 VALUES (333, 333, 0, 100, '')");
         sql("INSERT INTO test2 VALUES (444, 444, 2, 200, null)");
     }
 
     private void clearAndPopulateMergeTable1() {
         sql("DROP TABLE IF EXISTS test1 ");
-        sql("CREATE TABLE test1 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
+        sql("CREATE TABLE test1 (k1 int, k2 int, a int, b int, c varchar, PRIMARY KEY (k1, k2))");
         sql("INSERT INTO test1 VALUES (111, 111, 0, 100, '0')");
         sql("INSERT INTO test1 VALUES (222, 222, 1, 300, '1')");
     }
@@ -1043,12 +1043,11 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                     .check();
         }
 
-        // although it's basically kv delete, such optimization is not supported
-        // at the moment, thus expected plan should contain IgniteTableModify
+        // kv delete
         for (int i = 0; i < tableSize; i++) {
             assertQuery("DELETE FROM test1 WHERE id1=? AND id2=?")
                     .withParams(i, i)
-                    .matches(containsSubPlan("TableModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .returns(1L)
                     .check();
         }
@@ -1058,6 +1057,27 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .check();
         assertQuery("SELECT count(*) FROM test2")
                 .returns(0L)
+                .check();
+    }
+
+    @Test
+    void pkCustomNameTest() {
+        // First, let's create a table with name which will match auto-generated PK name for the second table.
+        sql("CREATE TABLE test_pk (id INT PRIMARY KEY, val INT)");
+
+        // Let's make sure creation of table indeed results in name conflict.
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.TEST_PK' already exists",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)")
+        );
+
+        // But similar statement with custom name for constraint should work just fine.
+        sql("CREATE TABLE test (id INT, val INT, CONSTRAINT custom_name PRIMARY KEY (id))");
+
+        assertQuery("SELECT COUNT(*) FROM system.indexes " 
+                + "WHERE lower(index_name) = 'custom_name' AND is_unique_index")
+                .returns(1L)
                 .check();
     }
 

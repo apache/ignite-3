@@ -83,6 +83,7 @@ public:
             }
 
             std::vector<const char *> args;
+            args.reserve(m_args.size() + 2);
             args.push_back(m_command.c_str());
 
             for (auto &arg : m_args) {

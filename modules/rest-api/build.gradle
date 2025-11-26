@@ -44,18 +44,12 @@ dependencies {
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.core
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
     testImplementation libs.micronaut.http.server.netty
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 
+    testFixturesApi libs.micronaut.http.core // exposed by the MicronautHttpResponseMatcher
     testFixturesImplementation testFixtures(project(":ignite-core"))
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.micronaut.http.core
     testFixturesImplementation libs.micronaut.http.client
 }
 

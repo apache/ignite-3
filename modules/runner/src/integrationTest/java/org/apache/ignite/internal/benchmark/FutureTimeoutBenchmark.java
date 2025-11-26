@@ -98,7 +98,6 @@ public class FutureTimeoutBenchmark {
                     null
             );
 
-
             new IgniteThread(timeoutWorker).start();
         }
     }

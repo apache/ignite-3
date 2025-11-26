@@ -37,10 +37,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
@@ -93,6 +93,8 @@ public class ClientPrimaryReplicaTracker {
 
     private final LowWatermark lowWatermark;
 
+    private final NodeProperties nodeProperties;
+
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
@@ -104,8 +106,6 @@ public class ClientPrimaryReplicaTracker {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructor.
@@ -121,13 +121,15 @@ public class ClientPrimaryReplicaTracker {
             CatalogService catalogService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            NodeProperties nodeProperties
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.lowWatermark = lowWatermark;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -254,7 +256,7 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private ReplicationGroupId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
-        if (enabledColocation) {
+        if (nodeProperties.colocationEnabled()) {
             CatalogTableDescriptor table = requiredTable(tableId, timestamp);
             return new ZonePartitionId(table.zoneId(), partition);
         } else {

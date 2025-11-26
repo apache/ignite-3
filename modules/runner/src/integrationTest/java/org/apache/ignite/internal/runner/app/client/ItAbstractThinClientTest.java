@@ -129,7 +129,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) ZONE TEST_ZONE");
 
-        client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+        client = IgniteClient.builder()
+                .addresses(getClientAddresses().toArray(new String[0]))
+                .operationTimeout(15_000)
+                .build();
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == nodes(), 3000));
     }
@@ -213,7 +216,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     }
 
     protected List<ClusterNode> sortedNodes() {
-        return client.clusterNodes().stream()
+        return client.cluster().nodes().stream()
                 .sorted(Comparator.comparing(ClusterNode::name))
                 .collect(toList());
     }

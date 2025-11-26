@@ -20,6 +20,7 @@ package org.apache.ignite.internal.testframework;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.util.Map.entry;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -29,6 +30,7 @@ import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -48,7 +50,7 @@ public class TestIgnitionManager {
     /** Default name of configuration file. */
     public static final String DEFAULT_CONFIG_NAME = "ignite-config.conf";
 
-    private static final int DEFAULT_SCALECUBE_METADATA_TIMEOUT = 10_000;
+    public static final int DEFAULT_SCALECUBE_METADATA_TIMEOUT = 10_000;
 
     /** Default DelayDuration in ms used for tests that is set on node init. */
     public static final int DEFAULT_DELAY_DURATION_MS = 100;
@@ -61,16 +63,25 @@ public class TestIgnitionManager {
     public static final long DEFAULT_MAX_CLOCK_SKEW_MS = TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 
     /** Map with default node configuration values. */
-    private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
-            "ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
-            "ignite.storage.profiles.default_aipersist.engine", "aipersist",
-            "ignite.storage.profiles.default_aipersist.sizeBytes", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default_aimem.engine", "aimem",
-            "ignite.storage.profiles.default_aimem.initSizeBytes", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default_aimem.maxSizeBytes", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default.engine", "aipersist",
-            "ignite.storage.profiles.default.sizeBytes", Integer.toString(256 * MiB),
-            "ignite.system.properties.aipersistThrottling", "disabled"
+    private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.ofEntries(
+            entry("ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT)),
+            entry("ignite.system.properties.aipersistThrottling", "disabled"),
+            entry("ignite.system.criticalWorkers.maxAllowedLagMillis", "500"),
+            entry("ignite.system.criticalWorkers.livenessCheckIntervalMillis", "200"),
+            entry("ignite.system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis", "100")
+    );
+
+    /** Map of pre-configured by default storage profiles. */
+    private static final Map<String, String> DEFAULT_STORAGE_PROFILES = Map.ofEntries(
+            entry("ignite.storage.profiles.default_aipersist.engine", "aipersist"),
+            entry("ignite.storage.profiles.default_aipersist.sizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default_aimem.engine", "aimem"),
+            entry("ignite.storage.profiles.default_aimem.initSizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default_aimem.maxSizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default_rocksdb.engine", "rocksdb"),
+            entry("ignite.storage.profiles.default_rocksdb.sizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default.engine", "aipersist"),
+            entry("ignite.storage.profiles.default.sizeBytes", Integer.toString(256 * MiB))
     );
 
     /** Map with default cluster configuration values. */
@@ -116,7 +127,36 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static IgniteServer start(String nodeName, @Nullable String configStr, Path workDir) {
-        return doStart(nodeName, configStr, workDir, true);
+        return doStart(nodeName, configStr, workDir, true, true);
+    }
+
+    /**
+     * The same as {@link TestIgnitionManager#start(String, String, Path)}, but the node wouldn't use pre-configured set of storage profiles
+     * for each storage engine from {@link TestIgnitionManager#DEFAULT_STORAGE_PROFILES}.
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configStr Optional node configuration.
+     *      Following rules are used for applying the configuration properties:
+     *      <ol>
+     *        <li>Specified property overrides existing one or just applies itself if it wasn't
+     *            previously specified.</li>
+     *        <li>All non-specified properties either use previous value or use default one from
+     *            corresponding configuration schema.</li>
+     *      </ol>
+     *      So that, in case of initial node start (first start ever) specified configuration, supplemented
+     *      with defaults, is used. If no configuration was provided defaults are used for all
+     *      configuration properties. In case of node restart, specified properties override existing
+     *      ones, non specified properties that also weren't specified previously use default values.
+     *      Please pay attention that previously specified properties are searched in the
+     *      {@code workDir} specified by the user.
+     *
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
+     * @throws IgniteException If error occurs while reading node configuration.
+     */
+    public static IgniteServer startWithoutPreConfiguredStorageProfiles(String nodeName, @Nullable String configStr, Path workDir) {
+        return doStart(nodeName, configStr, workDir, true, false);
     }
 
     /**
@@ -137,16 +177,22 @@ public class TestIgnitionManager {
      * @throws IllegalArgumentException If {@code nodeName} is {@code null} or invalid.
      */
     public static IgniteServer startWithProductionDefaults(String nodeName, @Nullable String configStr, Path workDir) {
-        return doStart(nodeName, configStr, workDir, false);
+        return doStart(nodeName, configStr, workDir, false, false);
     }
 
-    private static IgniteServer doStart(String nodeName, @Nullable String configStr, Path workDir, boolean useTestDefaults) {
+    private static IgniteServer doStart(
+            String nodeName,
+            @Nullable String configStr,
+            Path workDir,
+            boolean useTestDefaults,
+            boolean usePreConfiguredStorageProfiles
+    ) {
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
 
             if (useTestDefaults) {
-                writeConfigurationFileApplyingTestDefaults(configStr, configPath);
+                writeConfigurationFileApplyingTestDefaults(configStr, configPath, usePreConfiguredStorageProfiles);
             } else {
                 writeConfigurationFile(configStr, configPath);
             }
@@ -162,24 +208,55 @@ public class TestIgnitionManager {
      */
     public static void writeConfigurationFileApplyingTestDefaults(Path configPath) {
         try {
-            writeConfigurationFileApplyingTestDefaults(null, configPath);
+            writeConfigurationFileApplyingTestDefaults(null, configPath, true);
         } catch (IOException e) {
             throw new IgniteException(INTERNAL_ERR, "Couldn't update node configuration file", e);
         }
     }
 
-    private static void writeConfigurationFileApplyingTestDefaults(@Nullable String configStr, Path configPath) throws IOException {
+    private static void writeConfigurationFileApplyingTestDefaults(
+            @Nullable String configStr,
+            Path configPath,
+            boolean useDefaultStorageProfiles
+    ) throws IOException {
+        Map<String, String> storageProfiles = useDefaultStorageProfiles ? DEFAULT_STORAGE_PROFILES : Map.of();
+        writeConfigurationFileApplyingTestDefaults(configStr, configPath, DEFAULT_NODE_CONFIG, storageProfiles);
+    }
+
+    /**
+     * Applies overrides to the config and writes it to disk.
+     *
+     * @param configStr Config string.
+     * @param configPath Config file path.
+     * @param defaults Map of overrides.
+     * @param storageProfiles Map of storage profiles overrides.
+     * @throws IOException If failed to write the file.
+     */
+    public static void writeConfigurationFileApplyingTestDefaults(
+            @Nullable String configStr,
+            Path configPath,
+            Map<String, String> defaults,
+            Map<String, String> storageProfiles
+    ) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;
         }
+        Map<String, String> preconfiguredParams = new HashMap<>(defaults);
+        preconfiguredParams.putAll(storageProfiles);
 
-        String configStringToWrite = applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG);
+        String configStringToWrite = applyTestDefaultsToConfig(configStr, preconfiguredParams);
 
         writeConfigurationFile(configStringToWrite, configPath);
     }
 
-    private static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+    /**
+     * Writes config to file.
+     *
+     * @param configStr Config string.
+     * @param configPath Config file path.
+     */
+    public static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;

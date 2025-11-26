@@ -25,13 +25,8 @@ dependencies {
 
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
-    implementation project(':ignite-vault')
     implementation project(':ignite-raft-api')
     implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-system-disaster-recovery-api'

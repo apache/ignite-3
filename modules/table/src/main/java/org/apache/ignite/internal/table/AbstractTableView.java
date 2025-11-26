@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
-import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
@@ -134,9 +134,12 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return withSchemaSync((InternalTransaction) tx, null, action);
     }
 
-    private <T> CompletableFuture<T> withSchemaSync(@Nullable InternalTransaction tx, @Nullable Integer previousSchemaVersion,
-            KvAction<T> action) {
-        CompletableFuture<Integer> schemaVersionFuture = isDirectFlowApplicableTx(tx)
+    private <T> CompletableFuture<T> withSchemaSync(
+            @Nullable InternalTransaction tx,
+            @Nullable Integer previousSchemaVersion,
+            KvAction<T> action
+    ) {
+        CompletableFuture<Integer> schemaVersionFuture = tx == null
                 ? schemaVersions.schemaVersionAtCurrentTime(tbl.tableId())
                 : schemaVersions.schemaVersionAt(tx.schemaTimestamp(), tbl.tableId());
 
@@ -154,7 +157,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
                                 // to retry the operation here.
 
-                                assert isDirectFlowApplicableTx(tx) : "Only for direct flow applicable tx a retry might be requested";
+                                assert isDirectFlowApplicable(tx) : "Only for direct flow applicable tx a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 // Repeat.

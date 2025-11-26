@@ -1,0 +1,66 @@
+Sort
+    collation: [W_STATE ASC, I_ITEM_ID ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      fieldNames: [W_STATE, I_ITEM_ID, SALES_BEFORE, SALES_AFTER]
+      group: [W_STATE, I_ITEM_ID]
+      aggregation: [SUM($f2), SUM($f3)]
+      est: (rows=32435)
+    Project
+        fieldNames: [W_STATE, I_ITEM_ID, $f2, $f3]
+        projection: [W_STATE, I_ITEM_ID, CASE(<(D_DATE, 2000-03-18), -(CS_SALES_PRICE, CASE(IS NOT NULL(CR_REFUNDED_CASH), CAST(CR_REFUNDED_CASH):DECIMAL(12, 2) NOT NULL, 0.00:DECIMAL(12, 2))), 0.00:DECIMAL(13, 2)), CASE(>=(D_DATE, 2000-03-18), -(CS_SALES_PRICE, CASE(IS NOT NULL(CR_REFUNDED_CASH), CAST(CR_REFUNDED_CASH):DECIMAL(12, 2) NOT NULL, 0.00:DECIMAL(12, 2))), 0.00:DECIMAL(13, 2))]
+        est: (rows=90097)
+      HashJoin
+          predicate: =(I_ITEM_SK, CS_ITEM_SK)
+          type: inner
+          est: (rows=90097)
+        HashJoin
+            predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+            type: inner
+            est: (rows=360387)
+          HashJoin
+              predicate: =(CS_WAREHOUSE_SK, W_WAREHOUSE_SK)
+              type: inner
+              est: (rows=1441548)
+            HashJoin
+                predicate: AND(=(CS_ORDER_NUMBER, CR_ORDER_NUMBER), =(CS_ITEM_SK, CR_ITEM_SK))
+                type: left
+                est: (rows=1441548)
+              Exchange
+                  distribution: single
+                  est: (rows=1441548)
+                TableScan
+                    table: PUBLIC.CATALOG_SALES
+                    fieldNames: [CS_SOLD_DATE_SK, CS_WAREHOUSE_SK, CS_ITEM_SK, CS_ORDER_NUMBER, CS_SALES_PRICE]
+                    est: (rows=1441548)
+              Exchange
+                  distribution: single
+                  est: (rows=144067)
+                TableScan
+                    table: PUBLIC.CATALOG_RETURNS
+                    fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH]
+                    est: (rows=144067)
+            Exchange
+                distribution: single
+                est: (rows=5)
+              TableScan
+                  table: PUBLIC.WAREHOUSE
+                  fieldNames: [W_WAREHOUSE_SK, W_STATE]
+                  est: (rows=5)
+          Exchange
+              distribution: single
+              est: (rows=18262)
+            TableScan
+                table: PUBLIC.DATE_DIM
+                predicate: SEARCH(D_DATE, Sarg[[2000-02-17..2000-04-17]])
+                fieldNames: [D_DATE_SK, D_DATE]
+                est: (rows=18262)
+        Exchange
+            distribution: single
+            est: (rows=4500)
+          TableScan
+              table: PUBLIC.ITEM
+              predicate: SEARCH(I_CURRENT_PRICE, Sarg[[0.99:DECIMAL(3, 2)..1.49:DECIMAL(3, 2)]]:DECIMAL(3, 2))
+              fieldNames: [I_ITEM_SK, I_ITEM_ID, I_CURRENT_PRICE]
+              est: (rows=4500)

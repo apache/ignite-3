@@ -53,8 +53,9 @@ public class TransactionExpirationRegistryBenchmark {
 
     private static final List<InternalTransaction> transactions = new ArrayList<>(ITERATIONS_COUNT);
 
+    /** Register fake transactions. */
     @Setup
-    static void setup() {
+    public static void setup() {
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             transactions.add(new FakeInternalTransaction(i));
         }
@@ -69,8 +70,9 @@ public class TransactionExpirationRegistryBenchmark {
         }
     }
 
+    /** Register transactions in batches of 10, using the same expiration time for each batch. */
     @Benchmark
-    static void register10() {
+    public static void register10() {
         TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         int iterCnt = ITERATIONS_COUNT / 10;
         for (int i = 0; i < iterCnt; i++) {
@@ -217,7 +219,7 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public CompletableFuture<Void> rollbackAsync() {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override

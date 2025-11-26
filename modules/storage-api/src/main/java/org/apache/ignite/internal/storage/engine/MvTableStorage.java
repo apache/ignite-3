@@ -64,7 +64,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     @Nullable MvPartitionStorage getMvPartition(int partitionId);
 
     /**
-     * Destroys a partition and all associated indices.
+     * Destroys a partition and all associated indices. The destruction (even after the future has completed) is not guaranteed
+     * to be durable (that is, if a node stops/crashes before persisting this change to disk, the storage might still be there after
+     * node restart).
      *
      * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
      *
@@ -95,7 +97,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
 
     /**
-     * Destroys the index with the given ID and all data in it.
+     * Destroys the index with the given ID and all data in it. The destruction (even after the future has completed) is not guaranteed
+     * to be durable (that is, if a node stops/crashes before persisting this change to disk, the storage might still be there after
+     * node restart).
      *
      * <p>This method is a no-op if the index with the given ID does not exist or if the table storage is closed or under destruction.
      *
@@ -109,7 +113,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     boolean isVolatile();
 
     /**
-     * Stops and destroys the storage and cleans all allocated resources.
+     * Stops and destroys the storage and cleans all allocated resources. The destruction (even after the future has completed)
+     * is not guaranteed to be durable (that is, if a node stops/crashes before persisting this change to disk, the storage might
+     * still be there after node restart).
      *
      * @return Future that will complete when the table destruction is complete.
      */
@@ -128,7 +134,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
      *     {@link StorageRebalanceException} except:<ul>
      *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)};</li>
-     *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#commitWrite};</li>
      *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
@@ -225,7 +231,6 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @return Index Storage.
      * @throws StorageException If the given partition does not exist.
      */
-    // TODO: IGNITE-19112 Change or get rid of
     @Nullable IndexStorage getIndex(int partitionId, int indexId);
 
     /**

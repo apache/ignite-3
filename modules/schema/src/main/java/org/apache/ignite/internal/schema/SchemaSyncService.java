@@ -29,6 +29,12 @@ public interface SchemaSyncService {
      * Waits till metadata (like table/index schemas) is complete for the given timestamp. The 'complete' here means
      * that no metadata change can arrive later that would change how a table/index/etc looks at the given timestamp.
      *
+     * <p>This also means that all listeners that react to all metadata changes up to the point of interest have completed
+     * their execution.
+     *
+     * <p>This method does NOT provide any guarantees about whether listeners reacting to other types of events
+     * (which are not schema changes) have completed their execution.
+     *
      * @param ts Timestamp of interest.
      * @return Future that completes when it is safe to query the Catalog at the given timestamp (as its data will
      *     remain unchanged for the timestamp).

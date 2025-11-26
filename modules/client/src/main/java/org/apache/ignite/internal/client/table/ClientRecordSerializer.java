@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 
 import java.util.ArrayList;
 import java.util.BitSet;

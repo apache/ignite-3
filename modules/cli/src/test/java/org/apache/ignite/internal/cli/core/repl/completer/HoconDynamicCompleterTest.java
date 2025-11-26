@@ -82,7 +82,6 @@ class HoconDynamicCompleterTest {
         assertThat(completions, containsInAnyOrder("root1", "root2", "root3"));
     }
 
-
     @Test
     void completePartialPath() {
         // Given

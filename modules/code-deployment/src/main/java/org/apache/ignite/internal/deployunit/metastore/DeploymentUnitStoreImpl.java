@@ -45,6 +45,7 @@ import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
@@ -141,7 +142,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes) {
+    public CompletableFuture<@Nullable UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
         UUID operationId = UUID.randomUUID();
         UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, operationId, nodes);
@@ -252,7 +253,6 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                         return falseCompletedFuture();
                     }
                     byte[] newValue = mapper.apply(value);
-
 
                     if (newValue == null) {
                         return falseCompletedFuture();

@@ -36,23 +36,26 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.LongSupplier;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopologySnapshot;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
@@ -73,16 +76,19 @@ import org.jetbrains.annotations.Nullable;
  * <p>This particular implementation keeps track of changes according to {@link PlacementDriver} assignments.
  * Use distribution information to map a query.
  */
-public class MappingServiceImpl implements MappingService {
+public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
+    private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
+    private final CompletableFuture<Void> initialTopologyFuture = new CompletableFuture<>();
+
     private final String localNodeName;
     private final ClockService clock;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
-    private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+    // private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
     private final PartitionPruner partitionPruner;
-    private final LongSupplier logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final Executor taskExecutor;
+    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
@@ -92,8 +98,9 @@ public class MappingServiceImpl implements MappingService {
      * @param cacheFactory A factory to create cache of fragments.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param partitionPruner Partition pruner.
-     * @param logicalTopologyVerSupplier Logical topology version supplier.
      * @param distributionProvider Execution distribution provider.
+     * @param nodeProperties Node-wide properties.
+     * @param taskExecutor Mapper service task executor.
      */
     public MappingServiceImpl(
             String localNodeName,
@@ -101,58 +108,82 @@ public class MappingServiceImpl implements MappingService {
             CacheFactory cacheFactory,
             int cacheSize,
             PartitionPruner partitionPruner,
-            LongSupplier logicalTopologyVerSupplier,
-            ExecutionDistributionProvider distributionProvider
+            ExecutionDistributionProvider distributionProvider,
+            NodeProperties nodeProperties,
+            Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
         this.clock = clock;
         this.templatesCache = cacheFactory.create(cacheSize);
-        this.mappingsCache = cacheFactory.create(cacheSize);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // this.mappingsCache = cacheFactory.create(cacheSize);
         this.partitionPruner = partitionPruner;
-        this.logicalTopologyVerSupplier = logicalTopologyVerSupplier;
         this.distributionProvider = distributionProvider;
+        this.nodeProperties = nodeProperties;
+        this.taskExecutor = taskExecutor;
     }
 
     /** Called when the primary replica has expired. */
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
 
-        int tableOrZoneId;
-
-        if (enabledColocation) {
-            tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
-        } else {
-            tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
-        }
-
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // int tableOrZoneId;
+        //
+        // if (nodeProperties.colocationEnabled()) {
+        //     tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
+        // } else {
+        //     tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
+        // }
+        // 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-        mappingsCache.removeIfValue(value -> value.tabelOrZoneIds.contains(tableOrZoneId));
+        // mappingsCache.removeIfValue(value -> value.tabelOrZoneIds.contains(tableOrZoneId));
 
         return CompletableFutures.falseCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
+    public CompletableFuture<MappedFragments> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
+        if (initialTopologyFuture.isDone()) {
+            return map0(multiStepPlan, parameters);
+        }
+
+        return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan, parameters), taskExecutor);
+    }
+
+    private CompletableFuture<MappedFragments> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan);
 
         boolean mapOnBackups = parameters.mapOnBackups();
-        Predicate<String> nodeExclusionFilter = parameters.nodeExclusionFilter();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache  
+        // Predicate<String> nodeExclusionFilter = parameters.nodeExclusionFilter();
+        PartitionPruningMetadata partitionPruningMetadata = multiStepPlan.partitionPruningMetadata();
+        TopologySnapshot topologySnapshot = topologyHolder.topology();
 
-        CompletableFuture<MappedFragments> mappedFragments;
-        if (nodeExclusionFilter != null) {
-            mappedFragments = mapFragments(template, mapOnBackups, nodeExclusionFilter);
-        } else {
-            mappedFragments = mappingsCache.compute(
-                    new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
-                    (key, val) -> computeMappingCacheKey(val, template, mapOnBackups)
-            ).mappedFragments;
-        }
+        CompletableFuture<MappedFragmentsWithNodes> mappedFragments;
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // if (nodeExclusionFilter != null) {
+        //     mappedFragments = mapFragments(
+        //             template, mapOnBackups, composeNodeExclusionFilter(topologySnapshot, parameters)
+        //     );
+        // } else {
+        //     mappedFragments = mappingsCache.compute(
+        //             new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
+        //             (key, val) -> computeMappingCacheKey(val, topologySnapshot, parameters, template, mapOnBackups)
+        //     ).mappedFragments;
+        // }
+        mappedFragments = mapFragments(
+                template, mapOnBackups, composeNodeExclusionFilter(topologySnapshot, parameters)
+        );
 
-        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
+        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters, partitionPruningMetadata))
+                .thenApply(frags -> new MappedFragments(frags, topologySnapshot.version));
     }
 
     private MappingsCacheValue computeMappingCacheKey(
             MappingsCacheValue val,
+            TopologySnapshot topologySnapshot,
+            MappingParameters parameters,
             FragmentsTemplate template,
             boolean mapOnBackups
     ) {
@@ -163,7 +194,7 @@ public class MappingServiceImpl implements MappingService {
             for (Fragment fragment : template.fragments) {
                 topologyAware = topologyAware || !fragment.systemViews().isEmpty();
                 for (IgniteTable source : fragment.tables().values()) {
-                    if (enabledColocation) {
+                    if (nodeProperties.colocationEnabled()) {
                         tableOrZoneIds.add(source.zoneId());
                     } else {
                         tableOrZoneIds.add(source.id());
@@ -171,15 +202,17 @@ public class MappingServiceImpl implements MappingService {
                 }
             }
 
-            long topVer = topologyAware ? logicalTopologyVerSupplier.getAsLong() : Long.MAX_VALUE;
+            long topVer = topologyAware ? topologySnapshot.version() : Long.MAX_VALUE;
 
-            return new MappingsCacheValue(topVer, tableOrZoneIds, mapFragments(template, mapOnBackups, null));
+            return new MappingsCacheValue(topVer, tableOrZoneIds,
+                    mapFragments(template, mapOnBackups, composeNodeExclusionFilter(topologySnapshot, parameters)));
         }
 
-        long topologyVer = logicalTopologyVerSupplier.getAsLong();
+        long topologyVer = topologySnapshot.version();
 
         if (val.topologyVersion < topologyVer) {
-            return new MappingsCacheValue(topologyVer, val.tabelOrZoneIds, mapFragments(template, mapOnBackups, null));
+            return new MappingsCacheValue(topologyVer, val.tableOrZoneIds,
+                    mapFragments(template, mapOnBackups, composeNodeExclusionFilter(topologySnapshot, parameters)));
         }
 
         return val;
@@ -233,10 +266,10 @@ public class MappingServiceImpl implements MappingService {
         }
     }
 
-    private CompletableFuture<MappedFragments> mapFragments(
+    private CompletableFuture<MappedFragmentsWithNodes> mapFragments(
             FragmentsTemplate template,
             boolean mapOnBackups,
-            @Nullable Predicate<String> nodeExclusionFilter
+            Predicate<String> nodeExclusionFilter
     ) {
         Set<IgniteSystemView> views = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream())
                 .collect(Collectors.toSet());
@@ -328,7 +361,7 @@ public class MappingServiceImpl implements MappingService {
                 targetNodes.addAll(mappedFragment.nodes());
             }
 
-            return new MappedFragments(mappedFragmentsList, targetNodes);
+            return new MappedFragmentsWithNodes(mappedFragmentsList, targetNodes);
         });
     }
 
@@ -359,18 +392,49 @@ public class MappingServiceImpl implements MappingService {
                 : factory.allOf(nodes);
     }
 
-    private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
-        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters());
+    @Override
+    public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+        topologyHolder.update(newTopology);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // mappingsCache.clear();
+    }
+
+    @Override
+    public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+        topologyHolder.update(newTopology);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // mappingsCache.clear();
+    }
+
+    @Override
+    public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+        topologyHolder.update(newTopology);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // mappingsCache.clear();
+    }
+
+    private List<MappedFragment> applyPartitionPruning(
+            List<MappedFragment> mappedFragments, 
+            MappingParameters parameters, 
+            @Nullable PartitionPruningMetadata partitionPruningMetadata
+    ) {
+        if (partitionPruningMetadata == null) {
+            return mappedFragments;
+        }
+        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters(), partitionPruningMetadata);
     }
 
     private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan) {
         // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
         return templatesCache.get(plan.id(), key -> {
-            IdGenerator idGenerator = new IdGenerator(0);
+            IdGenerator idGenerator = new IdGenerator(plan.numSources());
 
             RelOptCluster cluster = Commons.cluster();
 
-            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.root());
+            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.getRel());
 
             return new FragmentsTemplate(
                     idGenerator.nextId(), cluster, fragments
@@ -391,11 +455,11 @@ public class MappingServiceImpl implements MappingService {
     }
 
     /** Wraps list of mapped fragments with target node names. */
-    private static class MappedFragments {
+    private static class MappedFragmentsWithNodes {
         final List<MappedFragment> fragments;
         final Set<String> nodes;
 
-        MappedFragments(List<MappedFragment> fragments, Set<String> nodes) {
+        MappedFragmentsWithNodes(List<MappedFragment> fragments, Set<String> nodes) {
             this.fragments = fragments;
             this.nodes = nodes;
         }
@@ -403,13 +467,15 @@ public class MappingServiceImpl implements MappingService {
 
     private static class MappingsCacheValue {
         private final long topologyVersion;
-        private final IntSet tabelOrZoneIds;
-        private final CompletableFuture<MappedFragments> mappedFragments;
+        private final IntSet tableOrZoneIds;
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+        // private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topologyVersion, IntSet tabelOrZoneIds, CompletableFuture<MappedFragments> mappedFragments) {
+        MappingsCacheValue(long topologyVersion, IntSet tableOrZoneIds, CompletableFuture<MappedFragmentsWithNodes> mappedFragments) {
             this.topologyVersion = topologyVersion;
-            this.tabelOrZoneIds = tabelOrZoneIds;
-            this.mappedFragments = mappedFragments;
+            this.tableOrZoneIds = tableOrZoneIds;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
+            // this.mappedFragments = mappedFragments;
         }
     }
 
@@ -439,6 +505,69 @@ public class MappingServiceImpl implements MappingService {
         @Override
         public int hashCode() {
             return Objects.hash(planId, mapOnBackups);
+        }
+    }
+
+    /** Returns a predicate that returns {@code true} for nodes which should be excluded from mapping. */ 
+    private static Predicate<String> composeNodeExclusionFilter(
+            TopologySnapshot topologySnapshot, MappingParameters parameters
+    ) {
+        Predicate<String> filterFromParameters = parameters.nodeExclusionFilter();
+        Predicate<String> deadNodesFilter = node -> !topologySnapshot.nodes.contains(node);
+
+        if (filterFromParameters == null) {
+            return deadNodesFilter;
+        }
+
+        return filterFromParameters.or(deadNodesFilter);
+    }
+
+    /**
+     * Holder for topology snapshots that guarantees monotonically increasing versions.
+     */
+    class LogicalTopologyHolder {
+        private volatile TopologySnapshot topology = new TopologySnapshot(Long.MIN_VALUE, Set.of());
+
+        void update(LogicalTopologySnapshot topologySnapshot) {
+            synchronized (this) {
+                if (topology.version() < topologySnapshot.version()) {
+                    topology = new TopologySnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
+                }
+
+                if (initialTopologyFuture.isDone() || !topology.nodes().contains(localNodeName)) {
+                    return;
+                }
+            }
+
+            initialTopologyFuture.complete(null);
+        }
+
+        TopologySnapshot topology() {
+            return topology;
+        }
+
+        private Set<String> deriveNodeNames(LogicalTopologySnapshot topology) {
+            return topology.nodes().stream()
+                    .map(LogicalNode::name)
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+
+        class TopologySnapshot {
+            private final Set<String> nodes;
+            private final long version;
+
+            TopologySnapshot(long version, Set<String> nodes) {
+                this.version = version;
+                this.nodes = nodes;
+            }
+
+            public Set<String> nodes() {
+                return nodes;
+            }
+
+            public long version() {
+                return version;
+            }
         }
     }
 

@@ -26,10 +26,13 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.recovery.cluster.migrate.MigrateToClusterCommand;
 import org.apache.ignite.network.NodeMetadata;
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 /** Test class for {@link MigrateToClusterCommand}. */
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ItMigrateToClusterCommandTest extends ItSystemDisasterRecoveryCliTest {
     @Override
     protected int initialNodes() {

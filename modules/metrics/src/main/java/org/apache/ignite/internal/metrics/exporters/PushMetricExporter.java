@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,36 +37,41 @@ import org.jetbrains.annotations.Nullable;
  * Every {@code period} of time {@link PushMetricExporter#report()} will be called
  * to push metrics to the external system.
  */
-public abstract class PushMetricExporter<CfgT extends ExporterView> extends BasicMetricExporter<CfgT> {
+public abstract class PushMetricExporter extends BasicMetricExporter {
     /** Logger. */
     protected final IgniteLogger log = Loggers.forClass(getClass());
 
     /** Export task future. */
-    private ScheduledFuture<?> fut;
+    private volatile @Nullable ScheduledFuture<?> fut;
 
     /** Export scheduler. */
-    private ScheduledExecutorService scheduler;
+    private volatile ScheduledExecutorService scheduler;
 
+    /**
+     * Current schedule period.
+     *
+     * <p>Concurrent access is guarded by volatile access to {@code fut}.
+     */
     private long period;
 
     @Override
-    public synchronized void start(MetricProvider metricProvider, CfgT conf, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public void start(MetricProvider metricProvider, ExporterView conf, Supplier<UUID> clusterIdSupplier, String nodeName) {
         super.start(metricProvider, conf, clusterIdSupplier, nodeName);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter-" + name(), log));
+        scheduler = newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "metrics-exporter-" + name(), log));
 
         reconfigure(conf);
     }
 
     @Override
-    public synchronized void reconfigure(@Nullable CfgT newVal) {
-        super.reconfigure(newVal);
+    public void reconfigure(ExporterView newVal) {
+        long newPeriod = period(newVal);
 
-        long newPeriod = period();
+        ScheduledFuture<?> localFuture = fut;
 
-        if (fut == null || period != newPeriod) {
-            if (fut != null) {
-                fut.cancel(false);
+        if (localFuture == null || period != newPeriod) {
+            if (localFuture != null) {
+                localFuture.cancel(false);
             }
 
             period = newPeriod;
@@ -83,24 +89,28 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
     }
 
     @Override
-    public synchronized void stop() {
-        if (fut != null) {
-            fut.cancel(false);
+    public void stop() {
+        ScheduledFuture<?> localFuture = fut;
+
+        if (localFuture != null) {
+            localFuture.cancel(false);
 
             fut = null;
         }
 
-        if (scheduler != null) {
-            IgniteUtils.shutdownAndAwaitTermination(scheduler, 10, TimeUnit.SECONDS);
+        ScheduledExecutorService localScheduler = scheduler;
+
+        if (localScheduler != null) {
+            IgniteUtils.shutdownAndAwaitTermination(localScheduler, 10, TimeUnit.SECONDS);
         }
     }
 
     /**
-     * Returns export period.
+     * Extracts export period from the given configuration.
      *
      * @return Period in milliseconds after {@link #report()} method should be called.
      */
-    protected abstract long period();
+    protected abstract long period(ExporterView exporterView);
 
     /**
      * A heart of the push exporter.
@@ -109,7 +119,7 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
      * <p>This method will be executed periodically by internal exporter's scheduler.
      *
      * <p>In case of any exceptions exporter's internal scheduler will be stopped
-     * and no new {@link #report()} will be executed.
+     * and no new {@code report} will be executed.
      */
     public abstract void report();
 }

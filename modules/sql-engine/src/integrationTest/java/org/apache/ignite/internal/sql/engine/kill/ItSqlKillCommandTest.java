@@ -319,11 +319,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     private static void waitUntilRunningQueriesCountInCluster(Matcher<Integer> matcher) {
-        CLUSTER.runningNodes().forEach(node -> {
-            SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
-
-            SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, matcher);
-        });
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, matcher);
     }
 
     private static JobExecution<Void> submit(Ignite node, JobDescriptor<Void, Void> job) {

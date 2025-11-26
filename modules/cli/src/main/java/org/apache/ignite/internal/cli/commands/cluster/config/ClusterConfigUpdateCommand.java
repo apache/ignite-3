@@ -40,7 +40,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -57,7 +57,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     private ClusterConfigUpdateCallInput buildCallInput() {
         return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .build();
     }
 }

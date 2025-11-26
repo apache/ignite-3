@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -73,6 +73,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
@@ -118,6 +119,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -458,7 +460,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals(BALANCE_1 - DELTA, view.get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, view.get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, clientTxManager().finished());
+        assertEquals(3, clientTxManager().finished());
         assertEquals(0, clientTxManager().pending());
     }
 
@@ -483,7 +485,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, clientTxManager().finished());
+        assertEquals(3, clientTxManager().finished());
         assertEquals(0, clientTxManager().pending());
     }
 
@@ -533,21 +535,24 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         RecordView<Tuple> view = accounts.recordView();
         view.upsert(null, makeValue(1, balance));
 
-        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(tx -> {
-            CompletableFuture<Double> fut = view.getAsync(tx, makeKey(1))
-                    .thenCompose(val2 -> {
-                        double prev = val2.doubleValue("balance");
-                        return view.upsertAsync(tx, makeValue(1, delta + 20)).thenApply(ignored -> prev);
-                    });
+        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(
+                tx -> {
+                        CompletableFuture<Double> fut = view.getAsync(tx, makeKey(1))
+                                .thenCompose(val2 -> {
+                                    double prev = val2.doubleValue("balance");
+                                    return view.upsertAsync(tx, makeValue(1, delta + 20))
+                                            .thenApply(ignored -> prev);
+                                })
+                                .whenComplete((res, ex) -> log.info("Test: tx operations in tx closures completed, ex=" + ex));
 
-            fut.join();
+                        if (true) {
+                            throw new IllegalArgumentException();
+                        }
 
-            if (true) {
-                throw new IllegalArgumentException();
-            }
-
-            return fut;
-        });
+                        return fut;
+                },
+                new TransactionOptions().timeoutMillis(1000)
+        );
 
         var err = assertThrows(CompletionException.class, fut0::join);
 
@@ -567,13 +572,15 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     public void testTxClosureUncaughtExceptionInChainAsync() {
         RecordView<Tuple> view = accounts.recordView();
 
-        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(tx -> {
-            return view.getAsync(tx, makeKey(2))
-                    .thenCompose(val2 -> {
-                        double prev = val2.doubleValue("balance"); // val2 is null - NPE is thrown here
-                        return view.upsertAsync(tx, makeValue(1, 100)).thenApply(ignored -> prev);
-                    });
-        });
+        CompletableFuture<Double> fut0 = igniteTransactions
+                .runInTransactionAsync(
+                        tx -> view.getAsync(tx, makeKey(2))
+                            .thenCompose(val2 -> {
+                                double prev = val2.doubleValue("balance"); // val2 is null - NPE is thrown here
+                                return view.upsertAsync(tx, makeValue(1, 100)).thenApply(ignored -> prev);
+                            }),
+                        new TransactionOptions().timeoutMillis(1000)
+                );
 
         var err = assertThrows(CompletionException.class, fut0::join);
 
@@ -644,7 +651,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         var futUpd2 = table2.upsertAllAsync(tx1, rows2);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             boolean lockUpgraded = false;
 
             for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
@@ -926,12 +933,18 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         accounts.recordView().upsert(null, makeValue(2, 100.));
 
-        assertThrows(RuntimeException.class, () -> igniteTransactions.runInTransaction((Consumer<Transaction>) tx -> {
-            assertNotNull(accounts.recordView().get(tx, key2));
-            assertTrue(accounts.recordView().delete(tx, key2));
-            assertNull(accounts.recordView().get(tx, key2));
-            throw new RuntimeException(); // Triggers rollback.
-        }));
+        assertThrows(
+                RuntimeException.class,
+                () -> igniteTransactions.runInTransaction(
+                        (Consumer<Transaction>) tx -> {
+                                assertNotNull(accounts.recordView().get(tx, key2));
+                                assertTrue(accounts.recordView().delete(tx, key2));
+                                assertNull(accounts.recordView().get(tx, key2));
+                                throw new RuntimeException(); // Triggers rollback.
+                        },
+                        new TransactionOptions().timeoutMillis(1000)
+                )
+        );
 
         assertNotNull(accounts.recordView().get(null, key2));
         assertTrue(accounts.recordView().delete(null, key2));
@@ -997,7 +1010,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         validateBalance(txAcc2.getAll(tx1, List.of(makeKey(2), makeKey(1))), 200., 300.);
         validateBalance(txAcc2.getAll(tx1, List.of(makeKey(1), makeKey(2))), 300., 200.);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> TxState.ABORTED == tx2.state(), 5_000), tx2.state().toString());
+        assertTrue(waitForCondition(() -> TxState.ABORTED == tx2.state(), 5_000), tx2.state().toString());
 
         tx1.commit();
 
@@ -1017,7 +1030,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             if (true) {
                 throw new IgniteException(INTERNAL_ERR, "Test error");
             }
-        }));
+        }, new TransactionOptions().timeoutMillis(1000)));
 
         assertNull(accounts.recordView().get(null, makeKey(3)));
         assertNull(accounts.recordView().get(null, makeKey(4)));
@@ -1243,8 +1256,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(customers).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(customers).isEmpty(), 10_000));
     }
 
     @Test
@@ -1282,7 +1295,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
@@ -1320,7 +1333,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
@@ -1338,7 +1351,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
@@ -1356,7 +1369,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
@@ -1375,7 +1388,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
@@ -1394,7 +1407,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals("test", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
@@ -1454,15 +1467,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 ?
                 internalTable.scan(
                         0,
-                        internalTx.id(),
-                        internalTx.readTimestamp(),
                         ReplicaTestUtils.leaderAssignment(
                                 txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
                                 txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
-                                enabledColocation() ? internalTable.zoneId() : internalTable.tableId(),
+                                colocationEnabled() ? internalTable.zoneId() : internalTable.tableId(),
                                 0
                         ),
-                        internalTx.coordinatorId()
+                        OperationContext.create(TxContext.readOnly(internalTx))
                 )
                 : internalTable.scan(0, internalTx);
 
@@ -2095,10 +2106,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertThrowsTxFinishedException(() -> {
             Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    internalTx.id(),
-                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
-                    internalTx.coordinatorId()
+                    OperationContext.create(TxContext.readOnly(internalTx))
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -2111,16 +2120,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         });
 
         assertThrowsTxFinishedException(() -> {
-            Flow.Publisher<BinaryRow> pub = accounts.internalTable().lookup(
+            Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    internalTx.id(),
-                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
                     0,
-                    // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
-                    null,
-                    null,
-                    internalTx.coordinatorId()
+                    // We assume that BinaryTuple will never be accessed.
+                    IndexScanCriteria.lookup(Mockito.mock(BinaryTuple.class)),
+                    OperationContext.create(TxContext.readOnly(internalTx))
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();

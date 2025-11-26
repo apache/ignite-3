@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateConsistencyMode;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -33,6 +32,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultQuorumSize;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.duplicateDistributionZoneNameCatalogValidationException;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 
@@ -65,8 +65,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable Integer quorumSize;
 
-    private final @Nullable Integer dataNodesAutoAdjust;
-
     private final @Nullable Integer dataNodesAutoAdjustScaleUp;
 
     private final @Nullable Integer dataNodesAutoAdjustScaleDown;
@@ -85,7 +83,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
      * @param quorumSize Quorum size.
-     * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
      * @param filter Nodes filter.
@@ -98,7 +95,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             @Nullable Integer partitions,
             @Nullable Integer replicas,
             @Nullable Integer quorumSize,
-            @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
@@ -110,7 +106,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         this.partitions = partitions;
         this.replicas = replicas;
         this.quorumSize = quorumSize;
-        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
@@ -132,7 +127,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 return List.of();
             }
 
-            throw new CatalogValidationException("Distribution zone with name '{}' already exists.", zoneName);
+            throw duplicateDistributionZoneNameCatalogValidationException(zoneName);
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());
@@ -152,10 +147,9 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
                 replicas,
                 requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
-                requireNonNullElse(dataNodesAutoAdjust, INFINITE_TIMER_VALUE),
                 requireNonNullElse(
                         dataNodesAutoAdjustScaleUp,
-                        dataNodesAutoAdjust != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
+                        IMMEDIATE_TIMER_VALUE
                 ),
                 requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
                 requireNonNullElse(filter, DEFAULT_FILTER),
@@ -173,15 +167,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         int quorumSize = requireNonNullElse(this.quorumSize, defaultQuorumSize(replicas));
         validateReplicasAndQuorumCompatibility(replicas, quorumSize);
 
-        validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
-
-        validateZoneDataNodesAutoAdjustParametersCompatibility(
-                dataNodesAutoAdjust,
-                dataNodesAutoAdjustScaleUp,
-                dataNodesAutoAdjustScaleDown
-        );
 
         validateZoneFilter(filter);
 
@@ -239,8 +226,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         private @Nullable Integer quorumSize;
 
-        private @Nullable Integer dataNodesAutoAdjust;
-
         private @Nullable Integer dataNodesAutoAdjustScaleUp;
 
         private @Nullable Integer dataNodesAutoAdjustScaleDown;
@@ -282,13 +267,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         @Override
         public CreateZoneCommandBuilder quorumSize(Integer quorumSize) {
             this.quorumSize = quorumSize;
-
-            return this;
-        }
-
-        @Override
-        public CreateZoneCommandBuilder dataNodesAutoAdjust(Integer adjust) {
-            dataNodesAutoAdjust = adjust;
 
             return this;
         }
@@ -336,7 +314,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                     partitions,
                     replicas,
                     quorumSize,
-                    dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,

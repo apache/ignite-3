@@ -25,8 +25,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.Scheduler;
@@ -77,21 +77,22 @@ public final class JRaftUtils {
     /**
      * Create a executor with size.
      *
-     * @param prefix thread name prefix
+     * @param nodeName node name
+     * @param poolName pool name
      * @param number thread number
      * @return a new {@link ThreadPoolExecutor} instance
      * @throws IllegalArgumentException If a number of threads is incorrect.
      */
-    public static ExecutorService createExecutor(final String prefix, final int number) {
-        return createExecutor(prefix, number, createThreadFactory(prefix));
+    public static ExecutorService createExecutor(final String nodeName, final String poolName, final int number) {
+        return createExecutor(number, createThreadFactory(nodeName, poolName));
     }
 
-    private static ExecutorService createExecutor(String name, int number, ThreadFactory threadFactory) {
+    private static ExecutorService createExecutor(int number, IgniteThreadFactory threadFactory) {
         if (number <= 0) {
             throw new IllegalArgumentException();
         }
         return ThreadPoolUtil.newBuilder() //
-            .poolName(name) //
+            .poolName(threadFactory.prefix()) //
             .enableMetric(true) //
             .coreThreads(number) //
             .maximumThreads(number) //
@@ -109,7 +110,6 @@ public final class JRaftUtils {
         String poolName = "JRaft-Common-Executor";
 
         return createExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), poolName),
             opts.getCommonThreadPollSize(),
             IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_STATE_STORAGE_ACCESS)
         );
@@ -123,7 +123,7 @@ public final class JRaftUtils {
         String poolName = "JRaft-AppendEntries-Processor";
 
         return createStripedExecutor(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-AppendEntries-Processor"),
+                IgniteThread.threadPrefix(opts.getServerName(), "JRaft-AppendEntries-Processor"),
                 Utils.APPEND_ENTRIES_THREADS_POOL_SIZE,
                 Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
                 new DefaultFixedThreadsExecutorGroupFactory() {
@@ -141,7 +141,8 @@ public final class JRaftUtils {
      */
     public static ExecutorService createRequestExecutor(NodeOptions opts) {
         return createExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Request-Processor"),
+            opts.getServerName(),
+            "JRaft-Request-Processor",
             opts.getRaftRpcThreadPoolSize()
         );
     }
@@ -152,16 +153,16 @@ public final class JRaftUtils {
      * @return The service.
      */
     public static ExecutorService createClientExecutor(RpcOptions opts, String name) {
-        String prefix = NamedThreadFactory.threadPrefix(name, "JRaft-Response-Processor");
+        IgniteThreadFactory threadFactory = createThreadFactory(name, "JRaft-Response-Processor");
 
         return ThreadPoolUtil.newBuilder()
-            .poolName(prefix) //
+            .poolName(threadFactory.prefix()) //
             .enableMetric(true) //
             .coreThreads(opts.getRpcProcessorThreadPoolSize() / 3) //
             .maximumThreads(opts.getRpcProcessorThreadPoolSize()) //
             .keepAliveSeconds(60L) //
             .workQueue(new ArrayBlockingQueue<>(10000)) //
-            .threadFactory(createThreadFactory(prefix)) //
+            .threadFactory(threadFactory) //
             .build();
     }
 
@@ -172,7 +173,7 @@ public final class JRaftUtils {
     public static Scheduler createScheduler(NodeOptions opts) {
         return new TimerManager(
             opts.getTimerPoolSize(),
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Node-Scheduler")
+            IgniteThread.threadPrefix(opts.getServerName(), "JRaft-Node-Scheduler")
         );
     }
 
@@ -184,7 +185,7 @@ public final class JRaftUtils {
     public static Timer createTimer(NodeOptions opts, String name) {
         return new DefaultTimer(
             opts.getTimerPoolSize(),
-            NamedThreadFactory.threadPrefix(opts.getServerName(), name)
+            IgniteThread.threadPrefix(opts.getServerName(), name)
         );
     }
 
@@ -222,11 +223,12 @@ public final class JRaftUtils {
     /**
      * Create a thread factory.
      *
-     * @param prefixName the prefix name of thread
+     * @param nodeName the node name
+     * @param poolName the pool name
      * @return a new {@link ThreadFactory} instance
      */
-    public static ThreadFactory createThreadFactory(final String prefixName) {
-        return new NamedThreadFactory(prefixName, true, LOG);
+    public static IgniteThreadFactory createThreadFactory(final String nodeName, final String poolName) {
+        return IgniteThreadFactory.create(nodeName, poolName, true, LOG);
     }
 
     /**

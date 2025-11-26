@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
+using System.Collections.Concurrent;
+using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;
@@ -30,6 +32,8 @@ using Table.StreamerReceiverExecutor;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext) : IDisposable
 {
+    private readonly ConcurrentDictionary<(string TypeName, Type OpenInterfaceType), (Type Type, Type ClosedWrapperType)> _typeCache = new();
+
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
     /// </summary>
@@ -37,7 +41,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <returns>Job execution delegate.</returns>
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
         CreateWrapper<IComputeJobWrapper>(
-            typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>), AssemblyLoadContext);
+            typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>));
 
     /// <summary>
     /// Gets or creates a receiver delegate for the specified type name.
@@ -46,37 +50,113 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <returns>Receiver execution delegate.</returns>
     public IDataStreamerReceiverWrapper CreateReceiverWrapper(string typeName) =>
         CreateWrapper<IDataStreamerReceiverWrapper>(
-            typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>), AssemblyLoadContext);
+            typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>));
 
     /// <inheritdoc/>
     public void Dispose() => AssemblyLoadContext.Unload();
 
-    private static T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
+    private T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType)
     {
-        var type = LoadType(wrappedTypeName, ctx);
+        var (type, closedWrapperType) = _typeCache.GetOrAdd(
+            key: (wrappedTypeName, openInterfaceType),
+            valueFactory: static (key, arg) =>
+                GetClosedWrapperType(key.TypeName, key.OpenInterfaceType, arg.openWrapperType, arg.AssemblyLoadContext),
+            factoryArgument: (openWrapperType, AssemblyLoadContext));
+
+        try
+        {
+            return (T)Activator.CreateInstance(closedWrapperType)!;
+        }
+        catch (Exception e)
+        {
+            CheckPublicCtor(type, e);
+            throw;
+        }
+    }
+
+    private static void CheckPublicCtor(Type type, Exception e)
+    {
+        if (type.GetConstructor(BindingFlags.Public, []) == null)
+        {
+            throw new InvalidOperationException($"No public parameterless constructor for type '{type.AssemblyQualifiedName}'", e);
+        }
+    }
+
+    private static (Type Type, Type ClosedWrapperType) GetClosedWrapperType(
+        string typeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
+    {
+        var type = LoadType(typeName, ctx);
         var closedInterfaceType = FindInterface(type, openInterfaceType);
 
         try
         {
             var genericArgs = closedInterfaceType.GenericTypeArguments;
-            var jobWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
+            var closedWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
 
-            return (T)Activator.CreateInstance(jobWrapperType)!;
+            return (type, closedWrapperType);
         }
         catch (Exception e)
         {
-            if (type.GetConstructor(BindingFlags.Public, []) == null)
-            {
-                throw new InvalidOperationException($"No public parameterless constructor for type '{wrappedTypeName}'", e);
-            }
-
+            CheckPublicCtor(type, e);
             throw;
         }
     }
 
-    private static Type LoadType(string typeName, AssemblyLoadContext ctx) =>
-        Type.GetType(typeName, ctx.LoadFromAssemblyName, null)
-        ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+    private static Type LoadType(string typeName, AssemblyLoadContext ctx)
+    {
+        try
+        {
+            return Type.GetType(typeName, ctx.LoadFromAssemblyName, null, throwOnError: true)
+                   ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+        }
+        catch (Exception e)
+        {
+            if (e is FileNotFoundException fe)
+            {
+                CheckRuntimeVersions(typeName, fe.FileName);
+            }
+
+            throw new InvalidOperationException($"Failed to load type '{typeName}' from the specified deployment units: {e.Message}", e);
+        }
+    }
+
+    private static void CheckRuntimeVersions(string typeName, string? fileName)
+    {
+        if (fileName == null || !fileName.StartsWith("System.", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // System assembly failed to load - potentially due to runtime version mismatch.
+        if (TryParseAssemblyName(fileName) is not { } assemblyName)
+        {
+            return;
+        }
+
+        int? requestedRuntimeVersion = assemblyName.Version?.Major;
+        int? currentRuntimeVersion = typeof(object).Assembly.GetName().Version?.Major;
+
+        if (requestedRuntimeVersion > currentRuntimeVersion)
+        {
+            throw new InvalidOperationException(
+                $"Failed to load type '{typeName}' because it depends on a newer .NET runtime version " +
+                $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, missing assembly: {assemblyName}). " +
+                $"Either target .NET {currentRuntimeVersion} when building the job assembly, " +
+                $"or use .NET {requestedRuntimeVersion} on servers to run the job executor.");
+        }
+    }
+
+    private static AssemblyName? TryParseAssemblyName(string assemblyName)
+    {
+        try
+        {
+            return new AssemblyName(assemblyName);
+        }
+        catch (FileLoadException)
+        {
+            return null;
+        }
+    }
 
     // Simple lookup by name. Will throw in a case of ambiguity.
     private static Type FindInterface(Type type, Type interfaceType) =>

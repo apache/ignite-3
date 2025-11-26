@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tostring;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.HASH;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.NONE;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.PLAIN;
@@ -27,18 +26,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Objects;
 import java.util.function.BiConsumer;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for output of {@code toString()} depending on the value of {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}.
+ * Tests for output of {@code toString()} depending on the value of {@link SensitiveDataLoggingPolicy}.
  */
-@ExtendWith(SystemPropertiesExtension.class)
 public class SensitiveDataToStringTest extends IgniteAbstractTest {
     /** Random int. */
     private static final int rndInt0 = 54321;
@@ -46,44 +42,50 @@ public class SensitiveDataToStringTest extends IgniteAbstractTest {
     /** Random string. */
     private static final String rndString = "qwer";
 
+    @AfterEach
+    @BeforeEach
+    public void reset() {
+        S.setSensitiveDataPolicy(HASH);
+    }
+
     @Test
     public void testSensitivePropertiesResolving0() {
         assertSame(HASH, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "plain")
     public void testSensitivePropertiesResolving1() {
+        S.setSensitiveDataPolicy(PLAIN);
         assertSame(PLAIN, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "hash")
     public void testSensitivePropertiesResolving2() {
+        S.setSensitiveDataPolicy(HASH);
         assertSame(HASH, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "none")
     public void testSensitivePropertiesResolving3() {
+        S.setSensitiveDataPolicy(NONE);
         assertSame(NONE, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "plain")
     public void testTableObjectImplWithSensitive() {
+        S.setSensitiveDataPolicy(PLAIN);
         testTableObjectImpl((strToCheck, object) -> assertTrue(strToCheck.contains(object.toString()), strToCheck));
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "hash")
     public void testTableObjectImplWithHashSensitive() {
+        S.setSensitiveDataPolicy(HASH);
         testTableObjectImpl((strToCheck, object) -> assertTrue(strToCheck.contains(object.toString()), strToCheck));
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "none")
     public void testTableObjectImplWithoutSensitive() {
+        S.setSensitiveDataPolicy(NONE);
         testTableObjectImpl((strToCheck, object) -> assertEquals("TableObject", object.toString(), strToCheck));
     }
 

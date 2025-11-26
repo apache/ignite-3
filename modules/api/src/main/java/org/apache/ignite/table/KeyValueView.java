@@ -680,6 +680,13 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
     CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val);
 
     /**
+     * Removes all entries from a table.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     */
+    void removeAll(@Nullable Transaction tx);
+
+    /**
      * Removes from a table values associated with the given keys.
      * Opens implicit transaction.
      *
@@ -722,6 +729,13 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if one of the keys doesn't match the schema.
      */
     CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys);
+
+    /**
+     * Asynchronously remove all entries from a table.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     */
+    CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx);
 
     /**
      * Gets and removes from a table a value associated with the given key.

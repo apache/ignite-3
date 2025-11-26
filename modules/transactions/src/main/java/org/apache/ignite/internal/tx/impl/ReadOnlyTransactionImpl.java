@@ -50,7 +50,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
-     * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout The timeout.
      * @param readTimestamp The read timestamp.
      */
@@ -59,12 +58,11 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
-            boolean implicit,
             long timeout,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout);
 
         this.readTimestamp = readTimestamp;
         this.txFuture = txFuture;
@@ -135,9 +133,14 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+    public CompletableFuture<Void> finish(
+            boolean commitIntent,
+            HybridTimestamp executionTimestamp,
+            boolean full,
+            boolean timeoutExceeded
+    ) {
         assert !full : "Read-only transactions cannot be full.";
-        assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
+        assert !(commitIntent && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
@@ -147,7 +150,10 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         txFuture.complete(null);
 
-        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()), timeoutExceeded);
+        ((TxManagerImpl) txManager).onCompleteReadOnlyTransaction(
+                commitIntent,
+                new TxIdAndTimestamp(readTimestamp, id())
+        );
 
         this.timeoutExceeded = timeoutExceeded;
 

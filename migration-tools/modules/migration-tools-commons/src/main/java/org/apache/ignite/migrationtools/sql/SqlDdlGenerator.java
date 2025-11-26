@@ -19,16 +19,7 @@ package org.apache.ignite.migrationtools.sql;
 
 import static java.util.function.Predicate.not;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,22 +29,27 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.ClassUtils;
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.migrationtools.tablemanagement.TableTypeDescriptor;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistry;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryMapImpl;
+import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryUtils;
+import org.apache.ignite.migrationtools.types.InspectedField;
+import org.apache.ignite.migrationtools.types.InspectedFieldType;
+import org.apache.ignite.migrationtools.types.TypeInspector;
 import org.apache.ignite.migrationtools.utils.ClassnameUtils;
 import org.apache.ignite3.catalog.ColumnType;
 import org.apache.ignite3.catalog.definitions.ColumnDefinition;
 import org.apache.ignite3.catalog.definitions.TableDefinition;
 import org.apache.ignite3.internal.catalog.sql.CatalogExtensions;
-import org.apache.ignite3.table.mapper.Mapper;
+import org.apache.ignite3.lang.util.IgniteNameUtils;
+import org.apache.ignite3.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -275,49 +271,7 @@ public class SqlDdlGenerator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SqlDdlGenerator.class);
 
-    private static final String DEFAULT_SCHEMA = "PUBLIC";
-
     private static final int DEFAULT_BINARY_FIELD_LENGTH = 1024;
-
-    private static final Map<Class<?>, ColumnType<?>> COL_TYPE_REF;
-
-    static {
-        try {
-            COL_TYPE_REF = (Map<Class<?>, ColumnType<?>>) FieldUtils.readDeclaredStaticField(ColumnType.class, "TYPES", true);
-            // TODO: IGNITE-23268 Remove
-            COL_TYPE_REF.remove(java.util.Date.class);
-
-            var constructor = ColumnType.class.getDeclaredConstructor(Class.class, String.class);
-            constructor.setAccessible(true);
-            constructor.newInstance(Character.class, "CHAR");
-            constructor.newInstance(BitSet.class, "VARBINARY");
-            constructor.newInstance(LocalTime.class, "TIME");
-            constructor.newInstance(LocalDate.class, "DATE");
-            constructor.newInstance(LocalDateTime.class, "TIMESTAMP");
-            constructor.newInstance(Instant.class, "TIMESTAMP");
-            constructor.newInstance(java.util.Date.class, "TIMESTAMP");
-            constructor.newInstance(Enum.class, "VARCHAR");
-            // TODO: IGNITE-23268 Remove
-            constructor.newInstance(java.sql.Date.class, "DATE");
-            constructor.newInstance(java.sql.Time.class, "TIME");
-            constructor.newInstance(java.sql.Timestamp.class, "TIMESTAMP");
-            // Collections
-            constructor.newInstance(Collection.class, "VARBINARY");
-            constructor.newInstance(List.class, "VARBINARY");
-            constructor.newInstance(Set.class, "VARBINARY");
-            // Primitive Arrays
-            constructor.newInstance(boolean[].class, "VARBINARY");
-            constructor.newInstance(char[].class, "VARBINARY");
-            constructor.newInstance(short[].class, "VARBINARY");
-            constructor.newInstance(int[].class, "VARBINARY");
-            constructor.newInstance(long[].class, "VARBINARY");
-            constructor.newInstance(float[].class, "VARBINARY");
-            constructor.newInstance(double[].class, "VARBINARY");
-            constructor.newInstance(String[].class, "VARBINARY");
-        } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException | InstantiationException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private final ClassLoader clientClassLoader;
 
@@ -350,54 +304,23 @@ public class SqlDdlGenerator {
         this.allowExtraFields = allowExtraFields;
     }
 
-    private static boolean isPrimitiveType(Class<?> type) {
-        return type.isEnum() || Mapper.nativelySupported(type) || COL_TYPE_REF.containsKey(type);
-    }
-
-    private static List<InspectedField> inspectType(Class<?> type) {
-        Class<?> rootType = ClassUtils.primitiveToWrapper(type);
-        String rootTypeName = rootType.getName();
-
-        if (rootType.isArray() || Collection.class.isAssignableFrom(rootType)) {
-            return Collections.singletonList(new InspectedField(null, rootTypeName, FieldType.ARRAY));
-        } else if (isPrimitiveType(rootType)) {
-            return Collections.singletonList(new InspectedField(null, rootTypeName, FieldType.PRIMITIVE));
-        } else {
-            Field[] fields = rootType.getDeclaredFields();
-            List<InspectedField> ret = new ArrayList<>(fields.length);
-            for (Field field : fields) {
-                Class<?> origFieldType = field.getType();
-                Class<?> wrappedFieldType = ClassUtils.primitiveToWrapper(origFieldType);
-                if (shouldPersistField(field) && isPrimitiveType(wrappedFieldType)) {
-                    boolean nullable = !origFieldType.isPrimitive();
-                    ret.add(new InspectedField(field.getName(), wrappedFieldType.getName(), FieldType.POJO_ATTRIBUTE, nullable));
-                }
-            }
-
-            return ret;
-        }
-    }
-
-    private static void addToQueryEntity(QueryEntity qe, InspectedField inspectedField, boolean nullable) {
+    private static void addToQueryEntity(
+            QueryEntity qe,
+            String columnName,
+            String typeName,
+            InspectedFieldType fieldType,
+            boolean nullable
+    ) {
         // Set precision
-        if (inspectedField.fieldType == FieldType.ARRAY) {
-            qe.getFieldsPrecision().putIfAbsent(inspectedField.fieldName, DEFAULT_BINARY_FIELD_LENGTH);
+        if (fieldType == InspectedFieldType.ARRAY) {
+            qe.getFieldsPrecision().putIfAbsent(columnName, DEFAULT_BINARY_FIELD_LENGTH);
         }
 
         if (!nullable) {
-            qe.getNotNullFields().add(inspectedField.fieldName);
+            qe.getNotNullFields().add(columnName);
         }
 
-        qe.getFields().put(inspectedField.fieldName, inspectedField.typeName);
-    }
-
-    private static void addToQueryEntity(QueryEntity qe, InspectedField inspectedField) {
-        addToQueryEntity(qe, inspectedField, inspectedField.isNullable());
-    }
-
-    private static boolean shouldPersistField(Field field) {
-        var mods = field.getModifiers();
-        return !Modifier.isStatic(mods) && !Modifier.isTransient(mods);
+        qe.getFields().put(columnName, typeName);
     }
 
     private static String sanitizeColumnName(String columnName) {
@@ -442,14 +365,14 @@ public class SqlDdlGenerator {
     private List<InspectedField> inspectTypeName(String typeName, String typeDescr) {
         try {
             Class<?> type = ClassUtils.getClass(this.clientClassLoader, typeName);
-            return inspectType(type);
+            return TypeInspector.inspectType(type);
         } catch (ClassNotFoundException e) {
             LOGGER.warn("Could not find {} class to enrich the QueryEntity: {}", typeDescr, typeName);
             return Collections.emptyList();
         }
     }
 
-    private QueryEntity populateQueryEntity(QueryEntity qe, boolean allowExtraFields) throws FieldNameConflictException {
+    private QueryEntityEvaluation populateQueryEntity(QueryEntity qe, boolean allowExtraFields) throws FieldNameConflictException {
         // Make sure QE has non-null maps
         {
             if (qe.getNotNullFields() == null) {
@@ -509,76 +432,128 @@ public class SqlDdlGenerator {
             qe.getNotNullFields().addAll(qe.getKeyFields());
         }
 
+        @Nullable Map<InspectedField, String> keyFieldToColumnMap;
+        @Nullable Map<InspectedField, String> valFieldToColumnMap;
+
+        Predicate<InspectedField> isNestedPojo = f -> f.fieldType() != InspectedFieldType.NESTED_POJO_ATTRIBUTE;
+
         // Inspect classes that are on the classpath
         List<InspectedField> keyFields = inspectTypeName(qe.getKeyType(), "KEY");
+        if (keyFields.isEmpty()) {
+            keyFieldToColumnMap = null;
+        } else {
+            keyFields = keyFields.stream()
+                    .filter(isNestedPojo)
+                    .collect(Collectors.toList());
+
+            keyFieldToColumnMap = new HashMap<>();
+        }
+
         List<InspectedField> valFields = inspectTypeName(qe.getValueType(), "VALUE");
+        if (valFields.isEmpty()) {
+            valFieldToColumnMap = null;
+        } else {
+            valFields = valFields.stream()
+                    .filter(isNestedPojo)
+                    .collect(Collectors.toList());
+
+            valFieldToColumnMap = new HashMap<>();
+        }
 
         // Check duplicated field names, and assign custom field names
         {
+            class Entry {
+                private final InspectedField inspectedField;
+                private final Supplier<Map.Entry<String, String>> keyFieldSupplier;
+                private final Supplier<String> fieldNameCandidateSupplier;
+                private final Map<InspectedField, String> fieldToColumnMap;
+
+                private Entry(
+                        InspectedField inspectedField,
+                        Supplier<Map.Entry<String, String>> keyFieldSupplier,
+                        Supplier<String> fieldNameCandidateSupplier,
+                        Map<InspectedField, String> fieldToColumnMap
+                ) {
+                    this.inspectedField = inspectedField;
+                    this.keyFieldSupplier = keyFieldSupplier;
+                    this.fieldNameCandidateSupplier = fieldNameCandidateSupplier;
+                    this.fieldToColumnMap = fieldToColumnMap;
+                }
+            }
+
             Set<String> fieldNames = new HashSet<>(qe.getFields().size() + keyFields.size() + valFields.size());
-            List<Map.Entry<InspectedField, Supplier<String>>> unnamedFields = new ArrayList<>(keyFields.size() + valFields.size());
+            List<Entry> unnamedFields = new ArrayList<>(keyFields.size() + valFields.size());
 
             Supplier<String> keyFieldNameCandidates = new FieldNameCandidateSupplier(ID_FIELD_NAME_CANDIDATES, n -> "KEY_" + n);
             Supplier<String> valFieldCandidates = new FieldNameCandidateSupplier(VALUE_FIELD_NAME_CANDIDATES, n -> "VAL_" + n);
-            Stream<Triple<InspectedField, Supplier<Map.Entry<String, String>>, Supplier<String>>> x = Stream.concat(
-                    keyFields.stream().map(f -> Triple.of(f, () -> keyField(qe), keyFieldNameCandidates)),
-                    valFields.stream().map(f -> Triple.of(f, () -> valField(qe), valFieldCandidates))
-            );
+
+            Function<InspectedField, Entry> keyMapper = f -> new Entry(f, () -> keyField(qe), keyFieldNameCandidates, keyFieldToColumnMap);
+            Function<InspectedField, Entry> valMapper = f -> new Entry(f, () -> valField(qe), valFieldCandidates, valFieldToColumnMap);
+
+            // Fields with annotations have precedence, so that they end up in the table with the original name.
+            Stream<Entry> x = Stream.of(
+                    keyFields.stream().filter(InspectedField::hasAnnotation).map(keyMapper),
+                    valFields.stream().filter(InspectedField::hasAnnotation).map(valMapper),
+                    keyFields.stream().filter(not(InspectedField::hasAnnotation)).map(keyMapper),
+                    valFields.stream().filter(not(InspectedField::hasAnnotation)).map(valMapper)
+            ).flatMap(s -> s);
 
             // Add fields already in the QE
             // Also add the aliases, we don't need collisions on that either.
             Stream.concat(qe.getFields().keySet().stream(), qe.getAliases().values().stream())
-                    .map(String::toUpperCase).forEach(fieldNames::add);
+                    .map(String::toUpperCase)
+                    .forEach(fieldNames::add);
 
-            for (Iterator<Triple<InspectedField, Supplier<Map.Entry<String, String>>, Supplier<String>>> it = x.iterator();
-                    it.hasNext(); ) {
-                Triple<InspectedField, Supplier<Map.Entry<String, String>>, Supplier<String>> entry = it.next();
-                InspectedField inspectedField = entry.getLeft();
+            for (Iterator<Entry> it = x.iterator(); it.hasNext(); ) {
+                Entry entry = it.next();
+                InspectedField inspectedField = entry.inspectedField;
 
-                if (inspectedField.fieldName != null) {
-                    String fieldNameUpperCase = inspectedField.fieldName.toUpperCase();
+                // TODO: May be refactored
+                @Nullable String fieldName = inspectedField.fieldName();
+                if (fieldName != null) {
+                    String fieldNameUpperCase = fieldName.toUpperCase();
                     if (!fieldNames.contains(fieldNameUpperCase)) {
                         fieldNames.add(fieldNameUpperCase);
+                        entry.fieldToColumnMap.put(inspectedField, fieldName);
                     } else {
                         // I've seen some weird cases where there was case mismatch between the class attr name and the qe field.
                         // To accept as the same field, both the name (without casing) and the field type must match.
                         Optional<Map.Entry<String, String>> existingEntryForField = qe.getFields().entrySet().stream()
-                                .filter(e -> e.getKey().equalsIgnoreCase(inspectedField.fieldName)
-                                        && e.getValue().equals(inspectedField.typeName))
+                                .filter(e -> e.getKey().equalsIgnoreCase(fieldName)
+                                        && e.getValue().equals(inspectedField.typeName()))
                                 .findFirst();
 
                         if (existingEntryForField.isPresent()) {
                             // We will switch our inspected field name to match the casing in the QE and hope for the best.
-                            inspectedField.fieldName = existingEntryForField.get().getKey();
+                            entry.fieldToColumnMap.put(inspectedField, existingEntryForField.get().getKey());
                         } else {
-                            throw new FieldNameConflictException(inspectedField, fieldNames);
+                            unnamedFields.add(entry);
                         }
                     }
-                } else if (inspectedField.fieldType == FieldType.PRIMITIVE) {
-                    @Nullable var field = entry.getMiddle().get();
+                } else if (inspectedField.fieldType() == InspectedFieldType.PRIMITIVE) {
+                    @Nullable var field = entry.keyFieldSupplier.get();
                     if (field == null) {
-                        unnamedFields.add(Map.entry(inspectedField, entry.getRight()));
-                    } else if (inspectedField.typeName.equals(field.getValue())) {
-                        inspectedField.fieldName = field.getKey();
+                        unnamedFields.add(entry);
+                    } else if (inspectedField.typeName().equals(field.getValue())) {
+                        entry.fieldToColumnMap.put(inspectedField, field.getKey());
                     } else {
-                        throw FieldNameConflictException.forSpecificField(inspectedField.fieldName, inspectedField.typeName,
-                                field.getValue());
+                        throw FieldNameConflictException.forSpecificField(fieldName, inspectedField.typeName(), field.getValue());
                     }
                 } else {
-                    unnamedFields.add(Map.entry(inspectedField, entry.getRight()));
+                    unnamedFields.add(entry);
                 }
             }
 
             // Assign custom field names
-            for (Map.Entry<InspectedField, Supplier<String>> unnamedFieldEntry : unnamedFields) {
+            for (Entry unnamedEntry : unnamedFields) {
                 // Get a valid candidate for the field.
-                String fieldName = Stream.generate(unnamedFieldEntry.getValue())
+                String fieldName = Stream.generate(unnamedEntry.fieldNameCandidateSupplier)
                         .filter(not(fieldNames::contains))
                         .findFirst()
                         .get();
 
                 fieldNames.add(fieldName);
-                unnamedFieldEntry.getKey().fieldName = fieldName;
+                unnamedEntry.fieldToColumnMap.put(unnamedEntry.inspectedField, fieldName);
             }
         }
 
@@ -589,28 +564,38 @@ public class SqlDdlGenerator {
         {
             // Set keyFieldName if there is only one key field.
             if (keyFields.size() == 1) {
-                qe.setKeyFieldName(keyFields.get(0).fieldName);
-                qe.setKeyType(keyFields.get(0).typeName);
+                InspectedField inspectedField = keyFields.get(0);
+                String columnName = keyFieldToColumnMap.get(inspectedField);
+
+                qe.setKeyFieldName(columnName);
+                qe.setKeyType(inspectedField.typeName());
             }
 
             for (InspectedField inspectedField : keyFields) {
-                qe.getKeyFields().add(inspectedField.fieldName);
+                String columnName = keyFieldToColumnMap.get(inspectedField);
 
-                addToQueryEntity(qe, inspectedField, false);
-                mapsPojo = mapsPojo || inspectedField.fieldType == FieldType.POJO_ATTRIBUTE;
+                qe.getKeyFields().add(columnName);
+
+                addToQueryEntity(qe, columnName, inspectedField.typeName(), inspectedField.fieldType(), false);
+                mapsPojo = mapsPojo || inspectedField.fieldType() == InspectedFieldType.POJO_ATTRIBUTE;
             }
         }
 
         // Process value fields
         {
             if (valFields.size() == 1) {
-                qe.setValueFieldName(valFields.get(0).fieldName);
-                qe.setValueType(valFields.get(0).typeName);
+                InspectedField inspectedField = valFields.get(0);
+                String columnName = valFieldToColumnMap.get(inspectedField);
+
+                qe.setValueFieldName(columnName);
+                qe.setValueType(inspectedField.typeName());
             }
 
             for (InspectedField inspectedField : valFields) {
-                addToQueryEntity(qe, inspectedField);
-                mapsPojo = mapsPojo || inspectedField.fieldType == FieldType.POJO_ATTRIBUTE;
+                String columnName = valFieldToColumnMap.get(inspectedField);
+
+                addToQueryEntity(qe, columnName, inspectedField.typeName(), inspectedField.fieldType(), inspectedField.nullable());
+                mapsPojo = mapsPojo || inspectedField.fieldType() == InspectedFieldType.POJO_ATTRIBUTE;
             }
         }
 
@@ -620,7 +605,18 @@ public class SqlDdlGenerator {
             qe.getFields().put(EXTRA_FIELDS_COLUMN_NAME, byte[].class.getName());
         }
 
-        return qe;
+        return new QueryEntityEvaluation(qe, keyFieldToColumnMap, valFieldToColumnMap);
+    }
+
+    /**
+     * Computes the cache qualified name from a cache configuration.
+     *
+     * @param cacheCfg Cache configuration.
+     * @return Qualified Name.
+     */
+    public static QualifiedName qualifiedName(CacheConfiguration<?, ?> cacheCfg) {
+        String tableName = IgniteNameUtils.quoteIfNeeded(cacheCfg.getName());
+        return QualifiedName.of(cacheCfg.getSqlSchema(), tableName);
     }
 
     /**
@@ -631,17 +627,15 @@ public class SqlDdlGenerator {
      * @throws FieldNameConflictException in case of conflicts during the mapping.
      */
     public GenerateTableResult generate(CacheConfiguration<?, ?> cacheCfg) throws FieldNameConflictException {
-        String schema = Optional.ofNullable(cacheCfg.getSqlSchema()).orElse(DEFAULT_SCHEMA);
-        String tableName = "\"" + cacheCfg.getName() + "\"";
-        // TODO: check if tableName needs quoting.
+        QualifiedName qualifiedName = qualifiedName(cacheCfg);
 
-        QueryEntity qryEntity = getOrCreateQueryEntity(cacheCfg);
+        QueryEntityEvaluation queryEntityEvaluation = getOrCreateQueryEntity(cacheCfg);
+        QueryEntity qryEntity = queryEntityEvaluation.queryEntity;
 
         int defIdx = 0;
         int pkIdx = 0;
         String[] pkColumnNames = new String[qryEntity.getKeyFields().size()];
         ColumnDefinition[] colDefinitions = new ColumnDefinition[qryEntity.getFields().size()];
-        Map<String, String> fieldNameForColumnMappings = new HashMap<>(qryEntity.getFields().size());
         for (Map.Entry<String, String> entry : qryEntity.getFields().entrySet()) {
             String fieldName = entry.getKey();
             Class<?> klass;
@@ -668,32 +662,59 @@ public class SqlDdlGenerator {
             if (qryEntity.getKeyFields().contains(fieldName)) {
                 pkColumnNames[pkIdx++] = columnName;
             }
-
-            fieldNameForColumnMappings.put(columnName, fieldName);
         }
 
-        var table = TableDefinition.builder(tableName)
-                .schema(schema)
+        // Create fieldName for column mappings
+        Function<@Nullable Map<InspectedField, String>, @Nullable Map<String, String>> processFieldToColumnMap = map -> {
+            if (map == null) {
+                return null;
+            }
+
+            Map<String, String> ret = new HashMap<>(map.size());
+            for (Map.Entry<InspectedField, String> e : map.entrySet()) {
+                @Nullable String fieldName = e.getKey().fieldName();
+                // Should probably check against the field type.
+                if (fieldName != null) {
+                    String columnName = e.getValue();
+                    // Process QE Aliases.
+                    columnName = qryEntity.getAliases().getOrDefault(columnName, columnName);
+                    ret.put(columnName, fieldName);
+                }
+            }
+
+            return ret;
+        };
+
+        @Nullable Map<String, String> keyFieldForColumn = processFieldToColumnMap.apply(queryEntityEvaluation.keyInspectedFieldMap);
+        @Nullable Map<String, String> valFieldForColumn = processFieldToColumnMap.apply(queryEntityEvaluation.valInspectedFieldMap);
+
+        var table = TableDefinition.builder(qualifiedName)
                 .columns(colDefinitions)
                 .primaryKey(pkColumnNames)
                 .build();
 
-        // TODO: Test one of these are null;
-        @Nullable Map.Entry<String, String> typeHints = Map.entry(qryEntity.getKeyType(), qryEntity.getValueType());
-        return new GenerateTableResult(table, fieldNameForColumnMappings, typeHints);
+        return new GenerateTableResult(
+                table,
+                new TableTypeDescriptor(qryEntity.getKeyType(), qryEntity.getValueType(), keyFieldForColumn, valFieldForColumn)
+        );
     }
 
     public TableDefinition generateTableDefinition(CacheConfiguration<?, ?> cacheCfg) throws FieldNameConflictException {
         return generate(cacheCfg).tableDefinition;
     }
 
-    private QueryEntity getOrCreateQueryEntity(CacheConfiguration cacheCfg) throws FieldNameConflictException {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+    @SuppressWarnings("PMD.UnnecessaryCast")
+    private QueryEntityEvaluation getOrCreateQueryEntity(CacheConfiguration cacheCfg) throws FieldNameConflictException {
         // TODO: Map the whole object and key instead of the query entities
         QueryEntity qe;
 
         Map.Entry<Class<?>, Class<?>> typeHints = null;
         try {
-            typeHints = this.tableTypeRegistry.typesForTable(cacheCfg.getName());
+            @Nullable TableTypeDescriptor tableDescriptor = this.tableTypeRegistry.typesForTable(cacheCfg.getName());
+            if (tableDescriptor != null) {
+                typeHints = TableTypeRegistryUtils.typesToEntry(tableDescriptor);
+            }
         } catch (ClassNotFoundException ex) {
             LOGGER.error("Found TableTypeHint for cache but one of the class was not in the Classpath: {}", cacheCfg.getName(), ex);
         }
@@ -726,94 +747,66 @@ public class SqlDdlGenerator {
         return populateQueryEntity(qe, allowExtraFields);
     }
 
-    enum FieldType {
-        PRIMITIVE,
-        ARRAY,
-        POJO_ATTRIBUTE
-    }
-
-    static class InspectedField {
-        @Nullable
-        private String fieldName;
-
-        private String typeName;
-
-        private FieldType fieldType;
-
-        private boolean nullable;
-
-        public InspectedField(@Nullable String fieldName, String typeName, FieldType fieldType) {
-            this(fieldName, typeName, fieldType, !(fieldType == FieldType.PRIMITIVE || fieldType == FieldType.ARRAY));
-        }
-
-        public InspectedField(@Nullable String fieldName, String typeName, FieldType fieldType, boolean nullable) {
-            this.fieldName = fieldName;
-            this.typeName = typeName;
-            this.fieldType = fieldType;
-            this.nullable = nullable;
-        }
-
-        public String getFieldName() {
-            return fieldName;
-        }
-
-        public String getTypeName() {
-            return typeName;
-        }
-
-        public FieldType getFieldType() {
-            return fieldType;
-        }
-
-        public boolean isNullable() {
-            return nullable;
-        }
-
-        @Override
-        public String toString() {
-            return "InspectedField{"
-                    + "fieldName='" + fieldName + '\''
-                    + ", typeName='" + typeName + '\''
-                    + ", fieldType=" + fieldType
-                    + ", nullable=" + nullable
-                    + '}';
-        }
-    }
-
     /** GenerateTableResult. */
     public static class GenerateTableResult {
         private final TableDefinition tableDefinition;
 
-        private final Map<String, String> fieldNameForColumn;
-
-        @Nullable
-        private final Map.Entry<String, String> rawTypeHints;
+        private final TableTypeDescriptor tableTypeDescriptor;
 
         /**
          * Constructor.
          *
          * @param tableDefinition Table definition.
-         * @param fieldNameForColumn Mapping of columns to their corresponding field names.
-         * @param rawTypeHints Mapping of type hints by column.
+         * @param tableTypeDescriptor Description of the types for the table.
          */
-        public GenerateTableResult(TableDefinition tableDefinition, Map<String, String> fieldNameForColumn,
-                Map.Entry<String, String> rawTypeHints) {
+        public GenerateTableResult(
+                TableDefinition tableDefinition,
+                TableTypeDescriptor tableTypeDescriptor
+        ) {
             this.tableDefinition = tableDefinition;
-            this.fieldNameForColumn = fieldNameForColumn;
-            this.rawTypeHints = rawTypeHints;
+            this.tableTypeDescriptor = tableTypeDescriptor;
         }
 
         public TableDefinition tableDefinition() {
             return tableDefinition;
         }
 
-        public Map<String, String> fieldNameForColumnMappings() {
-            return fieldNameForColumn;
+        public TableTypeDescriptor tableTypeDescriptor() {
+            return tableTypeDescriptor;
         }
 
-        @Nullable
         public Map.Entry<String, String> typeHints() {
-            return rawTypeHints;
+            return tableTypeDescriptor.typeHints();
+        }
+
+        /** Combines FieldNamesForColumn mappings for keys and values into the same map. */
+        public Map<String, String> fieldToColumnMappings() {
+            Map<String, String> ret = new HashMap<>();
+
+            Optional.ofNullable(tableTypeDescriptor.keyFieldNameForColumn()).ifPresent(ret::putAll);
+            Optional.ofNullable(tableTypeDescriptor.valFieldNameForColumn()).ifPresent(ret::putAll);
+
+            return ret;
+        }
+    }
+
+    static class QueryEntityEvaluation {
+        private final QueryEntity queryEntity;
+
+        @Nullable
+        private final Map<InspectedField, String> keyInspectedFieldMap;
+
+        @Nullable
+        private final Map<InspectedField, String> valInspectedFieldMap;
+
+        QueryEntityEvaluation(
+                QueryEntity queryEntity,
+                @Nullable Map<InspectedField, String> keyInspectedFieldMap,
+                @Nullable Map<InspectedField, String> valInspectedFieldMap
+        ) {
+            this.queryEntity = queryEntity;
+            this.keyInspectedFieldMap = keyInspectedFieldMap;
+            this.valInspectedFieldMap = valInspectedFieldMap;
         }
     }
 

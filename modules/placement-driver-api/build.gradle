@@ -21,7 +21,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
 
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
@@ -31,13 +31,8 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network-api')
     testFixturesImplementation project(':ignite-partition-distribution')
-    testFixturesImplementation libs.jetbrains.annotations
 
-    testImplementation(testFixtures(project(':ignite-core')))
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
 }
 
 description = 'ignite-placement-driver-api'

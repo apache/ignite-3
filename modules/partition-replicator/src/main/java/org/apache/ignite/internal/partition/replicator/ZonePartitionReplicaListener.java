@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.ReplicaSafeTimeSyncRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
@@ -62,7 +64,6 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -113,7 +114,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
             FailureProcessor failureProcessor,
-            ClusterNode localNode,
+            NodeProperties nodeProperties,
+            InternalClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
         this.raftClient = raftClient;
@@ -131,7 +133,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
-                schemaSyncService
+                schemaSyncService,
+                nodeProperties
         );
 
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
@@ -193,7 +196,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
     }
 
-    private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
+    private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(InternalClusterNode node) {
         // Enlistment consistency token is not required for the rollback, so it is 0L.
         // Passing an empty set of table IDs as we don't know which tables were enlisted; this is ok as the corresponding write intents
         // can still be resolved later when reads stumble upon them.

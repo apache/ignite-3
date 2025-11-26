@@ -147,9 +147,7 @@ public class IgniteAliasNamespace extends AliasNamespace {
             if (field.getIndex() > 0) {
                 buf.append(", ");
             }
-            buf.append('\'');
-            buf.append(field.getName());
-            buf.append('\'');
+            buf.append('\'').append(field.getName()).append('\'');
         }
         buf.append(')');
         return buf.toString();

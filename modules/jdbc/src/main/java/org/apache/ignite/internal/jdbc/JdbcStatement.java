@@ -20,7 +20,6 @@ package org.apache.ignite.internal.jdbc;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static org.apache.ignite.internal.jdbc.JdbcResultSet.createTransformer;
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
 import java.sql.BatchUpdateException;
@@ -30,91 +29,109 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * Jdbc statement implementation.
+ * {@link Statement} implementation backed by the thin client.
  */
 public class JdbcStatement implements Statement {
-    /** Default queryPage size. */
-    private static final int DFLT_PAGE_SIZE = 1024;
 
-    /** JDBC Connection implementation. */
-    protected final JdbcConnection conn;
+    static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
 
-    /** Result set holdability. */
-    private final int resHoldability;
+    static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
+            QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT);
 
-    /** Schema name. */
-    private final String schema;
+    static final Set<QueryModifier> ALL = QueryModifier.ALL;
 
-    /** Closed flag. */
+    private static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
+            JdbcConnection.RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED;
+
+    private static final String LARGE_UPDATE_NOT_SUPPORTED =
+            "executeLargeUpdate not implemented.";
+
+    private static final String FIELD_SIZE_LIMIT_IS_NOT_SUPPORTED =
+            "Field size limit is not supported.";
+
+    private static final String CURSOR_NAME_IS_NOT_SUPPORTED =
+            "Setting cursor name is not supported.";
+
+    private static final String MULTIPLE_OPEN_RESULTS_ARE_NOT_SUPPORTED =
+            "Multiple open results are not supported.";
+
+    private static final String POOLING_IS_NOT_SUPPORTED =
+            "Pooling is not supported.";
+
+    private static final String STATEMENT_IS_CLOSED =
+            "Statement is closed.";
+
+    private static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED =
+            "Only forward direction is supported.";
+
+    final Connection connection;
+
+    final IgniteSql igniteSql;
+
+    private final String schemaName;
+
+    private final int rsHoldability;
+
+    protected volatile @Nullable ResultSetWrapper result;
+
+    private long queryTimeoutMillis;
+
+    private int pageSize;
+
+    private int maxRows = 0;
+
     private volatile boolean closed;
 
-    /** Query timeout. */
-    long queryTimeoutMillis;
+    boolean closeOnCompletion;
 
-    /** Rows limit. */
-    private int maxRows;
+    volatile @Nullable CancelHandle cancelHandle;
 
-    /** Fetch size. */
-    private int pageSize = DFLT_PAGE_SIZE;
+    private @Nullable List<String> batch;
 
-    /** Result sets. {@code null} represents final result set (no more results are available). */
-    private volatile List<@Nullable JdbcResultSet> resSets;
-
-    /** Batch. */
-    private List<String> batch;
-
-    /** Close on completion. */
-    private boolean closeOnCompletion;
-
-    /** Current result index. */
-    private int curRes;
-
-    private volatile @Nullable Long lastCorrelationToken;
-
-    /**
-     * Creates new statement.
-     *
-     * @param conn           JDBC connection.
-     * @param resHoldability Result set holdability.
-     * @param schema         Schema name.
-     */
-    JdbcStatement(JdbcConnection conn, int resHoldability, String schema) {
-        assert conn != null;
-
-        this.conn = conn;
-        this.resHoldability = resHoldability;
-        this.schema = schema;
+    JdbcStatement(
+            Connection connection,
+            IgniteSql igniteSql,
+            String schemaName,
+            int rsHoldability
+    ) {
+        this.connection = connection;
+        this.schemaName = schemaName;
+        this.igniteSql = igniteSql;
+        this.rsHoldability = rsHoldability;
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), false, ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(QUERY, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-        ResultSet rs = getResultSet();
+        ResultSetWrapper currentRs = result;
+        assert currentRs != null;
+
+        ResultSet rs = currentRs.current();
 
         if (rs == null) {
             throw new SQLException("The query isn't SELECT query: " + sql, SqlStateCode.PARSING_EXCEPTION);
@@ -123,15 +140,20 @@ public class JdbcStatement implements Statement {
         return rs;
     }
 
+    JdbcResultSet createResultSet(ClientSyncResultSet resultSet) throws SQLException {
+        JdbcConnection jdbcConnection = connection.unwrap(JdbcConnection.class);
+        ZoneId zoneId = jdbcConnection.properties().getConnectionTimeZone();
+        return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion, maxRows);
+    }
+
     /**
      * Execute the query with given parameters.
      *
-     * @param sql  Sql query.
+     * @param sql Sql query.
      * @param args Query parameters.
-     * @param multiStatement Multiple statement flag.
      * @throws SQLException Onj error.
      */
-    void execute0(JdbcStatementType stmtType, String sql, boolean multiStatement, Object[] args) throws SQLException {
+    void execute0(Set<QueryModifier> queryModifiers, String sql, Object[] args) throws SQLException {
         ensureNotClosed();
 
         closeResults();
@@ -140,57 +162,48 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        long correlationToken = nextToken();
+        JdbcConnection connection2 = connection.unwrap(JdbcConnection.class);
+        Transaction tx = connection2.startTransactionIfNoAutoCommit();
 
-        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement, queryTimeoutMillis, correlationToken, conn.observableTimestamp());
+        org.apache.ignite.sql.Statement igniteStmt = createIgniteStatement(sql);
+        ClientSql clientSql = (ClientSql) igniteSql;
 
-        JdbcQueryExecuteResponse res;
+        // Cancel handle is not reusable, we should create a new one for each execution.
+        CancelHandle handle = CancelHandle.create();
+        cancelHandle = handle;
 
+        ClientAsyncResultSet<SqlRow> clientRs;
         try {
-            res = (JdbcQueryExecuteResponse) conn.handler().queryAsync(conn.connectionId(), req).get();
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw toSqlException(e);
-        } catch (CancellationException e) {
-            throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
+            clientRs = (ClientAsyncResultSet<SqlRow>) clientSql.executeAsyncInternal(tx,
+                    (Mapper<SqlRow>) null,
+                    handle.token(),
+                    queryModifiers,
+                    igniteStmt,
+                    args
+            ).join();
+
+            result = new ResultSetWrapper(createResultSet(new ClientSyncResultSetImpl(clientRs)));
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
-
-        if (!res.success()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-        }
-
-        JdbcQuerySingleResult executeResult = res.result();
-
-        resSets = new ArrayList<>();
-
-        JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(res.getChannel());
-
-        List<JdbcColumnMeta> meta = executeResult.meta();
-
-        Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
-
-        int colCount = meta != null ? meta.size() : 0;
-
-        resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize, !executeResult.hasMoreData(),
-                executeResult.items(), meta, executeResult.hasResultSet(), executeResult.hasNextResult(),
-                executeResult.updateCount(), closeOnCompletion, colCount, transformer));
     }
 
     /** {@inheritDoc} */
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        execute0(JdbcStatementType.UPDATE_STATEMENT_TYPE, Objects.requireNonNull(sql), false, ArrayUtils.OBJECT_EMPTY_ARRAY);
+        Objects.requireNonNull(sql, "sql");
 
-        int res = getUpdateCount();
+        execute0(DML_OR_DDL, sql, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-        if (res == -1) {
+        ResultSetWrapper rs = result;
+        assert rs != null;
+
+        if (rs.isQuery()) {
             closeResults();
             throw new SQLException("The query is not DML statement: " + sql);
         }
 
-        return res;
+        return rs.updateCount();
     }
 
     /** {@inheritDoc} */
@@ -199,10 +212,10 @@ public class JdbcStatement implements Statement {
         ensureNotClosed();
 
         switch (autoGeneratedKeys) {
-            case Statement.RETURN_GENERATED_KEYS:
-                throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+            case RETURN_GENERATED_KEYS:
+                throw new SQLFeatureNotSupportedException((RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED));
 
-            case Statement.NO_GENERATED_KEYS:
+            case NO_GENERATED_KEYS:
                 return executeUpdate(sql);
 
             default:
@@ -215,7 +228,7 @@ public class JdbcStatement implements Statement {
     public int executeUpdate(String sql, int[] colIndexes) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+        throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -223,7 +236,7 @@ public class JdbcStatement implements Statement {
     public int executeUpdate(String sql, String[] colNames) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+        throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -233,13 +246,9 @@ public class JdbcStatement implements Statement {
             return;
         }
 
-        try {
-            closeResults();
+        closed = true;
 
-            conn.removeStatement(this);
-        } finally {
-            closed = true;
-        }
+        closeResults();
     }
 
     /** {@inheritDoc} */
@@ -259,7 +268,7 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Invalid field limit.");
         }
 
-        throw new SQLFeatureNotSupportedException("Field size limitation is not supported.");
+        throw new SQLFeatureNotSupportedException(FIELD_SIZE_LIMIT_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -293,18 +302,19 @@ public class JdbcStatement implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        long seconds = queryTimeoutMillis / 1000;
-        if (seconds >= Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-
-        return (int) seconds;
+        return (int) TimeUnit.MILLISECONDS.toSeconds(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setQueryTimeout(int timeout) throws SQLException {
-        timeout(timeout * 1000L);
+        ensureNotClosed();
+
+        if (timeout < 0) {
+            throw new SQLException("Invalid timeout value.");
+        }
+
+        this.queryTimeoutMillis = TimeUnit.SECONDS.toMillis(timeout);
     }
 
     /** {@inheritDoc} */
@@ -312,29 +322,15 @@ public class JdbcStatement implements Statement {
     public void cancel() throws SQLException {
         ensureNotClosed();
 
-        Long correlationToken = lastCorrelationToken;
-
-        if (correlationToken == null) {
-            return;
-        }
-
-        try {
-            JdbcQueryCancelResult res = conn.handler().cancelAsync(conn.connectionId(), correlationToken).get();
-
-            if (res.status() != Response.STATUS_SUCCESS) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-            }
-        } catch (CancellationException e) {
-            throw new SQLException("Request to cancel the statement has been canceled.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Request to cancel the statement has failed.", e);
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
+        CancelHandle handle = cancelHandle;
+        if (handle != null) {
+            handle.cancel();
         }
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         ensureNotClosed();
 
@@ -352,7 +348,7 @@ public class JdbcStatement implements Statement {
     public void setCursorName(String name) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(CURSOR_NAME_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -360,9 +356,12 @@ public class JdbcStatement implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), true, ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(QueryModifier.ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-        return isQuery();
+        ResultSetWrapper rs = result;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     /** {@inheritDoc} */
@@ -371,7 +370,7 @@ public class JdbcStatement implements Statement {
         ensureNotClosed();
 
         if (colIndexes != null && colIndexes.length > 0) {
-            throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+            throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
         }
 
         return execute(sql);
@@ -383,10 +382,10 @@ public class JdbcStatement implements Statement {
         ensureNotClosed();
 
         switch (autoGeneratedKeys) {
-            case Statement.RETURN_GENERATED_KEYS:
-                throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+            case RETURN_GENERATED_KEYS:
+                throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
 
-            case Statement.NO_GENERATED_KEYS:
+            case NO_GENERATED_KEYS:
                 return execute(sql);
 
             default:
@@ -400,7 +399,7 @@ public class JdbcStatement implements Statement {
         ensureNotClosed();
 
         if (colNames != null && colNames.length > 0) {
-            throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+            throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
         }
 
         return execute(sql);
@@ -411,17 +410,12 @@ public class JdbcStatement implements Statement {
     public @Nullable ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
-        if (resSets == null || curRes >= resSets.size()) {
+        ResultSetWrapper rs = result;
+        if (rs != null && rs.isQuery()) {
+            return rs.current();
+        } else {
             return null;
         }
-
-        @Nullable JdbcResultSet rs = resSets.get(curRes);
-
-        if (rs == null || !rs.hasResultSet()) {
-            return null;
-        }
-
-        return rs;
     }
 
     /** {@inheritDoc} */
@@ -429,17 +423,12 @@ public class JdbcStatement implements Statement {
     public int getUpdateCount() throws SQLException {
         ensureNotClosed();
 
-        if (resSets == null || curRes >= resSets.size()) {
+        ResultSetWrapper rs = result;
+        if (rs == null) {
             return -1;
+        } else {
+            return rs.updateCount();
         }
-
-        @Nullable JdbcResultSet rs = resSets.get(curRes);
-
-        if (rs == null || rs.hasResultSet()) {
-            return -1;
-        }
-
-        return (int) rs.updatedCount();
     }
 
     /** {@inheritDoc} */
@@ -453,54 +442,54 @@ public class JdbcStatement implements Statement {
     public boolean getMoreResults(int current) throws SQLException {
         ensureNotClosed();
 
-        if (resSets != null) {
-            assert curRes <= resSets.size() : "Invalid results state: [resultsCount=" + resSets.size() + ", curRes=" + curRes + ']';
+        switch (current) {
+            case CLOSE_CURRENT_RESULT:
+                ResultSetWrapper currentResult = result;
+                if (currentResult == null) {
+                    return false;
+                }
 
-            switch (current) {
-                case CLOSE_CURRENT_RESULT:
-                    break;
+                boolean moreResults = currentResult.nextResultSet();
+                if (!moreResults) {
+                    // next() closes the remaining result set if necessary
+                    result = null;
 
-                case CLOSE_ALL_RESULTS:
-                case KEEP_CURRENT_RESULT:
-                    throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
+                    return false;
+                } else {
+                    return currentResult.isQuery();
+                }
 
-                default:
-                    throw new SQLException("Invalid 'current' parameter.");
-            }
+            case CLOSE_ALL_RESULTS:
+            case KEEP_CURRENT_RESULT:
+                throw new SQLFeatureNotSupportedException(MULTIPLE_OPEN_RESULTS_ARE_NOT_SUPPORTED);
+
+            default:
+                throw new SQLException("Invalid 'current' parameter.");
         }
+    }
 
-        // No more results are available if last result set is null
-        if (resSets == null || curRes >= resSets.size() || resSets.get(curRes) == null) {
-            return false;
-        }
+    /** {@inheritDoc} */
+    @Override
+    public long executeLargeUpdate(String sql) throws SQLException {
+        ensureNotClosed();
 
-        JdbcResultSet nextResultSet;
-        SQLException exceptionally = null;
+        throw new SQLFeatureNotSupportedException(LARGE_UPDATE_NOT_SUPPORTED);
+    }
 
-        try {
-            // just a stub if exception is raised inside multiple statements.
-            // all further execution is not processed.
-            nextResultSet = resSets.get(curRes).getNextResultSet();
-        } catch (SQLException ex) {
-            nextResultSet = null;
-            exceptionally = ex;
-        }
+    /** {@inheritDoc} */
+    @Override
+    public long executeLargeUpdate(String sql, int[] columnIndexes) throws SQLException {
+        ensureNotClosed();
 
-        resSets.add(nextResultSet);
+        throw new SQLFeatureNotSupportedException(LARGE_UPDATE_NOT_SUPPORTED);
+    }
 
-        curRes++;
+    /** {@inheritDoc} */
+    @Override
+    public long executeLargeUpdate(String sql, String[] columnNames) throws SQLException {
+        ensureNotClosed();
 
-        // all previous results need to be closed at this point.
-        if (nextResultSet == null && isCloseOnCompletion()) {
-            close();
-            return false;
-        }
-
-        if (exceptionally != null) {
-            throw exceptionally;
-        }
-
-        return nextResultSet != null && nextResultSet.holdResults();
+        throw new SQLFeatureNotSupportedException(LARGE_UPDATE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -509,7 +498,7 @@ public class JdbcStatement implements Statement {
         ensureNotClosed();
 
         if (direction != FETCH_FORWARD) {
-            throw new SQLFeatureNotSupportedException("Only forward direction is supported.");
+            throw new SQLFeatureNotSupportedException(ONLY_FORWARD_DIRECTION_IS_SUPPORTED);
         }
     }
 
@@ -521,13 +510,26 @@ public class JdbcStatement implements Statement {
         return FETCH_FORWARD;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Gives the JDBC driver a hint as to the number of rows that should
+     * be fetched from the database. If the value specified is zero, then
+     * the hint is ignored. The default value is zero.
+     *
+     * <p>Note: the current implementation does not provide any means to change the number
+     * of rows after the statement has executed. Thus, changing this value after the statement
+     * has executed will not apply to the previously retrieved ResultSet.
+     *
+     * @param fetchSize the number of rows to fetch
+     * @exception SQLException if the condition {@code fetchSize >= 0} is not satisfied.
+     * @since 1.2
+     * @see #getFetchSize
+     */
     @Override
     public void setFetchSize(int fetchSize) throws SQLException {
         ensureNotClosed();
 
-        if (fetchSize <= 0) {
-            throw new SQLException("Fetch size must be greater than zero.");
+        if (fetchSize < 0) {
+            throw new SQLException("Invalid fetch size.");
         }
 
         pageSize = fetchSize;
@@ -564,8 +566,12 @@ public class JdbcStatement implements Statement {
 
         Objects.requireNonNull(sql);
 
+        if (sql.isBlank()) {
+            return;
+        }
+
         if (batch == null) {
-            batch = new ArrayList<>();
+            batch = new ArrayList<>(2);
         }
 
         batch.add(sql);
@@ -586,33 +592,59 @@ public class JdbcStatement implements Statement {
 
         closeResults();
 
-        if (CollectionUtils.nullOrEmpty(batch)) {
+        if (batch == null) {
             return INT_EMPTY_ARRAY;
         }
 
-        long correlationToken = nextToken();
+        assert !batch.isEmpty();
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(
-                conn.getSchema(), batch, conn.getAutoCommit(), queryTimeoutMillis, correlationToken
-        );
+        String script = String.join(";", batch);
+
+        org.apache.ignite.sql.Statement igniteStmt = createIgniteStatement(script);
+
+        JdbcConnection conn = connection.unwrap(JdbcConnection.class);
+        Transaction tx = conn.startTransactionIfNoAutoCommit();
+
+        ClientSql clientSql = (ClientSql) igniteSql;
+
+        // Cancel handle is not reusable, we should create a new one for each execution.
+        CancelHandle handle = CancelHandle.create();
+        cancelHandle = handle;
+
+        List<Integer> results = new ArrayList<>(batch.size());
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
+            ClientAsyncResultSet<SqlRow> asyncRs = (ClientAsyncResultSet<SqlRow>) clientSql.executeAsyncInternal(tx,
+                    (Mapper<SqlRow>) null,
+                    handle.token(),
+                    EnumSet.of(QueryModifier.ALLOW_MULTISTATEMENT, QueryModifier.ALLOW_APPLIED_RESULT,
+                            QueryModifier.ALLOW_AFFECTED_ROWS_RESULT),
+                    igniteStmt
+            ).get();
 
-            if (!res.success()) {
-                throw new BatchUpdateException(res.err(),
-                        IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
-                        res.getErrorCode(),
-                        res.updateCounts());
+            while (true) {
+                int affRows = asyncRs.affectedRows() == -1L ? SUCCESS_NO_INFO : (int) asyncRs.affectedRows();
+
+                results.add(affRows);
+
+                // DML/DDL-like cursors are immediately closed on the server side after the batch statement
+                // is executed and are not stored in client resources, so calling close should do nothing.
+                asyncRs.closeAsync();
+
+                if (!asyncRs.hasNextResultSet()) {
+                    break;
+                }
+
+                asyncRs = asyncRs.nextResultSet().get();
             }
 
-            return res.updateCounts();
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw toSqlException(e);
-        } catch (CancellationException e) {
-            throw new SQLException("Batch execution canceled.", SqlStateCode.QUERY_CANCELLED);
+            return results.stream().mapToInt(Integer::intValue).toArray();
+        } catch (Exception e) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-15247 Map Ignite errors to specific JDBC SQL state codes
+            throw new BatchUpdateException(e.getMessage(),
+                    SqlStateCode.INTERNAL_ERROR,
+                    IgniteQueryErrorCode.UNKNOWN,
+                    results.stream().mapToInt(Integer::intValue).toArray());
         } finally {
             batch = null;
         }
@@ -623,7 +655,7 @@ public class JdbcStatement implements Statement {
     public Connection getConnection() throws SQLException {
         ensureNotClosed();
 
-        return conn;
+        return connection;
     }
 
     /** {@inheritDoc} */
@@ -631,7 +663,7 @@ public class JdbcStatement implements Statement {
     public ResultSet getGeneratedKeys() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Auto-generated columns are not supported.");
+        throw new SQLFeatureNotSupportedException((RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED));
     }
 
     /** {@inheritDoc} */
@@ -639,13 +671,13 @@ public class JdbcStatement implements Statement {
     public int getResultSetHoldability() throws SQLException {
         ensureNotClosed();
 
-        return resHoldability;
+        return rsHoldability;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isClosed() throws SQLException {
-        return conn.isClosed() || closed;
+        return closed;
     }
 
     /** {@inheritDoc} */
@@ -654,7 +686,7 @@ public class JdbcStatement implements Statement {
         ensureNotClosed();
 
         if (poolable) {
-            throw new SQLFeatureNotSupportedException("Pooling is not supported.");
+            throw new SQLFeatureNotSupportedException(POOLING_IS_NOT_SUPPORTED);
         }
     }
 
@@ -673,12 +705,9 @@ public class JdbcStatement implements Statement {
 
         closeOnCompletion = true;
 
-        if (resSets != null) {
-            for (JdbcResultSet rs : resSets) {
-                if (rs != null) {
-                    rs.closeStatement(true);
-                }
-            }
+        ResultSetWrapper rs = result;
+        if (rs != null) {
+            rs.setCloseStatement(true);
         }
     }
 
@@ -706,112 +735,53 @@ public class JdbcStatement implements Statement {
         return iface != null && iface.isAssignableFrom(JdbcStatement.class);
     }
 
-    /**
-     * Gets the isQuery flag from the first result.
-     *
-     * @return isQuery flag.
-     */
-    protected boolean isQuery() {
-        return Objects.requireNonNull(resSets).get(0).hasResultSet();
+    /** Sets query timeout in milliseconds. */
+    @TestOnly
+    public void timeout(long queryTimeoutMillis) {
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
-    /**
-     * Ensures that statement not closed.
-     *
-     * @throws SQLException If statement is closed.
-     */
+    org.apache.ignite.sql.Statement createIgniteStatement(String sql) throws SQLException {
+        StatementBuilder builder = igniteSql.statementBuilder()
+                .query(sql)
+                .defaultSchema(schemaName);
+
+        if (queryTimeoutMillis > 0) {
+            builder.queryTimeout(queryTimeoutMillis, TimeUnit.MILLISECONDS);
+        }
+
+        if (getFetchSize() > 0) {
+            builder.pageSize(getFetchSize());
+        }
+
+        JdbcConnection conn = connection.unwrap(JdbcConnection.class);
+        ZoneId zoneId = conn.properties().getConnectionTimeZone();
+
+        return builder.timeZoneId(zoneId).build();
+    }
+
     void ensureNotClosed() throws SQLException {
         if (isClosed()) {
-            throw new SQLException("Statement is closed.");
+            throw new SQLException(STATEMENT_IS_CLOSED);
         }
     }
 
-    /**
-     * Close results.
-     *
-     * @throws SQLException On error.
-     */
-    void closeResults() throws SQLException {
-        @Nullable JdbcResultSet last = null;
-
-        if (resSets != null) {
-            JdbcResultSet lastRs = resSets.get(resSets.size() - 1);
-            boolean allFetched = lastRs == null || (lastRs.isClosed() && !lastRs.holdsResources());
-
-            if (allFetched) {
-                for (JdbcResultSet rs : resSets) {
-                    if (rs != null) {
-                        rs.close0(true);
-                    }
-                }
-            } else {
-                last = lastRs.getNextResultSet();
-
-                while (last != null) {
-                    last = last.getNextResultSet();
-                }
-            }
-
-            resSets = null;
-            curRes = 0;
+    private void closeResults() throws SQLException {
+        ResultSetWrapper rs = result;
+        result = null;
+        if (rs != null) {
+            rs.close();
         }
-
-        lastCorrelationToken = null;
     }
 
     /**
      * Used by statement on closeOnCompletion mode.
-     *
-     * @throws SQLException On error.
      */
     void closeIfAllResultsClosed() throws SQLException {
-        if (isClosed()) {
+        if (!closeOnCompletion) {
             return;
         }
 
-        boolean allRsClosed = true;
-
-        if (resSets != null) {
-            for (JdbcResultSet rs : resSets) {
-                if (rs != null && !rs.isClosed()) {
-                    allRsClosed = false;
-                    break;
-                }
-            }
-        }
-
-        if (allRsClosed) {
-            close();
-        }
-    }
-
-    /**
-     * Sets timeout in milliseconds.
-     *
-     * <p>For test purposes.
-     *
-     * @param timeout Timeout.
-     * @throws SQLException If timeout value is invalid.
-     */
-    public final void timeout(long timeout) throws SQLException {
-        ensureNotClosed();
-
-        if (timeout < 0) {
-            throw new SQLException("Invalid timeout value.");
-        }
-
-        this.queryTimeoutMillis = timeout;
-    }
-
-    long nextToken() {
-        long correlationToken = conn.nextToken();
-
-        lastCorrelationToken = correlationToken;
-
-        return correlationToken;
-    }
-
-    private static SQLException toSqlException(ExecutionException e) {
-        return new SQLException(e);
+        close();
     }
 }

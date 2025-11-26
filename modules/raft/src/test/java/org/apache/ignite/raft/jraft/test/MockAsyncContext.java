@@ -18,8 +18,8 @@ package org.apache.ignite.raft.jraft.test;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -32,7 +32,7 @@ public class MockAsyncContext implements RpcContext {
     private Object responseObject;
     private NodeManager nodeManager = new NodeManager(null);
 
-    private ClusterNode sender = new ClusterNodeImpl(
+    private InternalClusterNode sender = new ClusterNodeImpl(
             UUID.randomUUID(),
             "node0",
             new NetworkAddress("localhost", 12345));
@@ -67,7 +67,7 @@ public class MockAsyncContext implements RpcContext {
     }
 
     @Override
-    public ClusterNode getSender() {
+    public InternalClusterNode getSender() {
         return sender;
     }
 

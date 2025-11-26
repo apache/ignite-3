@@ -25,9 +25,10 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -72,7 +73,7 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(cluster, traits, hints, table, names, proj, cond, requiredColumns);
 
@@ -90,6 +91,13 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteKeyValueGet(
                 cluster, getTraitSet(), getTable(), getHints(), keyExpressions, names, projects, condition, requiredColumns
+        );
+    }
+
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteKeyValueGet(
+                getCluster(), getTraitSet(), getTable(), getHints(), keyExpressions, names, newProjects, newCondition, requiredColumns
         );
     }
 
@@ -121,5 +129,11 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
      */
     public List<RexNode> keyExpressions() {
         return keyExpressions;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return explainAttributes(writer)
+                .addKeyExpression(keyExpressions);
     }
 }

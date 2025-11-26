@@ -226,7 +226,7 @@ public class IndexMetaStorage implements IgniteComponent {
 
         Catalog catalog = catalog(eventCatalogVersion);
 
-        CompletableFuture<?>[] resultFuture = new CompletableFuture<?>[1];
+        CompletableFuture<?>[] futureContainer = new CompletableFuture<?>[1];
 
         lowWatermark.getLowWatermarkSafe(lwm -> {
             int lwmCatalogVersion = lwmCatalogVersion(lwm);
@@ -237,9 +237,9 @@ public class IndexMetaStorage implements IgniteComponent {
 
                 assert removed != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
-                resultFuture[0] = removeFromMetastore(removed);
+                futureContainer[0] = removeFromMetastore(removed);
             } else {
-                resultFuture[0] = updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
+                futureContainer[0] = updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
                     assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
                     return setNewStatus(indexMeta, statusOnRemoveIndex(indexMeta.status()), catalog);
@@ -247,9 +247,10 @@ public class IndexMetaStorage implements IgniteComponent {
             }
         });
 
-        assert resultFuture[0] != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
+        CompletableFuture<?> future = futureContainer[0];
+        assert future != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
-        return resultFuture[0].thenApply(unused -> false);
+        return future.thenApply(unused -> false);
     }
 
     private CompletableFuture<Boolean> onCatalogIndexBuildingEvent(StartBuildingIndexEventParameters parameters) {
@@ -257,6 +258,14 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onCatalogIndexAvailableEvent(MakeIndexAvailableEventParameters parameters) {
+        if (relatedToNonPrimaryKeyIndex(parameters)) {
+            return updateIndexStatus(parameters);
+        }
+
+        return falseCompletedFuture();
+    }
+
+    private boolean relatedToNonPrimaryKeyIndex(MakeIndexAvailableEventParameters parameters) {
         int catalogVersion = parameters.catalogVersion();
         int indexId = parameters.indexId();
 
@@ -265,11 +274,7 @@ public class IndexMetaStorage implements IgniteComponent {
         CatalogIndexDescriptor catalogIndexDescriptor = catalog.index(indexId);
         CatalogTableDescriptor catalogTableDescriptor = catalog.table(catalogIndexDescriptor.tableId());
 
-        if (indexId != catalogTableDescriptor.primaryKeyIndexId()) {
-            return updateIndexStatus(parameters);
-        }
-
-        return falseCompletedFuture();
+        return indexId != catalogTableDescriptor.primaryKeyIndexId();
     }
 
     private CompletableFuture<Boolean> onCatalogIndexStoppingEvent(StoppingIndexEventParameters parameters) {
@@ -298,12 +303,12 @@ public class IndexMetaStorage implements IgniteComponent {
 
             int indexId = catalogTableDescriptor.primaryKeyIndexId();
 
-            CatalogIndexDescriptor catalogIndexDescriptor = catalog.index(indexId);
+            CatalogIndexDescriptor primaryKeyIndexDescriptor = catalog.index(indexId);
 
             return updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
                 assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
 
-                return indexMeta.indexName(parameters.catalogVersion(), catalogIndexDescriptor.name());
+                return indexMeta.indexName(parameters.catalogVersion(), primaryKeyIndexDescriptor.name());
             }).thenApply(unused -> false);
         }
 
@@ -360,18 +365,27 @@ public class IndexMetaStorage implements IgniteComponent {
             }
 
             // Let's identify the indexes that were removed from the catalog in this version.
+            Set<Integer> knownRemovedIndexIds = new HashSet<>();
             for (Integer removedIndexId : difference(previousCatalogVersionIndexIds, indexIds)) {
                 IndexMeta fromMetastore = indexMetaByIndexId.get(removedIndexId);
 
                 if (fromMetastore.catalogVersion() < catalog.version()) {
-                    futures.add(updateAndSaveIndexMetaToMetastore(
-                            removedIndexId,
-                            indexMeta -> setNewStatus(fromMetastore, statusOnRemoveIndex(fromMetastore.status()), catalog)
-                    ));
+                    // If it's already removed from the Catalog, then we already handled the removal event from the Catalog
+                    // and we should not do it again.
+                    if (fromMetastore.isRemovedFromCatalog()) {
+                        // Maintaining this set explicitly for recovery time as this information is not available in the Catalog.
+                        knownRemovedIndexIds.add(removedIndexId);
+                    } else {
+                        futures.add(updateAndSaveIndexMetaToMetastore(
+                                removedIndexId,
+                                indexMeta -> setNewStatus(fromMetastore, statusOnRemoveIndex(fromMetastore.status()), catalog)
+                        ));
+                    }
                 }
             }
 
             previousCatalogVersionIndexIds = indexIds;
+            previousCatalogVersionIndexIds.addAll(knownRemovedIndexIds);
         }
 
         futures.add(removeIndexMetasFromMetastore(lwmCatalogVersion));
@@ -480,7 +494,7 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private int lwmCatalogVersion(@Nullable HybridTimestamp lwm) {
-        return lwm == null ? catalogService. earliestCatalogVersion() : catalogService.activeCatalogVersion(lwm.longValue());
+        return lwm == null ? catalogService.earliestCatalogVersion() : catalogService.activeCatalogVersion(lwm.longValue());
     }
 
     private static Set<Integer> indexIdsForCatalogVersion(Collection<IndexMeta> indexMetas, int catalogVersion) {

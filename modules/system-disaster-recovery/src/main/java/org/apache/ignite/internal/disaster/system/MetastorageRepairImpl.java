@@ -43,9 +43,9 @@ import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecovery
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.IndexWithTerm;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Implementation of {@link MetastorageRepair}.
@@ -143,7 +143,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
         cmgManager.validatedNodes()
                 .thenAccept(validatedNodes -> {
                     Set<String> validatedNodeNames = validatedNodes.stream()
-                            .map(ClusterNode::name)
+                            .map(InternalClusterNode::name)
                             .collect(toSet());
 
                     LOG.info("Nodes (awaited by Metastorage repair) that are currently validated/joined in CMG: {}", validatedNodeNames);

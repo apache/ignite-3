@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.junit.jupiter.api.AfterAll;
@@ -46,7 +46,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void flushExecutorInit() {
         flushExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("flushExecutor", Loggers.forClass(StreamerSubscriberTest.class)));
+                IgniteThreadFactory.create("test", "flushExecutor", Loggers.forClass(StreamerSubscriberTest.class)));
     }
 
     @AfterAll
@@ -158,9 +158,11 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
         var metrics = new Metrics();
 
-        var options = new Options(2, 1, 1000);
+        var options = new Options(2, 3, 1000);
 
-        long expectedBatches = itemsCount / options.batchSize;
+        long expectedActiveBatches = Math.min(options.perPartitionParallelOperations, itemsCount / options.batchSize);
+
+        long expectedItemsQueued = Math.min(itemsCount, expectedActiveBatches * options.batchSize);
 
         var partitionProvider = new StreamerPartitionAwarenessProvider<Long, String>() {
             @Override
@@ -193,9 +195,9 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
         publisher.subscribe(subscriber);
 
-        assertThat(metrics.batchesActive.longValue(), is(expectedBatches));
+        assertThat(metrics.batchesActive.longValue(), is(expectedActiveBatches));
         assertThat(metrics.batchesSent.longValue(), is(0L));
-        assertThat(metrics.itemsQueued.longValue(), is(itemsCount));
+        assertThat(metrics.itemsQueued.longValue(), is(expectedItemsQueued));
         assertThat(metrics.itemsSent.longValue(), is(0L));
 
         sendFuture.complete(null);
@@ -203,7 +205,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         assertThat(subscriber.completionFuture(), willCompleteSuccessfully());
 
         assertThat(metrics.batchesActive.longValue(), is(0L));
-        assertThat(metrics.batchesSent.longValue(), is(expectedBatches));
+        assertThat(metrics.batchesSent.longValue(), is(itemsCount / options.batchSize));
         assertThat(metrics.itemsQueued.longValue(), is(0L));
         assertThat(metrics.itemsSent.longValue(), is(itemsCount));
     }

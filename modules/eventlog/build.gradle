@@ -41,10 +41,8 @@ dependencies {
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
 
-    testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation project(':ignite-configuration')
 
-    testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.json
     testImplementation libs.awaitility
     testImplementation libs.mock.server.netty
@@ -68,9 +66,9 @@ dependencies {
 }
 
 test {
-    systemProperty "buildDirPath", project.buildDir.path
+    systemProperty 'buildDirPath', project.buildDir.path
 }
 
 integrationTest {
-    systemProperty "buildDirPath", project.buildDir.path
+    systemProperty 'buildDirPath', project.buildDir.path
 }

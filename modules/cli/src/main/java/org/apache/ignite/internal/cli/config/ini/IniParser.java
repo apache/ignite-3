@@ -44,7 +44,6 @@ public class IniParser {
     private static final Pattern KEY_VALUE_PATTER = Pattern.compile("\\s*([^=]*)=(.*)");
     private static final Pattern COMMENT_LINE = Pattern.compile("^[;|#].*");
 
-
     /**
      * Parse incoming input string as {@link Map}.
      *

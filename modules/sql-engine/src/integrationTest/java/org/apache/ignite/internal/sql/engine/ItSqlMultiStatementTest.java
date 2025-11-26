@@ -30,9 +30,11 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.tx.Transaction;
@@ -298,5 +300,29 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                     .returns(tableSize)
                     .check();
         }
+    }
+
+    @Test
+    void statementRestrictedByQueryType() {
+        BiFunction<SqlProperties, String, AsyncSqlCursor<InternalSqlRow>> runner = (props, query) ->
+                await(queryProcessor().queryAsync(props, observableTimeTracker(), null, null, query));
+
+        SqlProperties properties = new SqlProperties()
+                .allowMultiStatement(true)
+                .allowedQueryTypes(EnumSet.of(SqlQueryType.QUERY));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid SQL statement type. Expected [QUERY] but got DML.",
+                () -> runner.apply(properties, "UPDATE xxx SET id = 1; SELECT 1;")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid SQL statement type. Expected [QUERY] but got TX_CONTROL.",
+                () -> runner.apply(properties, "START TRANSACTION; SELECT 1; COMMIT;")
+        );
+
+        fetchCursors(runner.apply(properties, "SELECT 1; SELECT 2;"), -1, true);
     }
 }

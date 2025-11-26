@@ -74,22 +74,22 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
@@ -102,7 +102,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
@@ -122,11 +121,12 @@ import org.mockito.verification.VerificationMode;
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TxManagerTest extends IgniteAbstractTest {
-    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null);
+    private static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(
+            randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null
+    );
 
-    private static final ClusterNode REMOTE_NODE =
+    private static final InternalClusterNode REMOTE_NODE =
             new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     private HybridTimestampTracker hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
@@ -161,6 +161,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
 
+    private TransactionInflights transactionInflights;
+
     @BeforeEach
     public void setup() {
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -169,13 +171,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
+        when(replicaService.invoke(any(InternalClusterNode.class), any())).thenReturn(nullCompletedFuture());
 
         when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+        transactionInflights = new TransactionInflights(placementDriver, clockService);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
@@ -191,7 +193,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 resourceRegistry,
                 transactionInflights,
                 lowWatermark,
-                commonScheduler
+                commonScheduler,
+                new TestMetricManager()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -240,19 +243,28 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId partitionIdForEnlistment = targetReplicationGroupId(1, 0);
+        ReplicationGroupId partitionIdForEnlistment = new ZonePartitionId(1, 0);
 
+        tx.assignCommitPartition(partitionIdForEnlistment);
         tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE.name(), 1L);
 
         PendingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
         assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
         assertEquals(1L, actual.consistencyToken());
         assertEquals(Set.of(10), actual.tableIds());
-    }
 
-    // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new TablePartitionId(tableOrZoneId, partId);
+        // Avoid NPE on finish.
+        var meta = mock(ReplicaMeta.class);
+        when(meta.getStartTime()).thenReturn(clock.current());
+        when(meta.getExpirationTime()).thenReturn(clock.current());
+        when(meta.getLeaseholder()).thenReturn("test");
+        when(meta.getLeaseholderId()).thenReturn(randomUUID());
+
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(meta));
+
+        HybridTimestamp commitTimestamp = clockService.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
     }
 
     @Test
@@ -328,10 +340,11 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
+        ReplicationGroupId replicationGroupId = new ZonePartitionId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+        transactionInflights.track(tx.id()); // Enable cleanup path.
 
         tx.commit();
 
@@ -349,10 +362,11 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
+        ReplicationGroupId replicationGroupId = new ZonePartitionId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+        transactionInflights.track(tx.id()); // Enable cleanup path.
 
         tx.rollback();
 
@@ -377,8 +391,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
+        ReplicationGroupId replicationGroupId = new ZonePartitionId(1, 0);
 
+        transactionInflights.track(tx.id());
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
@@ -405,8 +420,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
+        ReplicationGroupId replicationGroupId = new ZonePartitionId(1, 0);
 
+        transactionInflights.track(tx.id());
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
@@ -646,11 +662,11 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         String nodeName = "SomeNode";
 
-        ReplicationGroupId partitionIdForEnlistment1 = targetReplicationGroupId(1, 0);
+        ReplicationGroupId partitionIdForEnlistment1 = new ZonePartitionId(1, 0);
         tx.enlist(partitionIdForEnlistment1, 10, nodeName, 1L);
         tx.assignCommitPartition(partitionIdForEnlistment1);
 
-        ReplicationGroupId partitionIdForEnlistment2 = targetReplicationGroupId(2, 0);
+        ReplicationGroupId partitionIdForEnlistment2 = new ZonePartitionId(2, 0);
         tx.enlist(partitionIdForEnlistment2, 20, nodeName, 1L);
 
         when(placementDriver.getPrimaryReplica(eq(partitionIdForEnlistment1), any()))
@@ -811,10 +827,12 @@ public class TxManagerTest extends IgniteAbstractTest {
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
+        ReplicationGroupId replicationGroupId = new ZonePartitionId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+
+        transactionInflights.track(tx.id());
 
         return tx;
     }

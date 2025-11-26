@@ -17,24 +17,20 @@
 
 package org.apache.ignite.internal.pagememory.tree.persistence;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
-import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.persistence.PageHeader;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,31 +40,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusTreeReusePageMemoryTest {
-    @InjectConfiguration(
-            polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
-            value = "mock.engine = aipersist"
-    )
-    private StorageProfileConfiguration dataRegionCfg;
-
     @BeforeAll
     static void initLockOffset() {
-        lockOffset = PersistentPageMemory.PAGE_LOCK_OFFSET;
+        lockOffset = PageHeader.PAGE_LOCK_OFFSET;
     }
 
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg
-                .change(c -> ((PersistentPageMemoryProfileChange) c)
-                        .changeSizeBytes(MAX_MEMORY_SIZE))
-                .get(1, TimeUnit.SECONDS);
-
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemory(
-                (PersistentPageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
+                PersistentDataRegionConfiguration.builder().pageSize(PAGE_SIZE).size(MAX_MEMORY_SIZE).build(),
                 new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
@@ -77,8 +62,8 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
-                PAGE_SIZE,
-                wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL))
+                wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)),
+                new PartitionDestructionLockManager()
         );
     }
 

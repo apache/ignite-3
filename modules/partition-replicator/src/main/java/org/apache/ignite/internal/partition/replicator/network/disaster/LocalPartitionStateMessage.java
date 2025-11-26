@@ -45,4 +45,7 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
 
     /** Estimated number of rows for this partition. */
     long estimatedRows();
+
+    /** Returns whether the node holding this partition is a learner in the Raft group. */
+    boolean isLearner();
 }

@@ -1,0 +1,5 @@
+ext {
+    getCommitNum = {
+        "git rev-list --count HEAD".execute().text.toString().trim()
+    }
+}

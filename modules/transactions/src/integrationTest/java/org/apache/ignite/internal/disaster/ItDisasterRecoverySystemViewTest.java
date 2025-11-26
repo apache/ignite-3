@@ -20,7 +20,7 @@ package org.apache.ignite.internal.disaster;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.disaster.ItDisasterRecoveryZonePartitionsStatesSystemViewTest.estimatedSize;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
@@ -113,7 +113,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
         } else {
             waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
@@ -135,7 +135,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
         } else {
             waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
@@ -164,7 +164,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
         } else {
             waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);

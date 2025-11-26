@@ -21,7 +21,11 @@
 namespace ignite {
 
 const std::string &table::get_name() const noexcept {
-    return m_impl->name();
+    return m_impl->get_name();
+}
+
+const qualified_name &table::get_qualified_name() const noexcept {
+    return m_impl->get_qualified_name();
 }
 
 record_view<ignite_tuple> table::get_record_binary_view() const noexcept {

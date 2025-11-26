@@ -18,17 +18,16 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -46,15 +45,18 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,16 +71,29 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueGet lookupNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+    @Nullable
+    private final PartitionAwarenessMetadata partitionAwarenessMetadata;
+    @Nullable
+    private final PartitionPruningMetadata partitionPruningMetadata;
 
     private volatile Performable<?> operation;
 
-    KeyValueGetPlan(PlanId id, int catalogVersion, IgniteKeyValueGet lookupNode, ResultSetMetadata meta,
-            ParameterMetadata parameterMetadata) {
+    KeyValueGetPlan(
+            PlanId id,
+            int catalogVersion,
+            IgniteKeyValueGet lookupNode,
+            ResultSetMetadata meta,
+            ParameterMetadata parameterMetadata,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata,
+            @Nullable PartitionPruningMetadata partitionPruningMetadata
+    ) {
         this.id = id;
         this.catalogVersion = catalogVersion;
         this.lookupNode = lookupNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
+        this.partitionPruningMetadata = partitionPruningMetadata;
     }
 
     /** {@inheritDoc} */
@@ -105,6 +120,24 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return parameterMetadata;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return partitionPruningMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int numSources() {
+        return 1;
+    }
+
     /** Returns a table in question. */
     private IgniteTable table() {
         IgniteTable table = lookupNode.getTable().unwrap(IgniteTable.class);
@@ -121,10 +154,6 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return ExplainUtils.toString(clonedRoot);
     }
 
-    public IgniteKeyValueGet lookupNode() {
-        return lookupNode;
-    }
-
     private <RowT> Performable<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
         Performable<RowT> operation = cast(this.operation);
 
@@ -136,7 +165,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         ExecutableTable executableTable = tableRegistry.getTable(catalogVersion, sqlTable.id());
         ScannableTable scannableTable = executableTable.scannableTable();
 
-        ImmutableBitSet requiredColumns = lookupNode.requiredColumns();
+        ImmutableIntList requiredColumns = lookupNode.requiredColumns();
         RexNode filterExpr = lookupNode.condition();
         List<RexNode> projectionExpr = lookupNode.projects();
 
@@ -146,19 +175,20 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         SqlProjection<RowT> projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
+        StructNativeType nativeType = convertStructuredType(rowType);
+
+        RowFactory<RowT> rowFactory = rowHandler.factory(nativeType);
 
         List<RexNode> keyExpressions = lookupNode.keyExpressions();
         SqlRowProvider<RowT> keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
 
         RelDataType resultType = lookupNode.getRowType();
-        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
 
         operation = filter == null && projection == null ? new SimpleLookupExecution<>(scannableTable, rowHandler, rowFactory,
-                keySupplier, requiredColumns.toBitSet(), internalTypeConverter)
+                keySupplier, requiredColumns, internalTypeConverter)
                 : new FilterableProjectableLookupExecution<>(scannableTable, rowHandler, rowFactory, keySupplier,
-                        filter, projection, requiredColumns.toBitSet(), internalTypeConverter);
+                        filter, projection, requiredColumns, internalTypeConverter);
 
         this.operation = operation;
 
@@ -178,21 +208,32 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return new IteratorToDataCursorAdapter<>(result, Runnable::run);
     }
 
+    @Override
+    public IgniteKeyValueGet getRel() {
+        return lookupNode;
+    }
+
     private static class SimpleLookupExecution<RowT> extends Performable<RowT> {
         private final ScannableTable table;
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
         private final SqlRowProvider<RowT> keySupplier;
-        private final BitSet requiredColumns;
+        private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
-        private SimpleLookupExecution(ScannableTable table, RowHandler<RowT> rowHandler, RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier, BitSet requiredColumns, SchemaAwareConverter<Object, Object> internalTypeConverter) {
+        private SimpleLookupExecution(
+                ScannableTable table,
+                RowHandler<RowT> rowHandler,
+                RowFactory<RowT> tableRowFactory,
+                SqlRowProvider<RowT> keySupplier,
+                @Nullable ImmutableIntList requiredColumns,
+                SchemaAwareConverter<Object, Object> internalTypeConverter
+        ) {
             this.table = table;
             this.rowHandler = rowHandler;
             this.tableRowFactory = tableRowFactory;
             this.keySupplier = keySupplier;
-            this.requiredColumns = requiredColumns;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
             this.internalTypeConverter = internalTypeConverter;
         }
 
@@ -216,7 +257,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final SqlRowProvider<RowT> keySupplier;
         private final @Nullable SqlPredicate<RowT> filter;
         private final @Nullable SqlProjection<RowT> projection;
-        private final @Nullable BitSet requiredColumns;
+        private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private FilterableProjectableLookupExecution(
@@ -226,7 +267,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 SqlRowProvider<RowT> keySupplier,
                 @Nullable SqlPredicate<RowT> filter,
                 @Nullable SqlProjection<RowT> projection,
-                @Nullable BitSet requiredColumns,
+                @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {
             this.table = table;
@@ -235,7 +276,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             this.keySupplier = keySupplier;
             this.filter = filter;
             this.projection = projection;
-            this.requiredColumns = requiredColumns;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
             this.internalTypeConverter = internalTypeConverter;
         }
 

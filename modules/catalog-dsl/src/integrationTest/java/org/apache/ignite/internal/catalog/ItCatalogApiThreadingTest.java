@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFrom
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.POJO_RECORD_TABLE_NAME;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -95,7 +96,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(CatalogOperationProvidingTable.class)
-    void tableFuturesFromCatalogAreProtectedAgainstThreadHijacking(CatalogOperationProvidingTable operation) throws Exception {
+    void tableFuturesFromCatalogAreProtectedFromThreadHijacking(CatalogOperationProvidingTable operation) throws Exception {
         Table table = operation.executeOn(catalogForPublicUse());
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -109,8 +110,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static ZoneDefinition testZoneDefinition() {
         return ZoneDefinition.builder(ZONE_NAME)
                 .distributionAlgorithm("rendezvous")
-                .dataNodesAutoAdjust(1)
-                .filter("filter")
+                .filter(DEFAULT_FILTER)
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .build();
     }

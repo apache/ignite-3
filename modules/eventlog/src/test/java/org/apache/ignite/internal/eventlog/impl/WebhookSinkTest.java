@@ -34,7 +34,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.WebhookSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
@@ -74,9 +74,9 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
         WebhookSink sink = createSink(c -> c.changeBatchSize(2));
 
         Stream<Event> events = Stream.of(
-                IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")),
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
-                IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
+                IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")),
+                IgniteEventType.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
+                IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
         );
 
         events.forEach(sink::write);
@@ -114,7 +114,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         WebhookSink sink = createSink(c -> c.changeBatchSendFrequencyMillis(200L));
 
-        sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
+        sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
         Awaitility.await()
                 .atMost(Duration.ofMillis(500L))
@@ -146,7 +146,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(2));
 
-        sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
+        sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
         Awaitility.await()
                 .timeout(Duration.ofMillis(500L))
@@ -167,9 +167,9 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
     @Test
     void shouldRemoveEventsIfQueueIsFull() {
-        var user1Event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider"));
-        var user2Event = IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider"));
-        var user3Event = IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"));
+        var user1Event = IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider"));
+        var user2Event = IgniteEventType.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider"));
+        var user3Event = IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"));
 
         Stream<Event> events = Stream.of(user1Event, user2Event, user3Event);
 
@@ -192,7 +192,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
-        sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
+        sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
         Awaitility.await()
                 .atMost(Duration.ofMillis(500L))
@@ -225,7 +225,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
-        sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
+        sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
         Awaitility.await()
                 .atMost(Duration.ofMillis(500L))

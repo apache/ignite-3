@@ -35,10 +35,10 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.TemporalTypeUtils;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -159,7 +159,7 @@ public class RowAssembler {
             case STRING: {
                 return appendString((String) val);
             }
-            case BYTES: {
+            case BYTE_ARRAY: {
                 return appendBytes((byte[]) val);
             }
             case DECIMAL: {
@@ -355,7 +355,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendDecimalNotNull(BigDecimal val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.DECIMAL);
+        checkType(ColumnType.DECIMAL);
 
         Column col = columns.get(curCol);
 
@@ -385,7 +385,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendStringNotNull(String val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.STRING);
+        checkType(ColumnType.STRING);
 
         builder.appendStringNotNull(val);
 
@@ -406,7 +406,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendBytesNotNull(byte[] val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.BYTES);
+        checkType(ColumnType.BYTE_ARRAY);
 
         builder.appendBytesNotNull(val);
 
@@ -469,7 +469,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendTimeNotNull(LocalTime val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.TIME);
+        checkType(ColumnType.TIME);
 
         builder.appendTimeNotNull(normalizeTime(val));
 
@@ -490,7 +490,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendDateTimeNotNull(LocalDateTime val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.DATETIME);
+        checkType(ColumnType.DATETIME);
 
         builder.appendDateTimeNotNull(LocalDateTime.of(val.toLocalDate(), normalizeTime(val.toLocalTime())));
 
@@ -511,7 +511,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendTimestampNotNull(Instant val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.TIMESTAMP);
+        checkType(ColumnType.TIMESTAMP);
 
         builder.appendTimestampNotNull(Instant.ofEpochSecond(val.getEpochSecond(), normalizeNanos(val.getNano())));
 
@@ -554,7 +554,7 @@ public class RowAssembler {
      * @param type Type spec that is attempted to be appended.
      * @throws SchemaMismatchException If given type doesn't match the current column type.
      */
-    private void checkType(NativeTypeSpec type) {
+    private void checkType(ColumnType type) {
         Column col = columns.get(curCol);
 
         // Column#validate does not work here, because we must tolerate differences in precision, size, etc.

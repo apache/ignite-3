@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
@@ -31,6 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -43,20 +44,19 @@ import java.util.ArrayList;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -64,12 +64,14 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
@@ -80,7 +82,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Base class for testing various page replacement policies.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
@@ -96,18 +98,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private static final int MAX_MEMORY_SIZE = PAGE_COUNT * PAGE_SIZE;
 
-    @InjectConfiguration("mock.checkpointThreads = 1")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
-
-    @InjectConfiguration(
-            polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
-            value = "mock = {"
-                    + "engine=aipersist, "
-                    + "sizeBytes=" + MAX_MEMORY_SIZE
-                    + "}"
-    )
-    private StorageProfileConfiguration storageProfileCfg;
-
     private FilePageStoreManager filePageStoreManager;
 
     private PartitionMetaManager partitionMetaManager;
@@ -116,7 +106,10 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private PersistentPageMemory pageMemory;
 
-    protected abstract String replacementMode();
+    @InjectExecutorService
+    private ExecutorService executorService;
+
+    protected abstract ReplacementMode replacementMode();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -142,32 +135,29 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 NODE_NAME,
                 null,
                 failureManager,
-                checkpointConfig,
+                CheckpointConfiguration.builder().checkpointThreads(1).build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegionList,
                 ioRegistry,
                 mock(LogSyncer.class),
+                executorService,
+                new CheckpointMetricSource("test"),
                 PAGE_SIZE
         );
 
-        CompletableFuture<Void> changeFuture = storageProfileCfg.change(change -> change
-                .convert(PersistentPageMemoryProfileChange.class)
-                .changeReplacementMode(replacementMode()));
-
-        assertThat(changeFuture, willCompleteSuccessfully());
-
         pageMemory = new PersistentPageMemory(
-                (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
+                PersistentDataRegionConfiguration.builder()
+                        .pageSize(PAGE_SIZE).size(MAX_MEMORY_SIZE).replacementMode(replacementMode()).build(),
                 new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
-                checkpointManager::writePageToDeltaFilePageStore,
+                checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                PAGE_SIZE,
-                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL),
+                checkpointManager.partitionDestructionLockManager()
         );
 
         dataRegionList.add(() -> pageMemory);
@@ -202,19 +192,23 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            // Blocking checkpoint at the moment when it tries to create a delta file for the partition's meta page.
             doAnswer(invocation -> {
                 startWritePagesOnCheckpointFuture.complete(null);
 
                 assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
 
                 return invocation.callRealMethod();
-            }).doAnswer(invocation -> {
-                // Second time the method should be invoked on page replacement.
-                startWritePagesOnPageReplacementFuture.complete(null);
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+
+            // After checkpoint is blocked, writes will be done only by page replacements.
+            doAnswer(invocation -> {
+                if (startWritePagesOnCheckpointFuture.isDone()) {
+                    startWritePagesOnPageReplacementFuture.complete(null);
+                }
 
                 return invocation.callRealMethod();
-            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+            }).when(filePageStore).write(anyLong(), any());
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.
@@ -259,7 +253,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            // Blocking checkpoint at the moment when it tries to create a delta file for the partition's meta page.
             doAnswer(invocation -> {
                 CompletableFuture<DeltaFilePageStoreIo> callRealMethodResult =
                         (CompletableFuture<DeltaFilePageStoreIo>) invocation.callRealMethod();
@@ -284,16 +278,34 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
 
                 return callRealMethodResult;
-            }).doAnswer(invocation -> {
-                // Second time the method should be invoked on page replacement, let's hold it.
-                startWritePagesOnPageReplacementFuture.complete(null);
-
-                assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
-
-                return invocation.callRealMethod();
             }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
 
+            // After checkpoint is blocked, writes will be done only by page replacements.
+            doAnswer(invocation -> {
+                if (startWritePagesOnCheckpointFuture.isDone()) {
+                    startWritePagesOnPageReplacementFuture.complete(null);
+
+                    assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+                }
+
+                return invocation.callRealMethod();
+            }).when(filePageStore).write(anyLong(), any());
+
             doReturn(deltaFileIoFuture).when(filePageStore).getNewDeltaFile();
+
+            doAnswer(invocation -> {
+                assertThat(deltaFileIoFuture, willCompleteSuccessfully());
+
+                return deltaFileIoFuture.join();
+            }).doReturn(null).when(filePageStore).getDeltaFileToCompaction();
+
+            doAnswer(invocation -> {
+                DeltaFilePageStoreIo argument = invocation.getArgument(0);
+
+                assertThat(deltaFileIoFuture, willBe(argument));
+
+                return true;
+            }).when(filePageStore).removeDeltaFile(any());
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.
@@ -364,7 +376,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                         null,
                         groupPartitionId,
                         filePageStore,
-                        buffer.rewind()
+                        buffer.rewind(),
+                        pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
                 );
 
                 filePageStore.pages(partitionMeta.pageCount());

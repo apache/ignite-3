@@ -43,17 +43,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexBuilder} testing. */
@@ -72,7 +74,20 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final ExecutorService executorService = newSingleThreadExecutor();
 
-    private final IndexBuilder indexBuilder = new IndexBuilder(executorService, replicaService, new NoOpFailureManager());
+    private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
+
+    private final IndexBuilder indexBuilder = new IndexBuilder(
+            executorService,
+            replicaService,
+            new NoOpFailureManager(),
+            new CommittedFinalTransactionStateResolver(),
+            indexMetaStorage
+    );
+
+    @BeforeEach
+    void configureMocks() {
+        IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
+    }
 
     @AfterEach
     void tearDown() throws Exception {
@@ -146,15 +161,15 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testIndexBuildWithReplicationTimeoutException() {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        when(replicaService.invoke(any(ClusterNode.class), any()))
-                .thenReturn(failedFuture(new ReplicationTimeoutException(new TablePartitionId(TABLE_ID, PARTITION_ID))))
+        when(replicaService.invoke(any(InternalClusterNode.class), any()))
+                .thenReturn(failedFuture(new ReplicationTimeoutException(new ZonePartitionId(ZONE_ID, PARTITION_ID))))
                 .thenReturn(nullCompletedFuture());
 
         scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
 
-        verify(replicaService, times(2)).invoke(any(ClusterNode.class), any(BuildIndexReplicaRequest.class));
+        verify(replicaService, times(2)).invoke(any(InternalClusterNode.class), any(BuildIndexReplicaRequest.class));
     }
 
     @Test
@@ -175,7 +190,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
-                mock(ClusterNode.class),
+                mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
                 mock(HybridTimestamp.class)
         );
@@ -195,7 +210,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
-                mock(ClusterNode.class),
+                mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
                 mock(HybridTimestamp.class)
         );
@@ -244,7 +259,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     private CompletableFuture<Void> awaitSecondInvokeForReplicaService(CompletableFuture<Void> secondInvokeFuture) {
         CompletableFuture<Void> future = new CompletableFuture<>();
 
-        when(replicaService.invoke(any(ClusterNode.class), any(ReplicaRequest.class)))
+        when(replicaService.invoke(any(InternalClusterNode.class), any(ReplicaRequest.class)))
                 .thenReturn(nullCompletedFuture())
                 .thenAnswer(invocation -> {
                     future.complete(null);

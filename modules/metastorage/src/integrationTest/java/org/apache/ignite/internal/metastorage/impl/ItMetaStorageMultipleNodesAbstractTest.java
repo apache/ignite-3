@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -95,11 +96,14 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     @InjectConfiguration
     private StorageConfiguration storageConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     /**
      * Large interval to effectively disable idle safe time propagation.
      */
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=1000000")
-    private SystemDistributedConfiguration systemConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     private TestInfo testInfo;
 
@@ -160,6 +164,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             this.raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
@@ -193,7 +198,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurator
+                    cmgRaftConfigurator,
+                    new NoOpMetricManager()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -224,7 +230,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    systemConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurator,
                     readOperationForCompactionTracker
             );
@@ -315,7 +321,9 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     }
 
     final void enableIdleSafeTimeSync() {
-        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemConfiguration.idleSafeTimeSyncIntervalMillis().update(100L);
+        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemDistributedConfiguration
+                .idleSafeTimeSyncIntervalMillis()
+                .update(100L);
 
         assertThat(updateIdleSafeTimeSyncIntervalFuture, willCompleteSuccessfully());
     }

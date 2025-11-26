@@ -33,6 +33,7 @@ using Common;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
+using Marshalling;
 using Proto;
 using Serialization;
 
@@ -63,6 +64,9 @@ internal static class DataStreamerWithReceiver
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
     /// <param name="receiverExecutionOptions">Receiver options.</param>
+    /// <param name="payloadMarshaller">Payload marshaller.</param>
+    /// <param name="argMarshaller">Argument marshaller.</param>
+    /// <param name="resultMarshaller">Result marshaller.</param>
     /// <param name="receiverArg">Receiver arg.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
@@ -84,6 +88,9 @@ internal static class DataStreamerWithReceiver
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
         ReceiverExecutionOptions receiverExecutionOptions,
+        IMarshaller<TPayload>? payloadMarshaller,
+        IMarshaller<TArg>? argMarshaller,
+        IMarshaller<TResult>? resultMarshaller,
         TArg receiverArg,
         CancellationToken cancellationToken)
         where TKey : notnull
@@ -293,14 +300,15 @@ internal static class DataStreamerWithReceiver
 
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
-                (results, int resultsCount) = await SendBatchAsync<TResult>(
+                (results, int resultsCount) = await SendBatchAsync(
                     table,
                     buf,
                     count,
                     preferredNode,
                     retryPolicy,
                     expectResults: resultChannel != null,
-                    customReceiverExecutionOptions).ConfigureAwait(false);
+                    customReceiverExecutionOptions,
+                    resultMarshaller).ConfigureAwait(false);
 
                 if (results != null && resultChannel != null)
                 {
@@ -371,9 +379,9 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        void SerializeBatch<T>(
+        void SerializeBatch(
             PooledArrayBuffer buf,
-            ArraySegment<T> items,
+            ArraySegment<TPayload> items,
             int partitionId)
         {
             // T is one of the supported types (numbers, strings, etc).
@@ -386,7 +394,7 @@ internal static class DataStreamerWithReceiver
 
             var expectResults = resultChannel != null;
             w.Write(expectResults);
-            StreamerReceiverSerializer.WriteReceiverInfo(ref w, receiverClassName, receiverArg, items);
+            StreamerReceiverSerializer.WriteReceiverInfo(ref w, receiverClassName, receiverArg, items, payloadMarshaller, argMarshaller);
 
             w.Write(receiverExecutionOptions.Priority);
             w.Write(receiverExecutionOptions.MaxRetries);
@@ -401,7 +409,8 @@ internal static class DataStreamerWithReceiver
         PreferredNode preferredNode,
         IRetryPolicy retryPolicy,
         bool expectResults,
-        bool customReceiverExecutionOptions)
+        bool customReceiverExecutionOptions,
+        IMarshaller<T>? marshaller)
     {
         var (resBuf, socket) = await table.Socket.DoWithRetryAsync(
                 (buf, customReceiverExecutionOptions),
@@ -431,7 +440,7 @@ internal static class DataStreamerWithReceiver
             Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
             return expectResults
-                ? StreamerReceiverSerializer.ReadReceiverResults<T>(resBuf.GetReader())
+                ? StreamerReceiverSerializer.ReadReceiverResults(resBuf.GetReader(), marshaller)
                 : (null, 0);
         }
     }

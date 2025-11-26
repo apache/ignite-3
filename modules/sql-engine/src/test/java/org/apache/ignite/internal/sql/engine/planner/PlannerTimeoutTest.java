@@ -26,15 +26,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
@@ -50,6 +54,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -66,9 +72,22 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         long plannerTimeout = 1L;
         IgniteSchema schema = createSchema(createTestTable("T1"));
         SqlOperationContext ctx = operationContext();
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
 
-        PrepareService prepareService = new PrepareServiceImpl("test", 0,
-                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManagerImpl(), new PredefinedSchemaManager(schema));
+        PrepareService prepareService = new PrepareServiceImpl(
+                "test",
+                0,
+                CaffeineCacheFactory.INSTANCE,
+                null,
+                plannerTimeout,
+                1,
+                Integer.MAX_VALUE,
+                new MetricManagerImpl(),
+                new PredefinedSchemaManager(schema),
+                mock(LongSupplier.class),
+                mock(ScheduledExecutorService.class),
+                producer
+        );
         prepareService.start();
         try {
             ParserService parserService = new ParserServiceImpl();

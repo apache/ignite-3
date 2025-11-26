@@ -23,8 +23,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
@@ -33,7 +39,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -57,6 +62,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
@@ -65,22 +71,16 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-
 
 /**
  * Utils to manage distribution zones inside tests.
@@ -102,7 +102,7 @@ public class DistributionZonesTestUtil {
             int replicas,
             String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, storageProfile);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, null, storageProfile);
     }
 
     /**
@@ -114,7 +114,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
     }
 
     /**
@@ -132,6 +132,7 @@ public class DistributionZonesTestUtil {
         createZone(
                 catalogManager,
                 zoneName,
+                null,
                 null,
                 null,
                 null,
@@ -165,6 +166,7 @@ public class DistributionZonesTestUtil {
                 zoneName,
                 null,
                 null,
+                null,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
@@ -196,6 +198,7 @@ public class DistributionZonesTestUtil {
         createZone(
                 catalogManager,
                 zoneName,
+                null,
                 null,
                 null,
                 dataNodesAutoAdjustScaleUp,
@@ -233,6 +236,7 @@ public class DistributionZonesTestUtil {
                 zoneName,
                 null,
                 null,
+                null,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
@@ -266,6 +270,7 @@ public class DistributionZonesTestUtil {
                 zoneName,
                 partitions,
                 replicas,
+                null,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 null,
@@ -279,6 +284,7 @@ public class DistributionZonesTestUtil {
             String zoneName,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
+            @Nullable Integer quorumSize,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
@@ -293,6 +299,10 @@ public class DistributionZonesTestUtil {
 
         if (replicas != null) {
             builder.replicas(replicas);
+        }
+
+        if (quorumSize != null) {
+            builder.quorumSize(quorumSize);
         }
 
         if (dataNodesAutoAdjustScaleUp != null) {
@@ -398,7 +408,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, SECONDS.toMillis(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds()) + 2000);
+        }, SECONDS.toMillis(2000));
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
@@ -590,7 +600,7 @@ public class DistributionZonesTestUtil {
             long timeoutMillis
     ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
-                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(toSet());
+                expectedValue == null ? null : expectedValue.stream().map(InternalClusterNode::name).collect(toSet());
 
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;
@@ -729,9 +739,50 @@ public class DistributionZonesTestUtil {
         return zone == null ? null : zone.id();
     }
 
+    /**
+     * Creates a zone with default parameters and makes it default zone.
+     *
+     * @param catalogManager Catalog manager.
+     */
+    public static void createDefaultZone(CatalogManager catalogManager) {
+        createZone(
+                catalogManager,
+                DEFAULT_ZONE_NAME,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
+                DEFAULT_ZONE_QUORUM_SIZE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
+                STRONG_CONSISTENCY,
+                DEFAULT_STORAGE_PROFILE
+        );
+
+        setDefaultZone(catalogManager, DEFAULT_ZONE_NAME);
+
+        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        assertNotNull(latestCatalog.defaultZone());
+    }
+
+    /**
+     * Alters a zone with the given name default.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     */
+    public static void setDefaultZone(CatalogManager catalogManager, String zoneName) {
+        CatalogCommand command = AlterZoneSetDefaultCommand.builder()
+                .zoneName(zoneName)
+                .ifExists(true)
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
+    }
+
     /** Returns default distribution zone. */
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
-        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+        Catalog catalog = catalogService.activeCatalog(timestamp);
 
         requireNonNull(catalog);
 
@@ -755,54 +806,28 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Alter zone with zoneName by setting dataNodesAutoAdjustScaleUp to IMMEDIATE_TIMER_VALUE.
+     * Returns catalog descriptor for given zone name.
      *
      * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
+     * @return Catalog descriptor for given zone name.
      */
-    public static void setZoneAutoAdjustScaleUpToImmediate(CatalogManager catalogManager, String zoneName) {
-        alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
+    public static CatalogZoneDescriptor descriptor(CatalogManager catalogManager, String zoneName) {
+        CatalogZoneDescriptor zoneDescriptor =  catalogManager.latestCatalog().zone(zoneName);
+
+        assertNotNull(zoneDescriptor);
+
+        return zoneDescriptor;
     }
 
     /**
-     * Returns stable partition assignments key.
+     * Returns identifier of a zone by the given zone name.
      *
-     * @param partitionGroupId Partition group identifier.
-     * @return Stable partition assignments key.
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @return Identifier of a zone by the given zone name.
      */
-    public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
-        }
-    }
-
-    /**
-     * Returns pending partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Pending partition assignments key.
-     */
-    public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
-        }
-    }
-
-    /**
-     * Returns planned partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Planned partition assignments key.
-     */
-    public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
-        }
+    public static int zoneId(CatalogManager catalogManager, String zoneName) {
+        return descriptor(catalogManager, zoneName).id();
     }
 }

@@ -40,7 +40,6 @@ public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, Auto
 
     private final FileTransferFactory messageFactory = new FileTransferFactory();
 
-
     /**
      * Creates a new stream of messages to send files.
      *

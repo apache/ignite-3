@@ -133,6 +133,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Send streamer batch. */
         StreamerBatchSend = 62,
 
+        /** Execute SQL batch. */
+        SqlExecBatch = 63,
+
         /** Execute MapReduce task. */
         ComputeExecuteMapReduce = 64,
 
@@ -141,6 +144,9 @@ namespace Apache.Ignite.Internal.Proto
 
         /** Send streamer batch with receiver. */
         StreamerWithReceiverBatchSend = 66,
+
+        /** Cancel an operation. */
+        OperationCancel = 70,
 
         /** Get tables with qualified names. */
         TablesGetQualified = 71,

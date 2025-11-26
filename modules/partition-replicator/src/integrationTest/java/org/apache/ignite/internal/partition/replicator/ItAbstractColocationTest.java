@@ -35,9 +35,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -70,8 +70,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 
 /**
  * Base class for tests that require a cluster with zone replication.
@@ -128,7 +126,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SqlDistributedConfiguration sqlDistributedConfiguration;
 
-    final List<Node> cluster = new ArrayList<>();
+    final List<Node> cluster = new CopyOnWriteArrayList<>();
 
     private NodeFinder nodeFinder;
 
@@ -198,6 +196,10 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         ));
     }
 
+    Node addNodeToCluster() {
+        return addNodeToCluster(cluster.size());
+    }
+
     Node addNodeToCluster(int idx) {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
 
@@ -247,18 +249,12 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     static int createZone(Node node, String zoneName, int partitions, int replicas) {
-        return createZone(node, zoneName, partitions, replicas, false);
-    }
-
-    private static int createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
         return createZoneWithStorageProfiles(
                 node,
                 zoneName,
                 partitions,
                 replicas,
-                testStorageProfile
-                        ? DEFAULT_TEST_PROFILE_NAME
-                        : DEFAULT_STORAGE_PROFILE
+                DEFAULT_STORAGE_PROFILE
         );
     }
 

@@ -40,11 +40,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -55,11 +55,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,8 +71,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
-    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "name0", new NetworkAddress("localhost", 1234));
-    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl(randomUUID(), "name`", new NetworkAddress("localhost", 2345));
+    private static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(
+            randomUUID(),
+            "name0",
+            new NetworkAddress("localhost", 1234)
+    );
+    private static final InternalClusterNode ANOTHER_NODE = new ClusterNodeImpl(
+            randomUUID(),
+            "name`",
+            new NetworkAddress("localhost", 2345)
+    );
 
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -90,10 +96,10 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
 
-    private boolean reservationSuccess = true;
+    private Runnable reservationClosure;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
-            NamedThreadFactory.create("common", "replica", log)
+            IgniteThreadFactory.create("common", "replica", log)
     );
 
     private Replica startReplica() {
@@ -122,7 +128,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
             }
         });
 
-        when(raftClient.run(any())).thenAnswer(invocationOnMock -> completedFuture(null));
+        when(raftClient.run(any())).thenAnswer(invocationOnMock -> nullCompletedFuture());
 
         var listener = mock(ReplicaListener.class);
         when(listener.raftClient()).thenReturn(raftClient);
@@ -134,11 +140,10 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 LOCAL_NODE,
                 placementDriver,
                 new TestClockService(new HybridClockImpl()),
-                (unused0, unused1) -> reservationSuccess,
+                (unused0, unused1) -> reservationClosure.run(),
                 executor,
                 storageIndexTracker,
-                raftClient,
-                new NoOpFailureManager()
+                raftClient
         );
 
         return new ReplicaImpl(
@@ -158,6 +163,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         indexOnLeader.set(1L);
         currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
+        reservationClosure = () -> { };
         replica = startReplica();
     }
 
@@ -171,7 +177,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
      *
      * @param leader The leader.
      */
-    private void leaderElection(ClusterNode leader) {
+    private void leaderElection(InternalClusterNode leader) {
         if (callbackHolder.get() != null) {
             callbackHolder.get().onLeaderElected(leader, 1L);
         }
@@ -380,11 +386,13 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @MuteFailureManagerLogging // Failure is expected.
     public void testReservationFailed() {
-        reservationSuccess = false;
-
         long leaseStartTime = 10;
+
+        reservationClosure = () -> {
+            throw new ReplicaReservationFailedException("Test: replica reservation failed");
+        };
+
         leaderElection(LOCAL_NODE);
 
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);

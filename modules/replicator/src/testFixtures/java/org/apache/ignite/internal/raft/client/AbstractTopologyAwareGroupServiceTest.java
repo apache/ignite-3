@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.client;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
@@ -62,11 +64,10 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -98,7 +99,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     /** RPC executor. */
     protected final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
             20,
-            NamedThreadFactory.create("Test", "Raft-Group-Client", log)
+            IgniteThreadFactory.create("Test", "Raft-Group-Client", log)
     );
 
     private final Map<NetworkAddress, ClusterService> clusterServices = new HashMap<>();
@@ -172,11 +173,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         assertNotNull(raftClient);
 
-        CompletableFuture<ClusterNode> leaderFut = new CompletableFuture<>();
+        CompletableFuture<InternalClusterNode> leaderFut = new CompletableFuture<>();
 
         subscribeLeader(raftClient, (node, term) -> leaderFut.complete(node), "New leader: {}");
 
-        ClusterNode leader = leaderFut.get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        InternalClusterNode leader = leaderFut.get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         assertNotNull(leader);
 
@@ -206,8 +207,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      */
     private IgniteBiTuple<TopologyAwareRaftGroupService, TopologyAwareRaftGroupService> startClusterWithClientsAndSubscribeToLeaderChange(
             TestInfo testInfo,
-            AtomicReference<ClusterNode> leaderRef,
-            AtomicReference<ClusterNode> leaderRefNoInitialNotify
+            AtomicReference<InternalClusterNode> leaderRef,
+            AtomicReference<InternalClusterNode> leaderRefNoInitialNotify
     ) throws Exception {
         int nodes = 3;
 
@@ -270,7 +271,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         assertTrue(waitForCondition(() -> leaderRef.get() != null, WAIT_TIMEOUT_MILLIS));
 
-        ClusterNode leader = leaderRef.get();
+        InternalClusterNode leader = leaderRef.get();
 
         assertNotNull(leader);
 
@@ -285,8 +286,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
     @Test
     public void testChangeLeaderWhenActualLeft(TestInfo testInfo) throws Exception {
-        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
-        AtomicReference<ClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> leaderRef = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
 
         IgniteBiTuple<TopologyAwareRaftGroupService, TopologyAwareRaftGroupService> raftClients =
                 startClusterWithClientsAndSubscribeToLeaderChange(
@@ -297,7 +298,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         TopologyAwareRaftGroupService raftClientNoInitialNotify = raftClients.get2();
 
-        ClusterNode leader = leaderRef.get();
+        InternalClusterNode leader = leaderRef.get();
 
         assertNull(leaderRefNoInitialNotify.get());
 
@@ -339,8 +340,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
     @Test
     public void testChangeLeaderForce(TestInfo testInfo) throws Exception {
-        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
-        AtomicReference<ClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> leaderRef = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
 
         IgniteBiTuple<TopologyAwareRaftGroupService, TopologyAwareRaftGroupService> raftClients =
                 startClusterWithClientsAndSubscribeToLeaderChange(
@@ -351,7 +352,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         TopologyAwareRaftGroupService raftClient = raftClients.get1();
 
-        ClusterNode leader = leaderRef.get();
+        InternalClusterNode leader = leaderRef.get();
 
         assertNull(leaderRefNoInitialNotify.get());
 
@@ -541,7 +542,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 eventsClientListener,
                 notifyOnSubscription,
                 commandsMarshaller,
-                StoppingExceptionFactories.indicateComponentStop()
+                StoppingExceptionFactories.indicateComponentStop(),
+                throttlingContextHolder()
         );
     }
 

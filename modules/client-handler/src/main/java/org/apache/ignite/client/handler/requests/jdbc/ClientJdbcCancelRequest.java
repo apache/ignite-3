@@ -18,9 +18,9 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 
 /**
  * Client jdbc cancel request handler.
@@ -30,18 +30,16 @@ public class ClientJdbcCancelRequest {
      * Processes a remote JDBC request to cancel the current execution.
      *
      * @param in Client message unpacker.
-     * @param out Client message packer.
      * @param handler Query event handler.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> execute(
+    public static CompletableFuture<ResponseWriter> execute(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcQueryEventHandlerImpl handler
     ) {
         long connectionId = in.unpackLong();
         long correlationToken = in.unpackLong();
 
-        return handler.cancelAsync(connectionId, correlationToken).thenAccept(res -> res.writeBinary(out));
+        return handler.cancelAsync(connectionId, correlationToken).thenApply(res -> res::writeBinary);
     }
 }

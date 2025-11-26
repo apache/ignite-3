@@ -17,21 +17,30 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.calcite.sql.SqlDdl;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -46,16 +55,20 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mockito;
 
 /**
  * Tests the conversion of a sql zone definition to a command.
@@ -67,7 +80,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             ZoneOptionEnum.PARTITIONS,
             ZoneOptionEnum.REPLICAS,
             ZoneOptionEnum.QUORUM_SIZE,
-            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST,
             ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP,
             ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN
     );
@@ -78,8 +90,42 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             ZoneOptionEnum.CONSISTENCY_MODE
     );
 
-    @BeforeAll
-    public static void setUp() {
+    private static final String AIPERSIST_STORAGE_PROFILE = "segmented_aipersist";
+
+    private static final String ROCKSDB_STORAGE_PROFILE = "lru_rocks";
+
+    private static final List<String> NODE_DEFAULT_STORAGE_PROFILES = List.of(
+            DEFAULT_STORAGE_PROFILE,
+            AIPERSIST_STORAGE_PROFILE,
+            ROCKSDB_STORAGE_PROFILE
+    );
+
+    private LogicalTopologyService logicalTopologyService;
+
+    @BeforeEach
+    public void setUp() {
+        // Default mock
+        logicalTopologyService = mock(LogicalTopologyService.class);
+
+        LogicalTopologySnapshot defaultLogicalTopologySnapshot = new LogicalTopologySnapshot(
+                0,
+                IntStream.range(0, 2)
+                        .mapToObj(nodeIdx -> createLocalNode(nodeIdx, NODE_DEFAULT_STORAGE_PROFILES))
+                        .collect(Collectors.toList())
+        );
+
+        when(logicalTopologyService.localLogicalTopology()).thenReturn(defaultLogicalTopologySnapshot);
+
+        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(defaultLogicalTopologySnapshot));
+
+        Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
+                DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
+        converter = new DdlSqlToCommandConverter(
+                new ClusterWideStorageProfileValidator(logicalTopologyService),
+                filter -> completedFuture(null), statStalenessProperties
+        );
+
         assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
     }
 
@@ -168,16 +214,14 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                             + "quorum_size=2, " // non-default value
                             + "distribution_algorithm='rendezvous', "
                             + "data_nodes_filter='$[?(@.region == \"US\")]', "
-                            + "data_nodes_auto_adjust=300, "
-                            + "storage_profiles='lru_rocks , segmented_aipersist ' "
+                            + "storage_profiles='" + ROCKSDB_STORAGE_PROFILE + " , " + AIPERSIST_STORAGE_PROFILE + " ' "
                     : "CREATE ZONE test "
                             + "(partitions 2, "
                             + "replicas 5, "
                             + "quorum size 2, " // non-default value
                             + "distribution algorithm 'rendezvous', "
-                            + "nodes filter '$[?(@.region == \"US\")]', "
-                            + "auto adjust 300) "
-                            + "storage profiles ['lru_rocks', 'segmented_aipersist '] ";
+                            + "nodes filter '$[?(@.region == \"US\")]') "
+                            + "storage profiles ['" + ROCKSDB_STORAGE_PROFILE + "' , '" + AIPERSIST_STORAGE_PROFILE + " '] ";
 
             CatalogCommand cmd = convert(sql);
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
@@ -188,12 +232,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             // TODO https://issues.apache.org/jira/browse/IGNITE-22162
             // assertThat(desc.distributionAlgorithm(), equalTo("rendezvous"));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
-            assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
 
             List<CatalogStorageProfileDescriptor> storageProfiles = desc.storageProfiles().profiles();
             assertThat(storageProfiles, hasSize(2));
-            assertThat(storageProfiles.get(0).storageProfile(), equalTo("lru_rocks"));
-            assertThat(storageProfiles.get(1).storageProfile(), equalTo("segmented_aipersist"));
+            assertThat(storageProfiles.get(0).storageProfile(), equalTo(ROCKSDB_STORAGE_PROFILE));
+            assertThat(storageProfiles.get(1).storageProfile(), equalTo(AIPERSIST_STORAGE_PROFILE));
         }
 
         // Check remaining options.
@@ -202,11 +245,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                     ? "CREATE ZONE test with "
                             + "data_nodes_auto_adjust_scale_up=100, "
                             + "data_nodes_auto_adjust_scale_down=200, "
-                            + "storage_profiles='lru_rocks'"
+                            + "storage_profiles='" + ROCKSDB_STORAGE_PROFILE + "'"
                     : "CREATE ZONE test "
                             + "(auto scale up 100, "
                             + "auto scale down 200) "
-                            + "storage profiles ['lru_rocks']";
+                            + "storage profiles ['" + ROCKSDB_STORAGE_PROFILE + "']";
 
             CatalogCommand cmd = convert(sql);
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
@@ -224,6 +267,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             emptyProfilesValidationError("CREATE ZONE test with storage_profiles=' ' ");
         } else {
             assertThrowsWithPos("CREATE ZONE test (partitions -1)", "-", 30);
+            assertThrowsWithPos("CREATE ZONE test (AUTO SCALE FALL)", "FALL", 30);
+            assertThrowsWithPos("CREATE ZONE test (AUTO SCALE UP FALL)", "FALL", 33);
+            assertThrowsWithPos("CREATE ZONE test (AUTO SCALE DOWN FALL)", "FALL", 35);
             assertThrowsWithPos("CREATE ZONE test (replicas -1)", "-", 28);
             assertThrowsWithPos("CREATE ZONE test (replicas FALL)", "FALL", 28);
             assertThrowsWithPos("CREATE ZONE test (replicas 1, partitions -1)", "-", 42);
@@ -249,6 +295,152 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
         assertThat(desc.replicas(), equalTo(DistributionAlgorithm.ALL_REPLICAS));
+    }
+
+    @Test
+    public void testCreateZoneWithScaleOff() throws SqlParseException {
+        String sql = "CREATE ZONE test (AUTO SCALE UP OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        CatalogCommand cmd = convert(sql);
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
+
+        sql = "CREATE ZONE test (AUTO SCALE DOWN OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        cmd = convert(sql);
+
+        desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
+    }
+
+    @Test
+    public void testCreateZoneWithAllScaleOff() throws SqlParseException {
+        String sql = "CREATE ZONE test (AUTO SCALE OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        CatalogCommand cmd = convert(sql);
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
+    }
+
+    @Test
+    public void testAlterZoneWithScaleOff() throws SqlParseException {
+        CatalogCommand cmd = convert("ALTER ZONE test SET (AUTO SCALE UP OFF)");
+
+        assertThat(cmd, instanceOf(AlterZoneCommand.class));
+
+        mockCatalogZone("TEST");
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
+
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
+
+        cmd = convert("ALTER ZONE test SET (AUTO SCALE DOWN OFF)");
+
+        assertThat(cmd, instanceOf(AlterZoneCommand.class));
+
+        desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
+
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
+    }
+
+    @Test
+    public void testAlterZoneWithAllScaleOff() throws SqlParseException {
+        CatalogCommand cmd = convert("ALTER ZONE test SET (AUTO SCALE OFF)");
+
+        assertThat(cmd, instanceOf(AlterZoneCommand.class));
+
+        mockCatalogZone("TEST");
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
+
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testSingleNonExistedStorageProfile(boolean withPresent) {
+        String nonExistedStorageProfileName = "not_existed_profile";
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + nonExistedStorageProfileName + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + nonExistedStorageProfileName + "']";
+
+        expectStatementValidationError(
+                sql,
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistedStorageProfileName + "]]."
+        );
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testSeveralNonExistedStorageProfiles(boolean withPresent) {
+        String nonExistedStorageProfileName1 = "not_existed_profile_1";
+        String nonExistedStorageProfileName2 = "not_existed_profile_2";
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + nonExistedStorageProfileName1 + ", " + nonExistedStorageProfileName2 + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + nonExistedStorageProfileName1 + "', '" + nonExistedStorageProfileName2 + "']";
+
+        expectStatementValidationError(
+                sql,
+                "Some storage profiles don't exist [missedProfileNames=["
+                        + nonExistedStorageProfileName1 + ", "
+                        + nonExistedStorageProfileName2 + "]]."
+        );
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testNonExistedStorageProfilesAmongExistedOnes(boolean withPresent) {
+        String nonExistedStorageProfileName = "not_existed_profile";
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='"
+                        + AIPERSIST_STORAGE_PROFILE + ", "
+                        + nonExistedStorageProfileName + ", "
+                        + ROCKSDB_STORAGE_PROFILE + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['"
+                        + AIPERSIST_STORAGE_PROFILE + "', '"
+                        + nonExistedStorageProfileName + "', '"
+                        + ROCKSDB_STORAGE_PROFILE + "']";
+
+        expectStatementValidationError(
+                sql,
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistedStorageProfileName + "]]."
+        );
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testExistedStorageProfileOnDisjointProfileSetsInLogicalTopologySnapshot(boolean withPresent) throws SqlParseException {
+        when(logicalTopologyService.localLogicalTopology()).thenReturn(new LogicalTopologySnapshot(
+                0,
+                List.of(
+                        createLocalNode(0, List.of(AIPERSIST_STORAGE_PROFILE)),
+                        createLocalNode(1, List.of(ROCKSDB_STORAGE_PROFILE)),
+                        createLocalNode(2, List.of(DEFAULT_STORAGE_PROFILE))
+                )
+        ));
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        CatalogCommand cmd = convert(sql);
+
+        List<CatalogStorageProfileDescriptor> storageProfiles = invokeAndGetFirstEntry(cmd, NewZoneEntry.class)
+                .descriptor()
+                .storageProfiles()
+                .profiles();
+        assertThat(storageProfiles, hasSize(1));
+        assertThat(storageProfiles.get(0).storageProfile(), equalTo(DEFAULT_STORAGE_PROFILE));
     }
 
     private static List<Arguments> defaultQuorum() {
@@ -345,7 +537,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(cmd, instanceOf(RenameZoneCommand.class));
 
-        Mockito.when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
+        when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
 
         AlterZoneEntry entry = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class);
 
@@ -361,7 +553,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         RenameZoneCommand zoneCmd = (RenameZoneCommand) cmd;
 
-        Mockito.when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
+        when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
 
         AlterZoneEntry entry = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class);
 
@@ -379,12 +571,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
-        CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
-
-        Mockito.when(zoneMock.name()).thenReturn("TEST");
-        Mockito.when(zoneMock.filter()).thenReturn("");
-
-        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+        mockCatalogZone("TEST");
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
@@ -412,23 +599,17 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                     ? "ALTER ZONE test SET "
                             + "replicas=5, "
                             + "quorum_size=3, "
-                            + "data_nodes_filter='$[?(@.region == \"US\")]', "
-                            + "data_nodes_auto_adjust=300"
+                            + "data_nodes_filter='$[?(@.region == \"US\")]'"
                     : "ALTER ZONE test SET "
                             + "(replicas 5, "
                             + "quorum size 3, "
-                            + "nodes filter '$[?(@.region == \"US\")]', "
-                            + "auto adjust 300)";
+                            + "nodes filter '$[?(@.region == \"US\")]')";
 
             CatalogCommand cmd = convert(sql);
 
             assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
-            CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
-            Mockito.when(zoneMock.name()).thenReturn("TEST");
-            Mockito.when(zoneMock.filter()).thenReturn("");
-
-            Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+            mockCatalogZone("TEST");
 
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
@@ -437,7 +618,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThat(desc.replicas(), equalTo(5));
             assertThat(desc.quorumSize(), equalTo(3));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
-            assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
         }
 
         // Check remaining options.
@@ -454,11 +634,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
-            CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
-            Mockito.when(zoneMock.name()).thenReturn("TEST");
-            Mockito.when(zoneMock.filter()).thenReturn("");
-
-            Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+            mockCatalogZone("TEST");
 
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
@@ -476,11 +652,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
-        CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
-        Mockito.when(zoneMock.name()).thenReturn("TEST");
-        Mockito.when(zoneMock.filter()).thenReturn("");
-
-        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+        mockCatalogZone("TEST");
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
@@ -494,7 +666,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(cmd, instanceOf(AlterZoneSetDefaultCommand.class));
 
         CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
-        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+        when(catalog.zone("TEST")).thenReturn(zoneMock);
 
         SetDefaultZoneEntry entry = invokeAndGetFirstEntry(cmd, SetDefaultZoneEntry.class);
 
@@ -516,27 +688,17 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     @MethodSource("numericOptions")
     public void testAlterZoneCommandWithInvalidOptions(boolean obsolete, ZoneOptionEnum option) {
         String sql = obsolete
-                ? "ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100"
+                ? "ALTER ZONE test SET {}=-100"
                 : "ALTER ZONE test SET ({} -100)";
 
         if (obsolete) {
-            expectOptionValidationError(sql, "DATA_NODES_AUTO_ADJUST");
+            expectOptionValidationError(format(sql, option.name()), option.name());
         } else {
             String sqlName = option.sqlName;
             String prefix = "ALTER ZONE test SET (";
             assertThrowsWithPos(format(sql, sqlName, "-100"), "-", prefix.length() + sqlName.length() + 1 /* start pos*/
                     + 1 /* first symbol after bracket*/);
         }
-    }
-
-    @ParameterizedTest(name = "obsolete = {0}")
-    @ValueSource(booleans = {true, false})
-    public void testAlterZoneCommandWithDuplicateOptions(boolean obsolete) throws SqlParseException {
-        String sql = obsolete
-                ? "ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=300, DATA_NODES_AUTO_ADJUST=400"
-                : "ALTER ZONE test SET (replicas 2, auto adjust 300, AUTO ADJUST 400)";
-
-        expectDuplicateOptionError(sql, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.sqlName);
     }
 
     @Test
@@ -546,7 +708,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(cmd, instanceOf(DropZoneCommand.class));
 
         CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
-        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+        when(catalog.zone("TEST")).thenReturn(zoneMock);
 
         DropZoneEntry entry = invokeAndGetFirstEntry(cmd, DropZoneEntry.class);
 
@@ -621,14 +783,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         expectUnexpectedOption("alter zone test_zone set ABC=1", "ABC");
     }
 
-    private CatalogCommand convert(String query) throws SqlParseException {
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(SqlDdl.class));
-
-        return converter.convert((SqlDdl) node, createContext());
-    }
-
     private void assertThrowsWithPos(String query, String encountered, int pos) {
         assertThrowsParseException(query, format("Encountered \"{}\" at line 1, column {}.", encountered, pos));
     }
@@ -676,9 +830,30 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     private void expectStatementValidationError(String sql, String errorMessageFragment) {
         assertThrowsWithCode(
                 SqlException.class,
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 () -> convert(sql),
                 errorMessageFragment
         );
+    }
+
+    private static LogicalNode createLocalNode(int nodeIdx, List<String> storageProfiles) {
+        return new LogicalNode(
+                new ClusterNodeImpl(
+                        UUID.randomUUID(),
+                        "node" + nodeIdx,
+                        new NetworkAddress("127.0.0.1", 3344 + nodeIdx)
+                ),
+                Map.of(),
+                Map.of(),
+                storageProfiles
+        );
+    }
+
+    private void mockCatalogZone(String zoneName) {
+        CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
+        when(zoneMock.name()).thenReturn(zoneName);
+        when(zoneMock.filter()).thenReturn("");
+
+        when(catalog.zone("TEST")).thenReturn(zoneMock);
     }
 }

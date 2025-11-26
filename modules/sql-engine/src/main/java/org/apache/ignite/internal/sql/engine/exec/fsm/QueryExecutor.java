@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -102,6 +103,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
     private final QueryEventsFactory eventsFactory;
 
+    private final SqlQueryMetricSource queryMetricSource;
+
     /**
      * Creates executor.
      *
@@ -119,6 +122,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
      * @param transactionalOperationTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
      * @param eventLog Event log.
+     * @param queryMetricSource Query metric source.
      */
     public QueryExecutor(
             String nodeId,
@@ -134,7 +138,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             ExecutionService executionService,
             TransactionalOperationTracker transactionalOperationTracker,
             QueryIdGenerator idGenerator,
-            EventLog eventLog
+            EventLog eventLog,
+            SqlQueryMetricSource queryMetricSource
     ) {
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
@@ -148,6 +153,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         this.transactionalOperationTracker = transactionalOperationTracker;
         this.idGenerator = idGenerator;
         this.eventLog = eventLog;
+        this.queryMetricSource = queryMetricSource;
         this.eventsFactory = new QueryEventsFactory(nodeId);
     }
 
@@ -168,7 +174,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             QueryTransactionContext txContext,
             String sql,
             @Nullable CancellationToken cancellationToken,
-            Object[] params
+            Object... params
     ) {
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
@@ -196,10 +202,10 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             query.cancel.setTimeout(scheduler, queryTimeout);
         }
 
-        return Programs.QUERY_EXECUTION.run(query)
+        return query.runProgram(Programs.QUERY_EXECUTION)
                 .whenComplete((cursor, ex) -> {
                     if (cursor != null && query.parsedScript == null) {
-                        cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                        cursor.onClose().thenRun(query::terminate);
                     }
                 });
     }
@@ -236,15 +242,17 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         try {
             parent.cancel.attach(query.cancel);
         } catch (QueryCancelledException ex) {
-            query.moveTo(ExecutionPhase.TERMINATED);
+            query.terminate();
 
             return failedFuture(ex);
         }
 
-        return Programs.SCRIPT_ITEM_EXECUTION.run(query)
+        return query.runProgram(Programs.SCRIPT_ITEM_EXECUTION)
                 .whenComplete((cursor, ex) -> {
                     if (cursor != null) {
-                        cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                        cursor.onClose().thenRun(query::terminate);
+                    } else if (ex != null) {
+                        query.terminate();
                     }
                 });
     }
@@ -258,7 +266,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         if (IgniteUtils.assertionsEnabled()) {
             int offsetInBatch = 0;
             for (ParsedResultWithNextCursorFuture item : batch) {
-                assert item.parsedQuery.queryType() == SqlQueryType.DDL 
+                assert item.parsedQuery.queryType() == SqlQueryType.DDL
                         : item.parsedQuery.queryType() + " at statement #" + (batchOffset + offsetInBatch);
 
                 offsetInBatch++;
@@ -294,7 +302,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                 parent.cancel.attach(query.cancel);
             }
         } catch (QueryCancelledException ex) {
-            queries.forEach(query -> query.onError(ex));
+            queries.forEach(query -> query.terminateExceptionally(ex));
 
             return failedFuture(ex);
         } finally {
@@ -303,7 +311,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
         List<CompletableFuture<?>> preparedQueryFutures = new ArrayList<>(batch.size());
         for (Query query : queries) {
-            preparedQueryFutures.add(Programs.SCRIPT_ITEM_PREPARATION.run(query));
+            preparedQueryFutures.add(query.runProgram(Programs.SCRIPT_ITEM_PREPARATION));
         }
 
         return CompletableFutures.allOf(preparedQueryFutures)
@@ -323,8 +331,6 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                     return ddlPlans;
                 })
                 .thenCompose(ddlPlans -> {
-                    parent.cancel.throwIfCancelled();
-
                     // First-statement-error case.
                     if (ddlPlans.isEmpty()) {
                         Iterator<Query> it = queries.iterator();
@@ -334,10 +340,18 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                         assert th != null;
 
                         while (it.hasNext()) {
-                            it.next().onError(th);
+                            it.next().terminateExceptionally(th);
                         }
 
                         return failedFuture(th);
+                    }
+
+                    try {
+                        parent.cancel.throwIfCancelled();
+                    } catch (QueryCancelledException exception) {
+                        queries.forEach(query -> query.terminateExceptionally(exception));
+
+                        throw exception;
                     }
 
                     return executionService.executeDdlBatch(ddlPlans, scriptTxContext::updateObservableTime)
@@ -353,7 +367,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                 Throwable th = null;
                                 for (Query query : queries) {
                                     if (th != null) {
-                                        query.onError(th);
+                                        query.terminateExceptionally(th);
 
                                         continue;
                                     }
@@ -377,7 +391,17 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                     query.moveTo(ExecutionPhase.EXECUTING);
 
                                     AsyncDataCursor<InternalSqlRow> dataCursor = dataCursorIterator.next();
-                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor); 
+                                    AsyncSqlCursor<InternalSqlRow> currentCursor;
+                                    try {
+                                        currentCursor = createAndSaveSqlCursor(query, dataCursor);
+                                    } catch (QueryCancelledException exception) {
+                                        // Fail current query.
+                                        query.terminateExceptionally(exception);
+
+                                        // Save the exception and fail all following with the same cause.
+                                        th = exception;
+                                        continue;
+                                    }
 
                                     if (cursorRef != null) {
                                         cursorRef.complete(currentCursor);
@@ -389,7 +413,14 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                         firstCursor = currentCursor;
                                     }
 
-                                    currentCursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                                    currentCursor.onClose().thenRun(query::terminate);
+                                }
+
+                                // Query was cancelled before we have chance to create first cursor.
+                                if (firstCursor == null) {
+                                    assert th != null;
+
+                                    return CompletableFuture.<AsyncSqlCursor<InternalSqlRow>>failedFuture(th);
                                 }
 
                                 return completedFuture(firstCursor);
@@ -412,10 +443,10 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = lastStep
                     .whenComplete((none, ex) -> {
                         if (ex != null) {
-                            query.onError(ex);
+                            query.terminateExceptionally(ex);
                         }
                     })
-                    .thenCompose(none -> Programs.SCRIPT_ITEM_EXECUTION.run(query)
+                    .thenCompose(none -> query.runProgram(Programs.SCRIPT_ITEM_EXECUTION)
                             .whenComplete((cursor, ex) -> {
                                 if (cursorRef0 != null) {
                                     if (cursor != null) {
@@ -426,7 +457,9 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                 }
 
                                 if (cursor != null) {
-                                    cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                                    cursor.onClose().thenRun(query::terminate);
+                                } else if (ex != null) {
+                                    query.terminate();
                                 }
                             }));
 
@@ -441,6 +474,17 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         return firstCursor;
     }
 
+    /**
+     * Wraps data cursor with decorator providing query-related metadata.
+     *
+     * <p>If operation has been already cancelled, then given data cursor will be cancelled as well and {@link QueryCancelledException}
+     * will be thrown.
+     *
+     * @param query The query state to derive metadata from.
+     * @param dataCursor The data cursor to wrap.
+     * @return A cursor providing access to a result as well as to necessary metadata.
+     * @throws QueryCancelledException If operation has been already cancelled by user or timeout.
+     */
     @SuppressWarnings("MethodMayBeStatic")
     AsyncSqlCursor<InternalSqlRow> createAndSaveSqlCursor(Query query, AsyncDataCursor<InternalSqlRow> dataCursor) {
         QueryPlan plan = query.plan;
@@ -450,6 +494,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
                 plan.type(),
                 plan.metadata(),
+                plan.partitionAwarenessMetadata(),
                 dataCursor,
                 query.nextCursorFuture
         );
@@ -562,6 +607,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
             long finishTime = clockService.current().getPhysical();
 
+            updateMetrics(query);
+
             eventLog.log(IgniteEventType.QUERY_FINISHED.name(),
                     () -> eventsFactory.makeFinishEvent(new QueryInfo(query), EventUser.system(), finishTime));
         });
@@ -600,7 +647,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
         Exception ex = new NodeStoppingException();
 
-        runningQueries.values().forEach(query -> query.onError(ex));
+        runningQueries.values().forEach(query -> query.terminateExceptionally(ex));
     }
 
     static class ParsedResultWithNextCursorFuture {
@@ -641,6 +688,38 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
         if (executionService instanceof Debuggable) {
             ((Debuggable) executionService).dumpState(writer, indent);
+        }
+    }
+
+    private void updateMetrics(Query query) {
+        boolean individualStatement = query.parsedScript == null;
+        // Ignore 'script' queries from metrics as well, because they act as containers for individual statements.
+        if (!individualStatement) {
+            return;
+        }
+
+        Throwable err = query.error.get();
+
+        if (query.parsedResult == null || query.plan == null) {
+            updateFailureMetrics(err);
+        } else {
+            if (err == null) {
+                queryMetricSource.success();
+            } else {
+                updateFailureMetrics(err);
+            }
+        }
+    }
+
+    private void updateFailureMetrics(Throwable t) {
+        queryMetricSource.failure();
+
+        if (t instanceof QueryCancelledException) {
+            if (QueryCancelledException.TIMEOUT_MSG.equals(t.getMessage())) {
+                queryMetricSource.timedOut();
+            } else {
+                queryMetricSource.cancel();
+            }
         }
     }
 }

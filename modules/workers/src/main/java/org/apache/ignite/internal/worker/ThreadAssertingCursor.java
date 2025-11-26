@@ -20,7 +20,6 @@ package org.apache.ignite.internal.worker;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.worker.ThreadAssertions;
 
 /**
  * {@link Cursor} that performs thread assertions when doing read operations.

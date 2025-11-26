@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedRowsCount;
+import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedColumnsCount;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -34,12 +34,13 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,8 +77,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
 
-    private static final RowSchema MODIFY_RESULT = RowSchema.builder()
-            .addField(NativeTypes.INT64)
+    private static final StructNativeType MODIFY_RESULT = NativeTypes.rowBuilder()
+            .addField("UPDATE_COUNT", NativeTypes.INT64, false)
             .build();
 
     private final TableModify.Operation modifyOp;
@@ -114,7 +115,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @param sourceId Source id.
      * @param op A type of the update operation.
      * @param updateColumns Enumeration of columns to update if applicable.
-     * @param inputRowFactory Row factory for input row.
+     * @param inputRowType Input row type.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
@@ -122,7 +123,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             long sourceId,
             TableModify.Operation op,
             @Nullable List<String> updateColumns,
-            RowFactory<RowT> inputRowFactory
+            StructNativeType inputRowType
     ) {
         super(ctx);
 
@@ -131,9 +132,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
-        RowSchema rowSchema = inputRowFactory.rowSchema();
-        int fullRowSize = rowSchema.fields().size();
-        this.mapping = mapping(table.descriptor(), updateColumns, fullRowSize);
+        this.mapping = mapping(table.descriptor(), updateColumns, inputRowType.fieldsCount());
 
         // insert mapping actually can be required only for INSERT and MERGE operations
         if (op == Operation.INSERT || op == Operation.MERGE) {
@@ -145,8 +144,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             this.insertRowMapping = null;
         }
 
-        RowSchema mappedRowSchema =  mapping != null ? RowSchema.map(rowSchema, mapping) : rowSchema;
-        RowSchema mappedInsertRowSchema =  insertRowMapping != null ? RowSchema.map(rowSchema, insertRowMapping) : rowSchema;
+        StructNativeType mappedRowSchema =  mapping != null ? TypeUtils.map(inputRowType, mapping) : inputRowType;
+        StructNativeType mappedInsertRowSchema =  insertRowMapping != null ? TypeUtils.map(inputRowType, insertRowMapping) : inputRowType;
 
         this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
         this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
@@ -458,7 +457,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        int columnCount = storedRowsCount(descriptor);
+        int columnCount = storedColumnsCount(descriptor);
 
         // MERGE clause can use format [insert row type] + [full row type] + [columns to update] which is bigger on
         // size of [full row type] then different type of formats, so we can detect it and use for right column mapping.

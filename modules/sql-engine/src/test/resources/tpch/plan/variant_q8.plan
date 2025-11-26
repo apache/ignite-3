@@ -1,0 +1,120 @@
+Sort
+    collation: [O_YEAR ASC]
+    est: (rows=16635)
+  Project
+      fieldNames: [O_YEAR, MKT_SHARE]
+      projection: [O_YEAR, /($f1, $f2)]
+      est: (rows=16635)
+    ColocatedHashAggregate
+        fieldNames: [O_YEAR, $f1, $f2]
+        group: [O_YEAR]
+        aggregation: [SUM($f1), SUM(VOLUME)]
+        est: (rows=16635)
+      Project
+          fieldNames: [O_YEAR, $f1, VOLUME]
+          projection: [EXTRACT(FLAG(YEAR), O_ORDERDATE), CASE(=(N_NAME, _UTF-8'BRAZIL'), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), 0), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+          est: (rows=166367)
+        MergeJoin
+            predicate: =(S_SUPPKEY, L_SUPPKEY)
+            fieldNames: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_EXTENDEDPRICE, L_DISCOUNT, O_ORDERKEY, O_CUSTKEY, O_ORDERDATE, C_CUSTKEY, C_NATIONKEY, N_NATIONKEY, N_REGIONKEY, R_REGIONKEY, R_NAME, P_PARTKEY, P_TYPE, S_SUPPKEY, S_NATIONKEY, N_NATIONKEY$0, N_NAME]
+            type: inner
+            est: (rows=166367)
+          HashJoin
+              predicate: =(P_PARTKEY, L_PARTKEY)
+              type: inner
+              est: (rows=166367)
+            HashJoin
+                predicate: =(L_ORDERKEY, O_ORDERKEY)
+                type: inner
+                est: (rows=499601)
+              Exchange
+                  distribution: single
+                  est: (rows=6001215)
+                IndexScan
+                    table: PUBLIC.LINEITEM
+                    index: L_SK_PK
+                    type: SORTED
+                    fieldNames: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_EXTENDEDPRICE, L_DISCOUNT]
+                    collation: [L_SUPPKEY ASC, L_PARTKEY ASC]
+                    est: (rows=6001215)
+              HashJoin
+                  predicate: =(O_CUSTKEY, C_CUSTKEY)
+                  type: inner
+                  est: (rows=124875)
+                Exchange
+                    distribution: single
+                    est: (rows=375000)
+                  IndexScan
+                      table: PUBLIC.ORDERS
+                      index: O_OD
+                      type: SORTED
+                      predicate: SEARCH(O_ORDERDATE, Sarg[[1995-01-01..1996-12-31]])
+                      searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1995-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1996-12-31, upperInclude=true]]
+                      fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
+                      collation: [O_ORDERDATE ASC]
+                      est: (rows=375000)
+                MergeJoin
+                    predicate: =(C_NATIONKEY, N_NATIONKEY)
+                    type: inner
+                    est: (rows=49950)
+                  Exchange
+                      distribution: single
+                      est: (rows=150000)
+                    IndexScan
+                        table: PUBLIC.CUSTOMER
+                        index: C_NK
+                        type: SORTED
+                        fieldNames: [C_CUSTKEY, C_NATIONKEY]
+                        collation: [C_NATIONKEY ASC]
+                        est: (rows=150000)
+                  HashJoin
+                      predicate: =(N_REGIONKEY, R_REGIONKEY)
+                      type: inner
+                      est: (rows=8)
+                    Exchange
+                        distribution: single
+                        est: (rows=25)
+                      Sort
+                          collation: [N_NATIONKEY ASC]
+                          est: (rows=25)
+                        TableScan
+                            table: PUBLIC.NATION
+                            fieldNames: [N_NATIONKEY, N_REGIONKEY]
+                            est: (rows=25)
+                    Exchange
+                        distribution: single
+                        est: (rows=2)
+                      TableScan
+                          table: PUBLIC.REGION
+                          predicate: =(R_NAME, _UTF-8'AMERICA')
+                          fieldNames: [R_REGIONKEY, R_NAME]
+                          est: (rows=2)
+            Exchange
+                distribution: single
+                est: (rows=66600)
+              TableScan
+                  table: PUBLIC.PART
+                  predicate: =(P_TYPE, _UTF-8'ECONOMY ANODIZED STEEL')
+                  fieldNames: [P_PARTKEY, P_TYPE]
+                  est: (rows=66600)
+          HashJoin
+              predicate: =(S_NATIONKEY, N_NATIONKEY)
+              type: inner
+              est: (rows=10000)
+            Exchange
+                distribution: single
+                est: (rows=10000)
+              Sort
+                  collation: [S_SUPPKEY ASC]
+                  est: (rows=10000)
+                TableScan
+                    table: PUBLIC.SUPPLIER
+                    fieldNames: [S_SUPPKEY, S_NATIONKEY]
+                    est: (rows=10000)
+            Exchange
+                distribution: single
+                est: (rows=25)
+              TableScan
+                  table: PUBLIC.NATION
+                  fieldNames: [N_NATIONKEY, N_NAME]
+                  est: (rows=25)

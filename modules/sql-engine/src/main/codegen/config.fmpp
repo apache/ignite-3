@@ -34,18 +34,22 @@ data: {
       "org.apache.calcite.sql.SqlLiteral",
       "org.apache.calcite.schema.ColumnStrategy",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlParserUtil",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableSetProperties",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTableProperty",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTablePropertyKey",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
@@ -58,7 +62,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKillObjectType",
@@ -68,6 +71,7 @@ data: {
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
     # not a reserved keyword, add it to the 'nonReservedKeywords' section.
     keywords: [
+      "OFF"
       "AUTO"
       "DOWN"
       "PARTITIONS"
@@ -76,7 +80,6 @@ data: {
       "DISTRIBUTION"
       "ALGORITHM"
       "NODES"
-      "ADJUST"
       "CONSISTENCY"
       "MODE"
       "COLOCATE"
@@ -93,13 +96,17 @@ data: {
       "KILL"
       "QUERY"
       "COMPUTE"
+      "MAPPING"
       "WAIT"
+      "STALE"
+      "FRACTION"
     ]
 
     # List of non-reserved keywords to add;
     # items in this list become non-reserved.
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
+      "OFF"
       "AUTO"
       "DOWN"
       "PARTITIONS"
@@ -108,7 +115,6 @@ data: {
       "DISTRIBUTION"
       "ALGORITHM"
       "NODES"
-      "ADJUST"
       "CONSISTENCY"
       "MODE"
       "PROFILES"
@@ -120,8 +126,11 @@ data: {
       "HASH"
       "QUERY"
       "COMPUTE"
+      "MAPPING"
       "WAIT"
       "KILL"
+      "STALE"
+      "FRACTION"
 
       # Keywords reserved by Calcite, but not required to be reserved in Ignite.
       "ALLOCATE"
@@ -337,6 +346,7 @@ data: {
     # Return type of method implementation should be 'SqlNode'.
     # Example: "SqlShowDatabases()", "SqlShowTables()".
     statementParserMethods: [
+      "SqlIgniteDescribe()",
       "SqlIgniteExplain()",
       "SqlAlterTable()",
       "SqlAlterZone()",

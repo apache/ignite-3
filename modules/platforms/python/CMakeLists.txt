@@ -32,7 +32,7 @@ message("Python3_LIBRARIES:${Python3_LIBRARIES}")
 message("EXTENSION_FILENAME:${EXTENSION_FILENAME}")
 
 # Dealing with Ignite C++ libraries
-set(ENABLE_ODBC ON)
+set(ENABLE_ODBC OFF)
 set(ENABLE_CLIENT OFF)
 set(ENABLE_TESTS OFF)
 set(INSTALL_IGNITE_FILES OFF)

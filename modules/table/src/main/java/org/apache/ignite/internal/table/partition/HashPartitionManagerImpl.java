@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -72,13 +73,15 @@ public class HashPartitionManagerImpl implements PartitionManager {
                     + " doesn't support any other type of partition except hash partition.");
         }
         HashPartition hashPartition = (HashPartition) partition;
-        return table.partitionLocation(hashPartition.partitionId());
+        return table.partitionLocation(hashPartition.partitionId())
+                .thenApply(InternalClusterNode::toPublicNode);
     }
 
     @Override
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
         int partitions = table.partitions();
-        CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+        @SuppressWarnings("unchecked")
+        CompletableFuture<InternalClusterNode>[] futures = new CompletableFuture[partitions];
 
         for (int i = 0; i < partitions; i++) {
             futures[i] = table.partitionLocation(i);
@@ -88,7 +91,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
                 .thenApply(unused -> {
                     Map<Partition, ClusterNode> result = new HashMap<>(partitions);
                     for (int i = 0; i < partitions; i++) {
-                        result.put(new HashPartition(i), (ClusterNode) futures[i].join());
+                        result.put(new HashPartition(i), futures[i].join().toPublicNode());
                     }
                     return result;
                 });

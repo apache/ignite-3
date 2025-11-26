@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -199,7 +199,7 @@ public class OrphanDetector {
     private void sendTxRecoveryMessage(ReplicationGroupId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
-                    ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
+                    InternalClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
 
                     if (commitPartPrimaryNode == null) {
                         LOG.warn(

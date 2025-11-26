@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.RAND_UUID;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.hash;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.random;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
 
@@ -52,7 +52,9 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 
@@ -129,7 +131,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         }
 
         if (srcKeys.size() == keys.size()) {
-            return Pair.of(nodeTraits, List.of(in.replace(hash(ImmutableIntList.of(srcKeys.elements()), distribution.function()))));
+            return Pair.of(nodeTraits, List.of(in.replace(IgniteDistributions.clone(distribution, srcKeys))));
         }
 
         return Pair.of(nodeTraits.replace(single()), List.of(in.replace(single())));
@@ -231,10 +233,15 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
 
         RelOptCost cost = planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
 
-        if (distribution() == single()) {
-            // make single distributed projection slightly more expensive to help
-            // planner prefer distributed option, if exists
+        // Small adjustment to cost to:
+        //     1) help optimizer to choose distributed plan over single
+        //     2) make result stable when several equivalent options exists,
+        //        but projection convert one of them to random
+        if (distribution() == random()) {
             cost = cost.plus(planner.getCostFactory().makeTinyCost());
+        } else if (distribution() == single()) {
+            // Between single and random the later should be preferable.
+            cost = cost.plus(planner.getCostFactory().makeTinyCost().multiplyBy(2));
         }
 
         return cost;
@@ -250,5 +257,10 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer.addProjection(exps, getInput().getRowType());
     }
 }

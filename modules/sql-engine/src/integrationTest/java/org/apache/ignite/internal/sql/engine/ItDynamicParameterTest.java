@@ -35,8 +35,12 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
@@ -58,6 +62,9 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -91,10 +98,165 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         return 1;
     }
 
+    @Test
+    public void partitionPruningTimestampLtz() {
+        sql("CREATE TABLE timestamp_ltz_t (ts TIMESTAMP WITH LOCAL TIME ZONE,  val INT, PRIMARY KEY(ts) )");
+
+        Table table = CLUSTER.node(0).tables().table(QualifiedName.of("PUBLIC", "TIMESTAMP_LTZ_T"));
+
+        Instant now = Instant.now();
+
+        // T1
+        Instant now1 = now.with(ChronoField.NANO_OF_SECOND, 704_871_769);
+
+        sql("INSERT INTO timestamp_ltz_t VALUES (?, 1)", now1);
+
+        // table scan
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // index scan 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_LTZ_T_PK') */ val "
+                + "FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // T2
+        Instant now2 = now.with(ChronoField.NANO_OF_SECOND, 954_237_953);
+
+        table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
+
+        // kv
+        assertQuery("SELECT val FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now1.truncatedTo(ChronoUnit.MILLIS))
+                .returns(1)
+                .check();
+
+        // scan should work because predicate should 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now2)
+                .returns(2)
+                .check();
+
+        // index scan does not find anything since search bound with millisecond precision can not capture
+        // records that sub-millis values.
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_LTZ_T_PK') */ val "
+                + "FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now2)
+                .returnNothing()
+                .check();
+    }
+
+    @Test
+    public void partitionPruningTime() {
+        sql("CREATE TABLE time_t (ts TIME(6),  val INT, PRIMARY KEY(ts) )");
+
+        Table table = CLUSTER.node(0).tables().table(QualifiedName.of("PUBLIC", "TIME_T"));
+
+        LocalTime now = LocalTime.now();
+
+        // T1
+        LocalTime now1 = now.withNano(704_871_769);
+
+        sql("INSERT INTO time_t VALUES (?, 1)", now1);
+
+        // table scan
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM time_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // index scan 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIME_T_PK') */ val "
+                + "FROM time_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // T2
+        LocalTime now2 = now.withNano(954_237_953);
+
+        table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
+
+        // kv
+        assertQuery("SELECT val FROM time_t WHERE ts=?")
+                .withParams(now1.truncatedTo(ChronoUnit.MILLIS))
+                .returns(1)
+                .check();
+
+        // scan should work because predicate should 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM time_t WHERE ts=?")
+                .withParams(now2)
+                .returns(2)
+                .check();
+
+        // index scan does not find anything since search bound with millisecond precision can not capture
+        // records that sub-millis values.
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIME_T_PK') */ val "
+                + "FROM time_t WHERE ts=?")
+                .withParams(now2)
+                .returnNothing()
+                .check();
+    }
+
+    @Test
+    public void partitionPruningTimestamp() {
+        sql("CREATE TABLE timestamp_t (ts TIMESTAMP(6),  val INT, PRIMARY KEY(ts) )");
+
+        Table table = CLUSTER.node(0).tables().table(QualifiedName.of("PUBLIC", "TIMESTAMP_T"));
+        LocalDateTime now = LocalDateTime.now();
+
+        // T1
+        LocalDateTime now1 = now.withNano(704_871_769);
+
+        sql("INSERT INTO timestamp_t VALUES (?, 1)", now1);
+
+        // table scan
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // index scan 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_T_PK') */ val "
+                + "FROM timestamp_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // T2
+        LocalDateTime now2 = now.withNano(954_237_953);
+
+        table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
+
+        // kv
+        assertQuery("SELECT val FROM timestamp_t WHERE ts=?")
+                .withParams(now1.truncatedTo(ChronoUnit.MILLIS))
+                .returns(1)
+                .check();
+
+        // scan should work because predicate should 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_t WHERE ts=?")
+                .withParams(now2)
+                .returns(2)
+                .check();
+
+        // index scan does not find anything since search bound with millisecond precision can not capture
+        // records that sub-millis values.
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_T_PK') */ val "
+                + "FROM timestamp_t WHERE ts=?")
+                .withParams(now2)
+                .returnNothing()
+                .check();
+    }
+
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
-            names = {"DURATION", "PERIOD"},
+            names = {"DURATION", "PERIOD", "STRUCT"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
@@ -207,8 +369,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Tests a nested CASE WHEN statement using various combinations of dynamic parameter values,
-     * including the {@code NULL} value for different operands.
+     * Tests a nested CASE WHEN statement using various combinations of dynamic parameter values, including the {@code NULL} value for
+     * different operands.
      */
     @Test
     public void testNestedCase() {
@@ -628,13 +790,13 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 arguments(ColumnType.DATE, "SELECT ?, ?::VARCHAR",
                         DATE_MAX, DATE_MAX, "9999-12-31"),
 
-                arguments(ColumnType.DATE, "SELECT ? + INTERVAL 86399 SECOND, (? + INTERVAL 86399 SECOND)::VARCHAR",
+                arguments(ColumnType.DATE, "SELECT ? + INTERVAL '86399' SECOND, (? + INTERVAL '86399' SECOND)::VARCHAR",
                         DATE_MAX, DATE_MAX, "9999-12-31"),
 
                 arguments(ColumnType.DATE, "SELECT ?, ?::VARCHAR",
                         DATE_MIN, DATE_MIN, "0001-01-01"),
 
-                arguments(ColumnType.DATE, "SELECT ? - INTERVAL 86399 SECOND, (? - INTERVAL 86399 SECOND)::VARCHAR",
+                arguments(ColumnType.DATE, "SELECT ? - INTERVAL '86399' SECOND, (? - INTERVAL '86399' SECOND)::VARCHAR",
                         DATE_MIN, DATE_MIN, "0001-01-01"),
 
                 // TIMESTAMP
@@ -676,39 +838,39 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         return Stream.of(
                 // DATE
                 arguments(SqlTypeName.DATE, "?", DATE_MAX.plusDays(1)),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 86400 SECOND)", DATE_MAX),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 1 DAY)", DATE_MAX),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 1 MONTH)", DATE_MAX),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 1 YEAR)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '86400' SECOND)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '1' DAY)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '1' MONTH)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '1' YEAR)", DATE_MAX),
                 arguments(SqlTypeName.DATE, "?", DATE_MIN.minusDays(1)),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 86400 SECOND)", DATE_MIN),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 1 DAY)", DATE_MIN),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 1 MONTH)", DATE_MIN),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 1 YEAR)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '86400' SECOND)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '1' DAY)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '1' MONTH)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '1' YEAR)", DATE_MIN),
 
                 // TIMESTAMP
                 arguments(SqlTypeName.TIMESTAMP, "?", DATETIME_MAX.plusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 SECOND)", DATETIME_MAX),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 DAY)", DATETIME_MAX),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 MONTH)", DATETIME_MAX),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 YEAR)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' SECOND)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' DAY)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' MONTH)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' YEAR)", DATETIME_MAX),
                 arguments(SqlTypeName.TIMESTAMP, "?", DATETIME_MIN.minusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 SECOND)", DATETIME_MIN),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 DAY)", DATETIME_MIN),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 MONTH)", DATETIME_MIN),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 YEAR)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' SECOND)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' DAY)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' MONTH)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' YEAR)", DATETIME_MIN),
 
                 // TIMESTAMP WITH LOCAL TIME ZONE
                 arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "?", TIMESTAMP_MAX.plusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 SECOND)", TIMESTAMP_MAX),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 DAY)", TIMESTAMP_MAX),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 MONTH)", TIMESTAMP_MAX),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 YEAR)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' SECOND)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' DAY)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' MONTH)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' YEAR)", TIMESTAMP_MAX),
                 arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "?", TIMESTAMP_MIN.minusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 SECOND)", TIMESTAMP_MIN),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 DAY)", TIMESTAMP_MIN),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 MONTH)", TIMESTAMP_MIN),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 YEAR)", TIMESTAMP_MIN)
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' SECOND)", TIMESTAMP_MIN),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' DAY)", TIMESTAMP_MIN),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' MONTH)", TIMESTAMP_MIN),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' YEAR)", TIMESTAMP_MIN)
         );
     }
 

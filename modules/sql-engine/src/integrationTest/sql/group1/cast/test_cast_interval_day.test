@@ -4,7 +4,7 @@
 # group: [cast]
 
 query T
-SELECT CAST(INTERVAL 1 DAYS AS INTERVAL DAYS);
+SELECT CAST(INTERVAL '1' DAYS AS INTERVAL DAYS);
 ----
 PT24H
 
@@ -33,17 +33,11 @@ SELECT CAST('2000-01-01'::DATE AS INTERVAL DAYS);
 statement error: Cast function cannot convert value of type BOOLEAN to type INTERVAL DAY
 SELECT CAST(TRUE AS INTERVAL DAYS);
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::TINYINT AS INTERVAL DAYS);
 ----
 PT24H
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::SMALLINT AS INTERVAL DAYS);
 ----
@@ -54,17 +48,11 @@ SELECT CAST(1 AS INTERVAL DAYS);
 ----
 PT24H
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::INT AS INTERVAL DAYS);
 ----
 PT24H
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::BIGINT AS INTERVAL DAYS);
 ----
@@ -79,17 +67,11 @@ SELECT CAST(1.0::FLOAT AS INTERVAL DAYS);
 statement error: Cast function cannot convert value of type DOUBLE to type INTERVAL DAY
 SELECT CAST(1.0::DOUBLE AS INTERVAL DAYS);
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::DECIMAL(5) AS INTERVAL DAYS);
 ----
 PT24H
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1.25::DECIMAL(5, 2) AS INTERVAL DAYS);
 ----
@@ -119,25 +101,16 @@ SELECT CAST(1 AS INTERVAL HOUR);
 ----
 PT1H
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::INT AS INTERVAL SECOND);
 ----
 PT1S
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::INT AS INTERVAL MINUTE);
 ----
 PT1M
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::INT AS INTERVAL HOUR);
 ----

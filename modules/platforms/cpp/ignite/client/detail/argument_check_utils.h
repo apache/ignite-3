@@ -24,14 +24,24 @@
 namespace ignite::detail::arg_check {
 
 /**
+ * Check that the condition is true.
+ *
+ * @param condition Condition to test.
+ * @param message Message to use in an exception if the condition is false.
+ */
+void inline is_true(bool condition, const std::string &message) {
+    if (!condition)
+        throw ignite_error(error::code::ILLEGAL_ARGUMENT, message);
+}
+
+/**
  * Check key argument.
  *
  * @param value Value.
  * @param title Title.
  */
 void inline tuple_non_empty(const ignite_tuple &value, const std::string &title) {
-    if (0 == value.column_count())
-        throw ignite_error(error::code::ILLEGAL_ARGUMENT, title + " can not be empty");
+    is_true(0 != value.column_count(), title + " can not be empty");
 }
 
 /**
@@ -59,9 +69,8 @@ void inline value_tuple_non_empty(const ignite_tuple &value) {
  * @param title Title.
  */
 template<typename T>
-void inline container_non_empty(const T &cont, const std::string &title) {
-    if (cont.empty())
-        throw ignite_error(title + " can not be empty");
+void container_non_empty(const T &cont, const std::string &title) {
+    is_true(!cont.empty(), title + " can not be empty");
 }
 
 /**
@@ -71,9 +80,8 @@ void inline container_non_empty(const T &cont, const std::string &title) {
  * @param title Title.
  */
 template<typename T>
-void inline pointer_valid(const T &ptr, const std::string &title) {
-    if (!ptr)
-        throw ignite_error(title + " can not be nullptr");
+void pointer_valid(const T &ptr, const std::string &title) {
+    is_true(static_cast<bool>(ptr), title + " can not be nullptr");
 }
 
 } // namespace ignite::detail::arg_check

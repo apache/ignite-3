@@ -119,10 +119,17 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
             timestamp = ceilTime(zoneDescriptors, timestamp, latestTimestamp);
 
-            minTimestamp = min(minTimestamp, timestamp);
-
             // Having empty map instead of null simplifies the code that follows.
             Map<Integer, Assignments> pendingTableAssignments = pendingAssignments.getOrDefault(tableId, emptyMap());
+
+            // If zone wasn't deleted or there is actual stable/pending assignments, then we must take it into account.
+            // Otherwise, we can ignore it.
+            if (!zoneDeletionTimestamps.containsKey(zoneId)
+                    || stableAssignments.get(tableId) != null
+                    || !pendingTableAssignments.isEmpty()
+            ) {
+                minTimestamp = min(minTimestamp, timestamp);
+            }
 
             if (!pendingTableAssignments.isEmpty()) {
                 HybridTimestamp pendingTimestamp = findProperTimestampForAssignments(

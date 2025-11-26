@@ -140,9 +140,12 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
     /**
      * Assertion of {@link Tuple} equality.
      *
+     * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param x Tuple.
      * @param y Tuple.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public static void assertTupleEquals(Tuple x, Tuple y) {
         if (x == null) {
             assertNull(y);

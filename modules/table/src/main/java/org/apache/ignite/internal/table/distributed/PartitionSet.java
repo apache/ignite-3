@@ -188,7 +188,7 @@ public interface PartitionSet {
 
             @Override
             public PartitionSet copy() {
-                return PartitionSet.of(partId);
+                return of(partId);
             }
 
             @Override

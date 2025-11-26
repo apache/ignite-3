@@ -91,9 +91,11 @@ public class BigDecimalTests
     {
         var bigDecimal = new BigDecimal(BigInteger.Parse(unscaled), scale);
 
-        var str = cultureName == null
-            ? bigDecimal.ToString()
-            : bigDecimal.ToString(CultureInfo.GetCultureInfo(cultureName));
+        var culture = cultureName == null
+            ? CultureInfo.InvariantCulture
+            : CultureInfo.GetCultureInfo(cultureName);
+
+        var str = bigDecimal.ToString(culture);
 
         Assert.AreEqual(expected, str);
     }

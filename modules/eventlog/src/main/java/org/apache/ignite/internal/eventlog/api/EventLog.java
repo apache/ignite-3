@@ -56,4 +56,17 @@ public interface EventLog {
      * @param eventProvider the event provider.
      */
     void log(String type, Supplier<Event> eventProvider);
+
+    EventLog NOOP = new EventLog() {
+        @Override
+        public void log(Event event) {
+            // No-op.
+        }
+
+        @Override
+        public void log(String type, Supplier<Event> eventProvider) {
+            // No-op.
+        }
+    };
+
 }

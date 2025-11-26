@@ -31,20 +31,26 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.DirectTxMode;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake {@link AsyncSqlCursor}.
  */
 public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     private final String qry;
+    private final @Nullable PartitionAwarenessMetadata paMeta;
     private final List<ColumnMetadata> columns = new ArrayList<>();
     private final List<InternalSqlRow> rows = new ArrayList<>();
 
@@ -52,6 +58,8 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
         this.qry = qry;
 
         if ("SELECT PROPS".equals(qry)) {
+            paMeta = null;
+
             columns.add(new FakeColumnMetadata("name", ColumnType.STRING));
             columns.add(new FakeColumnMetadata("val", ColumnType.STRING));
 
@@ -59,6 +67,8 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             rows.add(getRow("timeout", String.valueOf(properties.queryTimeout())));
             rows.add(getRow("timeZoneId", String.valueOf(properties.timeZoneId())));
         } else if ("SELECT META".equals(qry)) {
+            paMeta = null;
+
             columns.add(new FakeColumnMetadata("BOOL", ColumnType.BOOLEAN));
             columns.add(new FakeColumnMetadata("INT8", ColumnType.INT8));
             columns.add(new FakeColumnMetadata("INT16", ColumnType.INT16));
@@ -98,9 +108,26 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
             rows.add(row);
         } else if ("SELECT LAST SCRIPT".equals(qry)) {
+            paMeta = null;
             rows.add(getRow(proc.lastScript));
             columns.add(new FakeColumnMetadata("script", ColumnType.STRING));
+        } else if ("SELECT PA".equals(qry)) {
+            paMeta = new PartitionAwarenessMetadata(1, new int[] {0, -1, -2, 2}, new int[] {100, 500},
+                    DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
+            rows.add(getRow(1));
+            columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
+        } else if ("SELECT SINGLE COLUMN PA".equals(qry)) {
+            paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0], DirectTxMode.SUPPORTED);
+            rows.add(getRow(1));
+            columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
+        } else if ("SELECT ALLOWED QUERY TYPES".equals(qry)) {
+            paMeta = null;
+            String row = Stream.concat(properties.allowedQueryTypes().stream().map(SqlQueryType::name).sorted(),
+                    properties.allowMultiStatement() ? Stream.of("MULTISTATEMENT") : Stream.empty()).collect(Collectors.joining(", "));
+            rows.add(getRow(row));
+            columns.add(new FakeColumnMetadata("col1", ColumnType.STRING));
         } else {
+            paMeta = null;
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         }
@@ -145,6 +172,11 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
                 return 0;
             }
         };
+    }
+
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return paMeta;
     }
 
     @Override

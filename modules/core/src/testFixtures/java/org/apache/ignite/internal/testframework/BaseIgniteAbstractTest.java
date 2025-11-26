@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
 
 import java.lang.reflect.Method;
@@ -50,11 +48,7 @@ public abstract class BaseIgniteAbstractTest {
 
     @BeforeAll
     static void setLoggingPolicy() {
-        S.setSensitiveDataLoggingPolicySupplier(() -> {
-            String loggingPolicy = getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash");
-
-            return SensitiveDataLoggingPolicy.valueOf(loggingPolicy.toUpperCase());
-        });
+        S.setSensitiveDataPolicy(SensitiveDataLoggingPolicy.HASH);
     }
 
     /**

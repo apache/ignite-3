@@ -25,9 +25,6 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-metrics')
-    // TODO IGNITE-24764 Remove this dependency.
-    implementation project(':ignite-storage-api')
-    implementation project(':ignite-configuration-api')
     implementation project(':ignite-file-io')
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-configuration-root')
@@ -40,33 +37,28 @@ dependencies {
 
     testAnnotationProcessor libs.auto.service
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-failure-handler')
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation libs.auto.service.annotations
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-failure-handler')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.fastutil.core
-    testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.auto.service.annotations
-    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-file-io')
-    integrationTestImplementation(testFixtures(project))
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation libs.jetbrains.annotations
-
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
 }
 
 description = 'ignite-page-memory'

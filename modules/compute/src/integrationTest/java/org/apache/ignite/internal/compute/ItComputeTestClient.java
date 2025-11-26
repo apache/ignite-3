@@ -17,39 +17,25 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.compute.utils.Clients;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Integration tests for Compute functionality using thin client API.
  */
 @SuppressWarnings("NewClassNamingConvention")
-@ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public class ItComputeTestClient extends ItComputeTestEmbedded {
-    private IgniteClient client;
-
-    @BeforeEach
-    void startClient() {
-        int port = unwrapIgniteImpl(node(0)).clientAddress().port();
-
-        client = IgniteClient.builder()
-                .addresses("localhost:" + port)
-                .build();
-    }
+    private final Clients clients = new Clients();
 
     @AfterEach
     void stopClient() {
-        client.close();
+        clients.cleanup();
     }
 
     @Override
     protected IgniteCompute compute() {
-        return client.compute();
+        return clients.compute(node(0));
     }
 
     @Override

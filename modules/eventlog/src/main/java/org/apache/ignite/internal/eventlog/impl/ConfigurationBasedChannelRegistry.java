@@ -17,24 +17,26 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.configuration.notifications.ConfigurationListener.fromNewValueConsumer;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.config.schema.ChannelView;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 class ConfigurationBasedChannelRegistry implements ChannelRegistry {
+    private final EventLogConfiguration cfg;
+
+    private final ConfigurationListener<NamedListView<ChannelView>> listener = fromNewValueConsumer(this::updateCache);
+
     private volatile Map<String, EventChannel> cache;
 
     private volatile Map<String, Set<EventChannel>> typeCache;
@@ -42,11 +44,10 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     private final SinkRegistry sinkRegistry;
 
     ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
+        this.cfg = cfg;
         this.cache = new HashMap<>();
         this.typeCache = new HashMap<>();
         this.sinkRegistry = sinkRegistry;
-
-        cfg.channels().listen(new CacheUpdater());
     }
 
     @Override
@@ -60,14 +61,27 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
         return typeCache.get(igniteEventType);
     }
 
-    private class CacheUpdater implements ConfigurationListener<NamedListView<ChannelView>> {
-        @Override
-        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<NamedListView<ChannelView>> ctx) {
-            NamedListView<ChannelView> newListValue = ctx.newValue();
+    @Override
+    public void start() {
+        sinkRegistry.start();
 
-            Map<String, EventChannel> newCache = new HashMap<>();
-            Map<String, Set<EventChannel>> newTypeCache = new HashMap<>();
+        updateCache(cfg.channels().value());
 
+        cfg.channels().listen(listener);
+    }
+
+    @Override
+    public void stop() {
+        cfg.channels().stopListen(listener);
+
+        sinkRegistry.stop();
+    }
+
+    private void updateCache(@Nullable NamedListView<ChannelView> newListValue) {
+        Map<String, EventChannel> newCache = new HashMap<>();
+        Map<String, Set<EventChannel>> newTypeCache = new HashMap<>();
+
+        if (newListValue != null) {
             newListValue.forEach(view -> {
                 if (view.enabled()) {
                     EventChannel channel = createChannel(view);
@@ -80,19 +94,17 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
                     }
                 }
             });
-
-            cache = newCache;
-            typeCache = newTypeCache;
-
-            return completedFuture(null);
         }
 
-        private EventChannel createChannel(ChannelView view) {
-            Set<String> types = Arrays.stream(view.events())
-                    .map(String::trim)
-                    .collect(Collectors.toSet());
+        cache = newCache;
+        typeCache = newTypeCache;
+    }
 
-            return new EventChannelImpl(view.name(), types, sinkRegistry);
-        }
+    private EventChannel createChannel(ChannelView view) {
+        Set<String> types = Arrays.stream(view.events())
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        return new EventChannelImpl(view.name(), types, sinkRegistry);
     }
 }

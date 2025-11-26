@@ -85,7 +85,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--name", "cluster"
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
 
     @Test
@@ -131,9 +131,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--name", "cluster"
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
-
 
     @Test
     @DisplayName("--url http://localhost:10300 --cluster-name cluster")
@@ -156,7 +155,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--name", "cluster"
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
 
     @Test
@@ -198,7 +197,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--config-files", clusterConfigurationFile.toString()
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
 
     @Test
@@ -222,7 +221,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
         assertAll(
                 this::assertExitCodeIsError,
-                this::assertOutputIsEmpty,
+                () -> assertOutputContains("Initializing"), // Spinner output
                 () -> assertErrOutputIs("Oops")
         );
     }
@@ -250,7 +249,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--name", "cluster"
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
 
     @Test
@@ -264,7 +263,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--name", "cluster"
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
 
     @Test
@@ -339,7 +338,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--config-files", String.join(",", clusterConfigurationFile1, clusterConfigurationFile2)
         );
 
-        assertSuccessfulOutputIs("Cluster was initialized successfully");
+        assertSuccessfulOutputContains("Cluster was initialized successfully.");
     }
 
     private static String escapedJson(String configuration) {

@@ -1,0 +1,287 @@
+# description: Tests for printout of various set operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+# union all
+explain plan
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+UNION ALL
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+----
+UnionAll
+    est: (rows=200)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+  Project
+      fieldNames: [C3, C4]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(6, 15)
+        est: (rows=100)
+
+# union [not all]
+explain plan
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+UNION
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+----
+ColocatedHashAggregate
+    group: [C1, C2]
+    aggregation: []
+    est: (rows=72)
+  UnionAll
+      est: (rows=200)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+    Project
+        fieldNames: [C3, C4]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(6, 15)
+          est: (rows=100)
+
+# colocated minus
+explain plan
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+EXCEPT
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+----
+ColocatedMinus
+    all: false
+    est: (rows=50)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+  Project
+      fieldNames: [C3, C4]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(6, 15)
+        est: (rows=100)
+
+# colocated minus all
+explain plan
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+EXCEPT ALL
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+----
+ColocatedMinus
+    all: true
+    est: (rows=50)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+  Project
+      fieldNames: [C3, C4]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(6, 15)
+        est: (rows=100)
+
+# map-reduce minus
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedMinusConverterRule') */ * FROM (
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+EXCEPT
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+)
+----
+ReduceMinus
+    all: false
+    est: (rows=50)
+  MapMinus
+      all: false
+      est: (rows=50)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+    Project
+        fieldNames: [C3, C4]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(6, 15)
+          est: (rows=100)
+
+# map-reduce minus all
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedMinusConverterRule') */ * FROM (
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+EXCEPT ALL
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+)
+----
+ReduceMinus
+    all: true
+    est: (rows=50)
+  MapMinus
+      all: true
+      est: (rows=50)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+    Project
+        fieldNames: [C3, C4]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(6, 15)
+          est: (rows=100)
+
+# colocated intersect
+explain plan
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+INTERSECT
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+----
+ColocatedIntersect
+    all: false
+    est: (rows=50)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+  Project
+      fieldNames: [C3, C4]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(6, 15)
+        est: (rows=100)
+
+# colocated intersect all
+explain plan
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+INTERSECT ALL
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+----
+ColocatedIntersect
+    all: true
+    est: (rows=50)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+  Project
+      fieldNames: [C3, C4]
+      projection: [X, X]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(6, 15)
+        est: (rows=100)
+
+# map-reduce intersect
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedIntersectConverterRule') */ * FROM (
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+INTERSECT
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+)
+----
+ReduceIntersect
+    all: false
+    est: (rows=50)
+  MapIntersect
+      all: false
+      est: (rows=50)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+    Project
+        fieldNames: [C3, C4]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(6, 15)
+          est: (rows=100)
+
+# map-reduce intersect all
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedIntersectConverterRule') */ * FROM (
+SELECT x AS c1, x AS c2 FROM system_range(1, 10)
+INTERSECT ALL
+SELECT x AS c3, x AS c4 FROM system_range(6, 15)
+)
+----
+ReduceIntersect
+    all: true
+    est: (rows=50)
+  MapIntersect
+      all: true
+      est: (rows=50)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+    Project
+        fieldNames: [C3, C4]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(6, 15)
+          est: (rows=100)

@@ -51,10 +51,10 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 
 /** Helper class for index management. */
 class IndexManagementUtils {
@@ -283,7 +283,7 @@ class IndexManagementUtils {
      * @param localNode Local node.
      * @param timestamp Timestamp of interest.
      */
-    static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
+    static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, InternalClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
     }
@@ -293,7 +293,7 @@ class IndexManagementUtils {
      *
      * @param clusterService Cluster service.
      */
-    static ClusterNode localNode(ClusterService clusterService) {
+    static InternalClusterNode localNode(ClusterService clusterService) {
         return clusterService.topologyService().localMember();
     }
 

@@ -1,0 +1,70 @@
+Project
+    fieldNames: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES, AVG_MONTHLY_SALES]
+    projection: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES, AVG_MONTHLY_SALES]
+    est: (rows=100)
+  Sort
+      collation: [EXPR$8 ASC, S_STORE_NAME ASC]
+      fetch: 100
+      est: (rows=100)
+    Project
+        fieldNames: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES, AVG_MONTHLY_SALES, EXPR$8]
+        projection: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES, AVG_MONTHLY_SALES, -(SUM_SALES, AVG_MONTHLY_SALES)]
+        est: (rows=11058)
+      Filter
+          predicate: CASE(<>(CAST(AVG_MONTHLY_SALES):DECIMAL(32767, 2), 0.00), >(/(ABS(-(SUM_SALES, AVG_MONTHLY_SALES)), AVG_MONTHLY_SALES), 0), false)
+          est: (rows=11058)
+        Project
+            fieldNames: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES, AVG_MONTHLY_SALES]
+            projection: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES, CAST(/(CAST(CASE(>(COUNT(SUM_SALES) OVER (PARTITION BY I_CATEGORY, I_BRAND, S_STORE_NAME, S_COMPANY_NAME), 0), CAST(SUM(SUM_SALES) OVER (PARTITION BY I_CATEGORY, I_BRAND, S_STORE_NAME, S_COMPANY_NAME)):DECIMAL(32767, 2), null:DECIMAL(32767, 2))):DECIMAL(32781, 16), COUNT(SUM_SALES) OVER (PARTITION BY I_CATEGORY, I_BRAND, S_STORE_NAME, S_COMPANY_NAME))):DECIMAL(32781, 16)]
+            est: (rows=44233)
+          ColocatedHashAggregate
+              fieldNames: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SUM_SALES]
+              group: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY]
+              aggregation: [SUM(SS_SALES_PRICE)]
+              est: (rows=44233)
+            Project
+                fieldNames: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SS_SALES_PRICE]
+                projection: [I_CATEGORY, I_CLASS, I_BRAND, S_STORE_NAME, S_COMPANY_NAME, D_MOY, SS_SALES_PRICE]
+                est: (rows=59948)
+              HashJoin
+                  predicate: =(SS_STORE_SK, S_STORE_SK)
+                  type: inner
+                  est: (rows=59948)
+                HashJoin
+                    predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                    type: inner
+                    est: (rows=59948)
+                  HashJoin
+                      predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                      type: inner
+                      est: (rows=180025)
+                    Exchange
+                        distribution: single
+                        est: (rows=2880404)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_STORE_SK, SS_SALES_PRICE]
+                          est: (rows=2880404)
+                    Exchange
+                        distribution: single
+                        est: (rows=1125)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: OR(AND(SEARCH(I_CATEGORY, Sarg[_UTF-8'Books':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'Home':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'Music':VARCHAR(50) CHARACTER SET "UTF-8"]:VARCHAR(50) CHARACTER SET "UTF-8"), SEARCH(I_CLASS, Sarg[_UTF-8'classical':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'fiction':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'glassware':VARCHAR(50) CHARACTER SET "UTF-8"]:VARCHAR(50) CHARACTER SET "UTF-8")), AND(SEARCH(I_CATEGORY, Sarg[_UTF-8'Jewelry':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'Sports':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'Women':VARCHAR(50) CHARACTER SET "UTF-8"]:VARCHAR(50) CHARACTER SET "UTF-8"), SEARCH(I_CLASS, Sarg[_UTF-8'baseball':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'dresses':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'semi-precious':VARCHAR(50) CHARACTER SET "UTF-8"]:VARCHAR(50) CHARACTER SET "UTF-8")))
+                          fieldNames: [I_ITEM_SK, I_BRAND, I_CLASS, I_CATEGORY]
+                          est: (rows=1125)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2000)
+                        fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                        est: (rows=24325)
+                Exchange
+                    distribution: single
+                    est: (rows=12)
+                  TableScan
+                      table: PUBLIC.STORE
+                      fieldNames: [S_STORE_SK, S_STORE_NAME, S_COMPANY_NAME]
+                      est: (rows=12)

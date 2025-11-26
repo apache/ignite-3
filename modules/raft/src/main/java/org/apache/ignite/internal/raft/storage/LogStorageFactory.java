@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage;
 
+import java.util.Set;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -40,4 +41,12 @@ public interface LogStorageFactory extends LogSyncer, IgniteComponent {
      * @param uri Log storage URI.
      */
     void destroyLogStorage(String uri);
+
+    /**
+     * Obtains group IDs for storage of all Raft groups existing on disk.
+     *
+     * <p>This method should only be called when the log storage is not accessed otherwise (so no Raft groups can appear or be destroyed
+     * in parallel with this call).
+     */
+    Set<String> raftNodeStorageIdsOnDisk();
 }

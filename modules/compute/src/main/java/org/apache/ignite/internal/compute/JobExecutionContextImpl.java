@@ -17,9 +17,16 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnitInfo;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,9 +38,11 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final AtomicBoolean isInterrupted;
 
-    private final ClassLoader classLoader;
+    private final JobClassLoader classLoader;
 
     private final @Nullable Partition partition;
+
+    private final Lazy<Collection<DeploymentUnitInfo>> deploymentUnits;
 
     /**
      * Constructor.
@@ -43,11 +52,12 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      * @param classLoader Job class loader.
      * @param partition Partition associated with this job.
      */
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader, @Nullable Partition partition) {
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, JobClassLoader classLoader, @Nullable Partition partition) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
         this.partition = partition;
+        this.deploymentUnits = new Lazy<>(this::initDeploymentUnits);
     }
 
     @Override
@@ -65,12 +75,29 @@ public class JobExecutionContextImpl implements JobExecutionContext {
         return partition;
     }
 
+    @Override
+    public Collection<DeploymentUnitInfo> deploymentUnits() {
+        //noinspection DataFlowIssue
+        return deploymentUnits.get();
+    }
+
     /**
      * Gets the job class loader.
      *
      * @return Job class loader.
      */
-    public ClassLoader classLoader() {
+    public JobClassLoader classLoader() {
         return classLoader;
+    }
+
+    private Collection<DeploymentUnitInfo> initDeploymentUnits() {
+        List<DisposableDeploymentUnit> units = classLoader.units();
+        ArrayList<DeploymentUnitInfo> result = new ArrayList<>(units.size());
+
+        for (DisposableDeploymentUnit unit : units) {
+            result.add(new DeploymentUnitInfo(unit.unit().name(), unit.unit().version(), unit.path()));
+        }
+
+        return result;
     }
 }

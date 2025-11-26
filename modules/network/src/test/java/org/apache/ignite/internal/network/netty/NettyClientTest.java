@@ -173,7 +173,7 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
         client = new NettyClient(
                 address,
                 null,
-                new MockClientHandshakeManager(channel),
+                new MockInitiatorHandshakeManager(channel),
                 (message) -> {},
                 null
         );
@@ -197,7 +197,7 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
         var client = new NettyClient(
                 address,
                 null,
-                new MockClientHandshakeManager(future.channel()),
+                new MockInitiatorHandshakeManager(future.channel()),
                 (message) -> {},
                 null
         );
@@ -243,14 +243,14 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Client handshake manager that doesn't do any actual handshaking.
+     * Initiator handshake manager that doesn't do any actual handshaking.
      */
-    private static class MockClientHandshakeManager implements HandshakeManager {
+    private static class MockInitiatorHandshakeManager implements HandshakeManager {
         /** Sender. */
         private final NettySender sender;
 
         /** Constructor. */
-        private MockClientHandshakeManager(Channel channel) {
+        private MockInitiatorHandshakeManager(Channel channel) {
             this.sender = new NettySender(channel, new UUID(0, 0), "", (short) 0, mock(RecoveryDescriptor.class));
         }
 

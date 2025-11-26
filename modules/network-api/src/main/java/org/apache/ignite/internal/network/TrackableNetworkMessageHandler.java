@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,6 +37,8 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
      */
     private static final int MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS = 5;
 
+    private final boolean longHandlingLoggingEnabled = IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false);
+
     private final NetworkMessageHandler targetHandler;
 
     TrackableNetworkMessageHandler(NetworkMessageHandler targetHandler) {
@@ -44,22 +46,18 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
     }
 
     @Override
-    public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
-        long startTimeNanos = System.nanoTime();
+    public void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+        long startTimeNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
         targetHandler.onReceived(message, sender, correlationId);
 
-        if (longHandlingLoggingEnabled() && isNetworkThread()) {
+        if (longHandlingLoggingEnabled && isNetworkThread()) {
             maybeLogLongProcessing(message, startTimeNanos);
         }
     }
 
     private static boolean isNetworkThread() {
         return Thread.currentThread() instanceof IgniteMessageServiceThread;
-    }
-
-    private static boolean longHandlingLoggingEnabled() {
-        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {

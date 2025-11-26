@@ -19,11 +19,8 @@ package org.apache.ignite.internal.jdbc;
 
 import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
-import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
-import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -36,221 +33,145 @@ import java.sql.PreparedStatement;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLPermission;
 import java.sql.SQLWarning;
 import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.ShardingKey;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.IdentityHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.client.BasicAuthenticator;
-import org.apache.ignite.client.IgniteClientAuthenticator;
-import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.client.SslConfiguration;
-import org.apache.ignite.internal.client.HostAndPort;
-import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * JDBC connection implementation.
+ * {@link Connection} implementation backed by the thin client.
  */
 public class JdbcConnection implements Connection {
-    /** Network timeout permission. */
-    private static final String SET_NETWORK_TIMEOUT_PERM = "setNetworkTimeout";
 
-    /** Statements modification mutex. */
-    private final Object stmtsMux = new Object();
+    private static final String CONNECTION_IS_CLOSED = "Connection is closed.";
 
-    private final AtomicLong tokenGenerator = new AtomicLong();
+    static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
+            "Returning auto-generated keys is not supported.";
 
-    /** Handler. */
-    private final JdbcQueryEventHandler handler;
+    private static final String CALLABLE_FUNCTIONS_ARE_NOT_SUPPORTED =
+            "Callable functions are not supported.";
 
-    private final long connectionId;
+    private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED =
+            "SQL-specific types are not supported.";
 
-    /** Schema name. */
-    private String schema;
+    private static final String INVALID_RESULT_SET_HOLDABILITY =
+            "Invalid result set holdability (only close cursors at commit option is supported).";
 
-    /** Closed flag. */
+    private static final String INVALID_RESULT_SET_TYPE =
+            "Invalid result set type (only forward is supported).";
+
+    private static final String INVALID_RESULT_SET_CONCURRENCY =
+            "Invalid concurrency (updates are not supported).";
+
+    private static final String TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE =
+            "Transaction cannot be committed explicitly in auto-commit mode.";
+
+    private static final String COMMIT_REQUEST_FAILED
+            = "The transaction commit request failed.";
+
+    private static final String TRANSACTION_CANNOT_BE_ROLLED_BACK_IN_AUTOCOMMIT_MODE =
+            "Transaction cannot be rolled back explicitly in auto-commit mode.";
+
+    private static final String ROLLBACK_REQUEST_FAILED
+            = "The transaction rollback request failed.";
+
+    private static final String CANNOT_SET_TRANSACTION_NONE =
+            "Cannot set transaction isolation level to TRANSACTION_NONE.";
+
+    private static final String INVALID_TRANSACTION_ISOLATION_LEVEL =
+            "Invalid transaction isolation level.";
+
+    private static final String SHARDING_KEYS_ARE_NOT_SUPPORTED =
+            "Sharding keys are not supported.";
+
+    private static final String SAVEPOINT_IN_AUTO_COMMIT_MODE =
+            "Savepoint cannot be set in auto-commit mode.";
+
+    private static final String SAVEPOINTS_ARE_NOT_SUPPORTED =
+            "Savepoints are not supported.";
+
+    private static final String TYPES_MAPPING_IS_NOT_SUPPORTED =
+            "Types mapping is not supported.";
+
+    private final IgniteClient igniteClient;
+
+    private final IgniteSql igniteSql;
+
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private final List<Statement> statements = new ArrayList<>();
+
+    private final ConnectionProperties properties;
+
+    private final JdbcDatabaseMetadata metadata;
+
     private volatile boolean closed;
 
-    /** Current transaction isolation. */
+    private String schemaName;
+
     private int txIsolation;
 
-    /** Auto-commit flag. */
     private boolean autoCommit;
 
-    /** Read-only flag. */
     private boolean readOnly;
 
-    /** Current transaction holdability. */
-    private int holdability;
+    private int networkTimeoutMillis;
 
-    /** Connection properties. */
-    private final ConnectionProperties connProps;
-
-    /** Tracked statements to close on disconnect. */
-    private final Set<JdbcStatement> stmts = Collections.newSetFromMap(new IdentityHashMap<>());
-
-    /** Network timeout. */
-    private int netTimeout;
-
-    /** Query timeout. */
-    private final @Nullable Integer qryTimeout;
-
-    /** Ignite remote client. */
-    private final TcpIgniteClient client;
-
-    /** Jdbc metadata. Cache the JDBC object on the first access */
-    private JdbcDatabaseMetadata metadata;
+    private @Nullable Transaction transaction;
 
     /**
      * Creates new connection.
      *
+     * @param client SQL client.
+     * @param eventHandler Event handler.
      * @param props Connection properties.
-     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    public JdbcConnection(ConnectionProperties props, HybridTimestampTracker observableTimeTracker) throws SQLException {
-        this.connProps = props;
+    public JdbcConnection(
+            IgniteClient client,
+            JdbcDatabaseMetadataHandler eventHandler,
+            ConnectionProperties props
+    ) {
+        igniteClient = client;
+        igniteSql = client.sql();
         autoCommit = true;
+        networkTimeoutMillis = props.getConnectionTimeout();
+        txIsolation = TRANSACTION_SERIALIZABLE;
+        schemaName = readSchemaName(props.getSchema());
+        properties = props;
 
-        String[] addrs = Arrays.stream(props.getAddresses()).map(this::createStrAddress)
-                .toArray(String[]::new);
-
-        netTimeout = connProps.getConnectionTimeout();
-        qryTimeout = connProps.getQueryTimeout();
-
-        try {
-            client = buildClient(addrs, observableTimeTracker);
-        } catch (Exception e) {
-            throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
-        }
-
-        this.handler = new JdbcClientQueryEventHandler(client);
-
-        try {
-            JdbcConnectResult result = handler.connect(connProps.getConnectionTimeZone()).get();
-
-            if (!result.success()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
-            }
-
-            connectionId = result.connectionId();
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Failed to initialize connection.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Connection initialization canceled.", e);
-        }
-
-        txIsolation = Connection.TRANSACTION_NONE;
-
-        schema = normalizeSchema(connProps.getSchema());
-
-        holdability = HOLD_CURSORS_OVER_COMMIT;
-    }
-
-    private TcpIgniteClient buildClient(String[] addrs, HybridTimestampTracker observableTimeTracker) {
-        var cfg = new IgniteClientConfigurationImpl(
-                null,
-                addrs,
-                netTimeout,
-                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
-                null,
-                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
-                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                null,
-                null,
-                extractSslConfiguration(connProps),
-                false,
-                extractAuthenticationConfiguration(connProps),
-                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT
-        );
-
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
-    }
-
-    /**
-     * Constructor used for testing purposes.
-     */
-    @TestOnly
-    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) {
-        this.connProps = props;
-        this.handler = handler;
-
-        autoCommit = true;
-
-        netTimeout = connProps.getConnectionTimeout();
-        qryTimeout = connProps.getQueryTimeout();
-
-        holdability = HOLD_CURSORS_OVER_COMMIT;
-
-        schema = SqlCommon.DEFAULT_SCHEMA_NAME;
-
-        client = null;
-        connectionId = -1;
-    }
-
-    private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
-        if (connProps.isSslEnabled()) {
-            return SslConfiguration.builder()
-                    .enabled(true)
-                    .trustStorePath(connProps.getTrustStorePath())
-                    .trustStorePassword(connProps.getTrustStorePassword())
-                    .ciphers(connProps.getCiphers())
-                    .keyStorePath(connProps.getKeyStorePath())
-                    .keyStorePassword(connProps.getKeyStorePassword())
-                    .build();
-        } else {
-            return null;
-        }
-    }
-
-    private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
-        String username = connProps.getUsername();
-        String password = connProps.getPassword();
-        if (username != null && password != null) {
-            return BasicAuthenticator.builder()
-                    .username(username)
-                    .password(password)
-                    .build();
-        } else {
-            return null;
-        }
+        //noinspection ThisEscapedInObjectConstruction
+        metadata = new JdbcDatabaseMetadata(this, eventHandler, props.getUrl(), props.getUsername(), props::getConnectionTimeZone);
     }
 
     /** {@inheritDoc} */
     @Override
     public Statement createStatement() throws SQLException {
-        return createStatement(TYPE_FORWARD_ONLY, CONCUR_READ_ONLY, HOLD_CURSORS_OVER_COMMIT);
+        return createStatement(TYPE_FORWARD_ONLY, CONCUR_READ_ONLY, CLOSE_CURSORS_AT_COMMIT);
     }
 
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(int resSetType, int resSetConcurrency) throws SQLException {
-        return createStatement(resSetType, resSetConcurrency, HOLD_CURSORS_OVER_COMMIT);
+        return createStatement(resSetType, resSetConcurrency, CLOSE_CURSORS_AT_COMMIT);
     }
 
     /** {@inheritDoc} */
@@ -259,25 +180,24 @@ public class JdbcConnection implements Connection {
             int resSetHoldability) throws SQLException {
         ensureNotClosed();
 
-        checkCursorOptions(resSetType, resSetConcurrency);
+        checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
 
-        JdbcStatement stmt = new JdbcStatement(this, resSetHoldability, schema);
+        JdbcStatement statement = new JdbcStatement(this, igniteSql, schemaName, resSetHoldability);
 
-        if (qryTimeout != null) {
-            stmt.setQueryTimeout(qryTimeout);
+        lock.lock();
+        try {
+            statements.add(statement);
+        } finally {
+            lock.unlock();
         }
 
-        synchronized (stmtsMux) {
-            stmts.add(stmt);
-        }
-
-        return stmt;
+        return statement;
     }
 
     /** {@inheritDoc} */
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
-        return prepareStatement(sql, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY, HOLD_CURSORS_OVER_COMMIT);
+        return prepareStatement(sql, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY, CLOSE_CURSORS_AT_COMMIT);
     }
 
     /** {@inheritDoc} */
@@ -285,14 +205,18 @@ public class JdbcConnection implements Connection {
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
+        if (autoGeneratedKeys == Statement.RETURN_GENERATED_KEYS) {
+            throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
+        }
+
+        return prepareStatement(sql);
     }
 
     /** {@inheritDoc} */
     @Override
     public PreparedStatement prepareStatement(String sql, int resSetType,
             int resSetConcurrency) throws SQLException {
-        return prepareStatement(sql, resSetType, resSetConcurrency, HOLD_CURSORS_OVER_COMMIT);
+        return prepareStatement(sql, resSetType, resSetConcurrency, CLOSE_CURSORS_AT_COMMIT);
     }
 
     /** {@inheritDoc} */
@@ -301,19 +225,13 @@ public class JdbcConnection implements Connection {
             int resSetHoldability) throws SQLException {
         ensureNotClosed();
 
-        checkCursorOptions(resSetType, resSetConcurrency);
-
         if (sql == null) {
             throw new SQLException("SQL string cannot be null.");
         }
 
-        JdbcPreparedStatement stmt = new JdbcPreparedStatement(this, sql, resSetHoldability, schema);
+        checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
 
-        synchronized (stmtsMux) {
-            stmts.add(stmt);
-        }
-
-        return stmt;
+        return new JdbcPreparedStatement(this, igniteSql, schemaName, resSetHoldability, sql);
     }
 
     /** {@inheritDoc} */
@@ -321,7 +239,7 @@ public class JdbcConnection implements Connection {
     public PreparedStatement prepareStatement(String sql, int[] colIndexes) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
+        throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -329,7 +247,7 @@ public class JdbcConnection implements Connection {
     public PreparedStatement prepareStatement(String sql, String[] colNames) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
+        throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -342,17 +260,63 @@ public class JdbcConnection implements Connection {
         return sql;
     }
 
+    @Nullable Transaction startTransactionIfNoAutoCommit() {
+        if (transaction == null && !autoCommit) {
+            transaction = igniteClient.transactions().begin(new TransactionOptions().readOnly(false));
+            return transaction;
+        } else {
+            return transaction;
+        }
+    }
+
+    private void commitTx() throws SQLException {
+        Transaction tx = transaction;
+        if (tx == null) {
+            return;
+        }
+
+        // Null out the transaction first.
+        transaction = null;
+
+        try {
+            tx.commit();
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(COMMIT_REQUEST_FAILED, e);
+        }
+    }
+
+    private void rollbackTx() throws SQLException {
+        Transaction tx = transaction;
+        if (tx == null) {
+            return;
+        }
+
+        // Null out the transaction first.
+        transaction = null;
+
+        try {
+            tx.rollback();
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(ROLLBACK_REQUEST_FAILED, e);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureNotClosed();
 
-        if (autoCommit != this.autoCommit) {
-            if (autoCommit) {
-                finishTx(true);
-            }
+        // If setAutoCommit is called and the auto-commit mode is not changed, the call is a no-op.
+        if (this.autoCommit == autoCommit) {
+            return;
+        }
 
-            this.autoCommit = autoCommit;
+        boolean wasAutoCommit = this.autoCommit;
+        // Autocommit should be changed even if commit fails.
+        this.autoCommit = autoCommit;
+        // If this method is called during a transaction and the auto-commit mode is changed, the transaction is committed.
+        if (!wasAutoCommit && transaction != null) {
+            commitTx();
         }
     }
 
@@ -370,10 +334,10 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         if (autoCommit) {
-            throw new SQLException("Transaction cannot be committed explicitly in auto-commit mode.");
+            throw new SQLException(TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE);
         }
 
-        finishTx(true);
+        commitTx();
     }
 
     /** {@inheritDoc} */
@@ -382,10 +346,10 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         if (autoCommit) {
-            throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
+            throw new SQLException(TRANSACTION_CANNOT_BE_ROLLED_BACK_IN_AUTOCOMMIT_MODE);
         }
 
-        finishTx(false);
+        rollbackTx();
     }
 
     /** {@inheritDoc} */
@@ -398,32 +362,10 @@ public class JdbcConnection implements Connection {
         }
 
         if (autoCommit) {
-            throw new SQLException("Auto-commit mode.");
+            throw new SQLException(TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE);
         }
 
-        throw new SQLFeatureNotSupportedException("Savepoints are not supported.");
-    }
-
-    /**
-     * Finish transaction.
-     *
-     * @param commit {@code True} to commit, {@code false} to rollback.
-     * @throws SQLException If failed.
-     */
-    private void finishTx(boolean commit) throws SQLException {
-        try {
-            JdbcFinishTxResult res = handler().finishTxAsync(connectionId, commit).get();
-
-            if (res.status() != Response.STATUS_SUCCESS) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-            }
-        } catch (CancellationException e) {
-            throw new SQLException("Request to " + (commit ? "commit" : "rollback") + " the transaction has been canceled.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("The transaction " + (commit ? "commit" : "rollback") + " request failed.", e);
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        }
+        throw new SQLFeatureNotSupportedException(SAVEPOINTS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -433,21 +375,55 @@ public class JdbcConnection implements Connection {
             return;
         }
 
-        closed = true;
+        List<Exception> suppressedExceptions = null;
 
-        if (!autoCommit) {
-            finishTx(false);
+        boolean wasAutoCommit = this.autoCommit;
+        // Rollback on close
+        if (!wasAutoCommit && transaction != null) {
+            rollbackTx();
         }
 
-        synchronized (stmtsMux) {
-            stmts.clear();
+        lock.lock();
+        try {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            for (Statement statement : statements) {
+                try {
+                    statement.close();
+                } catch (Exception e) {
+                    if (suppressedExceptions == null) {
+                        suppressedExceptions = new ArrayList<>();
+                    }
+                    suppressedExceptions.add(e);
+                }
+            }
+
+        } finally {
+            lock.unlock();
         }
 
-        if (client == null) {
-            return;
+        try {
+            igniteClient.close();
+        } catch (Exception e) {
+            throw connectionCloseException(e, suppressedExceptions);
         }
 
-        client.close();
+        if (suppressedExceptions != null) {
+            throw connectionCloseException(null, suppressedExceptions);
+        }
+    }
+
+    private static SQLException connectionCloseException(@Nullable Exception e, @Nullable List<Exception> suppressedExceptions) {
+        SQLException err = new SQLException("Exception occurred while closing a connection.", e);
+        if (suppressedExceptions != null) {
+            for (Exception suppressed : suppressedExceptions) {
+                err.addSuppressed(suppressed);
+            }
+        }
+        return err;
     }
 
     /**
@@ -455,9 +431,9 @@ public class JdbcConnection implements Connection {
      *
      * @throws SQLException If connection is closed.
      */
-    public void ensureNotClosed() throws SQLException {
+    private void ensureNotClosed() throws SQLException {
         if (closed) {
-            throw new SQLException("Connection is closed.", CONNECTION_CLOSED);
+            throw new SQLException(CONNECTION_IS_CLOSED, CONNECTION_CLOSED);
         }
     }
 
@@ -471,10 +447,6 @@ public class JdbcConnection implements Connection {
     @Override
     public DatabaseMetaData getMetaData() throws SQLException {
         ensureNotClosed();
-
-        if (metadata == null) {
-            metadata = new JdbcDatabaseMetadata(this);
-        }
 
         return metadata;
     }
@@ -506,7 +478,7 @@ public class JdbcConnection implements Connection {
     public String getCatalog() throws SQLException {
         ensureNotClosed();
 
-        return null;
+        return JdbcDatabaseMetadata.CATALOG_NAME;
     }
 
     /** {@inheritDoc} */
@@ -515,15 +487,16 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         switch (level) {
-            case Connection.TRANSACTION_READ_UNCOMMITTED:
-            case Connection.TRANSACTION_READ_COMMITTED:
-            case Connection.TRANSACTION_REPEATABLE_READ:
-            case Connection.TRANSACTION_SERIALIZABLE:
-            case Connection.TRANSACTION_NONE:
+            case TRANSACTION_READ_UNCOMMITTED:
+            case TRANSACTION_READ_COMMITTED:
+            case TRANSACTION_REPEATABLE_READ:
+            case TRANSACTION_SERIALIZABLE:
                 break;
+            case TRANSACTION_NONE:
+                throw new SQLException(CANNOT_SET_TRANSACTION_NONE);
 
             default:
-                throw new SQLException("Invalid transaction isolation level.", SqlStateCode.INVALID_TRANSACTION_LEVEL);
+                throw new SQLException(INVALID_TRANSACTION_ISOLATION_LEVEL, SqlStateCode.INVALID_TRANSACTION_LEVEL);
         }
 
         txIsolation = level;
@@ -539,6 +512,7 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         ensureNotClosed();
 
@@ -556,7 +530,7 @@ public class JdbcConnection implements Connection {
     public Map<String, Class<?>> getTypeMap() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Types mapping is not supported.");
+        throw new SQLFeatureNotSupportedException(TYPES_MAPPING_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -564,7 +538,7 @@ public class JdbcConnection implements Connection {
     public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Types mapping is not supported.");
+        throw new SQLFeatureNotSupportedException(TYPES_MAPPING_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -572,11 +546,9 @@ public class JdbcConnection implements Connection {
     public void setHoldability(int holdability) throws SQLException {
         ensureNotClosed();
 
-        if (holdability != HOLD_CURSORS_OVER_COMMIT && holdability != CLOSE_CURSORS_AT_COMMIT) {
-            throw new SQLException("Invalid result set holdability value.");
+        if (holdability != CLOSE_CURSORS_AT_COMMIT) {
+            throw new SQLException(INVALID_RESULT_SET_HOLDABILITY);
         }
-
-        this.holdability = holdability;
     }
 
     /** {@inheritDoc} */
@@ -584,7 +556,7 @@ public class JdbcConnection implements Connection {
     public int getHoldability() throws SQLException {
         ensureNotClosed();
 
-        return holdability;
+        return CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */
@@ -593,10 +565,10 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         if (autoCommit) {
-            throw new SQLException("Savepoint cannot be set in auto-commit mode.");
+            throw new SQLException(SAVEPOINT_IN_AUTO_COMMIT_MODE);
         }
 
-        throw new SQLFeatureNotSupportedException("Savepoints are not supported.");
+        throw new SQLFeatureNotSupportedException(SAVEPOINTS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -609,10 +581,10 @@ public class JdbcConnection implements Connection {
         }
 
         if (autoCommit) {
-            throw new SQLException("Savepoint cannot be set in auto-commit mode.");
+            throw new SQLException(SAVEPOINT_IN_AUTO_COMMIT_MODE);
         }
 
-        throw new SQLFeatureNotSupportedException("Savepoints are not supported.");
+        throw new SQLFeatureNotSupportedException(SAVEPOINTS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -624,7 +596,7 @@ public class JdbcConnection implements Connection {
             throw new SQLException("Savepoint cannot be null.");
         }
 
-        throw new SQLFeatureNotSupportedException("Savepoints are not supported.");
+        throw new SQLFeatureNotSupportedException(SAVEPOINTS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -632,7 +604,7 @@ public class JdbcConnection implements Connection {
     public CallableStatement prepareCall(String sql) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Callable functions are not supported.");
+        throw new SQLFeatureNotSupportedException(CALLABLE_FUNCTIONS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -641,7 +613,7 @@ public class JdbcConnection implements Connection {
             throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Callable functions are not supported.");
+        throw new SQLFeatureNotSupportedException(CALLABLE_FUNCTIONS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -650,7 +622,7 @@ public class JdbcConnection implements Connection {
             int resSetHoldability) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Callable functions are not supported.");
+        throw new SQLFeatureNotSupportedException(CALLABLE_FUNCTIONS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -658,7 +630,7 @@ public class JdbcConnection implements Connection {
     public Clob createClob() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -666,7 +638,7 @@ public class JdbcConnection implements Connection {
     public Blob createBlob() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -674,7 +646,7 @@ public class JdbcConnection implements Connection {
     public NClob createNClob() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -682,7 +654,7 @@ public class JdbcConnection implements Connection {
     public SQLXML createSQLXML() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -699,7 +671,7 @@ public class JdbcConnection implements Connection {
     @Override
     public void setClientInfo(String name, String val) throws SQLClientInfoException {
         if (closed) {
-            throw new SQLClientInfoException("Connection is closed.", null);
+            throw new SQLClientInfoException(CONNECTION_IS_CLOSED, null);
         }
     }
 
@@ -707,13 +679,13 @@ public class JdbcConnection implements Connection {
     @Override
     public void setClientInfo(Properties props) throws SQLClientInfoException {
         if (closed) {
-            throw new SQLClientInfoException("Connection is closed.", null);
+            throw new SQLClientInfoException(CONNECTION_IS_CLOSED, null);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public String getClientInfo(String name) throws SQLException {
+    public @Nullable String getClientInfo(String name) throws SQLException {
         ensureNotClosed();
 
         return null;
@@ -732,11 +704,7 @@ public class JdbcConnection implements Connection {
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         ensureNotClosed();
 
-        if (typeName == null) {
-            throw new SQLException("Type name cannot be null.");
-        }
-
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -744,11 +712,7 @@ public class JdbcConnection implements Connection {
     public Struct createStruct(String typeName, Object[] attrs) throws SQLException {
         ensureNotClosed();
 
-        if (typeName == null) {
-            throw new SQLException("Type name cannot be null.");
-        }
-
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -756,7 +720,7 @@ public class JdbcConnection implements Connection {
     public void setSchema(String schema) throws SQLException {
         ensureNotClosed();
 
-        this.schema = normalizeSchema(schema);
+        this.schemaName = readSchemaName(schema);
     }
 
     /** {@inheritDoc} */
@@ -764,7 +728,7 @@ public class JdbcConnection implements Connection {
     public String getSchema() throws SQLException {
         ensureNotClosed();
 
-        return schema;
+        return schemaName;
     }
 
     /** {@inheritDoc} */
@@ -786,13 +750,7 @@ public class JdbcConnection implements Connection {
             throw new SQLException("Network timeout cannot be negative.");
         }
 
-        SecurityManager secMgr = System.getSecurityManager();
-
-        if (secMgr != null) {
-            secMgr.checkPermission(new SQLPermission(SET_NETWORK_TIMEOUT_PERM));
-        }
-
-        netTimeout = ms;
+        networkTimeoutMillis = ms;
     }
 
     /** {@inheritDoc} */
@@ -800,7 +758,7 @@ public class JdbcConnection implements Connection {
     public int getNetworkTimeout() throws SQLException {
         ensureNotClosed();
 
-        return netTimeout;
+        return networkTimeoutMillis;
     }
 
     /** {@inheritDoc} */
@@ -808,7 +766,7 @@ public class JdbcConnection implements Connection {
     public void beginRequest() throws SQLException {
         ensureNotClosed();
 
-        Connection.super.beginRequest();
+        // No-op
     }
 
     /** {@inheritDoc} */
@@ -816,7 +774,7 @@ public class JdbcConnection implements Connection {
     public void endRequest() throws SQLException {
         ensureNotClosed();
 
-        Connection.super.endRequest();
+        // No-op
     }
 
     /** {@inheritDoc} */
@@ -825,7 +783,7 @@ public class JdbcConnection implements Connection {
             int timeout) throws SQLException {
         ensureNotClosed();
 
-        return Connection.super.setShardingKeyIfValid(shardingKey, superShardingKey, timeout);
+        throw new SQLFeatureNotSupportedException(SHARDING_KEYS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -833,7 +791,7 @@ public class JdbcConnection implements Connection {
     public boolean setShardingKeyIfValid(ShardingKey shardingKey, int timeout) throws SQLException {
         ensureNotClosed();
 
-        return Connection.super.setShardingKeyIfValid(shardingKey, timeout);
+        throw new SQLFeatureNotSupportedException(SHARDING_KEYS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -841,7 +799,7 @@ public class JdbcConnection implements Connection {
     public void setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey) throws SQLException {
         ensureNotClosed();
 
-        Connection.super.setShardingKey(shardingKey, superShardingKey);
+        throw new SQLFeatureNotSupportedException(SHARDING_KEYS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -849,26 +807,7 @@ public class JdbcConnection implements Connection {
     public void setShardingKey(ShardingKey shardingKey) throws SQLException {
         ensureNotClosed();
 
-        Connection.super.setShardingKey(shardingKey);
-    }
-
-    /**
-     * Get the query event handler.
-     *
-     * @return Handler.
-     */
-    public JdbcQueryEventHandler handler() {
-        return handler;
-    }
-
-    /** Returns an identifier of the connection. */
-    long connectionId() {
-        return connectionId;
-    }
-
-    /** Returns the latest time observed by client. */
-    long observableTimestamp() {
-        return client.channel().observableTimestamp().get().longValue();
+        throw new SQLFeatureNotSupportedException(SHARDING_KEYS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -887,94 +826,44 @@ public class JdbcConnection implements Connection {
         return iface != null && iface.isAssignableFrom(JdbcConnection.class);
     }
 
-    /**
-     * Remove statement from statements set.
-     *
-     * @param stmt Statement to remove.
-     */
-    void removeStatement(JdbcStatement stmt) {
-        synchronized (stmtsMux) {
-            stmts.remove(stmt);
-        }
+    public ConnectionProperties properties() {
+        return properties;
     }
 
-    /**
-     * Check cursor options.
-     *
-     * @param resSetType        Cursor option.
-     * @param resSetConcurrency Cursor option.
-     * @throws SQLFeatureNotSupportedException If options unsupported.
-     */
-    private void checkCursorOptions(int resSetType, int resSetConcurrency) throws SQLFeatureNotSupportedException {
+    @TestOnly
+    void closeClient() {
+        igniteClient.close();
+    }
+
+    @TestOnly
+    public int channelsCount() {
+        return ((TcpIgniteClient) igniteClient).channel().channels().size();
+    }
+
+    private static void checkCursorOptions(
+            int resSetType,
+            int resSetConcurrency,
+            int resHoldability
+    ) throws SQLFeatureNotSupportedException {
+
         if (resSetType != TYPE_FORWARD_ONLY) {
-            throw new SQLFeatureNotSupportedException("Invalid result set type (only forward is supported).");
+            throw new SQLFeatureNotSupportedException(INVALID_RESULT_SET_TYPE);
         }
 
         if (resSetConcurrency != CONCUR_READ_ONLY) {
-            throw new SQLFeatureNotSupportedException("Invalid concurrency (updates are not supported).");
+            throw new SQLFeatureNotSupportedException(INVALID_RESULT_SET_CONCURRENCY);
+        }
+
+        if (resHoldability != CLOSE_CURSORS_AT_COMMIT) {
+            throw new SQLFeatureNotSupportedException(
+                    INVALID_RESULT_SET_HOLDABILITY);
         }
     }
 
-    /**
-     * Creates address string from HostAndPortRange object.
-     *
-     * @param range HostAndPortRange.
-     * @return Address string with host and port range.
-     */
-    private String createStrAddress(HostAndPort range) {
-        String host = range.host();
-        int port = range.port();
-
-        boolean ipV6 = host.contains(":");
-
-        if (ipV6) {
-            host = "[" + host + "]";
-        }
-
-        return host + ":" + port;
-    }
-
-    /**
-     * Normalize schema name. If it is quoted - unquote and leave as is, otherwise - convert to upper case.
-     *
-     * @param schemaName Schema name.
-     * @return Normalized schema name.
-     */
-    public static String normalizeSchema(String schemaName) {
+    private static String readSchemaName(String schemaName) {
         if (schemaName == null || schemaName.isEmpty()) {
             return SqlCommon.DEFAULT_SCHEMA_NAME;
         }
-
-        String res;
-
-        if (schemaName.startsWith("\"") && schemaName.endsWith("\"")) {
-            res = schemaName.substring(1, schemaName.length() - 1);
-        } else {
-            res = schemaName.toUpperCase();
-        }
-
-        return res;
-    }
-
-    /**
-     * For test purposes.
-     *
-     * @return Connection properties.
-     */
-    public ConnectionProperties connectionProperties() {
-        return connProps;
-    }
-
-    /**
-     * Gets connection url.
-     *
-     * @return Connection URL.
-     */
-    public String url() {
-        return connProps.getUrl();
-    }
-
-    long nextToken() {
-        return tokenGenerator.getAndIncrement();
+        return schemaName;
     }
 }

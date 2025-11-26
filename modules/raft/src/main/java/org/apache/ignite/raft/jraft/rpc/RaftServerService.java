@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
@@ -78,4 +80,12 @@ public interface RaftServerService {
      * @param done callback
      */
     void handleReadIndexRequest(ReadIndexRequest request, RpcResponseClosure<ReadIndexResponse> done);
+
+    /**
+     * Handle get-leader-and-term request, call the RPC closure with response.
+     *
+     * @param request data of the getLeader read
+     * @param done callback
+     */
+    void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> done);
 }

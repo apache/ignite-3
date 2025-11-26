@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 
-import java.util.function.LongUnaryOperator;
-
 /**
  * Clock page replacement algorithm implementation.
  */
@@ -62,7 +60,7 @@ public class ClockPageReplacementFlags {
                 curIdx = 0;
             }
 
-            long ptr = flagsPtr + ((curIdx >> 3) & (~7L));
+            long ptr = getPointer(curIdx);
 
             long flags = getLong(ptr);
 
@@ -97,12 +95,22 @@ public class ClockPageReplacementFlags {
     }
 
     /**
+     * Returns a pointer to the bitset that corresponds to provided page index.
+     *
+     * <p>Matches {@code this.flagsPtr + (pageIdx >> log2(Long.SIZE) << log2(Byte.SIZE))}, i.e. points to a {@code long} value, among which
+     * there's a bit that identifies given {@code pageIdx}.
+     */
+    private long getPointer(int pageIdx) {
+        return flagsPtr + ((pageIdx >> 3) & (~7L));
+    }
+
+    /**
      * Get page hit flag.
      *
      * @param pageIdx Page index.
      */
     boolean getFlag(int pageIdx) {
-        long flags = getLong(flagsPtr + ((pageIdx >> 3) & (~7L)));
+        long flags = getLong(getPointer(pageIdx));
 
         return (flags & (1L << pageIdx)) != 0L;
     }
@@ -113,7 +121,20 @@ public class ClockPageReplacementFlags {
      * @param pageIdx Page index.
      */
     public void clearFlag(int pageIdx) {
-        compareAndSwapFlag(pageIdx, flags -> flags & ~(1L << pageIdx));
+        long ptr = getPointer(pageIdx);
+
+        long oldFlags;
+        long newFlags;
+        long mask = ~(1L << pageIdx);
+
+        do {
+            oldFlags = getLong(ptr);
+            newFlags = oldFlags & mask;
+
+            if (oldFlags == newFlags) {
+                return;
+            }
+        } while (!compareAndSwapLong(null, ptr, oldFlags, newFlags));
     }
 
     /**
@@ -122,24 +143,15 @@ public class ClockPageReplacementFlags {
      * @param pageIdx Page index.
      */
     public void setFlag(int pageIdx) {
-        compareAndSwapFlag(pageIdx, flags -> flags | (1L << pageIdx));
-    }
-
-    /**
-     * CAS page hit flag value.
-     *
-     * @param pageIdx Page index.
-     * @param func Function to apply to flags.
-     */
-    private void compareAndSwapFlag(int pageIdx, LongUnaryOperator func) {
-        long ptr = flagsPtr + ((pageIdx >> 3) & (~7L));
+        long ptr = getPointer(pageIdx);
 
         long oldFlags;
         long newFlags;
+        long mask = 1L << pageIdx;
 
         do {
             oldFlags = getLong(ptr);
-            newFlags = func.applyAsLong(oldFlags);
+            newFlags = oldFlags | mask;
 
             if (oldFlags == newFlags) {
                 return;

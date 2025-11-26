@@ -23,19 +23,25 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.binarytuple.ByteBufferAccessor;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * The utility class has methods to use to compare fields in binary representation.
  */
-class BinaryTupleComparatorUtils {
+public class BinaryTupleComparatorUtils {
     /**
      * Compares individual fields of two tuples using ascending order.
      */
     @SuppressWarnings("DataFlowIssue")
-    static int compareFieldValue(NativeTypeSpec typeSpec, BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
+    static int compareFieldValue(
+            ColumnType typeSpec,
+            BinaryTupleReader tuple1,
+            BinaryTupleReader tuple2,
+            int index
+    ) {
         switch (typeSpec) {
             case INT8:
             case BOOLEAN:
@@ -56,14 +62,14 @@ class BinaryTupleComparatorUtils {
             case DOUBLE:
                 return Double.compare(tuple1.doubleValue(index), tuple2.doubleValue(index));
 
-            case BYTES:
-                return Arrays.compareUnsigned(tuple1.bytesValue(index), tuple2.bytesValue(index));
+            case BYTE_ARRAY:
+                return compareAsBytes(tuple1, tuple2, index);
 
             case UUID:
-                return tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
+                return compareAsUuid(tuple1, tuple2, index);
 
             case STRING:
-                return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
+                return compareAsString(tuple1, tuple2, index);
 
             case DECIMAL:
                 BigDecimal numeric1 = tuple1.decimalValue(index, Integer.MIN_VALUE);
@@ -72,7 +78,7 @@ class BinaryTupleComparatorUtils {
                 return numeric1.compareTo(numeric2);
 
             case TIMESTAMP:
-                return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
+                return compareAsTimestamp(tuple1, tuple2, index);
 
             case DATE:
                 return tuple1.dateValue(index).compareTo(tuple2.dateValue(index));
@@ -88,7 +94,7 @@ class BinaryTupleComparatorUtils {
         }
     }
 
-    static boolean isFlagSet(ByteBuffer tuple, int flag) {
+    public static boolean isFlagSet(ByteBuffer tuple, int flag) {
         return (tuple.get(0) & flag) != 0;
     }
 
@@ -97,45 +103,287 @@ class BinaryTupleComparatorUtils {
     }
 
     /**
-     * Compares a value in a binary tuple, interpreted as a string, with a given string.
-     * The comparison can be performed as case-sensitive or case-insensitive.
-     * The method first attempts a fast comparison for ASCII sequences and falls back
-     * to Unicode comparison if non-ASCII characters are detected.
+     * Compares two binary tuples as timestamps. The comparison is performed on the column
+     * specified by the given index. The column values in the tuples are expected to represent
+     * timestamps encoded as seconds and optionally nanoseconds. The method considers both the
+     * second and nanosecond parts for comparison and accounts for potential truncation of data.
      *
-     * @param tuple The BinaryTupleReader containing the tuple to be compared.
-     * @param colIndex The column index in the tuple to retrieve the value for comparison.
-     * @param cmp The string to compare the value in the tuple against.
-     * @param ignoreCase Flag indicating whether the comparison should ignore case differences.
-     * @return 0 if the strings are equal, a negative value if the tuple string is lexicographically
-     *         less than the given string, or a positive value if it is greater.
+     * @param tuple1 the first binary tuple reader
+     * @param tuple2 the second binary tuple reader
+     * @param colIndex the index of the column in the tuple to compare
+     * @return a negative integer, zero, or a positive integer if the first tuple is less than,
+     *         equal to, or greater than the second tuple, respectively, when interpreted as timestamps
      */
-    static int compareAsString(BinaryTupleReader tuple, int colIndex, String cmp, boolean ignoreCase) {
-        tuple.seek(colIndex);
-        int begin = tuple.begin();
-        int end = tuple.end();
+    static int compareAsTimestamp(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
+        tuple1.seek(colIndex);
+        int begin1 = tuple1.begin();
+        int end1 = tuple1.end();
 
-        ByteBuffer buf = tuple.byteBuffer();
-        int fullStrLength = end - begin;
-        int trimmedSize = Math.min(fullStrLength, buf.capacity() - begin);
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        int end2 = tuple2.end();
 
-        // Copying the direct byte buffer and then accessing it is better for performance than comparing with access by index in the buffer.
-        byte[] bytes = tuple.bytesValue(begin, begin + trimmedSize);
-        char[] cmpArray = cmp.toCharArray();
+        return compareAsTimestamp(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2);
+    }
 
-        // The tuple can contain a specific character (VARLEN_EMPTY_BYTE) that is not a part of the value.
-        // In that case the value size in bytes (fullStrLength) should be reduced by 1.
-        if (bytes.length < trimmedSize) {
-            assert bytes.length == trimmedSize - 1 : "Only one first byte can have a special value.";
+    /**
+     * Compares timestamp values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsTimestamp(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsTimestamp(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2) {
+        int fullSize1 = end1 - begin1;
+        int trimmedSize1 = Math.min(fullSize1, buf1.capacity() - begin1);
 
-            fullStrLength--;
+        int fullSize2 = end2 - begin2;
+        int trimmedSize2 = Math.min(fullSize2, buf2.capacity() - begin2);
+
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        if (remaining >= 8) {
+            long seconds1 = buf1.getLong(begin1);
+            long seconds2 = buf2.getLong(begin2);
+
+            int cmp = Long.compare(seconds1, seconds2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            if (remaining == 12) {
+                int nanos1 = buf1.getInt(begin1 + 8);
+                int nanos2 = buf2.getInt(begin2 + 8);
+
+                return nanos1 - nanos2;
+            }
+
+            if (fullSize1 == 8 && fullSize2 == 12) {
+                return -1;
+            }
+
+            if (fullSize1 == 12 && fullSize2 == 8) {
+                return 1;
+            }
         }
+
+        return 0;
+    }
+
+    /**
+     * Compares two binary tuples as UUIDs. The comparison is performed on the column
+     * specified by the given index. The column values in the tuples are expected to
+     * represent UUIDs encoded as two sequential 64-bit values (most significant bits
+     * and least significant bits).
+     *
+     * @param tuple1 the first binary tuple reader
+     * @param tuple2 the second binary tuple reader
+     * @param colIndex the index of the column in the tuple to compare
+     * @return a negative integer, zero, or a positive integer if the first tuple is less than,
+     *         equal to, or greater than the second tuple, respectively, when interpreted as UUIDs
+     */
+    static int compareAsUuid(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
+        tuple1.seek(colIndex);
+        int begin1 = tuple1.begin();
+
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+
+        return compareAsUuid(tuple1.accessor(), begin1, tuple2.accessor(), begin2);
+    }
+
+    /**
+     * Compares UUID values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsUuid(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsUuid(ByteBufferAccessor buf1, int begin1, ByteBufferAccessor buf2, int begin2) {
+        int trimmedSize1 = Math.min(16, buf1.capacity() - begin1);
+
+        int trimmedSize2 = Math.min(16, buf2.capacity() - begin2);
+
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        if (remaining >= 8) {
+            long msb1 = buf1.getLong(begin1);
+            long msb2 = buf2.getLong(begin2);
+
+            int cmp = Long.compare(msb1, msb2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            if (remaining == 16) {
+                long lsb1 = buf1.getLong(begin1 + 8);
+                long lsb2 = buf2.getLong(begin2 + 8);
+
+                return Long.compare(lsb1, lsb2);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Compares two binary tuples as byte sequences. The comparison is performed on the column
+     * specified by the given index.
+     *
+     * @param tuple1 the first binary tuple reader
+     * @param tuple2 the second binary tuple reader
+     * @param colIndex the index of the column in the tuple to compare
+     * @return a negative integer, zero, or a positive integer if the first tuple is less than, equal to,
+     *         or greater than the second tuple, respectively
+     */
+    static int compareAsBytes(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
+        tuple1.seek(colIndex);
+        int begin1 = tuple1.begin();
+        int end1 = tuple1.end();
+
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        int end2 = tuple2.end();
+
+        return compareAsBytes(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2);
+    }
+
+    /**
+     * Compares {@code byte[]} values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsBytes(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsBytes(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2) {
+        if (buf1.get(begin1) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            begin1++;
+        }
+
+        int fullSize1 = end1 - begin1;
+        int trimmedSize1 = Math.min(fullSize1, buf1.capacity() - begin1);
+
+        if (buf2.get(begin2) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            begin2++;
+        }
+
+        int fullSize2 = end2 - begin2;
+        int trimmedSize2 = Math.min(fullSize2, buf2.capacity() - begin2);
+
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        int wordBytes = remaining - remaining % 8;
+
+        for (int i = 0; i < wordBytes; i += 8) {
+            long w1 = Long.reverseBytes(buf1.getLong(begin1 + i));
+            long w2 = Long.reverseBytes(buf2.getLong(begin2 + i));
+
+            int cmp = Long.compareUnsigned(w1, w2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+
+        for (int i = wordBytes; i < remaining; i++) {
+            byte b1 = buf1.get(begin1 + i);
+            byte b2 = buf2.get(begin2 + i);
+
+            int cmp = Byte.compareUnsigned(b1, b2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+
+        if (fullSize1 > remaining && fullSize2 > remaining) {
+            // Comparison is not completed yet. Both strings have more characters.
+            return 0;
+        }
+
+        return signum(fullSize1 - fullSize2);
+    }
+
+    /**
+     * Compares two binary tuples as strings. The comparison is performed on the column
+     * specified by the given index. The comparison can optionally ignore case differences.
+     *
+     * @param tuple1 the first binary tuple reader
+     * @param tuple2 the second binary tuple reader
+     * @param colIndex the index of the column in the tuple to compare
+     * @return a negative integer, zero, or a positive integer if the first tuple is less than, equal to,
+     *         or greater than the second tuple, respectively
+     */
+    static int compareAsString(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
+        tuple1.seek(colIndex);
+        int begin1 = tuple1.begin();
+        int end1 = tuple1.end();
+
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        int end2 = tuple2.end();
+
+        return compareAsString(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2);
+    }
+
+    /**
+     * Compares string values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @return Comparison result.
+     * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsString(
+            ByteBufferAccessor buf1, int begin1, int end1,
+            ByteBufferAccessor buf2, int begin2, int end2
+    ) {
+        if (buf1.get(begin1) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            begin1++;
+        }
+
+        int fullStrLength1 = end1 - begin1;
+        int trimmedSize1 = Math.min(fullStrLength1, buf1.capacity() - begin1);
+
+        if (buf2.get(begin2) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            begin2++;
+        }
+
+        int fullStrLength2 = end2 - begin2;
+        int trimmedSize2 = Math.min(fullStrLength2, buf2.capacity() - begin2);
 
         // Fast pass for ASCII string.
         int asciiResult = compareAsciiSequences(
-                bytes,
-                fullStrLength,
-                cmpArray,
-                ignoreCase
+                buf1,
+                begin1,
+                fullStrLength1,
+                trimmedSize1,
+                buf2,
+                begin2,
+                fullStrLength2,
+                trimmedSize2
         );
 
         if (asciiResult != Integer.MIN_VALUE) {
@@ -144,82 +392,39 @@ class BinaryTupleComparatorUtils {
 
         // If the string contains non-ASCII characters, we compare it as a Unicode string.
         return fullUnicodeCompare(
-                bytes,
-                fullStrLength,
-                cmpArray,
-                ignoreCase
+                buf1,
+                begin1,
+                fullStrLength1,
+                trimmedSize1,
+                buf2,
+                begin2,
+                fullStrLength2,
+                trimmedSize2
         );
     }
 
     /**
-     * Compares a UTF-8 encoded byte array with a character array, optionally ignoring case differences.
-     * The comparison performs a Unicode-aware lexicographical comparison.
+     * Decodes the next UTF-8 code point from the specified buffer starting at the given index.
+     * The method updates the index array to reflect the position after the decoded code point.
+     * If the code point cannot be fully decoded due to insufficient bytes, it returns -1.
      *
-     * @param bytes The byte array containing a UTF-8 encoded string.
-     * @param fullStrLength The full length of the string, which had been truncated in the byte array.
-     * @param cmpArray The character array to compare against.
-     * @param ignoreCase A flag indicating whether the comparison should ignore case differences.
-     * @return 0 if the strings are equal, a negative value if the byte array represents a string that is
-     *         lexicographically less than the character array, or a positive value if it is greater. Returns
-     *         0 if the string comparison is incomplete due to truncation in either of the arrays.
+     * @param buf the byte buffer accessor for reading binary data
+     * @param begin the starting position in the buffer to begin decoding
+     * @param idx an array containing the current index position; it will be updated to the new position
+     *            after the code point is decoded
+     * @param trimmedSize the maximum limit up to which decoding is allowed
+     * @return the decoded Unicode code point as an integer, or -1 if decoding fails due to insufficient bytes
+     * @throws IllegalArgumentException if the input data does not conform to the UTF-8 encoding standard
      */
-    private static int fullUnicodeCompare(
-            byte[] bytes,
-            int fullStrLength,
-            char[] cmpArray,
-            boolean ignoreCase
-    ) {
-        int[] idx = {0};
-        int i = 0;
+    private static int getNextCodePoint(ByteBufferAccessor buf, int begin, int[] idx, int trimmedSize) {
+        int startIdx = idx[0];
 
-        while (idx[0] < bytes.length && i < cmpArray.length) {
-            int cp = getNextCodePoint(bytes, idx);
-
-            if (cp == -1) {
-                // Comparison is impossible because the string is truncated.
-                return 0;
-            }
-
-            char v1 = (char) cp;
-            char v2 = cmpArray[i];
-            i++;
-
-            if (v1 != v2) {
-                if (ignoreCase) {
-                    char upper1 = Character.toUpperCase(v1);
-                    char upper2 = Character.toUpperCase(v2);
-                    if (upper1 != upper2) {
-                        return signum(upper1 - upper2);
-                    }
-                } else {
-                    return signum(v1 - v2);
-                }
-            }
-        }
-
-        if (fullStrLength > bytes.length && cmpArray.length > i) {
-            // Comparison is not completed yet. Both strings have more characters.
-            return 0;
-        }
-
-        return fullStrLength == bytes.length && cmpArray.length == i ? 0 : fullStrLength == bytes.length ? -1 : 1;
-    }
-
-    /**
-     * Decodes the next UTF-8 code point from a byte array, updating the index reference to the next position.
-     * The method validates the UTF-8 byte sequence and throws an exception if it encounters an invalid sequence.
-     *
-     * @param bytes The byte array containing the UTF-8 encoded data.
-     * @param idx An array containing the current index position; the index will be updated to point
-     *            to the next position after reading the code point.
-     * @return The decoded code point, or -1 if the end of the array is reached before completing a valid sequence.
-     * @throws IllegalArgumentException If an invalid UTF-8 sequence is encountered.
-     */
-    private static int getNextCodePoint(byte[] bytes, int[] idx) {
-        byte b1 = bytes[idx[0]];
-        idx[0]++;
+        byte b1 = buf.get(begin + startIdx);
+        startIdx++;
 
         if ((b1 & 0x80) == 0) {
+            idx[0] = startIdx;
+
             return b1; // ASCII
         }
 
@@ -234,14 +439,14 @@ class BinaryTupleComparatorUtils {
             throw new IllegalArgumentException("Invalid UTF-8");
         }
 
-        if (idx[0] + remainingBytes > bytes.length) {
+        if (startIdx + remainingBytes > trimmedSize) {
             return -1;
         }
 
         int codePoint = b1 & (0x3F >> remainingBytes);
         for (int i = 0; i < remainingBytes; i++) {
-            byte nextByte = bytes[idx[0]];
-            idx[0]++;
+            byte nextByte = buf.get(begin + startIdx);
+            startIdx++;
 
             if ((nextByte & 0xC0) != 0x80) {
                 throw new IllegalArgumentException("Invalid UTF-8 continuation");
@@ -249,64 +454,141 @@ class BinaryTupleComparatorUtils {
             codePoint = (codePoint << 6) | (nextByte & 0x3F);
         }
 
+        idx[0] = startIdx;
+
         return codePoint;
     }
 
     /**
-     * Compares an ASCII sequence encoded in a byte array with a character array,
-     * optionally ignoring case differences. The method assumes that the byte
-     * array contains only valid ASCII characters. If non-ASCII characters are
-     * detected, the method returns a special error value {@link Integer.MIN_VALUE}.
-     * The comparison is performed lexicographically.
+     * Compares two UTF-8 encoded strings based on their content, length, and
+     * the given comparison rules. The comparison processes the encoded bytes
+     * as Unicode code points to ensure proper handling of multibyte characters.
+     * Optionally, the comparison can ignore case differences for Unicode characters.
      *
-     * @param bytes The byte array representation of the ASCII sequence to be compared.
-     * @param fullStrLength The full length of the string, which had been truncated in the byte array.
-     * @param cmpArray The character array to compare against the byte array content.
-     * @param ignoreCase Flag indicating whether the comparison should be case-insensitive.
-     * @return A negative value if the byte array sequence is lexicographically less
-     *         than the character array, 0 if they are equal, or a positive value if
-     *         the byte array sequence is greater. Returns {@link Integer.MIN_VALUE} if the
-     *         byte array contains non-ASCII characters.
+     * @param buf1 the first ByteBufferAssessor containing the UTF-8 encoded string
+     * @param begin1 the starting position of the first string in the buffer
+     * @param fullStrLength1 the full length of the first string in characters
+     * @param trimmedSize1 the size limit of the first string in bytes used for comparison
+     * @param buf2 the second ByteBufferAssessor containing the UTF-8 encoded string
+     * @param begin2 the starting position of the second string in the buffer
+     * @param fullStrLength2 the full length of the second string in characters
+     * @param trimmedSize2 the size limit of the second string in bytes used for comparison
+     * @return a negative integer if the first string is less than the second string,
+     *         zero if they are equal, or a positive integer if the first string is
+     *         greater than the second string. Returns 0 if either string is truncated
+     *         and the comparison is inconclusive.
      */
-    private static int compareAsciiSequences(
-            byte[] bytes,
-            int fullStrLength,
-            char[] cmpArray,
-            boolean ignoreCase
+    private static int fullUnicodeCompare(
+            ByteBufferAccessor buf1,
+            int begin1,
+            int fullStrLength1,
+            int trimmedSize1,
+            ByteBufferAccessor buf2,
+            int begin2,
+            int fullStrLength2,
+            int trimmedSize2
     ) {
-        int i = 0;
-        int remaining = Math.min(cmpArray.length, bytes.length);
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
 
-        while (i < remaining) {
-            byte b = bytes[i];
+        int[] idx1 = {0};
+        int[] idx2 = {0};
 
-            // Checking if it is an ASCII character.
-            if ((b & 0x80) != 0) {
-                return Integer.MIN_VALUE;
+        while (idx1[0] < remaining) {
+            int cp1 = getNextCodePoint(buf1, begin1, idx1, trimmedSize1);
+            int cp2 = getNextCodePoint(buf2, begin2, idx2, trimmedSize2);
+
+            if (cp1 == -1 || cp2 == -1) {
+                // Comparison is impossible because the string is truncated.
+                return 0;
             }
 
-            char v1 = (char) b;
-            char v2 = cmpArray[i];
-            i++;
+            char v1 = (char) cp1;
+            char v2 = (char) cp2;
 
             if (v1 != v2) {
-                if (ignoreCase) {
-                    char upper1 = Character.toUpperCase(v1);
-                    char upper2 = Character.toUpperCase(v2);
-                    if (upper1 != upper2) {
-                        return signum(upper1 - upper2);
-                    }
-                } else {
-                    return signum(v1 - v2);
-                }
+                return signum(v1 - v2);
             }
         }
 
-        if (fullStrLength > remaining && cmpArray.length > remaining) {
+        if (fullStrLength1 > remaining && fullStrLength2 > remaining) {
             // Comparison is not completed yet. Both strings have more characters.
             return 0;
         }
 
-        return signum(fullStrLength - cmpArray.length);
+        return fullStrLength1 == remaining && fullStrLength2 == remaining ? 0 : fullStrLength1 == remaining ? -1 : 1;
+    }
+
+    /**
+     * Compares two ASCII-encoded byte sequences from the provided buffers, starting at the specified positions,
+     * considering their lengths and an optional case-insensitive comparison mode.
+     * If either sequence contains non-ASCII characters, the method returns Integer.MIN_VALUE.
+     *
+     * @param buf1 the first ByteBufferAssessor containing the ASCII sequence
+     * @param begin1 the starting position of the first ASCII sequence in the buffer
+     * @param fullStrLength1 the full length of the first ASCII sequence in characters
+     * @param trimmedSize1 the size limit of the first sequence used for comparison
+     * @param buf2 the second ByteBufferAssessor containing the ASCII sequence
+     * @param begin2 the starting position of the second ASCII sequence in the buffer
+     * @param fullStrLength2 the full length of the second ASCII sequence in characters
+     * @param trimmedSize2 the size limit of the second sequence used for comparison
+     * @return a negative integer if the first sequence is less than the second sequence,
+     *         zero if they are equal, or a positive integer if the first sequence is greater.
+     *         If either sequence contains non-ASCII characters, returns Integer.MIN_VALUE.
+     *         If the comparison is inconclusive due to truncation, returns 0.
+     */
+    private static int compareAsciiSequences(
+            ByteBufferAccessor buf1,
+            int begin1,
+            int fullStrLength1,
+            int trimmedSize1,
+            ByteBufferAccessor buf2,
+            int begin2,
+            int fullStrLength2,
+            int trimmedSize2
+    ) {
+        int i = 0;
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        while (i + Long.BYTES < remaining) {
+            long w1 = buf1.getLong(begin1 + i);
+            long w2 = buf2.getLong(begin2 + i);
+
+            if (((w1 | w2) & 0x8080808080808080L) != 0) {
+                return Integer.MIN_VALUE;
+            }
+
+            if (w1 != w2) {
+                // Big endian comparison of 8 ASCII characters. None of the bytes have a sign bit set, so no masks required.
+                return Long.compare(Long.reverseBytes(w1), Long.reverseBytes(w2));
+            }
+
+            i += Long.BYTES;
+        }
+
+        while (i < remaining) {
+            byte b1 = buf1.get(begin1 + i);
+            byte b2 = buf2.get(begin2 + i);
+
+            // Checking if it is an ASCII character.
+            if ((b1 & 0x80) != 0 || (b2 & 0x80) != 0) {
+                return Integer.MIN_VALUE;
+            }
+
+            char v1 = (char) b1;
+            char v2 = (char) b2;
+
+            i++;
+
+            if (v1 != v2) {
+                return signum(v1 - v2);
+            }
+        }
+
+        if (fullStrLength1 > remaining && fullStrLength2 > remaining) {
+            // Comparison is not completed yet. Both strings have more characters.
+            return 0;
+        }
+
+        return signum(fullStrLength1 - fullStrLength2);
     }
 }

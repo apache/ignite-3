@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,8 +41,6 @@ import org.apache.ignite.internal.ConfigOverrides;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -177,9 +174,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
                 Set<String> nodeNames = new HashSet<>();
 
                 for (int j = 0; j < partCount; j++) {
-                    PartitionGroupId replicationGroupId = enabledColocation()
-                            ? new ZonePartitionId(tableImpl.zoneId(), j)
-                            : new TablePartitionId(tableImpl.tableId(), j);
+                    ZonePartitionId replicationGroupId = new ZonePartitionId(tableImpl.zoneId(), j);
 
                     Set<Assignment> nodes = unwrapIgniteImpl(node0)
                             .placementDriver()
@@ -196,9 +191,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             Set<String> nodeNames = new HashSet<>();
 
             for (int j = 0; j < partCount; j++) {
-                PartitionGroupId replicationGroupId = enabledColocation()
-                        ? new ZonePartitionId(tableImpl.zoneId(), j)
-                        : new TablePartitionId(tableImpl.tableId(), j);
+                ZonePartitionId replicationGroupId = new ZonePartitionId(tableImpl.zoneId(), j);
 
                 Set<Assignment> nodes = unwrapIgniteImpl(node0)
                         .placementDriver()
@@ -244,9 +237,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             Set<String> nodeNames = new HashSet<>();
 
             for (int j = 0; j < partCount; j++) {
-                PartitionGroupId replicationGroupId = enabledColocation()
-                        ? new ZonePartitionId(tableImpl.zoneId(), j)
-                        : new TablePartitionId(tableImpl.tableId(), j);
+                ZonePartitionId replicationGroupId = new ZonePartitionId(tableImpl.zoneId(), j);
 
                 Set<Assignment> nodes = unwrapIgniteImpl(node0)
                         .placementDriver()

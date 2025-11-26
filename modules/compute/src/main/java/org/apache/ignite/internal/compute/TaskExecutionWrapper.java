@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R> {
+class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
     private final TaskExecution<R> delegate;
 
     TaskExecutionWrapper(TaskExecution<R> delegate) {
@@ -72,5 +72,10 @@ class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>
     @Override
     public boolean marshalResult() {
         return delegate instanceof MarshallerProvider && ((MarshallerProvider<R>) delegate).marshalResult();
+    }
+
+    @Override
+    public long hybridTimestamp() {
+        return ((HybridTimestampProvider) delegate).hybridTimestamp();
     }
 }

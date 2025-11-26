@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using System.IO;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
@@ -32,10 +33,7 @@ namespace Apache.Ignite.Tests.Table
     public class RecordViewBinaryTests : IgniteTestsBase
     {
         [TearDown]
-        public async Task CleanTable()
-        {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(-1, 50).Select(x => GetTuple(x)));
-        }
+        public async Task CleanTable() => await Client.Sql.ExecuteScriptAsync($"DELETE FROM {Table.Name}");
 
         [Test]
         public async Task TestUpsertGet()
@@ -78,7 +76,7 @@ namespace Apache.Ignite.Tests.Table
         public void TestUpsertEmptyTupleThrowsException()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
-            StringAssert.Contains("Matching fields not found.", ex!.Message);
+            StringAssert.Contains("Key column 'KEY' not found in the provided tuple", ex!.Message);
         }
 
         [Test]
@@ -601,6 +599,34 @@ namespace Apache.Ignite.Tests.Table
         public void TestToString()
         {
             StringAssert.StartsWith("RecordView`1[IIgniteTuple] { Table = Table { Name = PUBLIC.TBL1, Id =", TupleView.ToString());
+        }
+
+        [Test]
+        [Platform("Linux")]
+        public async Task TestUpsertAllMany()
+        {
+            int count = 25_000;
+
+            var tuples = Enumerable.Range(0, count)
+                .Select(id => new IgniteTuple { [KeyCol] = (long)id, [ValCol] = $"test{id}" })
+                .ToList();
+
+            await TupleView.UpsertAllAsync(null, tuples);
+        }
+
+        [Test]
+        [Platform("Linux")]
+        public void TestUpsertAllBufferOverflow()
+        {
+            int count = 25;
+            string val = new string('x', 100_000_000);
+
+            var tuples = Enumerable.Range(0, count)
+                .Select(id => new IgniteTuple(2) { [KeyCol] = (long)id, [ValCol] = val })
+                .ToList();
+
+            var ex = Assert.ThrowsAsync<InternalBufferOverflowException>(async () => await TupleView.UpsertAllAsync(null, tuples));
+            Assert.AreEqual("Buffer can't be larger than 2147483591 bytes.", ex.Message);
         }
     }
 }

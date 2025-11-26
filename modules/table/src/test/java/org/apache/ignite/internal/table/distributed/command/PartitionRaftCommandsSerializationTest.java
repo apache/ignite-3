@@ -36,9 +36,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.raft.Command;
@@ -67,7 +70,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     /** Hybrid clock. */
-    private final HybridClockImpl clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     /** Key-value marshaller for tests. */
     private static KvMarshaller<TestKey, TestValue> kvMarshaller;
@@ -103,7 +106,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .partitionId(1)
                 .build();
 
-        UpdateCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+        UpdateCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .rowUuid(UUID.randomUUID())
@@ -127,7 +130,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .partitionId(1)
                 .build();
 
-        UpdateCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+        UpdateCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .rowUuid(UUID.randomUUID())
@@ -162,7 +165,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .partitionId(1)
                 .build();
 
-        var cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        var cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .messageRowsToUpdate(rowsToUpdate)
@@ -204,7 +207,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .partitionId(1)
                 .build();
 
-        var cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        var cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .messageRowsToUpdate(rowsToRemove)
@@ -225,9 +228,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testTxCleanupCommand() {
-        HybridClock clock = new HybridClockImpl();
-
-        WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .tableIds(Set.of(1))
@@ -244,7 +245,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testFinishTxCommand() {
-        HybridClock clock = new HybridClockImpl();
         ArrayList<ReplicationGroupIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {
@@ -254,7 +254,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .build());
         }
 
-        FinishTxCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
+        FinishTxCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommandV2()
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestamp(clock.now())
@@ -279,10 +279,10 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     private <T extends Command> T copyCommand(T cmd) {
         assertEquals(PartitionReplicationMessageGroup.GROUP_TYPE, cmd.groupType());
 
-        if (cmd instanceof FinishTxCommand) {
-            FinishTxCommand finishTxCommand = (FinishTxCommand) cmd;
+        if (cmd instanceof FinishTxCommandV2) {
+            FinishTxCommandV2 finishTxCommand = (FinishTxCommandV2) cmd;
 
-            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
+            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommandV2()
                     .txId(finishTxCommand.txId())
                     .commit(finishTxCommand.commit())
                     .partitions(finishTxCommand.partitions())
@@ -292,17 +292,17 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         } else if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
 
-            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                     .txId(writeIntentSwitchCommand.txId())
                     .commit(writeIntentSwitchCommand.commit())
                     .commitTimestamp(writeIntentSwitchCommand.commitTimestamp())
                     .tableIds(Set.of(1))
                     .initiatorTime(writeIntentSwitchCommand.initiatorTime())
                     .build();
-        } else if (cmd instanceof UpdateCommand) {
-            UpdateCommand updateCommand = (UpdateCommand) cmd;
+        } else if (cmd instanceof UpdateCommandV2) {
+            UpdateCommandV2 updateCommand = (UpdateCommandV2) cmd;
 
-            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                     .txId(updateCommand.txId())
                     .rowUuid(updateCommand.rowUuid())
                     .tableId(updateCommand.tableId())
@@ -311,10 +311,10 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txCoordinatorId(updateCommand.txCoordinatorId())
                     .initiatorTime(updateCommand.initiatorTime())
                     .build();
-        } else if (cmd instanceof UpdateAllCommand) {
-            UpdateAllCommand updateCommand = (UpdateAllCommand) cmd;
+        } else if (cmd instanceof UpdateAllCommandV2) {
+            UpdateAllCommandV2 updateCommand = (UpdateAllCommandV2) cmd;
 
-            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                     .txId(updateCommand.txId())
                     .messageRowsToUpdate(updateCommand.messageRowsToUpdate())
                     .tableId(updateCommand.tableId())

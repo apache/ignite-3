@@ -20,10 +20,12 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
@@ -82,8 +85,10 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -95,8 +100,8 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -132,7 +137,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
-    private final ClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
+    private final InternalClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
 
     @BeforeEach
     void setupMocks() {
@@ -145,7 +150,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+                .thenReturn(nullCompletedFuture());
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
@@ -177,7 +183,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
             }
 
             if (request instanceof ScanRetrieveBatchReplicaRequest) {
-                return completedFuture(List.of());
+                return emptyListCompletedFuture();
             }
 
             return nullCompletedFuture();
@@ -244,7 +250,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                colocationEnabled(),
+                new TableMetricSource(QualifiedName.fromSimple("test"))
         );
     }
 
@@ -316,8 +324,13 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 originalRows.get(4)
         );
 
+        List<RowBatch> partitionOrderBatch = new ArrayList<>();
+        partitionOrderBatch.add(rowBatchByPartitionId.get(0));
+        partitionOrderBatch.add(rowBatchByPartitionId.get(1));
+        partitionOrderBatch.add(rowBatchByPartitionId.get(2));
+
         assertThat(
-                collectRejectedRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values()),
+                collectRejectedRowsResponses(partitionOrderBatch),
                 willBe(equalTo(rejectedRows))
         );
     }
@@ -381,7 +394,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     private Map<ReplicationGroupId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
         ArgumentCaptor<Map<ReplicationGroupId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }
@@ -393,7 +406,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000
+                10_000,
+                colocationEnabled()
         );
     }
 
@@ -414,7 +428,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         DELETE_ALL((table, tx) -> table.deleteAll(List.of(createBinaryRow()), tx)),
         DELETE_ALL_EXACT((table, tx) -> table.deleteAllExact(List.of(createBinaryRow()), tx)),
         SCAN_MV_STORAGE(adaptScan((table, tx) -> table.scan(0, tx))),
-        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, null, null, 0, null)));
+        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, IndexScanCriteria.unbounded())));
 
         private final BiFunction<InternalTable, InternalTransaction, CompletableFuture<?>> action;
 

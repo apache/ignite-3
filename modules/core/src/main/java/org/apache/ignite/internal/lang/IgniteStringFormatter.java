@@ -108,13 +108,12 @@ public final class IgniteStringFormatter {
                     return sbuf.toString();
                 }
             } else {
-                if (isEscapedDelimeter(messagePattern, j)) {
+                if (isEscapedDelimiter(messagePattern, j)) {
                     if (!isDoubleEscaped(messagePattern, j)) {
                         l--; // DELIM_START was escaped, thus should not be incremented
 
-                        sbuf.append(messagePattern, i, j - 1);
-
-                        sbuf.append(DELIM_START);
+                        sbuf.append(messagePattern, i, j - 1)
+                                .append(DELIM_START);
 
                         i = j + 1;
                     } else {
@@ -150,7 +149,7 @@ public final class IgniteStringFormatter {
      * @param delimiterStartIndex Checked position.
      * @return True if the char is delimiter, false otherwise.
      */
-    private static boolean isEscapedDelimeter(String messagePattern, int delimiterStartIndex) {
+    private static boolean isEscapedDelimiter(String messagePattern, int delimiterStartIndex) {
         if (delimiterStartIndex == 0) {
             return false;
         }

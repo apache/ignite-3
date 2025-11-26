@@ -42,6 +42,11 @@ namespace Apache.Ignite
         public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
+        /// Default socket timeout.
+        /// </summary>
+        public static readonly TimeSpan DefaultOperationTimeout = Timeout.InfiniteTimeSpan;
+
+        /// <summary>
         /// Default heartbeat interval.
         /// </summary>
         public static readonly TimeSpan DefaultHeartbeatInterval = TimeSpan.FromSeconds(30);
@@ -117,7 +122,7 @@ namespace Apache.Ignite
         /// which case the operation timeout is applied to each individual network call.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
-        public TimeSpan OperationTimeout { get; set; } = Timeout.InfiniteTimeSpan;
+        public TimeSpan OperationTimeout { get; set; } = DefaultOperationTimeout;
 
         /// <summary>
         /// Gets endpoints to connect to.

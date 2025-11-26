@@ -26,6 +26,8 @@ plugins {
     alias(libs.plugins.setupbuilder)
 }
 
+apply from: "$rootDir/buildscripts/utils.gradle"
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -141,6 +143,7 @@ ospackage {
     user tokens.USERNAME
     packageDescription "This package will install Apache Ignite 3 ODBC driver"
     os LINUX
+    release getCommitNum()
 
     into(tokens.LIB_DIR) {
         from configurations.odbc

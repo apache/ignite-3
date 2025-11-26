@@ -17,9 +17,18 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
@@ -69,6 +78,10 @@ class ItJdbcAuthenticationTest {
                             + "            {\n"
                             + "              \"username\": \"usr\",\n"
                             + "              \"password\": \"pwd\"\n"
+                            + "            },\n"
+                            + "            {\n"
+                            + "              \"username\": \"admin\",\n"
+                            + "              \"password\": \"adm\"\n"
                             + "            }\n"
                             + "          ]\n"
                             + "        }\n"
@@ -96,5 +109,52 @@ class ItJdbcAuthenticationTest {
                 // No-op.
             }
         }
+
+        /**
+         * Tests that the current user can be retrieved correctly for different authenticated users.
+         */
+        @Test
+        void jdbcCurrentUser() throws SQLException {
+            CLUSTER.aliveNode().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+
+            String connString = "jdbc:ignite:thin://127.0.0.1:10800?username={}&password={}";
+            String user1 = "usr";
+            String user2 = "admin";
+
+            try (
+                    Connection conn1 = DriverManager.getConnection(format(connString, user1, "pwd"));
+                    Connection conn2 = DriverManager.getConnection(format(connString, user2, "adm"))
+            ) {
+                validateUsername(conn1, user1);
+                validateUsername(conn2, user2);
+            }
+        }
+    }
+
+    private static void validateUsername(Connection conn, String expectedUser) throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT CURRENT_USER")) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(expectedUser, rs.getString(1));
+                assertFalse(rs.next());
+            }
+        }
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(format("INSERT INTO t1 (id, val) VALUES ({}, CURRENT_USER)", expectedUser.hashCode()));
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(expectedUser, rs.getString(1));
+                assertFalse(rs.next());
+            }
+        }
+
+        DatabaseMetaData metaData = conn.getMetaData();
+        // URL should not include neither username nor password
+        assertEquals("jdbc:ignite:thin://127.0.0.1:10800", metaData.getURL());
+        assertEquals(expectedUser, metaData.getUserName());
     }
 }

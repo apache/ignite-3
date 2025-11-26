@@ -138,7 +138,7 @@ def buildDotNet = tasks.register('buildDotNet', Exec) {
     dependsOn copyPlatformsHeaders
     workingDir "$projectDir/dotnet"
 
-    commandLine "dotnet", "build", ".",
+    commandLine "dotnet", "publish", ".",
             "--configuration", "Release",
             "--output", "$buildDir/dotnet"
     "/p:Version=${project.version}"

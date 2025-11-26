@@ -131,7 +131,9 @@ public class JobLoadContextTests
         static PooledBuffer WriteReceiverInfo(string typeName, object arg)
         {
             var items = new object[] { "hello" };
-            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, arg, items, prefixSize: 4);
+            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object, object>(
+                typeName, arg, items, null, null, prefixSize: 4);
+
             Memory<byte> receiverInfoMem = receiverInfoBuilder.Build();
             BinaryPrimitives.WriteInt32LittleEndian(receiverInfoMem.Span, receiverInfoBuilder.NumElements);
 

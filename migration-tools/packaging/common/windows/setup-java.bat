@@ -45,7 +45,7 @@ exit /b 1
 
 :checkJdkVersion
 
-for /f "tokens=* USEBACKQ" %%f in (`%JAVA_EXE% -version 2^>^&1`) do (
+for /f "tokens=* USEBACKQ" %%f in (`"%JAVA_EXE%" -version 2^>^&1`) do (
     set JAVA_FULL_VER_STR=%%f
     goto :LoopEscape
 )

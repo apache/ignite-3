@@ -45,11 +45,10 @@ class InvalidDefinitionTest {
     void zone() {
         assertZoneBuilderNull(ZoneDefinition.Builder::partitions, 1, "Number of partitions");
         assertZoneBuilderNull(ZoneDefinition.Builder::replicas, 1, "Number of replicas");
+        assertZoneBuilderNull(ZoneDefinition.Builder::quorumSize, 1, "Quorum size");
 
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::distributionAlgorithm, "a", "Partition distribution algorithm");
 
-        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjust, 1,
-                "Timeout between node added or node left topology event itself and data nodes switch");
         assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleUp, 1,
                 "Timeout between node added topology event itself and data nodes switch");
         assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleDown, 1,

@@ -20,20 +20,14 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -45,8 +39,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteServer;
-import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -54,22 +46,16 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -85,107 +71,21 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
 
-    /** Cluster nodes. */
-    private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
-
-    /**
-     * Stops all started nodes.
-     */
-    @AfterEach
-    public void afterEach() throws Exception {
-        var closeables = new ArrayList<AutoCloseable>();
-
-        for (IgniteServer node : IGNITE_SERVERS) {
-            if (node != null) {
-                closeables.add(node::shutdown);
-            }
-        }
-
-        IgniteUtils.closeAll(closeables);
-
-        CLUSTER_NODES.clear();
-    }
-
-    /**
-     * Start node with the given parameters.
-     *
-     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
-     * @param nodeName Node name.
-     * @param cfgString Configuration string.
-     * @param workDir Working directory.
-     * @return Created node instance.
-     */
-    private static IgniteImpl startNode(int idx, String nodeName, @Nullable String cfgString, Path workDir) {
-        assertTrue(CLUSTER_NODES.size() == idx || CLUSTER_NODES.get(idx) == null);
-        assertTrue(IGNITE_SERVERS.size() == idx || IGNITE_SERVERS.get(idx) == null);
-
-        IgniteServer node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
-
-        IGNITE_SERVERS.add(idx, node);
-
-        if (CLUSTER_NODES.isEmpty()) {
-            InitParameters initParameters = InitParameters.builder()
-                    .metaStorageNodes(node)
-                    .clusterName("cluster")
-                    .build();
-
-            TestIgnitionManager.init(node, initParameters);
-        }
-
-        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
-
-        Ignite ignite = node.api();
-
-        CLUSTER_NODES.add(idx, ignite);
-
-        return unwrapIgniteImpl(ignite);
-    }
-
-    /**
-     * Start node with the given parameters.
-     *
-     * @param testInfo Test info.
-     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
-     * @return Created node instance.
-     */
-    private IgniteImpl startNode(TestInfo testInfo, int idx) {
-        int port = DEFAULT_NODE_PORT + idx;
-        String nodeName = testNodeName(testInfo, port);
-        String cfgString = configurationString(idx);
-
-        return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected void stopNode(int idx) {
-        IgniteServer node = IGNITE_SERVERS.get(idx);
-
-        if (node != null) {
-            node.shutdown();
-
-            CLUSTER_NODES.set(idx, null);
-            IGNITE_SERVERS.set(idx, null);
-        }
-    }
-
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
     @Test
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
-        IgniteImpl ignite = startNode(testInfo, 0);
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
+        IgniteImpl ignite = startNode(0);
+        startNode(1);
+        startNode(2);
 
         // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
-        PartitionGroupId replicationGroupId = enabledColocation()
-                ? new ZonePartitionId(table.zoneId(), 0)
-                : new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), 0);
 
         // Find the leader of the table's partition group.
         String leaderId = ignite.replicaManager()
@@ -205,7 +105,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Restart the node.
         stopNode(idxToStop);
 
-        IgniteImpl restartingNode = startNode(testInfo, idxToStop);
+        IgniteImpl restartingNode = startNode(idxToStop);
 
         log.info("Restarted node {}", restartingNode.name());
 
@@ -235,9 +135,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean solePartitionAssignmentsContain(IgniteImpl restartingNode, InternalTableImpl table, int partId) {
         String restartingNodeConsistentId = restartingNode.name();
 
-        PartitionGroupId replicationGroupId = enabledColocation()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partId);
 
         CompletableFuture<Replica> replicaFut = restartingNode.replicaManager().replica(replicationGroupId);
 
@@ -262,19 +160,11 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
         Predicate<RaftNodeId> predicate;
 
-        if (enabledColocation()) {
-            predicate = nodeId -> {
-                ReplicationGroupId groupId = nodeId.groupId();
+        predicate = nodeId -> {
+            ReplicationGroupId groupId = nodeId.groupId();
 
-                return groupId instanceof ZonePartitionId && ((ZonePartitionId) groupId).zoneId() == table.zoneId();
-            };
-        } else {
-            predicate = nodeId -> {
-                ReplicationGroupId groupId = nodeId.groupId();
-
-                return groupId instanceof TablePartitionId && ((TablePartitionId) groupId).tableId() == table.tableId();
-            };
-        }
+            return groupId instanceof ZonePartitionId && ((ZonePartitionId) groupId).zoneId() == table.zoneId();
+        };
 
         return loza.localNodes().stream().anyMatch(predicate);
     }
@@ -286,9 +176,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     @Test
     public void inMemoryNodeRestartNoMajority(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
-        IgniteImpl ignite0 = startNode(testInfo, 0);
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
+        IgniteImpl ignite0 = startNode(0);
+        startNode(1);
+        startNode(2);
 
         // Create a table with replica on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
@@ -299,15 +189,15 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         stopNode(1);
         stopNode(2);
 
-        IgniteImpl restartingNode = startNode(testInfo, 1);
+        IgniteImpl restartingNode = startNode(1);
 
         Loza loza = restartingNode.raftManager();
 
         // Check that it restarts.
         assertTrue(waitForCondition(
                 () -> loza.localNodes().stream().anyMatch(nodeId -> {
-                    if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
+                    if (nodeId.groupId() instanceof ZonePartitionId) {
+                        return ((ZonePartitionId) nodeId.groupId()).zoneId() == table.zoneId();
                     }
 
                     return true;
@@ -325,9 +215,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     @Test
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
-        IgniteImpl ignite0 = startNode(testInfo, 0);
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
+        IgniteImpl ignite0 = startNode(0);
+        startNode(1);
+        startNode(2);
 
         // Create a table with replicas on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
@@ -338,9 +228,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         stopNode(1);
         stopNode(2);
 
-        startNode(testInfo, 0);
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
+        startNode(0);
+        startNode(1);
+        startNode(2);
 
         // Check that full partition restart happens.
         for (int i = 0; i < 3; i++) {
@@ -348,8 +238,8 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
             assertTrue(waitForCondition(
                     () -> loza.localNodes().stream().anyMatch(nodeId -> {
-                        if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
+                        if (nodeId.groupId() instanceof ZonePartitionId) {
+                            return ((ZonePartitionId) nodeId.groupId()).zoneId() == table.zoneId();
                         }
 
                         return true;
@@ -414,7 +304,8 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
-        return CLUSTER_NODES.stream()
+        return IGNITE_SERVERS.stream()
+                .map(s -> unwrapIgniteImpl(s.api()))
                 .allMatch(igniteNode -> tableHasAnyData(unwrapTableViewInternal(igniteNode.tables().table(name)), partitions));
     }
 
@@ -430,6 +321,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static IgniteImpl ignite(int idx) {
-        return unwrapIgniteImpl(CLUSTER_NODES.get(idx));
+        return unwrapIgniteImpl(IGNITE_SERVERS.get(idx).api());
     }
 }

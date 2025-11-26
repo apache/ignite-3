@@ -33,9 +33,9 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
@@ -263,12 +263,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         List<BinaryTupleMessage> rows0 = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
-            BinaryTuple tuple = handler.toBinaryTuple(row);
-
             rows0.add(
                     TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                            .elementCount(tuple.elementCount())
-                            .tuple(tuple.byteBuffer())
+                            .elementCount(handler.columnCount(row))
+                            .tuple(handler.toByteBuffer(row))
                             .build()
             );
         }
@@ -357,12 +355,14 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (nodeName.equals(context().originatingNodeName())) {
+    /** Notifies the outbox that provided node has left the cluster. */
+    public void onNodeLeft(InternalClusterNode node, long version) {
+        Long topologyVersion = context().topologyVersion();
+        if (topologyVersion != null && topologyVersion > version) {
+            return; // Ignore outdated event.
+        }
+
+        if (node.id().equals(context().originatingNodeId())) {
             this.execute(this::close);
         }
     }

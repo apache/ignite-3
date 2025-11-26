@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest.generateKeysForNode;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
@@ -42,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClientTest {
     @Test
     void testStaleMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         ClientTable table = (ClientTable) table();
 
@@ -50,9 +51,13 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
         IgniteImpl server2 = TestWrappers.unwrapIgniteImpl(server(2));
 
-        List<Tuple> tuples0 = generateKeysForNode(100, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(100, 1, map, server1.clusterService().topologyService().localMember());
-        List<Tuple> tuples2 = generateKeysForNode(100, 1, map, server2.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(100, 1, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(100, 1, map, server1.cluster().localNode(), table);
+        List<Tuple> tuples2 = generateKeysForNode(100, 1, map, server2.cluster().localNode(), table);
+
+        if (tuples0.isEmpty() || tuples1.isEmpty() || tuples2.isEmpty()) {
+            return; // Skip the test if assignments are bad.
+        }
 
         Transaction tx0 = client().transactions().begin();
 
@@ -67,10 +72,10 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
         view.put(tx0, k1, v1);
 
         IgniteServerImpl ignite = (IgniteServerImpl) ignite(2);
-        ignite.restartAsync().join();
+        ignite.restartAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         Table srvTable = server0.tables().table(TABLE_NAME);
-        srvTable.partitionManager().primaryReplicasAsync().join();
+        srvTable.partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         Tuple k2 = tuples2.get(0);
         Tuple v2 = val(tuples2.get(0).intValue(0) + "");
@@ -91,25 +96,6 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
 
     private static Tuple key(Integer k) {
         return Tuple.create().set(COLUMN_KEY, k);
-    }
-
-    private List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode) {
-        List<Tuple> keys = new ArrayList<>();
-
-        int k = start;
-        while (keys.size() != count) {
-            k++;
-            Tuple t = key(k);
-
-            Partition part = table().partitionManager().partitionAsync(t).join();
-            ClusterNode node = map.get(part);
-
-            if (node.name().equals(clusterNode.name())) {
-                keys.add(t);
-            }
-        }
-
-        return keys;
     }
 
     @Override

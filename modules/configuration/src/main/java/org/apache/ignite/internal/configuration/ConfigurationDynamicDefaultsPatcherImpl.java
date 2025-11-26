@@ -44,7 +44,6 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
      */
     private final ConfigurationTreeGenerator generator;
 
-
     public ConfigurationDynamicDefaultsPatcherImpl(
             ConfigurationModule configurationModule,
             ConfigurationTreeGenerator generator

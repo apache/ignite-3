@@ -47,7 +47,7 @@ enum SyncApiOperation {
     IGNITE_TRANSACTIONS(refs -> refs.ignite.transactions()),
     IGNITE_SQL(refs -> refs.ignite.sql()),
     IGNITE_COMPUTE(refs -> refs.ignite.compute()),
-    IGNITE_CLUSTER_NODES(refs -> refs.ignite.clusterNodes()),
+    IGNITE_CLUSTER_NODES(refs -> refs.ignite.cluster().nodes()),
     IGNITE_CATALOG(refs -> refs.ignite.catalog()),
 
     TABLES_TABLES(refs -> refs.tables.tables()),

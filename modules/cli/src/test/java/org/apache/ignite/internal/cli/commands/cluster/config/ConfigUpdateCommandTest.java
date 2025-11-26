@@ -66,7 +66,8 @@ class ConfigUpdateCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required parameter: '<args>'")
+                () -> assertErrOutputContains("Failed to parse config content. "
+                        + "Please, specify config file or provide config content directly.")
         );
     }
 

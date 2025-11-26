@@ -278,7 +278,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -370,7 +370,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -466,7 +466,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -565,7 +565,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -657,7 +657,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -753,7 +753,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -1588,22 +1588,6 @@ public class ConfigurationListenerTest {
     }
 
     @Test
-    void testNotifyCurrentConfigurationListeners() throws Exception {
-        AtomicBoolean invokeListener = new AtomicBoolean();
-
-        config.listen(configListener(ctx -> {
-            invokeListener.set(true);
-
-            assertNull(ctx.oldValue());
-            assertNotNull(ctx.newValue());
-        }));
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertTrue(invokeListener.get());
-    }
-
-    @Test
     void testIncreaseNotificationCount() throws Exception {
         long notificationCount = registry.notificationCount();
 
@@ -1612,10 +1596,6 @@ public class ConfigurationListenerTest {
         config.child().str().update(randomUuid()).get(1, SECONDS);
 
         assertEquals(notificationCount + 1, registry.notificationCount());
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test
@@ -1628,10 +1608,6 @@ public class ConfigurationListenerTest {
         config.child().str().update(currentValue).get(1, SECONDS);
 
         assertEquals(notificationCount + 1, registry.notificationCount());
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test

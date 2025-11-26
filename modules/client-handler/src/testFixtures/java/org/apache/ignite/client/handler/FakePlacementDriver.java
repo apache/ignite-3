@@ -52,7 +52,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private boolean returnError;
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
@@ -128,6 +128,12 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             HybridTimestamp clusterTimeToAwait
     ) {
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
+    }
+
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+        return failedFuture(new UnsupportedOperationException("awaitNonEmptyAssignments() is not supported in FakePlacementDriver yet."));
     }
 
     public List<ReplicaMeta> primaryReplicas() {

@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.tx.ClientTransactionComm
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -35,19 +36,20 @@ public class ClientTransactionRollbackRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
+     * @param in Unpacker.
      * @param resources Resources.
-     * @param metrics   Metrics.
+     * @param metrics Metrics.
      * @param igniteTables Tables facade.
      * @param enableDirectMapping Enable direct mapping.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             IgniteTablesInternal igniteTables,
-            boolean enableDirectMapping)
+            boolean enableDirectMapping
+    )
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
@@ -59,11 +61,6 @@ public class ClientTransactionRollbackRequest {
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();
-
-                if (in.tryUnpackNil()) { // Incomplete mapping.
-                    continue;
-                }
-
                 String consistentId = in.unpackString();
                 long token = in.unpackLong();
 
@@ -75,6 +72,10 @@ public class ClientTransactionRollbackRequest {
             }
         }
 
-        return tx.rollbackAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
+        return tx.rollbackAsync().handle((res, err) -> {
+            metrics.transactionsActiveDecrement();
+
+            return null;
+        });
     }
 }

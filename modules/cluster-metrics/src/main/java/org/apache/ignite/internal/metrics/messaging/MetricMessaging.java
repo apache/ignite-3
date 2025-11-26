@@ -45,11 +45,11 @@ import org.apache.ignite.internal.metrics.message.MetricEnableResponse;
 import org.apache.ignite.internal.metrics.message.MetricSourceDto;
 import org.apache.ignite.internal.metrics.message.MetricSourcesRequest;
 import org.apache.ignite.internal.metrics.message.MetricSourcesResponse;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -111,7 +111,7 @@ public class MetricMessaging implements IgniteComponent {
         return nullCompletedFuture();
     }
 
-    private void sendException(NetworkMessage message, ClusterNode sender, long correlationId, IgniteInternalException ex) {
+    private void sendException(NetworkMessage message, InternalClusterNode sender, long correlationId, IgniteInternalException ex) {
         if (message instanceof MetricEnableRequest) {
             sendEnableResponse(ex, sender, correlationId);
         } else if (message instanceof MetricDisableRequest) {
@@ -121,7 +121,7 @@ public class MetricMessaging implements IgniteComponent {
         }
     }
 
-    private void processRequest(NetworkMessage message, ClusterNode sender, long correlationId) {
+    private void processRequest(NetworkMessage message, InternalClusterNode sender, long correlationId) {
         if (message instanceof MetricEnableRequest) {
             processEnableRequest((MetricEnableRequest) message, sender, correlationId);
         } else if (message instanceof MetricDisableRequest) {
@@ -131,7 +131,7 @@ public class MetricMessaging implements IgniteComponent {
         }
     }
 
-    private void processEnableRequest(MetricEnableRequest request, ClusterNode sender, long correlationId) {
+    private void processEnableRequest(MetricEnableRequest request, InternalClusterNode sender, long correlationId) {
         try {
             metricManager.enable(request.sourceName());
             sendEnableResponse(null, sender, correlationId);
@@ -140,7 +140,7 @@ public class MetricMessaging implements IgniteComponent {
         }
     }
 
-    private void sendEnableResponse(@Nullable Throwable ex, ClusterNode sender, long correlationId) {
+    private void sendEnableResponse(@Nullable Throwable ex, InternalClusterNode sender, long correlationId) {
         MetricEnableResponse enableResponse = messagesFactory.metricEnableResponse()
                 .throwable(ex)
                 .build();
@@ -148,7 +148,7 @@ public class MetricMessaging implements IgniteComponent {
         respond(sender, enableResponse, correlationId);
     }
 
-    private void processDisableRequest(MetricDisableRequest request, ClusterNode sender, long correlationId) {
+    private void processDisableRequest(MetricDisableRequest request, InternalClusterNode sender, long correlationId) {
         try {
             metricManager.disable(request.sourceName());
             sendDisableResponse(null, sender, correlationId);
@@ -157,7 +157,7 @@ public class MetricMessaging implements IgniteComponent {
         }
     }
 
-    private void sendDisableResponse(@Nullable Throwable ex, ClusterNode sender, long correlationId) {
+    private void sendDisableResponse(@Nullable Throwable ex, InternalClusterNode sender, long correlationId) {
         MetricDisableResponse disableResponse = messagesFactory.metricDisableResponse()
                 .throwable(ex)
                 .build();
@@ -165,7 +165,7 @@ public class MetricMessaging implements IgniteComponent {
         respond(sender, disableResponse, correlationId);
     }
 
-    private void processSourcesRequest(ClusterNode sender, long correlationId) {
+    private void processSourcesRequest(InternalClusterNode sender, long correlationId) {
         List<MetricSourceDto> sources = metricManager.metricSources().stream()
                 .map(source -> new MetricSourceDto(source.name(), source.enabled()))
                 .collect(toList());
@@ -175,7 +175,7 @@ public class MetricMessaging implements IgniteComponent {
     private void sendSourcesResponse(
             @Nullable Collection<MetricSourceDto> sources,
             @Nullable Throwable ex,
-            ClusterNode sender,
+            InternalClusterNode sender,
             long correlationId
     ) {
         MetricSourcesResponse disableResponse = messagesFactory.metricSourcesResponse()
@@ -196,7 +196,7 @@ public class MetricMessaging implements IgniteComponent {
         return broadcastAsync(node -> remoteMetricEnableAsync(node, sourceName));
     }
 
-    private CompletableFuture<Void> remoteMetricEnableAsync(ClusterNode remoteNode, String sourceName) {
+    private CompletableFuture<Void> remoteMetricEnableAsync(InternalClusterNode remoteNode, String sourceName) {
         MetricEnableRequest metricEnableRequest = messagesFactory.metricEnableRequest()
                 .sourceName(sourceName)
                 .build();
@@ -219,7 +219,7 @@ public class MetricMessaging implements IgniteComponent {
         return broadcastAsync(node -> remoteMetricDisableAsync(node, sourceName));
     }
 
-    private CompletableFuture<Void> remoteMetricDisableAsync(ClusterNode remoteNode, String sourceName) {
+    private CompletableFuture<Void> remoteMetricDisableAsync(InternalClusterNode remoteNode, String sourceName) {
         MetricDisableRequest metricDisableRequest = messagesFactory.metricDisableRequest()
                 .sourceName(sourceName)
                 .build();
@@ -239,7 +239,7 @@ public class MetricMessaging implements IgniteComponent {
      * @return The future which will be completed with the map from the node consistent id to the list of the metric sources for this node.
      */
     public CompletableFuture<Map<String, Collection<MetricSourceDto>>> broadcastMetricSourcesAsync() {
-        List<ClusterNode> allMembers = new ArrayList<>(topologyService.allMembers());
+        List<InternalClusterNode> allMembers = new ArrayList<>(topologyService.allMembers());
         //noinspection unchecked
         CompletableFuture<Collection<MetricSourceDto>>[] futures = allMembers.stream()
                 .map(this::remoteMetricSourcesAsync)
@@ -249,14 +249,14 @@ public class MetricMessaging implements IgniteComponent {
                 .thenApply(sources -> {
                     Map<String, Collection<MetricSourceDto>> result = new HashMap<>();
                     for (int i = 0; i < allMembers.size(); i++) {
-                        ClusterNode node = allMembers.get(i);
+                        InternalClusterNode node = allMembers.get(i);
                         result.put(node.name(), sources.get(i));
                     }
                     return result;
                 });
     }
 
-    private CompletableFuture<Collection<MetricSourceDto>> remoteMetricSourcesAsync(ClusterNode remoteNode) {
+    private CompletableFuture<Collection<MetricSourceDto>> remoteMetricSourcesAsync(InternalClusterNode remoteNode) {
         return invoke(remoteNode, messagesFactory.metricSourcesRequest().build())
                 .thenCompose(response -> sourcesFromSourcesResponse((MetricSourcesResponse) response));
     }
@@ -272,7 +272,7 @@ public class MetricMessaging implements IgniteComponent {
      * @param request Function which maps a node to the request future.
      * @return The future which will be completed when request is processed.
      */
-    private CompletableFuture<Void> broadcastAsync(Function<ClusterNode, CompletableFuture<Void>> request) {
+    private CompletableFuture<Void> broadcastAsync(Function<InternalClusterNode, CompletableFuture<Void>> request) {
         CompletableFuture<?>[] futures = topologyService.allMembers().stream()
                 .map(request)
                 .toArray(CompletableFuture[]::new);
@@ -280,11 +280,11 @@ public class MetricMessaging implements IgniteComponent {
         return allOf(futures);
     }
 
-    private CompletableFuture<NetworkMessage> invoke(ClusterNode remoteNode, NetworkMessage msg) {
+    private CompletableFuture<NetworkMessage> invoke(InternalClusterNode remoteNode, NetworkMessage msg) {
         return messagingService.invoke(remoteNode.name(), msg, NETWORK_TIMEOUT_MILLIS);
     }
 
-    private void respond(ClusterNode sender, NetworkMessage msg, long correlationId) {
+    private void respond(InternalClusterNode sender, NetworkMessage msg, long correlationId) {
         messagingService.respond(sender.name(), msg, correlationId);
     }
 }

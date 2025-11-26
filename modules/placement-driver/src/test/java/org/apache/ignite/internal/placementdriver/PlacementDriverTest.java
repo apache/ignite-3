@@ -18,8 +18,12 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
@@ -53,8 +57,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -62,7 +65,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
@@ -80,11 +83,9 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -100,15 +101,17 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
-
-    private final PartitionGroupId group1 = replicationGroupId(1000, 0);
+    private final ZonePartitionId group1 = new ZonePartitionId(1_000, 0);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
     private static final UUID LEASEHOLDER_ID_1 = randomUUID();
 
-    private static final ClusterNode FAKE_NODE = new ClusterNodeImpl(LEASEHOLDER_ID_1, LEASEHOLDER_1, mock(NetworkAddress.class));
+    private static final InternalClusterNode FAKE_NODE = new ClusterNodeImpl(
+            LEASEHOLDER_ID_1,
+            LEASEHOLDER_1,
+            mock(NetworkAddress.class)
+    );
 
     private final Lease leaseFrom1To5000 = new Lease(
             LEASEHOLDER_1,
@@ -143,18 +146,18 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             group1
     );
 
-    private static final String NODE_A_CONSITIENT_ID = "A";
+    private static final String NODE_A_CONSISTENT_ID = "A";
 
-    private static final String NODE_B_CONSITIENT_ID = "B";
+    private static final String NODE_B_CONSISTENT_ID = "B";
 
-    private static final String NODE_C_CONSITIENT_ID = "C";
+    private static final String NODE_C_CONSISTENT_ID = "C";
 
-    private static final Set<Assignment> ASSIGNMENTS_A = Set.of(forPeer(NODE_A_CONSITIENT_ID));
+    private static final Set<Assignment> ASSIGNMENTS_A = Set.of(forPeer(NODE_A_CONSISTENT_ID));
 
-    private static final Set<Assignment> ASSIGNMENTS_AB = Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID));
+    private static final Set<Assignment> ASSIGNMENTS_AB = Set.of(forPeer(NODE_A_CONSISTENT_ID), forPeer(NODE_B_CONSISTENT_ID));
 
     private static final Set<Assignment> ASSIGNMENTS_ABC =
-            Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID), forPeer(NODE_C_CONSITIENT_ID));
+            Set.of(forPeer(NODE_A_CONSISTENT_ID), forPeer(NODE_B_CONSISTENT_ID), forPeer(NODE_C_CONSISTENT_ID));
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
 
@@ -174,11 +177,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private long assignmentsTimestamp;
 
     @Nullable
-    private ClusterNode leaseholder;
-
-    private PartitionGroupId replicationGroupId(int objectId, int partId) {
-        return enabledColocation ? new ZonePartitionId(objectId, partId) : new TablePartitionId(objectId, partId);
-    }
+    private InternalClusterNode leaseholder;
 
     @BeforeEach
     void setUp() {
@@ -680,7 +679,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 false,
                 true,
                 null,
-                replicationGroupId(groupId.objectId() + 1, groupId.partitionId() + 1)
+                new ZonePartitionId(groupId.objectId() + 1, groupId.partitionId() + 1)
         );
 
         publishLeases(lease, neighborGroupLease);
@@ -876,20 +875,17 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private void publishStableAssignments(Set<Assignment> assignments) {
-        ByteArray key = enabledColocation ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) group1)
-                : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) group1);
+        ByteArray key = stablePartAssignmentsKey(group1);
         publishAssignments(key, Assignments.toBytes(assignments, assignmentsTimestamp));
     }
 
     private void publishPendingAssignments(Set<Assignment> assignments) {
-        ByteArray key = enabledColocation ? ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) group1)
-                : RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) group1);
+        ByteArray key = pendingPartAssignmentsQueueKey(group1);
         publishAssignments(key, AssignmentsQueue.toBytes(Assignments.of(assignments, assignmentsTimestamp)));
     }
 
     private void publishPlannedAssignments(Set<Assignment> assignments) {
-        ByteArray key = enabledColocation ? ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) group1)
-                : RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) group1);
+        ByteArray key = plannedPartAssignmentsKey(group1);
         publishAssignments(key, Assignments.toBytes(assignments, assignmentsTimestamp));
     }
 
@@ -924,20 +920,35 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore, new ClusterNodeResolver() {
+        var clusterNodeResolver = new ClusterNodeResolver() {
             @Override
-            public @Nullable ClusterNode getByConsistentId(String consistentId) {
+            public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
                 return leaseholder;
             }
 
             @Override
-            public @Nullable ClusterNode getById(UUID id) {
+            public @Nullable InternalClusterNode getById(UUID id) {
                 return leaseholder;
             }
-        }, clockService);
+        };
+
+        return new LeaseTracker(
+                metastore,
+                clusterNodeResolver,
+                clockService,
+                zoneId -> completedFuture(Set.of("A")),
+                id -> null,
+                new SystemPropertiesNodeProperties()
+        );
     }
 
     private AssignmentsTracker createAssignmentsPlacementDriver() {
-        return new AssignmentsTracker(metastore, mock(FailureProcessor.class));
+        return new AssignmentsTracker(
+                metastore,
+                mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of("A")),
+                zoneId -> null
+        );
     }
 }

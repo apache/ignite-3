@@ -17,16 +17,19 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
+import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.HAS_OPTIONS;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -37,33 +40,32 @@ public class ClientTupleContainsAllKeysRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
-     * @param resources Resource registry.
-     * @param txManager Transaction manager.
+     * @param in           Unpacker.
+     * @param tables       Ignite tables.
+     * @param resources    Resource registry.
+     * @param txManager    Transaction manager.
+     * @param clockService Clock service.
+     * @param tsTracker    Tracker.
+     * @param supportsOptions {@code True} if supports tx options.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            HybridTimestampTracker tsTracker,
+            boolean supportsOptions
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false, null);
-            return readTuples(in, table, true).thenCompose(keyTuples -> table
-                    .recordView()
-                    .containsAllAsync(tx, keyTuples)
-                    .thenAccept(containsAll -> {
-                        writeTxMeta(out, clockService, tx);
-                        out.packInt(table.schemaView().lastKnownSchemaVersion());
-                        out.packBoolean(containsAll);
-                    })
-            );
-        });
+        EnumSet<RequestOptions> options = supportsOptions ? of(KEY_ONLY, HAS_OPTIONS) : of(KEY_ONLY);
+
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options)
+                .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())
+                        .thenApply(containsAll -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req);
+                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
+                            out.packBoolean(containsAll);
+                        }));
     }
 }

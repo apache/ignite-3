@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.sql.engine.rel.logical;
 
 import java.util.List;
@@ -24,7 +23,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +41,7 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
             @Nullable List<String> names,
             @Nullable List<RexNode> projections,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet reqColumns
+            @Nullable ImmutableIntList reqColumns
     ) {
         super(cluster, traitSet, hints, table, names, projections, condition, reqColumns);
     }
@@ -66,7 +65,7 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
             @Nullable List<String> names,
             @Nullable List<RexNode> projections,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         return new IgniteLogicalSystemViewScan(cluster, traits, hints, table, names, projections, condition, requiredColumns);
     }
@@ -76,6 +75,12 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
     public IgniteLogicalSystemViewScan withHints(List<RelHint> hintList) {
         return new IgniteLogicalSystemViewScan(getCluster(), getTraitSet(), hintList, getTable(),
                 names, projects, condition, requiredColumns);
+    }
+
+    @Override
+    protected IgniteLogicalSystemViewScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteLogicalSystemViewScan(getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
     }
 
     /** {@inheritDoc} */

@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.network.netty;
 
 import java.util.UUID;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Wrapper for the received network message.
@@ -30,7 +30,7 @@ public class InNetworkObject {
     /** Message. */
     private final NetworkMessage message;
 
-    private final ClusterNode sender;
+    private final InternalClusterNode sender;
 
     private final short connectionIndex;
 
@@ -38,7 +38,7 @@ public class InNetworkObject {
     private final DescriptorRegistry registry;
 
     /** Constructor. */
-    public InNetworkObject(NetworkMessage message, ClusterNode sender, short connectionIndex, DescriptorRegistry registry) {
+    public InNetworkObject(NetworkMessage message, InternalClusterNode sender, short connectionIndex, DescriptorRegistry registry) {
         this.message = message;
         this.sender = sender;
         this.connectionIndex = connectionIndex;
@@ -55,9 +55,9 @@ public class InNetworkObject {
     }
 
     /**
-     * Returns a {@link ClusterNode} representing the sender.
+     * Returns a {@link InternalClusterNode} representing the sender.
      */
-    public ClusterNode sender() {
+    public InternalClusterNode sender() {
         return sender;
     }
 

@@ -48,17 +48,16 @@ import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStor
 import org.apache.ignite.internal.processors.query.QuerySchema;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.marshaller.MarshallerUtils;
 
 /**
  * This is a lazy version of the {@link GridCacheProcessor}.
- * <p>
- *     This class does not start all the caches automatically during startup.
- *     Instead, it blocks the CacheRecoveryLifecycle of the underlying {@link GridCacheProcessor}.
- *     {@link DynamicCacheDescriptor}s can be explicitly loaded using {@link #cacheDescriptor(String)} or {@link #loadAllDescriptors()}.
- *     Caches must be started explicitly using {@link #startCache(DynamicCacheDescriptor)}.
- * </p>
- * Important: This is not a fully featured {@link GridCacheProcessor}, it should only be used with caution in the context of a migration.
+ *
+ * <p>This class does not start all the caches automatically during startup.
+ * Instead, it blocks the CacheRecoveryLifecycle of the underlying {@link GridCacheProcessor}.
+ * {@link DynamicCacheDescriptor}s can be explicitly loaded using {@link #cacheDescriptor(String)} or {@link #loadAllDescriptors()}.
+ * Caches must be started explicitly using {@link #startCache(DynamicCacheDescriptor)}.
+ *
+ * <p>Important: This is not a fully featured {@link GridCacheProcessor}, it should only be used with caution in the context of a migration.
  */
 public class MigrationCacheProcessor extends GridCacheProcessor {
 
@@ -162,7 +161,6 @@ public class MigrationCacheProcessor extends GridCacheProcessor {
 
         return registerNewCache(discoData, ctx.localNodeId(), cacheJoinInfo);
     }
-
 
     @Override
     public DynamicCacheDescriptor cacheDescriptor(String name) {
@@ -279,7 +277,7 @@ public class MigrationCacheProcessor extends GridCacheProcessor {
             throw new UncheckedIOException(e);
         }
 
-        var marshaller = MarshallerUtils.jdkMarshaller(ctx.igniteInstanceName());
+        var marshaller = ctx.marshallerContext().jdkMarshaller();
         var cfg = ctx.config();
         return Stream.concat(Stream.of(directCfgPath), grpCandidates)
                 .filter(path -> Files.exists(path) && !Files.isDirectory(path))

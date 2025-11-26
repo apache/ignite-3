@@ -40,8 +40,8 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.persistence.FastCrc;
 import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
+import org.apache.ignite.internal.util.FastCrc;
 import org.jetbrains.annotations.Nullable;
 
 /**

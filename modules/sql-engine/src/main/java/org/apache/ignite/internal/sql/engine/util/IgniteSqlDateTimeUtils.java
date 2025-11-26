@@ -28,6 +28,7 @@ import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +55,69 @@ public class IgniteSqlDateTimeUtils {
 
         // After adjusting to UTC, you need to make sure that the value matches the allowed values.
         return IgniteSqlFunctions.toTimestampLtzExact(timestamp - offset);
+    }
+
+    /** Returns the timestamp value truncated to the specified fraction of a second. */
+    @Contract("null, _ -> null")
+    public static @Nullable Long adjustTimestampMillis(@Nullable Long timestamp, int fractionOfSecond) {
+        if (timestamp == null) {
+            return null;
+        }
+
+        assert fractionOfSecond >= 0;
+
+        long unit;
+
+        switch (fractionOfSecond) {
+            case 0:
+                unit = 1000;
+                break;
+
+            case 1:
+                unit = 100;
+                break;
+
+            case 2:
+                unit = 10;
+                break;
+
+            default:
+                return timestamp;
+        }
+
+        return timestamp - Math.floorMod(timestamp, unit);
+    }
+
+    /** Returns the time value truncated to the specified fraction of a second. */
+    @Contract("null, _ -> null")
+    public static @Nullable Integer adjustTimeMillis(@Nullable Integer time, int fractionOfSecond) {
+        if (time == null) {
+            return null;
+        }
+
+        assert time >= 0 : time;
+        assert fractionOfSecond >= 0;
+
+        int unit;
+
+        switch (fractionOfSecond) {
+            case 0:
+                unit = 1000;
+                break;
+
+            case 1:
+                unit = 100;
+                break;
+
+            case 2:
+                unit = 10;
+                break;
+
+            default:
+                return time;
+        }
+
+        return time - (time % unit);
     }
 
     /**
@@ -233,6 +297,24 @@ public class IgniteSqlDateTimeUtils {
             return d * DateTimeUtils.MILLIS_PER_DAY + t;
         } catch (NumberFormatException e) {
             throw invalidType("TIMESTAMP", s, e);
+        }
+    }
+
+    /** Returns a flag indicating whether the year field of a datetime literal value is less than 10000. */
+    public static boolean isYearOutOfRange(String value) {
+        int pos = value.indexOf('-');
+
+        if (pos < 1) {
+            return true;
+        }
+
+        try {
+            String yearString = value.substring(0, pos);
+            long year = Long.parseLong(yearString);
+
+            return year > 9999;
+        } catch (NumberFormatException ignore) {
+            return true;
         }
     }
 

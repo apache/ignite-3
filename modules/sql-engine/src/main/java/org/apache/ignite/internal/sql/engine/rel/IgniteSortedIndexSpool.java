@@ -35,11 +35,12 @@ import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 
 /**
  * Relational operator that returns the sorted contents of a table and allow to lookup rows by specified bounds.
  */
-public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements IgniteRel {
+public class IgniteSortedIndexSpool extends AbstractIgniteSpool {
     private static final String REL_TYPE_NAME = "SortedIndexSpool";
 
     private final RelCollation collation;
@@ -96,9 +97,14 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Ignit
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(condition);
+        RexNode condition0 = shuttle.apply(condition);
+        List<SearchBounds> searchBounds0 = RexUtils.processSearchBounds(shuttle, searchBounds);
 
-        return super.accept(shuttle);
+        if (condition0 == condition && searchBounds0 == searchBounds) {
+            return this;
+        }
+
+        return new IgniteSortedIndexSpool(getCluster(), getTraitSet(), getInput(), collation(), condition0, searchBounds0);
     }
 
     /**

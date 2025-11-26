@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
@@ -109,6 +109,38 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     /** Returns indexed columns. */
     public List<CatalogIndexColumnDescriptor> columns() {
         return columns;
+    }
+
+    @Override
+    @SuppressWarnings("removal")
+    public CatalogSortedIndexDescriptor upgradeIfNeeded(CatalogTableDescriptor table) {
+        if (columns.isEmpty() || columns.get(0).name() == null) {
+            return this;
+        }
+
+        assert tableId() == table.id();
+
+        List<CatalogIndexColumnDescriptor> upgradedColumns = new ArrayList<>(columns.size());
+        for (CatalogIndexColumnDescriptor indexColumn : columns) {
+            String columnName = indexColumn.name();
+
+            assert columnName != null;
+
+            CatalogTableColumnDescriptor column = table.column(columnName);
+
+            assert column != null : columnName;
+
+            upgradedColumns.add(
+                    new CatalogIndexColumnDescriptor(
+                            column.id(),
+                            indexColumn.collation()
+                    )
+            );
+        }
+
+        return new CatalogSortedIndexDescriptor(
+                id(), name(), tableId(), unique(), status(), upgradedColumns, updateTimestamp(), isCreatedWithTable()
+        );
     }
 
     @Override

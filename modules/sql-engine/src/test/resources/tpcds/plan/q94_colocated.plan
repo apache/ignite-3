@@ -1,0 +1,129 @@
+Sort
+    collation: [order count ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedSortAggregate
+      fieldNames: [order count, total shipping cost, total net profit]
+      collation: []
+      group: []
+      aggregation: [COUNT(WS_ORDER_NUMBER), SUM(total shipping cost), SUM(total net profit)]
+      est: (rows=114166602536)
+    ColocatedSortAggregate
+        fieldNames: [WS_ORDER_NUMBER, total shipping cost, total net profit]
+        collation: [WS_ORDER_NUMBER ASC]
+        group: [WS_ORDER_NUMBER]
+        aggregation: [SUM(WS_EXT_SHIP_COST), SUM(WS_NET_PROFIT)]
+        est: (rows=114166602536)
+      Project
+          fieldNames: [WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+          projection: [WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+          est: (rows=570833012679)
+        Filter
+            predicate: IS NULL(i)
+            est: (rows=570833012679)
+          CorrelatedNestedLoopJoin
+              predicate: true
+              type: left
+              correlates: [$cor4]
+              est: (rows=2283332050716)
+            Project
+                fieldNames: [WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+                projection: [WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+                est: (rows=477742918)
+              CorrelatedNestedLoopJoin
+                  predicate: true
+                  type: inner
+                  correlates: [$cor5]
+                  est: (rows=477742918)
+                Sort
+                    collation: [WS_ORDER_NUMBER ASC]
+                    est: (rows=19943)
+                  Project
+                      fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+                      projection: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+                      est: (rows=19943)
+                    HashJoin
+                        predicate: =(WS_SHIP_ADDR_SK, CA_ADDRESS_SK)
+                        type: inner
+                        est: (rows=19943)
+                      HashJoin
+                          predicate: =(WS_WEB_SITE_SK, WEB_SITE_SK)
+                          type: inner
+                          est: (rows=59889)
+                        HashJoin
+                            predicate: =(WS_SHIP_DATE_SK, D_DATE_SK)
+                            type: inner
+                            est: (rows=179846)
+                          Exchange
+                              distribution: single
+                              est: (rows=719384)
+                            TableScan
+                                table: PUBLIC.WEB_SALES
+                                fieldNames: [WS_SHIP_DATE_SK, WS_SHIP_ADDR_SK, WS_WEB_SITE_SK, WS_WAREHOUSE_SK, WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+                                est: (rows=719384)
+                          Exchange
+                              distribution: single
+                              est: (rows=18262)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: SEARCH(D_DATE, Sarg[[1999-04-01..1999-05-31]])
+                                fieldNames: [D_DATE_SK, D_DATE]
+                                est: (rows=18262)
+                        Exchange
+                            distribution: single
+                            est: (rows=10)
+                          TableScan
+                              table: PUBLIC.WEB_SITE
+                              predicate: =(WEB_COMPANY_NAME, _UTF-8'pri')
+                              fieldNames: [WEB_SITE_SK, WEB_COMPANY_NAME]
+                              est: (rows=10)
+                      Exchange
+                          distribution: single
+                          est: (rows=16650)
+                        TableScan
+                            table: PUBLIC.CUSTOMER_ADDRESS
+                            predicate: =(CA_STATE, _UTF-8'NE')
+                            fieldNames: [CA_ADDRESS_SK, CA_STATE]
+                            est: (rows=16650)
+                Project
+                    fieldNames: []
+                    projection: []
+                    est: (rows=23955)
+                  ReduceHashAggregate
+                      fieldNames: [i]
+                      group: [i]
+                      aggregation: []
+                      est: (rows=23955)
+                    Exchange
+                        distribution: single
+                        est: (rows=23955)
+                      MapHashAggregate
+                          fieldNames: [i, _GROUP_ID]
+                          group: [i]
+                          aggregation: []
+                          est: (rows=23955)
+                        TableScan
+                            table: PUBLIC.WEB_SALES
+                            predicate: AND(=($cor5.WS_ORDER_NUMBER, WS_ORDER_NUMBER), <>($cor5.WS_WAREHOUSE_SK, WS_WAREHOUSE_SK))
+                            fieldNames: [i]
+                            projection: [true]
+                            est: (rows=119777)
+            ReduceHashAggregate
+                fieldNames: [i]
+                group: [i]
+                aggregation: []
+                est: (rows=4779)
+              Exchange
+                  distribution: single
+                  est: (rows=4779)
+                MapHashAggregate
+                    fieldNames: [i, _GROUP_ID]
+                    group: [i]
+                    aggregation: []
+                    est: (rows=4779)
+                  TableScan
+                      table: PUBLIC.WEB_RETURNS
+                      predicate: =($cor4.WS_ORDER_NUMBER, WR_ORDER_NUMBER)
+                      fieldNames: [i]
+                      projection: [true]
+                      est: (rows=23897)

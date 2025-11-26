@@ -18,13 +18,14 @@
 #pragma once
 
 #include "ignite/odbc/diagnostic/diagnosable.h"
+#include "ignite/common/detail/config.h"
 
 #include <string>
 
 namespace ignite {
 
 /** SSL Mode enum. */
-enum class ssl_mode {
+enum class ssl_mode_t {
     DISABLE = 0,
 
     REQUIRE = 1,
@@ -39,7 +40,7 @@ enum class ssl_mode {
  * @param dflt Default value to return on error.
  * @return Corresponding enum value.
  */
-[[nodiscard]] ssl_mode ssl_mode_from_string(const std::string &val, ssl_mode dflt = ssl_mode::UNKNOWN);
+[[nodiscard]] IGNITE_API ssl_mode_t ssl_mode_from_string(const std::string &val, ssl_mode_t dflt = ssl_mode_t::UNKNOWN);
 
 /**
  * Convert mode to string.
@@ -47,6 +48,6 @@ enum class ssl_mode {
  * @param val Value to convert.
  * @return String value.
  */
-[[nodiscard]] std::string to_string(ssl_mode val);
+[[nodiscard]] IGNITE_API std::string to_string(ssl_mode_t val);
 
 } // namespace ignite

@@ -26,5 +26,5 @@ import org.jetbrains.annotations.Nullable;
  */
 @FunctionalInterface
 public interface NotificationSender {
-    void sendNotification(@Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err);
+    void sendNotification(@Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err, long hybridTimestamp);
 }

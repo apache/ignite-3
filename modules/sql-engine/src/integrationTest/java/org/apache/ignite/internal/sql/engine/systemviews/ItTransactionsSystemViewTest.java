@@ -30,13 +30,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
@@ -84,7 +84,7 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
                 txs.add(transactions.beginWithPriority(false, priority));
             }
 
-            ClusterNode localMember = unwrapIgniteImpl(node).clusterService().topologyService().localMember();
+            InternalClusterNode localMember = unwrapIgniteImpl(node).clusterService().topologyService().localMember();
 
             nodeIdToName.put(localMember.id(), localMember.name());
         });

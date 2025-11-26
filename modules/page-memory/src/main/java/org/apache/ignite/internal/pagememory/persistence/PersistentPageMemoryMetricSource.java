@@ -50,13 +50,20 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
         return name;
     }
 
+    @Override
+    public @Nullable String group() {
+        return "storage";
+    }
+
     /**
      * Adds metric to the source.
      */
-    public synchronized void addMetric(Metric metric) {
+    public synchronized <T extends Metric> T addMetric(T metric) {
         assert !enabled : "Cannot add metrics when source is enabled";
 
         metrics.put(metric.name(), metric);
+
+        return metric;
     }
 
     @Override
@@ -67,7 +74,7 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
 
         enabled = true;
 
-        return new MetricSet(name, Map.copyOf(metrics));
+        return new MetricSet(name, description(), group(), Map.copyOf(metrics));
     }
 
     @Override

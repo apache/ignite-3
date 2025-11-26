@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -437,32 +436,7 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(Tuple rec) {
-        return PartitionAwarenessProvider.of((schema, coord) -> getColocationHash(schema, rec));
-    }
-
-    /**
-     * Gets partition awareness provider for the tuple collections.
-     *
-     * @param recs Tuples.
-     * @return Partition awareness provider.
-     */
-    public static PartitionAwarenessProvider getPartitionAwarenessProvider(Collection<Tuple> recs) {
-        return PartitionAwarenessProvider.of((schema, coord) -> {
-            Iterator<Tuple> iter = recs.iterator();
-            int hash = getColocationHash(schema, iter.next());
-
-            // For coordinator use first record for a placement hint.
-            if (coord) {
-                return hash;
-            }
-
-            // Temporary disable direct mapping for batches.
-            if (iter.hasNext()) {
-                return null;
-            }
-
-            return hash;
-        });
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
     }
 
     /**
@@ -471,33 +445,10 @@ public class ClientTupleSerializer {
      * @param rec Object.
      * @return Partition awareness provider.
      */
-    public static <T> PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, T rec) {
-        return PartitionAwarenessProvider.of((schema, coord) -> getColocationHash(schema, m, rec));
-    }
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, Object rec) {
+        assert !(rec instanceof Collection);
 
-    /**
-     * Gets partition awareness provider for the objects collection.
-     *
-     * @param recs Objects.
-     * @return Partition awareness provider.
-     */
-    public static <T> PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, Collection<T> recs) {
-        return PartitionAwarenessProvider.of((schema, coord) -> {
-            Iterator<T> iter = recs.iterator();
-            int hash = getColocationHash(schema, m, iter.next());
-
-            // For assign coordinator mode use first record for a placement hint.
-            if (coord) {
-                return hash;
-            }
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25348 Enable batch splitting for direct mappings.
-            if (iter.hasNext()) {
-                return null;
-            }
-
-            return hash;
-        });
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, m, rec));
     }
 
     /**

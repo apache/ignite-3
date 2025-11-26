@@ -19,7 +19,13 @@ package org.apache.ignite.internal.sql.metrics;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -34,18 +40,27 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test planning cache metrics.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
     private final MetricManager metricManager = new MetricManagerImpl();
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonExecutor;
 
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
@@ -61,8 +76,15 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(table);
 
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
+
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+
         PrepareService prepareService = new PrepareServiceImpl(
-                "test", 2, cacheFactory, null, 15_000L, 2, metricManager, new PredefinedSchemaManager(schema)
+                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),
+                clockService::currentLong, commonExecutor, producer
         );
 
         prepareService.start();
@@ -94,7 +116,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         await(prepareService.prepareAsync(parsedResult, ctx));
 
-        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlPlanCacheMetricSource.NAME);
+        MetricSet metricSet = metricManager.metricSnapshot().metrics().get(SqlPlanCacheMetricSource.NAME);
 
         assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString(), "Hits");
         assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString(), "Misses");

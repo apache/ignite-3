@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/migration-tools-integration-test.gradle"
 
 description = 'migration-tools-config-converter'
 
@@ -37,20 +38,14 @@ dependencies {
     testImplementation project(path: ":migration-tools-ignite3-repack", configuration: "shadow")
     testImplementation project(":migration-tools-commons-tests")
     testImplementation libs.assertj.core
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
     testImplementation libs.typesafe.config
 
     integrationTestImplementation testFixtures(project(":migration-tools-config-converter"))
     integrationTestImplementation project(":migration-tools-commons-tests")
     integrationTestImplementation libs.assertj.core
-    integrationTestImplementation libs.junit5.api
-    integrationTestImplementation libs.junit5.params
     integrationTestImplementation libs.testcontainers.core
     integrationTestImplementation libs.testcontainers.junit
 
     testFixturesImplementation libs.commons.lang3
     testFixturesImplementation libs.typesafe.config
 }
-
-tasks.integrationTest.dependsOn += ":packaging:docker"

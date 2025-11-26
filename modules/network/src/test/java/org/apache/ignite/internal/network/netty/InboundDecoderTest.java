@@ -36,14 +36,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.network.AllTypesMessageGenerator;
+import org.apache.ignite.internal.network.NaiveMessageFormat;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.apache.ignite.internal.network.messages.NestedMessageMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.serialization.MessageFormat;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
@@ -62,6 +64,8 @@ public class InboundDecoderTest extends BaseIgniteAbstractTest {
 
     /** Registry. */
     private final MessageSerializationRegistry registry = defaultSerializationRegistry();
+
+    private final MessageFormat messageFormat = new NaiveMessageFormat();
 
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported by direct marshalling.
@@ -99,9 +103,9 @@ public class InboundDecoderTest extends BaseIgniteAbstractTest {
     private <T extends NetworkMessage> T sendAndReceive(T msg) {
         var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
         var perSessionSerializationService = new PerSessionSerializationService(serializationService);
-        var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
+        var channel = new EmbeddedChannel(new InboundDecoder(messageFormat, perSessionSerializationService));
 
-        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        MessageWriter writer = messageFormat.writer(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
@@ -139,7 +143,7 @@ public class InboundDecoderTest extends BaseIgniteAbstractTest {
     public void testPartialHeader() throws Exception {
         var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
         var perSessionSerializationService = new PerSessionSerializationService(serializationService);
-        var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
+        var channel = new EmbeddedChannel(new InboundDecoder(messageFormat, perSessionSerializationService));
 
         ByteBuf buffer = allocator.buffer();
 
@@ -174,11 +178,11 @@ public class InboundDecoderTest extends BaseIgniteAbstractTest {
 
         var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
         var perSessionSerializationService = new PerSessionSerializationService(serializationService);
-        final var decoder = new InboundDecoder(perSessionSerializationService);
+        final var decoder = new InboundDecoder(messageFormat, perSessionSerializationService);
 
         final var list = new ArrayList<>();
 
-        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        MessageWriter writer = messageFormat.writer(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
 

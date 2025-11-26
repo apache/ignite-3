@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -96,7 +98,10 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static SystemDistributedConfiguration systemConfiguration;
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -153,6 +158,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
             raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
@@ -175,6 +181,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+
+            MetricManager metricManager = new NoOpMetricManager();
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     new SystemDisasterRecoveryStorage(vaultManager),
@@ -186,7 +195,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -216,8 +226,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
-                    systemConfiguration,
+                    metricManager,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );

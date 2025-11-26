@@ -27,7 +27,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-
 /** Tests for {@link StringDynamicCompleter}. */
 class StringDynamicCompleterTest {
     private static final Set<String> candidates = Set.of("node1", "node2", "remoteNode");

@@ -48,14 +48,6 @@ public abstract class DistributionFunction {
         return name = name0().intern();
     }
 
-    public boolean affinity() {
-        return false;
-    }
-
-    public static DistributionFunction affinity(int tableId, Object zoneId) {
-        return new AffinityDistribution(tableId, zoneId);
-    }
-
     /**
      * Get function name. This name used for equality checking and in {@link RelNode#getDigest()}.
      */
@@ -109,19 +101,6 @@ public abstract class DistributionFunction {
         return IdentityDistribution.INSTANCE;
     }
 
-    /**
-     * Satisfy.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static boolean satisfy(DistributionFunction f0, DistributionFunction f1) {
-        if (f0 == f1 || f0.name() == f1.name()) { // NOPMD.UseEqualsToCompareStrings
-            return true;
-        }
-
-        return f0 instanceof AffinityDistribution && f1 instanceof AffinityDistribution
-                && Objects.equals(((AffinityDistribution) f0).zoneId(), ((AffinityDistribution) f1).zoneId());
-    }
-
     private static final class AnyDistribution extends DistributionFunction {
         public static final DistributionFunction INSTANCE = new AnyDistribution();
 
@@ -173,47 +152,6 @@ public abstract class DistributionFunction {
         @Override
         public RelDistribution.Type type() {
             return RelDistribution.Type.HASH_DISTRIBUTED;
-        }
-
-    }
-
-    /**
-     * Affinity distribution.
-     */
-    public static final class AffinityDistribution extends HashDistribution {
-        private final int tableId;
-
-        private final Object zoneId;
-
-        /**
-         * Constructor.
-         *
-         * @param tableId Table ID.
-         * @param zoneId  Distribution zone ID.
-         */
-        private AffinityDistribution(int tableId, Object zoneId) {
-            this.zoneId = zoneId;
-            this.tableId = tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean affinity() {
-            return true;
-        }
-
-        public int tableId() {
-            return tableId;
-        }
-
-        public Object zoneId() {
-            return zoneId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected String name0() {
-            return "affinity[tableId=" + tableId + ", zoneId=" + zoneId + ']';
         }
     }
 

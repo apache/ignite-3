@@ -48,7 +48,7 @@ import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -376,6 +376,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
+    @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        sync(deleteAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
@@ -385,6 +390,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             return tbl.deleteAll(mapToBinary(keyRecs, schemaVersion, true), (InternalTransaction) tx)
                     .thenApply(rows -> wrapKeys(rows, schemaVersion));
         });
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -565,14 +575,14 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     }
 
     @Override
-    public <E, V, R, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R> receiver,
             Function<E, Tuple> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

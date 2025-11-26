@@ -30,18 +30,22 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Hash join converter.
  */
 public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJoin> {
-    private static final EnumSet<JoinRelType> TYPES_SUPPORTING_NON_EQUI_CONDITIONS = EnumSet.of(JoinRelType.INNER, JoinRelType.SEMI);
+    private static final EnumSet<JoinRelType> TYPES_SUPPORTING_NON_EQUI_CONDITIONS = EnumSet.of(
+            JoinRelType.INNER, JoinRelType.SEMI, JoinRelType.LEFT
+    );
 
     public static final RelOptRule INSTANCE = new HashJoinConverterRule();
 
@@ -62,7 +66,9 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
 
     /** Returns {@code true} if this rule can be applied to given join node, returns {@code false} otherwise. */
     public static boolean matches(LogicalJoin join) {
-        if (nullOrEmpty(join.analyzeCondition().pairs())) {
+        JoinInfo joinInfo = Commons.getNonStrictEquiJoinCondition(join);
+
+        if (nullOrEmpty(joinInfo.pairs())) {
             return false;
         }
 
@@ -78,8 +84,8 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
         }
 
         //noinspection RedundantIfStatement
-        if (!join.analyzeCondition().isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(join.getJoinType())) {
-            // Joins which emits unmatched left or right part requires special handling of `nonEquiCondition`
+        if (!joinInfo.isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(join.getJoinType())) {
+            // Joins which emits unmatched right part requires special handling of `nonEquiCondition`
             // on execution level. As of now it's known limitations.
             return false;
         }

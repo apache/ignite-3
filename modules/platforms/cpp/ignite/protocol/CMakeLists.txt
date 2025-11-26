@@ -20,9 +20,11 @@ project(ignite-protocol)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    sql/column_meta.cpp sql/column_meta.h
     bitset_span.h
     buffer_adapter.cpp buffer_adapter.h
     extension_types.h
+    heartbeat_timeout.h
     messages.cpp messages.h
     protocol_context.h
     protocol_version.cpp protocol_version.h

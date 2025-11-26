@@ -53,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SharedComputeUtils {
     private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
+            .filter(type -> type != ColumnType.STRUCT)
             .map(ColumnType::javaClass)
             .collect(Collectors.toUnmodifiableSet());
 
@@ -66,30 +67,48 @@ public class SharedComputeUtils {
      *
      * @return Data holder.
      */
-    @Nullable
     public static <T> ComputeJobDataHolder marshalArgOrResult(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
+        return marshalArgOrResult(obj, marshaller, null);
+    }
+
+    /**
+     * Marshals the job result using either provided marshaller if not {@code null} or depending on the type of the result either as a
+     * {@link Tuple}, a native type (see {@link ColumnType}) or a POJO. Wraps the marshalled data with the data type in the
+     * {@link ComputeJobDataHolder} to be unmarshalled on the client.
+     *
+     * @param obj Compute job result.
+     * @param marshaller Optional result marshaller.
+     * @param observableTimestamp Optional observable timestamp for the job result.
+     *
+     * @return Data holder.
+     */
+    public static <T> ComputeJobDataHolder marshalArgOrResult(
+            @Nullable T obj,
+            @Nullable Marshaller<T, byte[]> marshaller,
+            @Nullable Long observableTimestamp) {
         if (obj == null) {
-            return null;
+            return new ComputeJobDataHolder(NATIVE, null, observableTimestamp);
         }
 
         if (marshaller != null) {
             byte[] data = marshaller.marshal(obj);
             if (data == null) {
-                return null;
+                return new ComputeJobDataHolder(NATIVE, null, observableTimestamp);
             }
-            return new ComputeJobDataHolder(MARSHALLED_CUSTOM, data);
+
+            return new ComputeJobDataHolder(MARSHALLED_CUSTOM, data, observableTimestamp);
         }
 
         if (obj instanceof Tuple) {
             Tuple tuple = (Tuple) obj;
-            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple), observableTimestamp);
         }
 
         if (obj instanceof Collection) {
             Collection<?> col = (Collection<?>) obj;
 
             // Pack entire collection into a single binary blob, starting with the number of elements (4 bytes, little-endian).
-            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.writeTupleCollection(col);
+            BinaryTupleBuilder tupleBuilder = writeTupleCollection(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
 
@@ -98,22 +117,21 @@ public class SharedComputeUtils {
             resBuf.putInt(col.size());
             resBuf.put(binTupleBytes);
 
-            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr);
+            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr, observableTimestamp);
         }
-
 
         if (isNativeType(obj.getClass())) {
             // Builder with inline schema.
             // Value is represented by 3 tuple elements: type, scale, value.
             var builder = new BinaryTupleBuilder(3, 3, false);
             ClientBinaryTupleUtils.appendObject(builder, obj);
-            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()));
+            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()), observableTimestamp);
         }
 
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-23320
             Tuple tuple = toTuple(obj);
-            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple), observableTimestamp);
         } catch (PojoConversionException e) {
             throw new MarshallingException("Can't pack object: " + obj, e);
         }
@@ -131,8 +149,28 @@ public class SharedComputeUtils {
     public static <T> @Nullable T unmarshalArgOrResult(
             @Nullable ComputeJobDataHolder holder,
             @Nullable Marshaller<?, byte[]> marshaller,
-            @Nullable Class<?> resultClass) {
-        if (holder == null) {
+            @Nullable Class<?> resultClass
+    ) {
+        return unmarshalArgOrResult(holder, marshaller, resultClass, Thread.currentThread().getContextClassLoader());
+    }
+
+    /**
+     * Unmarshals the job argument or result.
+     *
+     * @param holder Data holder.
+     * @param marshaller Optional marshaller.
+     * @param resultClass Optional result class.
+     * @param classLoader Class loader to set before unmarshalling.
+     * @param <T> Type of the object.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalArgOrResult(
+            @Nullable ComputeJobDataHolder holder,
+            @Nullable Marshaller<?, byte[]> marshaller,
+            @Nullable Class<?> resultClass,
+            ClassLoader classLoader
+    ) {
+        if (holder == null || holder.data() == null) {
             return null;
         }
 
@@ -175,11 +213,7 @@ public class SharedComputeUtils {
                 if (marshaller == null) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Marshaller should be defined on the client");
                 }
-                try {
-                    return (T) marshaller.unmarshal(holder.data());
-                } catch (Exception ex) {
-                    throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
-                }
+                return unmarshalData(marshaller, classLoader, holder.data());
 
             case TUPLE_COLLECTION:
                 return (T) readTupleCollection(ByteBuffer.wrap(holder.data()).order(ByteOrder.LITTLE_ENDIAN));
@@ -214,6 +248,27 @@ public class SharedComputeUtils {
             throw new UnmarshallingException("Constructor is inaccessible", e);
         } catch (PojoConversionException e) {
             throw new UnmarshallingException("Can't unpack object", e);
+        }
+    }
+
+    /**
+     * Unmarshal raw data using custom marshaller. Sets the specified classloader to the thread's context.
+     *
+     * @param marshaller Marshaller.
+     * @param classLoader Class loader to set before unmarshalling.
+     * @param raw raw presentation of object.
+     * @param <T> Type of the object.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalData(Marshaller<?, byte[]> marshaller, ClassLoader classLoader, byte[] raw) {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(classLoader);
+            return (T) marshaller.unmarshal(raw);
+        } catch (Exception ex) {
+            throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
+        } finally {
+            Thread.currentThread().setContextClassLoader(contextClassLoader);
         }
     }
 

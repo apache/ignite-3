@@ -339,11 +339,11 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     @Test
     void readFieldsReadsAllPrimitiveTypesAndObjectsWrittenWithDefaultMarshalling() throws Exception {
         WithReadFields original = new WithReadFields();
-        original.byteVal = (byte) 101;
-        original.shortVal = (short) 102;
+        original.byteVal = 101;
+        original.shortVal = 102;
         original.intVal = 103;
         original.longVal = 104;
-        original.floatVal = (float) 105;
+        original.floatVal = 105;
         original.doubleVal = 106;
         original.charVal = 'z';
         original.booleanVal = true;

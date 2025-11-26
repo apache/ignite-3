@@ -170,7 +170,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-                LocalLocker locker0 = new LocalLocker(lockByRowId);
+                LocalLocker locker0 = new PersistentPageMemoryLocker();
 
                 checkpointTimeoutLock.checkpointReadLock();
 
@@ -274,7 +274,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         closure.update(lastCheckpointId, meta);
 
-        checkpointManager.markPartitionAsDirty(tableStorage.dataRegion(), tableStorage.getTableId(), partitionId);
+        checkpointManager.markPartitionAsDirty(
+                tableStorage.dataRegion(),
+                tableStorage.getTableId(),
+                partitionId,
+                meta.partitionGeneration()
+        );
     }
 
     @Override
@@ -505,6 +510,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexMetaTree,
                 gcQueue
         );
+
+        checkpointManager.addCheckpointListener(checkpointListener, tableStorage.dataRegion());
     }
 
     @Override
@@ -512,6 +519,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
+                () -> checkpointManager.removeCheckpointListener(checkpointListener),
                 localState.freeList()::close,
                 localState.versionChainTree()::close,
                 localState.indexMetaTree()::close,
@@ -547,6 +555,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return meta.estimatedSize();
     }
 
+    /**
+     * Returns a total number of allocated pages for the storage, including pages that are not in the memory currently.
+     */
+    public int pageCount() {
+        return meta.pageCount();
+    }
+
     @Override
     public void incrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.incrementEstimatedSize(lastCheckpointId));
@@ -555,5 +570,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void decrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
+    }
+
+    public int emptyDataPageCountInFreeList() {
+        return renewableState.freeList().emptyDataPages();
+    }
+
+    private class PersistentPageMemoryLocker extends LocalLocker {
+        private PersistentPageMemoryLocker() {
+            super(lockByRowId);
+        }
+
+        @Override
+        public boolean shouldRelease() {
+            return checkpointTimeoutLock.shouldReleaseReadLock();
+        }
     }
 }

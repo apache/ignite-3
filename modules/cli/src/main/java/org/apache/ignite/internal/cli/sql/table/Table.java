@@ -99,7 +99,7 @@ public class Table<T> {
             int columnCount = metaData.getColumnCount();
             List<String> ids = new ArrayList<>();
             for (int i = 1; i <= columnCount; i++) {
-                ids.add(metaData.getColumnName(i));
+                ids.add(metaData.getColumnLabel(i));
             }
             List<String> content = new ArrayList<>();
             while (resultSet.next()) {

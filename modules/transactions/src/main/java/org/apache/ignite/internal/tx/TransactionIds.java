@@ -77,7 +77,7 @@ public class TransactionIds {
 
     public static TxPriority priority(UUID txId) {
         int ordinal = (int) (txId.getLeastSignificantBits() & 1);
-        return TxPriority.values()[ordinal];
+        return TxPriority.fromOrdinal(ordinal);
     }
 
     private static long combine(int nodeId, TxPriority priority) {

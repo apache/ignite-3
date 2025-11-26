@@ -25,16 +25,18 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
  * of corresponding component and must be unregistered in case of component is destroyed or stopped. Metrics registry also
  * provides access to all enabled metrics through corresponding metrics sets. Metrics registry lifetime is equal to the node lifetime.
  */
-public class MetricRegistry {
+public class MetricRegistry implements MetricProvider, ManuallyCloseable {
     private final ReentrantLock lock = new ReentrantLock();
 
     /** Registered metric sources. */
@@ -44,7 +46,7 @@ public class MetricRegistry {
      * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
      * metric sets that are included into the snapshot, are changed dynamically.
      */
-    private volatile IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot = new IgniteBiTuple<>(emptyMap(), 0L);
+    private volatile MetricSnapshot metricSnapshot = new MetricSnapshot(emptyMap(), 0L);
 
     /**
      * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
@@ -109,7 +111,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    public MetricSet enable(MetricSource src) {
+    public @Nullable MetricSet enable(MetricSource src) {
         lock.lock();
 
         try {
@@ -134,7 +136,7 @@ public class MetricRegistry {
      * @return Metric set, or {@code null} if the metric set is already enabled.
      * @throws IllegalStateException If metric source with the given name doesn't exist.
      */
-    public MetricSet enable(final String srcName) {
+    public @Nullable MetricSet enable(String srcName) {
         lock.lock();
 
         try {
@@ -187,7 +189,7 @@ public class MetricRegistry {
      * @param srcName Metric source name.
      * @throws IllegalStateException If metric source with given name doesn't exist.
      */
-    public void disable(final String srcName) {
+    public void disable(String srcName) {
         lock.lock();
 
         try {
@@ -245,7 +247,7 @@ public class MetricRegistry {
     private void addMetricSet(String srcName, MetricSet metricSet) {
         assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
+        SortedMap<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
 
         metricSets.put(srcName, metricSet);
 
@@ -261,7 +263,7 @@ public class MetricRegistry {
     private void removeMetricSet(String srcName) {
         assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
+        SortedMap<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
 
         metricSets.remove(srcName);
 
@@ -273,21 +275,16 @@ public class MetricRegistry {
      *
      * @param metricSets New map of metric sets that should be saved to new version of metric snapshot.
      */
-    private void updateMetricSnapshot(Map<String, MetricSet> metricSets) {
+    private void updateMetricSnapshot(SortedMap<String, MetricSet> metricSets) {
         assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        IgniteBiTuple<Map<String, MetricSet>, Long> old = metricSnapshot;
+        MetricSnapshot old = metricSnapshot;
 
-        metricSnapshot = new IgniteBiTuple<>(unmodifiableMap(metricSets), old.get2() + 1);
+        metricSnapshot = new MetricSnapshot(unmodifiableMap(metricSets), old.version() + 1);
     }
 
-    /**
-     * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
-     * metric sets that are included into the snapshot, are changed dynamically.
-     *
-     * @return Metrics snapshot.
-     */
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
+    @Override
+    public MetricSnapshot snapshot() {
         return metricSnapshot;
     }
 
@@ -300,6 +297,17 @@ public class MetricRegistry {
         lock.lock();
         try {
             return List.copyOf(sources.values());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        lock.lock();
+
+        try {
+            sources.values().forEach(MetricSource::disable);
         } finally {
             lock.unlock();
         }

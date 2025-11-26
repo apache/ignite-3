@@ -17,163 +17,135 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
-import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL execute request.
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientSqlExecuteRequest {
     /**
      * Processes the request.
      *
      * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
-     * @param out Packer.
      * @param requestId Id of the request.
      * @param cancelHandles Registry of handlers. Request must register itself in this registry before switching to another thread.
      * @param sql SQL API.
      * @param resources Resources.
      * @param metrics Metrics.
+     * @param timestampTracker Server's view of latest seen by client time.
+     * @param sqlPartitionAwarenessSupported Denotes whether client supports partition awareness for SQL or not.
+     * @param sqlDirectTxMappingSupported Denotes whether client supports direct mapping of implicit transaction for SQL operations
+     *         for SQL or not.
+     * @param txManager Tx manager is used to start explicit transaction in case of transaction piggybacking, or to start remote
+     *         transaction in case of direct mapping.
+     * @param clockService Clock service is required to update observable time after execution of operation within a remote
+     *         transaction.
+     * @param notificationSender Notification sender is required to send acknowledge for underlying write operation within a remote
+     *         transaction.
+     * @param username Authenticated user name or {@code null} for unknown user.
      * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             Executor operationExecutor,
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             long requestId,
             Map<Long, CancelHandle> cancelHandles,
             QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics
+            ClientHandlerMetricSource metrics,
+            HybridTimestampTracker timestampTracker,
+            boolean sqlPartitionAwarenessSupported,
+            boolean sqlDirectTxMappingSupported,
+            TxManager txManager,
+            ClockService clockService,
+            NotificationSender notificationSender,
+            @Nullable String username,
+            boolean sqlMultistatementsSupported
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        return nullCompletedFuture().thenComposeAsync(none -> {
-            InternalTransaction tx = readTx(in, out, resources, null, null);
-            ClientSqlProperties props = new ClientSqlProperties(in);
-            String statement = in.unpackString();
-            Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
-
-            if (arguments == null) {
-                // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-                arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-            }
-
-            HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
-            HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
-
-            return executeAsync(
-                    tx,
-                    sql,
-                    tsUpdater,
-                    statement,
-                    cancelHandle.token(),
-                    props.pageSize(),
-                    props.toSqlProps(),
-                    () -> cancelHandles.remove(requestId),
-                    arguments
-            ).thenCompose(asyncResultSet -> {
-                out.meta(tsUpdater.get());
-
-                return writeResultSetAsync(out, resources, asyncResultSet, metrics);
-            });
-        }, operationExecutor);
-    }
-
-    private static CompletionStage<Void> writeResultSetAsync(
-            ClientMessagePacker out,
-            ClientResourceRegistry resources,
-            AsyncResultSet asyncResultSet,
-            ClientHandlerMetricSource metrics) {
-        boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
-
-        if (hasResource) {
-            try {
-                metrics.cursorsActiveIncrement();
-
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, metrics);
-
-                ClientResource resource = new ClientResource(
-                        clientResultSet,
-                        clientResultSet::closeAsync);
-
-                out.packLong(resources.put(resource));
-            } catch (IgniteInternalCheckedException e) {
-                return asyncResultSet
-                        .closeAsync()
-                        .thenRun(() -> {
-                            throw new IgniteInternalException(e.getMessage(), e);
-                        });
-            }
-        } else {
-            out.packNil(); // resourceId
+        if (sqlDirectTxMappingSupported && !in.unpackBoolean()) {
+            notificationSender = null;
         }
 
-        out.packBoolean(asyncResultSet.hasRowSet());
-        out.packBoolean(asyncResultSet.hasMorePages());
-        out.packBoolean(asyncResultSet.wasApplied());
-        out.packLong(asyncResultSet.affectedRows());
+        long[] resIdHolder = {0};
+        InternalTransaction tx = readTx(in, timestampTracker, resources, txManager, notificationSender, resIdHolder);
+        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementsSupported);
+        String statement = in.unpackString();
+        Object[] arguments = readArgsNotNull(in);
 
-        packMeta(out, asyncResultSet.metadata());
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        timestampTracker.update(clientTs);
 
-        // Pack first page.
-        if (asyncResultSet.hasRowSet()) {
-            packCurrentPage(out, asyncResultSet);
+        boolean includePartitionAwarenessMeta = sqlPartitionAwarenessSupported && in.unpackBoolean();
 
-            return hasResource
-                    ? nullCompletedFuture()
-                    : asyncResultSet.closeAsync();
-        } else {
-            return asyncResultSet.closeAsync();
-        }
+        return nullCompletedFuture().thenComposeAsync(none -> executeAsync(
+                tx,
+                sql,
+                timestampTracker,
+                statement,
+                cancelHandle.token(),
+                props.pageSize(),
+                props.toSqlProps().userName(username),
+                () -> cancelHandles.remove(requestId),
+                arguments
+        ).thenCompose(asyncResultSet ->
+                        ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, props.pageSize(),
+                                includePartitionAwarenessMeta, sqlDirectTxMappingSupported, sqlMultistatementsSupported, operationExecutor))
+                .thenApply(rsWriter -> out -> {
+                    if (tx != null) {
+                        writeTxMeta(out, timestampTracker, clockService, tx, resIdHolder[0]);
+                    }
+
+                    // write the rest of response
+                    rsWriter.write(out);
+                }), operationExecutor);
     }
 
-    private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
-        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
-        if (meta == null || meta.columns() == null) {
-            out.packInt(0);
-            return;
-        }
+    static Object[] readArgsNotNull(ClientMessageUnpacker in) {
+        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
-        ClientSqlCommon.packColumns(out, meta.columns());
+        // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+        return arguments == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : arguments;
     }
 
-    private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+    private static CompletableFuture<AsyncResultSetImpl<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
             HybridTimestampTracker timestampTracker,
@@ -185,11 +157,8 @@ public class ClientSqlExecuteRequest {
             @Nullable Object... arguments
     ) {
         try {
-            SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
-
-            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
-                        properties,
+            CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
+                        props,
                         timestampTracker,
                         (InternalTransaction) transaction,
                         token,
@@ -197,7 +166,7 @@ public class ClientSqlExecuteRequest {
                         arguments
                     )
                     .thenCompose(cur -> {
-                                cur.onClose().whenComplete((none, ignore) -> onComplete.run());
+                                doWhenAllCursorsComplete(cur, onComplete);
 
                                 return cur.requestNextAsync(pageSize)
                                         .thenApply(
@@ -220,5 +189,31 @@ public class ClientSqlExecuteRequest {
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
+    }
+
+    private static void doWhenAllCursorsComplete(AsyncSqlCursor<InternalSqlRow> cursor, Runnable action) {
+        List<CompletableFuture<?>> dependency = new ArrayList<>();
+        var cursorChainTraverser = new Function<AsyncSqlCursor<?>, CompletableFuture<AsyncSqlCursor<?>>>() {
+            @Override
+            public CompletableFuture<AsyncSqlCursor<?>> apply(AsyncSqlCursor<?> cursor) {
+                dependency.add(cursor.onClose());
+
+                if (cursor.hasNextResult()) {
+                    return cursor.nextResult().thenCompose(this);
+                }
+
+                return allOf(dependency)
+                        .thenRun(action)
+                        .thenApply(ignored -> cursor);
+            }
+        };
+
+        cursorChainTraverser
+                .apply(cursor)
+                .exceptionally(ex -> {
+                    action.run();
+
+                    return null;
+                });
     }
 }

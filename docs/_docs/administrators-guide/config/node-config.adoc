@@ -238,7 +238,7 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 |fileTransfer||File transfer configuration.|||
-|fileTransfer.chunkSizeBytes|1048576|Chunk size in bytes.| Yes | Yes | 1 - 1 - Integer.MAX_VALUE
+|fileTransfer.chunkSizeBytes|1048576|Chunk size in bytes.| Yes | Yes | 1 - Integer.MAX_VALUE
 |fileTransfer.maxConcurrentRequests|4|Maximum number of concurrent requests.| Yes | Yes | 1 - Integer.MAX_VALUE
 |fileTransfer.responseTimeoutMillis|10000|Node response timeout during file transfer.| Yes | Yes | 0 - inf
 |fileTransfer.threadPoolSize|8|File sender thread pool size.| Yes | Yes | 1 - Integer.MAX_VALUE
@@ -274,7 +274,7 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
 |shutdownQuietPeriodMillis|0| The period during node shutdown when Ignite ensures that no tasks are submitted for the before the node shuts itself down. If a task is submitted during this period, it is guaranteed to be accepted.| Yes | No | 0 - inf
 |shutdownTimeoutMillis|15000|The maximum amount of time until the node is shut down regardless of if new network messages were submitted during `shutdownQuietPeriodMillis`.| Yes | No | 0 - inf
 |ssl.ciphers| "" |List of ciphers to enable, comma-separated. Empty for automatic cipher selection.| Yes | Yes | TLS_AES_256_GCM_SHA384, etc. (standard cipher ids)
-|ssl.clientAuth| |Whether the SSL client authentication is enabled and whether it is mandatory.| Yes | Yes | non, optional, require
+|ssl.clientAuth| |Whether the SSL client authentication is enabled and whether it is mandatory.| Yes | Yes | none, optional, require
 |ssl.enabled|false|Defines if SSL is enabled for the node.| Yes | Yes | true, false
 |ssl.keyStore|| SSL keystore configuration.|||
 |keyStore.password|********|Keystore password.| Yes | Yes | A valid password
@@ -382,7 +382,7 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
 |httpToHttpsRedirection|false|Defines if requests to HTTP endpoint will be redirected to HTTPS.| Yes | Yes | true, false
 |port|10300|The port of the node's REST endpoint.| Yes | Yes | A valid port
 |ssl.ciphers|  |Explicitly set node SSL cipher.| Yes | Yes | See link:https://www.java.com/en/configure_crypto.html[acceptable values]
-|ssl.clientAuth| |Client authorization used by the node, if any.| Yes | Yes | non, optional, require
+|ssl.clientAuth| |Client authorization used by the node, if any.| Yes | Yes | none, optional, require
 |ssl.enabled|false|Defines if SSL is enabled for the node.| Yes | Yes | true, false
 |ssl.keyStore|| SSL keystore configuration.|||
 |keyStore.password|********|Keystore password.| Yes | Yes | A valid password
@@ -511,7 +511,7 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
 |======
 
 
-== System Configuration
+=== System Configuration
 
 This section describes internal properties, which are used by a number of Ignite components. Although you can edit these properties in the same way you edit all others - using the `node config update` CLI command - we suggest that you discuss the proposed changes with the Ignite support team. The properties can apply to a specific node - see below - or to the link:administrators-guide/config/cluster-config#system-configuration[cluster as a whole].
 
@@ -528,9 +528,9 @@ NOTE: Note that the property names are in `camelCase`.
       "partitionsLogPath" : "",
       "properties":[],
       "criticalWorkers" : {
-        "livenessCheckIntervalMillis" : 200,
-        "maxAllowedLagMillis" : 500,
-        "nettyThreadsHeartbeatIntervalMillis" : 100
+        "livenessCheckIntervalMillis" : 2000,
+        "maxAllowedLagMillis" : 5000,
+        "nettyThreadsHeartbeatIntervalMillis" : 1000
       }
     }
   }
@@ -546,12 +546,7 @@ NOTE: Note that the property names are in `camelCase`.
 |system.partitionsBasePath| The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
 |system.partitionsLogPath| The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | | Yes | Yes | Valid absolute path.
 |system.properties| System properties used by the Ignite components.| | Yes | Yes | A map of properties.
-|system.cmgPath| The path the cluster management group information is stored to. Only applicable if the node is part of CMG. By default, data is stored in `{IGNITE_HOME}/work/cmg`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
-|system.metastoragePath| The path the cluster meta information is stored to. Only applicable if the node is part of the metastorage group. By default, data is stored in `{IGNITE_HOME}/work/metastorage`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
-|system.partitionsBasePath| The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
-|system.partitionsLogPath| The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | | Yes | Yes | Valid absolute path.
-|system.properties| System properties used by the Ignite components.| | Yes | Yes | An array of properties.
-|system.criticalWorkers.livenessCheckIntervalMillis|200|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLagMillis)
-|system.criticalWorkers.maxAllowedLagMillis|500|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
-|system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis|100|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
+|system.criticalWorkers.livenessCheckIntervalMillis|2000|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLagMillis)
+|system.criticalWorkers.maxAllowedLagMillis|5000|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
+|system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis|1000|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
 |======

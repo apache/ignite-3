@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -138,7 +140,8 @@ public class OutgoingSnapshot {
      */
     private volatile boolean finishedTxData;
 
-    private volatile boolean closed = false;
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final AtomicBoolean closedGuard = new AtomicBoolean();
 
     /**
      * Creates a new instance.
@@ -274,15 +277,19 @@ public class OutgoingSnapshot {
     SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest request) {
         assert Objects.equals(request.id(), id) : "Expected id " + id + " but got " + request.id();
 
-        if (closed) {
+        if (!busyLock.enterBusy()) {
             return logThatAlreadyClosedAndReturnNull();
         }
 
-        PartitionSnapshotMeta meta = frozenMeta;
+        try {
+            PartitionSnapshotMeta meta = frozenMeta;
 
-        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+            assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+            return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Nullable
@@ -298,12 +305,20 @@ public class OutgoingSnapshot {
      */
     @Nullable
     SnapshotMvDataResponse handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
-        if (closed) {
+        if (!busyLock.enterBusy()) {
             return logThatAlreadyClosedAndReturnNull();
         }
 
+        try {
+            return handleSnapshotMvDataRequestInternal(request);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private SnapshotMvDataResponse handleSnapshotMvDataRequestInternal(SnapshotMvDataRequest request) {
         long totalBatchSize = 0;
-        List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
+        List<ResponseEntry> batch = new ArrayList<>();
 
         while (true) {
             acquireMvLock();
@@ -434,8 +449,7 @@ public class OutgoingSnapshot {
                 assert i == 0 : rowVersionsN2O;
 
                 transactionId = version.transactionId();
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
-                commitTableOrZoneId = version.commitTableOrZoneId();
+                commitTableOrZoneId = version.commitZoneId();
                 commitPartitionId = version.commitPartitionId();
             } else {
                 commitTimestamps[j++] = version.commitTimestamp().longValue();
@@ -460,10 +474,18 @@ public class OutgoingSnapshot {
      */
     @Nullable
     SnapshotTxDataResponse handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
-        if (closed) {
+        if (!busyLock.enterBusy()) {
             return logThatAlreadyClosedAndReturnNull();
         }
 
+        try {
+            return handleSnapshotTxDataRequestInternal(request);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private SnapshotTxDataResponse handleSnapshotTxDataRequestInternal(SnapshotTxDataRequest request) {
         List<IgniteBiTuple<UUID, TxMeta>> rows = new ArrayList<>();
 
         boolean finishedTxData = this.finishedTxData;
@@ -606,6 +628,12 @@ public class OutgoingSnapshot {
      * Closes the snapshot releasing the underlying resources.
      */
     public void close() {
+        if (!closedGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         if (!finishedTxData) {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
 
@@ -614,7 +642,5 @@ public class OutgoingSnapshot {
                 finishedTxData = true;
             }
         }
-
-        closed = true;
     }
 }

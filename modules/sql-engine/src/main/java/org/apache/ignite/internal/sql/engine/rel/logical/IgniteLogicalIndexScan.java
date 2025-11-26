@@ -23,7 +23,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
@@ -61,7 +61,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         IgniteTable tbl = table.unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
@@ -71,7 +71,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
             if (requiredColumns != null) {
-                Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+                Mappings.TargetMapping targetMapping = Commons.projectedMapping(
                         tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
                 RelCollation outputCollation = collation.apply(targetMapping);
 
@@ -83,7 +83,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             }
         } else if (index.type() == Type.SORTED) {
             if (requiredColumns != null) {
-                Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+                Mappings.TargetMapping targetMapping = Commons.projectedMapping(
                         tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
                 collation = collation.apply(targetMapping);
             }
@@ -116,7 +116,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet requiredCols
+            @Nullable ImmutableIntList requiredCols
     ) {
         super(cluster, traits, List.of(), tbl, idxName, type, names, proj, cond, searchBounds, requiredCols);
     }
@@ -126,7 +126,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             IgniteTable table,
             RelCollation collation,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (collation.getFieldCollations().isEmpty()) {
             return null;
@@ -146,7 +146,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             IgniteTable table,
             RelCollation collation,
             RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         return RexUtils.buildHashSearchBounds(
                 cluster,
@@ -155,6 +155,16 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 table.getRowType(Commons.typeFactory(cluster)),
                 requiredColumns
         );
+    }
+
+    @Override
+    protected IgniteLogicalIndexScan copy(
+            @Nullable List<RexNode> newProjects,
+            @Nullable RexNode newCondition,
+            @Nullable List<SearchBounds> newSearchBounds
+    ) {
+        return new IgniteLogicalIndexScan(getCluster(), getTraitSet(), getTable(), indexName(), type, names, newProjects, newCondition,
+                newSearchBounds, requiredColumns());
     }
 
     /** {@inheritDoc} */

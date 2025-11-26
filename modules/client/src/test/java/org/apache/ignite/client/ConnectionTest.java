@@ -138,7 +138,7 @@ public class ConnectionTest extends AbstractClientTest {
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
         try (TestServer testServer =
-                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false)) {
+                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, false, null)) {
 
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
@@ -166,7 +166,7 @@ public class ConnectionTest extends AbstractClientTest {
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
         try (TestServer testServer =
-                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false)) {
+                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, false, null)) {
 
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())

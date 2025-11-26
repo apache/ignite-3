@@ -37,7 +37,7 @@ import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.ReflectUtil;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
@@ -97,9 +97,9 @@ public class IgniteMdColumnOrigins implements MetadataHandler<ColumnOrigin> {
             }
         }
 
-        ImmutableBitSet requiredColumns = scan.requiredColumns();
+        ImmutableIntList requiredColumns = scan.requiredColumns();
         if (requiredColumns != null) {
-            Mapping trimming = Commons.trimmingMapping(table.getRowType().getFieldCount(), requiredColumns);
+            Mapping trimming = Commons.projectedMapping(table.getRowType().getFieldCount(), requiredColumns);
 
             outputColumn = trimming.getSourceOpt(outputColumn);
 

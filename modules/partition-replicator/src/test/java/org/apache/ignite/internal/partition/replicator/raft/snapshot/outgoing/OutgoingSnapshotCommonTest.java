@@ -110,6 +110,8 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         when(partitionAccess2.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 13L,
                 37L,
+                111L,
+                110L,
                 List.of("peer1:3000", "peer2:3000"),
                 List.of("learner1:3000", "learner2:3000"),
                 List.of("peer1:3000"),
@@ -160,7 +162,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSendOldConfigWhenItIsNotThere() {
         when(partitionAccess1.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
-                13L, 37L, List.of(), List.of(), null, null
+                13L, 37L, 111L, 110L, List.of(), List.of(), null, null
         ));
 
         snapshot.freezeScopeUnderMvLock();

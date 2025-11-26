@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.concurrent.ConcurrentHashMap.newKeySet;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -45,21 +44,21 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.ForkJoinWorkerThread;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -104,14 +103,14 @@ class CheckpointWorkflow {
      * Thread pool for {@link CheckpointListener} callbacks, when a read or write {@link #checkpointReadWriteLock lock} is taken, {@code
      * null} if it should run on a checkpoint thread.
      */
-    private final @Nullable ThreadPoolExecutor callbackListenerThreadPool;
+    private final @Nullable ExecutorService callbackListenerThreadPool;
 
     /**
      * Contains meta-page IDs for all partitions, that were explicitly marked dirty by {@link #markPartitionAsDirty(DataRegion, int, int)}.
      * Not required to be volatile, read/write is protected by a {@link #checkpointReadWriteLock}. Publication of the initial value should
      * be guaranteed by external user. {@link CheckpointManager}, in particular.
      */
-    private Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = new ConcurrentHashMap<>();
+    private Map<DataRegion<?>, Set<DirtyFullPageId>> dirtyPartitionsMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -135,7 +134,7 @@ class CheckpointWorkflow {
                 pool -> {
                     ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
 
-                    worker.setName(NamedThreadFactory.threadPrefix(igniteInstanceName, "checkpoint-pages-sorter") + worker.getPoolIndex());
+                    worker.setName(IgniteThread.threadPrefix(igniteInstanceName, "checkpoint-pages-sorter") + worker.getPoolIndex());
 
                     return worker;
                 },
@@ -144,13 +143,14 @@ class CheckpointWorkflow {
         );
 
         if (checkpointThreads > 1) {
-            callbackListenerThreadPool = new ThreadPoolExecutor(
+            callbackListenerThreadPool = Executors.newFixedThreadPool(
                     checkpointThreads,
-                    checkpointThreads,
-                    30_000,
-                    MILLISECONDS,
-                    new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
+                    IgniteCheckpointThreadFactory.create(
+                            igniteInstanceName,
+                            CHECKPOINT_RUNNER_THREAD_PREFIX + "-callback-listener",
+                            false,
+                            LOG
+                    )
             );
         } else {
             callbackListenerThreadPool = null;
@@ -180,10 +180,10 @@ class CheckpointWorkflow {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        Set<FullPageId> dirtyMetaPageIds = dirtyPartitionsMap.computeIfAbsent(dataRegion, unused -> newKeySet());
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
+        Set<DirtyFullPageId> dirtyMetaPageIds = dirtyPartitionsMap.computeIfAbsent(dataRegion, unused -> newKeySet());
 
-        dirtyMetaPageIds.add(new FullPageId(partitionMetaPageId(partitionId), groupId));
+        dirtyMetaPageIds.add(new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partitionGeneration));
     }
 
     /**
@@ -193,7 +193,7 @@ class CheckpointWorkflow {
      * @param curr Current checkpoint event info.
      * @param tracker Checkpoint metrics tracker.
      * @param updateHeartbeat Update heartbeat callback.
-     * @param onReleaseWriteLock Callback on write lock release.
+     * @param onBeforeWriteLockRelease Callback before write lock release.
      * @return Checkpoint collected info.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -202,7 +202,7 @@ class CheckpointWorkflow {
             CheckpointProgressImpl curr,
             CheckpointMetricsTracker tracker,
             Runnable updateHeartbeat,
-            Runnable onReleaseWriteLock
+            Runnable onBeforeWriteLockRelease
     ) throws IgniteInternalCheckedException {
         List<CheckpointListener> listeners = collectCheckpointListeners(dataRegions);
 
@@ -267,11 +267,13 @@ class CheckpointWorkflow {
 
             curr.transitTo(PAGES_SNAPSHOT_TAKEN);
         } finally {
+            // It must be called strictly before the release write lock, otherwise it can lead to a very rare race condition on updating
+            // the partition meta and writing it to disk, which can cause problems when restarting the partition.
+            onBeforeWriteLockRelease.run();
+
             checkpointReadWriteLock.writeUnlock();
 
             tracker.onWriteLockHoldEnd();
-
-            onReleaseWriteLock.run();
         }
 
         curr.transitTo(LOCK_RELEASED);
@@ -316,11 +318,7 @@ class CheckpointWorkflow {
             }
         }
 
-        if (chp.hasDelta()) {
-            chp.progress.pagesToWrite(null);
-
-            chp.progress.clearCounters();
-        }
+        chp.finishCheckpoint();
 
         for (CheckpointListener listener : collectCheckpointListeners(dataRegions)) {
             listener.afterCheckpointEnd(chp.progress);
@@ -376,17 +374,17 @@ class CheckpointWorkflow {
     private DataRegionsDirtyPages beginCheckpoint(CheckpointProgressImpl checkpointProgress) {
         assert checkpointReadWriteLock.isWriteLockHeldByCurrentThread();
 
-        Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = this.dirtyPartitionsMap;
+        Map<DataRegion<?>, Set<DirtyFullPageId>> dirtyPartitionsMap = this.dirtyPartitionsMap;
 
         this.dirtyPartitionsMap = new ConcurrentHashMap<>();
 
-        Collection<DataRegionDirtyPages<Collection<FullPageId>>> dataRegionsDirtyPages = new ArrayList<>(dataRegions.size());
+        Collection<DataRegionDirtyPages<Collection<DirtyFullPageId>>> dataRegionsDirtyPages = new ArrayList<>(dataRegions.size());
 
         // First, we iterate all regions that have dirty pages.
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress);
+            Collection<DirtyFullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress);
 
-            Set<FullPageId> dirtyMetaPageIds = dirtyPartitionsMap.remove(dataRegion);
+            Set<DirtyFullPageId> dirtyMetaPageIds = dirtyPartitionsMap.remove(dataRegion);
 
             if (dirtyMetaPageIds != null) {
                 // Merge these two collections. There should be no intersections.
@@ -397,7 +395,7 @@ class CheckpointWorkflow {
         }
 
         // Then we iterate regions that don't have dirty pages, but somehow have dirty partitions.
-        for (Entry<DataRegion<?>, Set<FullPageId>> entry : dirtyPartitionsMap.entrySet()) {
+        for (Entry<DataRegion<?>, Set<DirtyFullPageId>> entry : dirtyPartitionsMap.entrySet()) {
             PageMemory pageMemory = entry.getKey().pageMemory();
 
             assert pageMemory instanceof PersistentPageMemory;
@@ -416,14 +414,14 @@ class CheckpointWorkflow {
         int realPagesArrSize = 0;
 
         // Collects dirty pages into an array (then we will sort them) and collects dirty partitions.
-        for (DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
-            var pageIds = new FullPageId[dataRegionDirtyPages.dirtyPages.size()];
+        for (DataRegionDirtyPages<Collection<DirtyFullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
+            var pageIds = new DirtyFullPageId[dataRegionDirtyPages.dirtyPages.size()];
 
             var partitionIds = new HashSet<GroupPartitionId>();
 
             int pagePos = 0;
 
-            for (FullPageId dirtyPage : dataRegionDirtyPages.dirtyPages) {
+            for (DirtyFullPageId dirtyPage : dataRegionDirtyPages.dirtyPages) {
                 assert realPagesArrSize++ != dataRegionsDirtyPages.dirtyPageCount :
                         "Incorrect estimated dirty pages number: " + dataRegionsDirtyPages.dirtyPageCount;
 

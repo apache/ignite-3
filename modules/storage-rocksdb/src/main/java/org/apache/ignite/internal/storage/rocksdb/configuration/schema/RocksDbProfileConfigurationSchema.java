@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
@@ -28,12 +29,18 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
  */
 @PolymorphicConfigInstance("rocksdb")
 public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurationSchema {
-    /** Size of the rocksdb offheap cache. */
+    /**
+     * Size of the rocksdb offheap cache.
+     *
+     * <p>When set to {@link #UNSPECIFIED_SIZE}, its value will be equal to a maximum between 256 MiB and 20% of the total physical memory.
+     */
     @Value(hasDefault = true)
-    public long sizeBytes = 256 * 1024 * 1024;
+    @PublicName(legacyNames = "size")
+    public long sizeBytes = UNSPECIFIED_SIZE;
 
     /** Size of rocksdb write buffer. */
     @Value(hasDefault = true)
     @Range(min = 1)
+    @PublicName(legacyNames = "writeBufferSize")
     public long writeBufferSizeBytes = 64 * 1024 * 1024;
 }

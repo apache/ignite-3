@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.client.PartitionMapping;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -33,15 +37,33 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private final HybridTimestampTracker observableTimestamp;
+    private final long observableTimestamp;
 
     private final @Nullable TransactionOptions options;
+
+    private final EnumSet<ClientInternalTxOptions> txOptions;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
     ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
-        this.observableTimestamp = observableTimestamp;
+        this(observableTimestamp, options, EnumSet.noneOf(ClientInternalTxOptions.class));
+    }
+
+    /**
+     * Create a transaction with public and internal options.
+     *
+     * @param observableTimestamp The timestamp tracker.
+     * @param options Options.
+     * @param txOptions Internal tx options.
+     */
+    public ClientLazyTransaction(
+            HybridTimestampTracker observableTimestamp,
+            @Nullable TransactionOptions options,
+            @Nullable EnumSet<ClientInternalTxOptions> txOptions
+    ) {
+        this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;
+        this.txOptions = txOptions;
     }
 
     @Override
@@ -62,7 +84,7 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to commit.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::commitAsync);
@@ -86,15 +108,19 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::rollbackAsync);
     }
 
     @Override
-    public boolean isReadOnly() {
+    public final boolean isReadOnly() {
         return options != null && options.readOnly();
+    }
+
+    public long timeout() {
+        return options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
     }
 
     /**
@@ -135,41 +161,52 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @param tx Transaction.
      * @param ch Channel.
-     * @param sup Partition mapping supplier.
-     * @return Future that will be completed when the transaction is started.
+     *
+     * @return Future that will be completed when the transaction is started and first request flag.
      */
-    public static CompletableFuture<ClientTransaction> ensureStarted(
-            @Nullable Transaction tx,
-            ReliableChannel ch,
-            @Nullable Supplier<PartitionMapping> sup
+    public static IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
+            Transaction tx,
+            ReliableChannel ch
     ) {
-        if (tx == null) {
-            return nullCompletedFuture();
-        }
+        return ensureStarted(tx, ch, () -> ch.getChannelAsync(null));
+    }
 
+    /**
+     * Ensures that the underlying transaction is actually started on the server.
+     *
+     * @param tx Transaction.
+     * @param ch Channel.
+     * @param channelResolver Client channel resolver. {@code null} value means skipping explicit tx begin request.
+     *
+     * @return Future that will be completed when the transaction is started and first request flag.
+     */
+    public static IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
+            Transaction tx,
+            ReliableChannel ch,
+            @Nullable Supplier<CompletableFuture<ClientChannel>> channelResolver
+    ) {
         if (!(tx instanceof ClientLazyTransaction)) {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return ((ClientLazyTransaction) tx).ensureStarted(ch, sup);
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, channelResolver);
     }
 
-    private synchronized CompletableFuture<ClientTransaction> ensureStarted(
+    private synchronized IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
             ReliableChannel ch,
-            @Nullable Supplier<PartitionMapping> sup
+            @Nullable Supplier<CompletableFuture<ClientChannel>> channelResolver
     ) {
         var tx0 = tx;
 
         if (tx0 != null) {
-            return tx0;
+            return new IgniteBiTuple<>(tx0, false);
         }
 
-        @Nullable PartitionMapping pm = sup == null ? null : sup.get();
-
-        tx0 = ClientTransactions.beginAsync(ch, pm, options, observableTimestamp);
+        tx0 = channelResolver != null ? ClientTransactions.beginAsync(ch, options, observableTimestamp, channelResolver)
+                : new CompletableFuture<>();
         tx = tx0;
 
-        return tx0;
+        return new IgniteBiTuple<>(tx0, channelResolver == null);
     }
 
     /**
@@ -182,5 +219,13 @@ public class ClientLazyTransaction implements Transaction {
         assert tx0.isDone() : "Transaction is starting";
 
         return tx0.join();
+    }
+
+    public long observableTimestamp() {
+        return observableTimestamp;
+    }
+
+    @Nullable EnumSet<ClientInternalTxOptions> options() {
+        return txOptions;
     }
 }

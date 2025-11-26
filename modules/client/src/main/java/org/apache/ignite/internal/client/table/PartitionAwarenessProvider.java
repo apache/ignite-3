@@ -17,24 +17,21 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition awareness provider.
- * Represents 3 use cases:
- * 1. Partition awareness is enabled. Use hashFunc to determine partition.
- * 2. Transaction is used. Use specific channel.
- * 3. Null instance = No partition awareness and no transaction. Use any channel.
+ * Used to calculate a partition for a specific operation.
  */
 public class PartitionAwarenessProvider {
+    static PartitionAwarenessProvider NULL_PROVIDER = of((Integer) null);
+
     private final @Nullable Integer partition;
 
-    private final @Nullable BiFunction<ClientSchema, Boolean, Integer> hashFunc;
+    private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private PartitionAwarenessProvider(@Nullable BiFunction<ClientSchema, Boolean, Integer> hashFunc, @Nullable Integer partition) {
-        assert hashFunc != null ^ partition != null;
-
+    private PartitionAwarenessProvider(@Nullable Function<ClientSchema, Integer> hashFunc, @Nullable Integer partition) {
         this.hashFunc = hashFunc;
         this.partition = partition;
     }
@@ -43,7 +40,7 @@ public class PartitionAwarenessProvider {
         return new PartitionAwarenessProvider(null, partition);
     }
 
-    public static PartitionAwarenessProvider of(BiFunction<ClientSchema, Boolean, Integer> hashFunc) {
+    public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
         return new PartitionAwarenessProvider(hashFunc, null);
     }
 
@@ -51,11 +48,11 @@ public class PartitionAwarenessProvider {
         return partition;
     }
 
-    @Nullable Integer getObjectHashCode(ClientSchema schema, boolean coord) {
+    @Nullable Integer getObjectHashCode(ClientSchema schema) {
         if (hashFunc == null) {
-            throw new IllegalStateException("Partition awareness is not enabled. Check channel() first.");
+            return null;
         }
 
-        return hashFunc.apply(schema, coord);
+        return hashFunc.apply(schema);
     }
 }

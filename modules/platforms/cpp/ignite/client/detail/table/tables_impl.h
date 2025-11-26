@@ -17,11 +17,9 @@
 
 #pragma once
 
-#include <ignite/client/detail/cluster_connection.h>
-#include <ignite/client/detail/table/table_impl.h>
-#include <ignite/client/table/table.h>
+#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/table/table.h"
 
-#include <future>
 #include <memory>
 
 namespace ignite::detail {
@@ -47,13 +45,23 @@ public:
 
     /**
      * Gets a table by name.
-     * See Table::get_table_async() for details.
+     * See tables::get_table_async() for details.
      *
      * @param name Table name.
      * @param callback Callback.
      * @throw ignite_error In case of error while trying to send a request.
      */
     void get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback);
+
+    /**
+     * Gets a table by name.
+     * See tables::get_table_async() for details.
+     *
+     * @param name Table name.
+     * @param callback Callback.
+     * @throw ignite_error In case of error while trying to send a request.
+     */
+    void get_table_async(const qualified_name &name, ignite_callback<std::optional<table>> callback);
 
     /**
      * Gets all tables.

@@ -36,6 +36,8 @@ namespace Apache.Ignite.Tests
     using Internal.Proto.BinaryTuple;
     using Internal.Proto.MsgPack;
     using MessagePack;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
     using Network;
 
     /// <summary>
@@ -46,11 +48,11 @@ namespace Apache.Ignite.Tests
     {
         public const string Err = "Err!";
 
-        public const string ExistingTableName = "PUBLIC.TBL1";
+        public const string ExistingTableName = "TBL1";
 
-        public const string CompositeKeyTableName = "PUBLIC.TBL2";
+        public const string CompositeKeyTableName = "TBL2";
 
-        public const string CustomColocationKeyTableName = "PUBLIC.TBL3";
+        public const string CustomColocationKeyTableName = "TBL3";
 
         public const string GetDetailsJob = "get-details";
 
@@ -143,10 +145,19 @@ namespace Apache.Ignite.Tests
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
-            cfg ??= new IgniteClientConfiguration();
+            cfg ??= new IgniteClientConfiguration
+            {
+                OperationTimeout = TimeSpan.FromSeconds(2),
+                SocketTimeout = TimeSpan.FromSeconds(2)
+            };
 
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add(Endpoint);
+
+            if (cfg.LoggerFactory is NullLoggerFactory)
+            {
+                cfg.LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+            }
 
             return await IgniteClient.StartAsync(cfg);
         }

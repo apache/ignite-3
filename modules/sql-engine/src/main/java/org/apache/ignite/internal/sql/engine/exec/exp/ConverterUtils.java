@@ -191,6 +191,16 @@ public class ConverterUtils {
                 Expressions.constant(targetType.getScale()));
     }
 
+    private static Expression convertToTime(Expression operand, RelDataType targetType) {
+        assert targetType.getSqlTypeName() == SqlTypeName.TIME;
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                "toTimeExact",
+                operand,
+                Expressions.constant(targetType.getPrecision())
+        );
+    }
+
     private static Expression convertToDate(Expression operand, RelDataType targetType) {
         assert targetType.getSqlTypeName() == SqlTypeName.DATE;
         return Expressions.call(
@@ -214,7 +224,8 @@ public class ConverterUtils {
         return Expressions.call(
                 IgniteSqlFunctions.class,
                 methodName,
-                operand
+                operand,
+                Expressions.constant(targetType.getPrecision())
         );
     }
 
@@ -236,6 +247,10 @@ public class ConverterUtils {
 
         if (SqlTypeUtil.isTimestamp(targetType)) {
             return convertToTimestamp(operand, targetType);
+        }
+
+        if (targetType.getSqlTypeName() == SqlTypeName.TIME) {
+            return convertToTime(operand, targetType);
         }
 
         return convert(operand, Commons.typeFactory().getJavaClass(targetType));
@@ -316,8 +331,7 @@ public class ConverterUtils {
             return Expressions.call(UUID.class, "fromString", operand);
         }
 
-        var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
-        return toCustomType != null ? toCustomType : EnumUtils.convert(operand, toType);
+        return EnumUtils.convert(operand, toType);
     }
 
     private static boolean isA(Type fromType, Primitive primitive) {

@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -91,7 +91,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
         opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("test", "TestReadOnlyServiceDisruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 1024,
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 1,
@@ -99,7 +99,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                 false,
                 null));
         NodeOptions nodeOptions = new NodeOptions();
-        ExecutorService executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        ExecutorService executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         executors.add(executor);
         nodeOptions.setCommonExecutor(executor);
         ExecutorService clientExecutor = JRaftUtils.createClientExecutor(nodeOptions, "unittest");

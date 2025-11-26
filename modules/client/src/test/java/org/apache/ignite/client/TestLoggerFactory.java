@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.System.Logger;
@@ -44,6 +45,10 @@ public class TestLoggerFactory implements LoggerFactory {
 
     void assertLogContains(String msg) {
         assertTrue(logContains(msg), this::log);
+    }
+
+    void assertLogDoesNotContain(String msg) {
+        assertFalse(logContains(msg), this::log);
     }
 
     void waitForLogContains(String msg, long timeoutMillis) throws InterruptedException {

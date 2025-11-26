@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import static org.apache.calcite.sql.validate.SqlValidatorUtil.ATTEMPT_SUGGESTER;
-import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceLocalRefs;
 
@@ -43,12 +42,13 @@ import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ControlFlowException;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
@@ -65,7 +65,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     protected final @Nullable List<String> names;
 
     /** Participating columns. */
-    protected final ImmutableBitSet requiredColumns;
+    protected final @Nullable ImmutableIntList requiredColumns;
 
     protected ProjectableFilterableTableScan(
             RelOptCluster cluster,
@@ -75,7 +75,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
             @Nullable List<String> names,
             @Nullable List<RexNode> projects,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(cluster, traitSet, hints, table);
 
@@ -90,7 +90,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         condition = input.getExpression("filters");
         names = input.get("names") == null ? null : input.getStringList("names");
         projects = input.get("projects") == null ? null : input.getExpressionList("projects");
-        requiredColumns = input.get("requiredColumns") == null ? null : input.getBitSet("requiredColumns");
+
+        List<Integer> requiredColumns0 = input.getIntegerList("requiredColumns");
+        requiredColumns = requiredColumns0 == null ? null : ImmutableIntList.copyOf(requiredColumns0);
     }
 
     /** Returns field names explicitly passed during object creation, if any. */
@@ -115,7 +117,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /**
      * Get participating columns.
      */
-    public ImmutableBitSet requiredColumns() {
+    public @Nullable ImmutableIntList requiredColumns() {
         return requiredColumns;
     }
 
@@ -127,21 +129,27 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return this;
     }
 
+    protected abstract ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition);
+
     /** {@inheritDoc} */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         return explainTerms0(pw
                 .item("table", table.getQualifiedName())
-                .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()), !forExplain(pw)));
+                .item("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id())));
     }
 
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(condition);
-        shuttle.apply(projects);
+        RexNode condition0 = shuttle.apply(condition);
+        List<RexNode> projects0 = shuttle.apply(projects);
 
-        return super.accept(shuttle);
+        if (condition0 == condition && projects0 == projects) {
+            return this;
+        }
+
+        return copy(projects0, condition0);
     }
 
     protected RelWriter explainTerms0(RelWriter pw) {
@@ -150,10 +158,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
                     RexUtil.expandSearch(getCluster().getRexBuilder(), null, condition));
         }
 
-        return pw.itemIf("fields", getRowType().getFieldNames(), forExplain(pw))
-                .itemIf("names", names, names != null && !forExplain(pw))
+        return pw.itemIf("names", names, names != null)
                 .itemIf("projects", projects, projects != null)
-                .itemIf("requiredColumns", requiredColumns, !forExplain(pw) && requiredColumns != null);
+                .itemIf("requiredColumns", requiredColumns, requiredColumns != null);
     }
 
     /** {@inheritDoc} */
@@ -199,16 +206,21 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
      * PushUpPredicate.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RexNode pushUpPredicate() {
+    public @Nullable RexNode pushUpPredicate() {
         if (condition == null || projects == null) {
             return replaceLocalRefs(condition);
         }
 
         IgniteTypeFactory typeFactory = Commons.typeFactory(getCluster());
-        IgniteTable tbl = getTable().unwrap(IgniteTable.class);
+        //noinspection DataFlowIssue: TableScan always has table
+        IgniteDataSource dataSource = getTable().unwrap(IgniteDataSource.class);
 
-        Mappings.TargetMapping mapping = RexUtils.inversePermutation(projects,
-                tbl.getRowType(typeFactory, requiredColumns), true);
+        //noinspection DataFlowIssue: this class supports only tables which are derived from IgniteDataSource
+        Mappings.TargetMapping mapping = RexUtils.inversePermutation(
+                projects,
+                dataSource.getRowType(typeFactory, requiredColumns),
+                true
+        );
 
         RexShuttle shuttle = new RexShuttle() {
             @Override
@@ -231,5 +243,31 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         }
 
         return RexUtil.composeConjunction(builder(getCluster()), conjunctions, true);
+    }
+
+    protected IgniteRelWriter explainAttributes(IgniteRelWriter writer) {
+        writer.addTable(table);
+
+        if (condition != null || projects != null) {
+            RelDataType rowType = getTable().getRowType();
+            if (requiredColumns != null) {
+                RelDataTypeFactory tf = getCluster().getTypeFactory();
+                IgniteDataSource dataSource = getTable().unwrap(IgniteDataSource.class);
+
+                assert dataSource != null;
+
+                rowType = dataSource.getRowType(tf, requiredColumns);
+            }
+
+            if (condition != null) {
+                writer.addPredicate(condition, rowType);
+            }
+
+            if (projects != null && projects.stream().anyMatch(p -> !p.isA(SqlKind.LOCAL_REF))) {
+                writer.addProjection(projects, rowType);
+            }
+        }
+
+        return writer;
     }
 }

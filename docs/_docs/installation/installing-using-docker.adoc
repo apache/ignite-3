@@ -14,43 +14,69 @@
 // limitations under the License.
 = Installing Using Docker
 
+== Prerequisites
+
+=== Recommended Docker Version
+
+include::includes/prereqs-docker.adoc[]
+
+=== Recommended Operating System
+
+include::includes/prereqs-os.adoc[]
+
+=== Recommended Java Version
+
+include::includes/prereqs-java.adoc[]
+
+
 == Running a Node
 
-Run Ignite in a docker container using the `docker run` command. Docker will automatically pull the appropriate Ignite version:
+Run Apache Ignite in a docker container using the `docker run` command. Docker will automatically pull the appropriate Apache Ignite version:
 
 [source,shell]
 ----
 docker run -d -p 10300:10300 -p 10800:10800 -p 3344:3344 ignite/ignite3:latest
 ----
 
-This command launches a single Ignite node. After you run the command, you can check if Ignite is running in the container logs.
+[NOTE]
+====
+If you plan to store persistent data, it is recommended to mount a volume for it. Otherwise, data will be deleted when the container is removed.
+
+Consider storing the `/opt/ignite/work` folder to keep application data and persistent data.
+====
+
+
+This command launches a single Apache Ignite node. After you run the command, you can check if Apache Ignite is running in the container logs.
 
 == Running a Cluster
 
 You can use the docker-compose file to start an entire cluster in docker. You can download a sample docker-compose file and run a 3-node cluster:
 
-- Download the link:quick-start/docker-compose.yml[docker-compose] and link:quick-start/node-docker-config.conf[node configuration] that will be used by docker compose.
+- Download the link:quick-start/docker-compose.yml[docker-compose] file.
++
+NOTE: Docker compose version 2.23.1 or later is required to use the provided compose file.
++
 - Download the docker image:
 +
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-docker pull apacheignite/ignite:3.0.0
+docker pull apache/ignite3:3.1.0
 ----
 +
-- Run the docker compose command. The node configuration should be in the same folder as docker compose file:
+- Run the docker compose command.
 +
 [source,shell]
 ----
-docker compose -f packaging/docker/docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d
 ----
 
-3 nodes will start in docker and will be available from CLI tool that can be run locally. Remember to initialise the cluster from the command line tool before working with it.
+3 nodes will start in Docker and will be available from the CLI tool that can be run locally. Remember to initialise the cluster from the command line tool before working with it.
 
 == Running CLI Tool in Docker
 
 NOTE: It is not recommended to run the CLI tool in docker. Instead, we recommend to link:installation/installing-using-zip[download and install] CLI tool locally.
 
-CLI tool is used to manage Ignite nodes.  By default, docker nodes are isolated and run on different networks, so CLI tool will not be able to connect to the target container from another container. To fix that, you need to create a network and add all containers running the nodes to it.
+CLI tool is used to manage Apache Ignite nodes.  By default, docker nodes are isolated and run on different networks, so CLI tool will not be able to connect to the target container from another container. To fix that, you need to create a network and add all containers running the nodes to it.
 
 - Create a new network with the `network create` command:
 +
@@ -64,12 +90,22 @@ docker network create ignite-network
 docker network connect ignite-network {container-id}
 ----
 +
-- Start the container with the Ignite CLI tool on the same network:
+- Start the container with the Apache Ignite CLI tool on the same network:
 +
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-docker run -p 10301:10300 -p 10801:10800 -p 3345:3344 -it --network=ignite-network ignite/ignite3:latest cli
+docker run -p 10301:10300 -p 10801:10800 -p 3345:3344 -it --network=ignite-network apache/ignite3:3.1.0 cli
 ----
++
+[TIP]
+====
+You may need to mount configuration or data files. To provide them, mount the files you will use, for example:
++
+[source, text, subs="attributes,specialchars"]
+----
+docker run --rm -it --network=host -v /opt/etc/config.conf:/opt/ignite/etc/ignite-config.conf apache/ignite3:3.1.0 cli
+----
+====
 
 The CLI will be able to connect to the IP address of the node. If you are not sure what the address is, use the `container inspect` command to check it:
 

@@ -1,0 +1,57 @@
+Sort
+    collation: [REVENUE DESC, O_ORDERDATE ASC]
+    fetch: 10
+    est: (rows=10)
+  Project
+      fieldNames: [L_ORDERKEY, REVENUE, O_ORDERDATE, O_SHIPPRIORITY]
+      projection: [L_ORDERKEY, REVENUE, O_ORDERDATE, O_SHIPPRIORITY]
+      est: (rows=243805)
+    ColocatedHashAggregate
+        fieldNames: [L_ORDERKEY, O_ORDERDATE, O_SHIPPRIORITY, REVENUE]
+        group: [L_ORDERKEY, O_ORDERDATE, O_SHIPPRIORITY]
+        aggregation: [SUM($f3)]
+        est: (rows=243805)
+      Project
+          fieldNames: [L_ORDERKEY, O_ORDERDATE, O_SHIPPRIORITY, $f3]
+          projection: [L_ORDERKEY, O_ORDERDATE, O_SHIPPRIORITY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+          est: (rows=499601)
+        HashJoin
+            predicate: =(L_ORDERKEY, O_ORDERKEY)
+            type: inner
+            est: (rows=499601)
+          Exchange
+              distribution: single
+              est: (rows=3000608)
+            IndexScan
+                table: PUBLIC.LINEITEM
+                index: L_SD
+                type: SORTED
+                predicate: >(L_SHIPDATE, 1995-03-15)
+                searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1995-03-15, lowerInclude=false, shouldComputeUpper=true, upperBound=null:DATE, upperInclude=false]]
+                fieldNames: [L_ORDERKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_SHIPDATE]
+                collation: [L_SHIPDATE ASC]
+                est: (rows=3000608)
+          HashJoin
+              predicate: =(C_CUSTKEY, O_CUSTKEY)
+              type: inner
+              est: (rows=249750)
+            Exchange
+                distribution: single
+                est: (rows=750000)
+              IndexScan
+                  table: PUBLIC.ORDERS
+                  index: O_OD
+                  type: SORTED
+                  predicate: <(O_ORDERDATE, 1995-03-15)
+                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=null, lowerInclude=true, shouldComputeUpper=true, upperBound=1995-03-15, upperInclude=false]]
+                  fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE, O_SHIPPRIORITY]
+                  collation: [O_ORDERDATE ASC]
+                  est: (rows=750000)
+            Exchange
+                distribution: single
+                est: (rows=49950)
+              TableScan
+                  table: PUBLIC.CUSTOMER
+                  predicate: =(C_MKTSEGMENT, _UTF-8'BUILDING')
+                  fieldNames: [C_CUSTKEY, C_MKTSEGMENT]
+                  est: (rows=49950)

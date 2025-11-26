@@ -64,7 +64,6 @@ public class IgniteProjectCorrelateTransposeRule
         implements TransformationRule {
     public static final RelOptRule INSTANCE = IgniteProjectCorrelateTransposeRuleConfig.DEFAULT.toRule();
 
-
     /** Creates a ProjectCorrelateTransposeRule. */
     protected IgniteProjectCorrelateTransposeRule(IgniteProjectCorrelateTransposeRuleConfig config) {
         super(config);

@@ -18,9 +18,6 @@
 #pragma once
 
 #include "ignite/network/data_buffer.h"
-#include "ignite/odbc/app/application_data_buffer.h"
-#include "ignite/odbc/common_types.h"
-#include "ignite/protocol/reader.h"
 
 #include <cstdint>
 

@@ -1,0 +1,80 @@
+Project
+    fieldNames: [S_SUPPKEY, S_NAME, S_ADDRESS, S_PHONE, TOTAL_REVENUE]
+    projection: [S_SUPPKEY, S_NAME, S_ADDRESS, S_PHONE, EXPR$1]
+    est: (rows=67513669)
+  MergeJoin
+      predicate: =(S_SUPPKEY, L_SUPPKEY)
+      type: inner
+      est: (rows=67513669)
+    Sort
+        collation: [L_SUPPKEY ASC]
+        est: (rows=45009)
+      HashJoin
+          predicate: =(EXPR$1, EXPR$0)
+          type: inner
+          est: (rows=45009)
+        ReduceHashAggregate
+            fieldNames: [L_SUPPKEY, EXPR$1]
+            group: [L_SUPPKEY]
+            aggregation: [SUM(_ACC0)]
+            est: (rows=300061)
+          Exchange
+              distribution: single
+              est: (rows=300061)
+            MapHashAggregate
+                fieldNames: [L_SUPPKEY, _ACC0, _GROUP_ID]
+                group: [L_SUPPKEY]
+                aggregation: [SUM($f1)]
+                est: (rows=300061)
+              IndexScan
+                  table: PUBLIC.LINEITEM
+                  index: L_SD
+                  type: SORTED
+                  predicate: SEARCH(L_SHIPDATE, Sarg[[1996-01-01..1996-04-01)])
+                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1996-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1996-04-01, upperInclude=false]]
+                  fieldNames: [L_SUPPKEY, $f1]
+                  projection: [L_SUPPKEY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+                  collation: []
+                  est: (rows=1500304)
+        ColocatedHashAggregate
+            fieldNames: [EXPR$0]
+            group: []
+            aggregation: [MAX(EXPR$1)]
+            est: (rows=1)
+          Project
+              fieldNames: [EXPR$1]
+              projection: [EXPR$1]
+              est: (rows=300061)
+            ReduceHashAggregate
+                fieldNames: [L_SUPPKEY, EXPR$1]
+                group: [L_SUPPKEY]
+                aggregation: [SUM(_ACC0)]
+                est: (rows=300061)
+              Exchange
+                  distribution: single
+                  est: (rows=300061)
+                MapHashAggregate
+                    fieldNames: [L_SUPPKEY, _ACC0, _GROUP_ID]
+                    group: [L_SUPPKEY]
+                    aggregation: [SUM($f1)]
+                    est: (rows=300061)
+                  IndexScan
+                      table: PUBLIC.LINEITEM
+                      index: L_SD
+                      type: SORTED
+                      predicate: SEARCH(L_SHIPDATE, Sarg[[1996-01-01..1996-04-01)])
+                      searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1996-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1996-04-01, upperInclude=false]]
+                      fieldNames: [L_SUPPKEY, $f1]
+                      projection: [L_SUPPKEY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+                      collation: []
+                      est: (rows=1500304)
+    Exchange
+        distribution: single
+        est: (rows=10000)
+      Sort
+          collation: [S_SUPPKEY ASC]
+          est: (rows=10000)
+        TableScan
+            table: PUBLIC.SUPPLIER
+            fieldNames: [S_SUPPKEY, S_NAME, S_ADDRESS, S_PHONE]
+            est: (rows=10000)

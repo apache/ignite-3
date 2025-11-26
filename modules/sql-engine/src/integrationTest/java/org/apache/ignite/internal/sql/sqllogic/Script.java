@@ -45,7 +45,7 @@ final class Script implements Iterable<Command>, AutoCloseable {
     private static final Map<String, CommandParser> COMMANDS = Map.of(
             "statement", Statement::new,
             "query", Query::new,
-            "plan", Plan::new,
+            "explain", Plan::new,
             "loop", Loop::new,
             "endloop", EndLoop::new,
             "for", For::new,
@@ -59,7 +59,7 @@ final class Script implements Iterable<Command>, AutoCloseable {
 
     private final BufferedReader buffReader;
 
-    /** The current line in a script .**/
+    /** The current line in a script. **/
     private int lineNum;
 
     /** A script execution context. **/

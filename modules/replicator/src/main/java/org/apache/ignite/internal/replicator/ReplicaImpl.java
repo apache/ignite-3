@@ -32,6 +32,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Replica server.
@@ -63,11 +63,11 @@ public class ReplicaImpl implements Replica {
     private final TopologyAwareRaftGroupService raftClient;
 
     /** Instance of the local node. */
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final PlacementDriver placementDriver;
 
-    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+    private final Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier;
 
     private LeaderElectionListener onLeaderElectedFailoverCallback;
 
@@ -93,9 +93,9 @@ public class ReplicaImpl implements Replica {
     public ReplicaImpl(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             PlacementDriver placementDriver,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
+            Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             FailureProcessor failureProcessor,
             PlacementDriverMessageProcessor placementDriverMessageProcessor
     ) {
@@ -205,12 +205,13 @@ public class ReplicaImpl implements Replica {
             LOG.error("Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].", e, replicaGrpId, term);
 
             return null;
-        }).thenCompose(pendingsBytes -> {
-            if (pendingsBytes == null) {
+        }).thenCompose(versionedAssignments -> {
+            if (versionedAssignments == null || versionedAssignments.assignmentsBytes() == null) {
                 return nullCompletedFuture();
             }
 
-            PeersAndLearners newConfiguration = fromAssignments(AssignmentsQueue.fromBytes(pendingsBytes).poll().nodes());
+            PeersAndLearners newConfiguration =
+                    fromAssignments(AssignmentsQueue.fromBytes(versionedAssignments.assignmentsBytes()).poll().nodes());
 
             LOG.info(
                     "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
@@ -220,7 +221,7 @@ public class ReplicaImpl implements Replica {
             );
 
             // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
-            return raftClient.changePeersAndLearnersAsync(newConfiguration, term);
+            return raftClient.changePeersAndLearnersAsync(newConfiguration, term, versionedAssignments.revision());
         }).exceptionally(e -> {
             LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
 

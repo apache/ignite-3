@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestampTracker.EMPTY_TS_PROVIDER;
+import static org.apache.ignite.internal.hlc.HybridTimestampTracker.emptyTracker;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -220,11 +221,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         tx.commit();
 
-        WriteContext wc = new WriteContext();
+        WriteContext wc = new WriteContext(emptyTracker(), ClientOp.TUPLE_UPSERT);
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, ClientOp.TUPLE_UPSERT);
+            tx.enlistFuture(ch, clientChannel, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {
@@ -251,11 +252,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         tx.rollback();
 
-        WriteContext wc = new WriteContext();
+        WriteContext wc = new WriteContext(emptyTracker(), ClientOp.TUPLE_UPSERT);
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, ClientOp.TUPLE_UPSERT);
+            tx.enlistFuture(ch, clientChannel, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {

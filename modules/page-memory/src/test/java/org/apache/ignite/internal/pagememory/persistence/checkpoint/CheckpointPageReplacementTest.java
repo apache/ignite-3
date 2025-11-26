@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.fullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.dirtyFullPageId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -34,8 +34,8 @@ public class CheckpointPageReplacementTest {
     void testBlock() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        assertDoesNotThrow(() -> checkpointPageReplacement.block(fullPageId(0, 0)));
-        assertDoesNotThrow(() -> checkpointPageReplacement.block(fullPageId(0, 1)));
+        assertDoesNotThrow(() -> checkpointPageReplacement.block(dirtyFullPageId(0, 0)));
+        assertDoesNotThrow(() -> checkpointPageReplacement.block(dirtyFullPageId(0, 1)));
 
         checkpointPageReplacement.stopBlocking();
     }
@@ -44,38 +44,38 @@ public class CheckpointPageReplacementTest {
     void testUnblock() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        checkpointPageReplacement.block(fullPageId(0, 0));
-        checkpointPageReplacement.block(fullPageId(0, 1));
-        checkpointPageReplacement.block(fullPageId(0, 2));
-        checkpointPageReplacement.block(fullPageId(0, 3));
-        checkpointPageReplacement.block(fullPageId(0, 4));
-        checkpointPageReplacement.block(fullPageId(0, 5));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 0));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 1));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 2));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 3));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 4));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 5));
 
-        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 0), null));
-        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 1), new Throwable("from test 0")));
-        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 2), new Throwable("from test 1")));
+        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(dirtyFullPageId(0, 0), null));
+        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(dirtyFullPageId(0, 1), new Throwable("from test 0")));
+        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(dirtyFullPageId(0, 2), new Throwable("from test 1")));
 
         checkpointPageReplacement.stopBlocking();
 
-        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 3), null));
-        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 4), new Throwable("from test 0")));
-        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 5), new Throwable("from test 1")));
+        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(dirtyFullPageId(0, 3), null));
+        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(dirtyFullPageId(0, 4), new Throwable("from test 0")));
+        assertDoesNotThrow(() -> checkpointPageReplacement.unblock(dirtyFullPageId(0, 5), new Throwable("from test 1")));
     }
 
     @Test
     void testStopBlocking() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        checkpointPageReplacement.block(fullPageId(0, 0));
-        checkpointPageReplacement.block(fullPageId(0, 1));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 0));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 1));
 
         CompletableFuture<Void> stopBlockingFuture = checkpointPageReplacement.stopBlocking();
         assertFalse(stopBlockingFuture.isDone());
 
-        checkpointPageReplacement.unblock(fullPageId(0, 0), null);
+        checkpointPageReplacement.unblock(dirtyFullPageId(0, 0), null);
         assertFalse(stopBlockingFuture.isDone());
 
-        checkpointPageReplacement.unblock(fullPageId(0, 1), null);
+        checkpointPageReplacement.unblock(dirtyFullPageId(0, 1), null);
         assertTrue(stopBlockingFuture.isDone());
 
         assertTrue(checkpointPageReplacement.stopBlocking().isDone());
@@ -85,16 +85,16 @@ public class CheckpointPageReplacementTest {
     void testStopBlockingError() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        checkpointPageReplacement.block(fullPageId(0, 0));
-        checkpointPageReplacement.block(fullPageId(0, 1));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 0));
+        checkpointPageReplacement.block(dirtyFullPageId(0, 1));
 
         CompletableFuture<Void> stopBlockingFuture = checkpointPageReplacement.stopBlocking();
         assertFalse(stopBlockingFuture.isDone());
 
-        checkpointPageReplacement.unblock(fullPageId(0, 0), new RuntimeException("from test 1"));
+        checkpointPageReplacement.unblock(dirtyFullPageId(0, 0), new RuntimeException("from test 1"));
         assertThat(stopBlockingFuture, willThrow(RuntimeException.class, "from test 1"));
 
-        checkpointPageReplacement.unblock(fullPageId(0, 1), new TimeoutException("from test 2"));
+        checkpointPageReplacement.unblock(dirtyFullPageId(0, 1), new TimeoutException("from test 2"));
         assertThat(stopBlockingFuture, willThrow(RuntimeException.class, "from test 1"));
 
         assertThat(checkpointPageReplacement.stopBlocking(), willThrow(RuntimeException.class, "from test 1"));

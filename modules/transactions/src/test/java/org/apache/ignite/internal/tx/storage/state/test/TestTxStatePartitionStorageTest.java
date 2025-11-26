@@ -22,10 +22,10 @@ import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStora
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
- * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
+ * Tx partition storage test for test implementation based on {@link ConcurrentHashMap}.
  */
 public class TestTxStatePartitionStorageTest extends AbstractTxStatePartitionStorageTest {
-    @Override protected TxStateStorage createTableStorage() {
+    @Override protected TxStateStorage createTableOrZoneStorage() {
         return new TestTxStateStorage();
     }
 }

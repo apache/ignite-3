@@ -41,6 +41,14 @@
 
         <EnableNETAnalyzers>true</EnableNETAnalyzers>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+        <GitVersionBaseDirectory>$(MSBuildThisFileDirectory)</GitVersionBaseDirectory>
+
+        <!-- Package Compatibility Checks -->
+        <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
+        <EnableStrictModeForBaselineValidation>true</EnableStrictModeForBaselineValidation>
+        <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
+        <CompatibilitySuppressionFilePath>ApiCompatibilitySuppressions.xml</CompatibilitySuppressionFilePath>
     </PropertyGroup>
 
     <ItemGroup>

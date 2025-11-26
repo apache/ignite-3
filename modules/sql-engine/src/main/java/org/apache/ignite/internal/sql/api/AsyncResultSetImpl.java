@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -69,6 +70,16 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     @Override
     public @Nullable ResultSetMetadata metadata() {
         return hasRowSet() ? cursor.metadata() : null;
+    }
+
+    /** Returns partition awareness metadata from an underlying cursor. */
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return cursor.partitionAwarenessMetadata();
+    }
+
+    /** Returns query cursor. */
+    public AsyncSqlCursor<InternalSqlRow> cursor() {
+        return cursor;
     }
 
     /** {@inheritDoc} */

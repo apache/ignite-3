@@ -49,7 +49,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<LogicalJoin> {
     public static final RelOptRule INSTANCE = new CorrelatedNestedLoopJoinRule(1);
 
-    /** TODO: https://issues.apache.org/jira/browse/IGNITE-14757 */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-14757
     public static final RelOptRule INSTANCE_BATCHED = new CorrelatedNestedLoopJoinRule(100);
 
     private final int batchSize;

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.lang.String.format;
+import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -119,6 +120,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testHaRecoveryWhenPartitionResetTimeoutUpdated() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -319,7 +321,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     void testRebalanceInHaZone() throws InterruptedException {
         createHaZoneWithTable();
 

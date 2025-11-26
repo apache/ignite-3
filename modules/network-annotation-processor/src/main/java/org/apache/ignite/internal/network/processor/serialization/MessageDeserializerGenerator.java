@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -49,7 +50,7 @@ import org.apache.ignite.internal.network.serialization.MessageReader;
  * Class for generating {@link MessageDeserializer} classes.
  */
 public class MessageDeserializerGenerator {
-    private static final String FROM_ORDINAL_METHOD_NAME = "fromOrdinal";
+    private static final String FROM_ID_METHOD_NAME = "fromId";
 
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
@@ -143,6 +144,7 @@ public class MessageDeserializerGenerator {
                 ExecutableElement getter = getters.get(i);
 
                 String getterName = getter.getSimpleName().toString();
+                String propertyName = propertyName(getter);
 
                 if (getter.getAnnotation(Marshallable.class) != null) {
                     getterName = addByteArrayPostfix(getterName);
@@ -151,11 +153,11 @@ public class MessageDeserializerGenerator {
                 method.beginControlFlow("case $L:", i);
 
                 if (typeUtils.isEnum(getter.getReturnType())) {
-                    checkFromOrdinalMethodExists(getter.getReturnType());
+                    checkFromIdMethodExists(getter.getReturnType());
 
-                    // At the beginning we read the shifted ordinal, shifted by +1 to efficiently transfer null (since we use "var int").
+                    // At the beginning we read the shifted ID, shifted by +1 to efficiently transfer null (since we use "var int").
                     // If we read garbage then we should not convert to an enumeration, the check below does this.
-                    method.addStatement("int ordinalShifted = reader.readInt($S)", getterName);
+                    method.addStatement("int shiftedId = reader.readInt($S)", propertyName);
                 } else {
                     method.addStatement(readMessageCodeBlock(getter));
                 }
@@ -175,8 +177,8 @@ public class MessageDeserializerGenerator {
 
                     method
                             .addStatement(
-                                    "$T tmp = ordinalShifted == 0 ? null : $T.$L(ordinalShifted - 1)",
-                                    varType, varType, FROM_ORDINAL_METHOD_NAME
+                                    "$T tmp = shiftedId == 0 ? null : $T.$L(shiftedId - 1)",
+                                    varType, varType, FROM_ID_METHOD_NAME
                             )
                             .addCode("\n");
                 }
@@ -214,17 +216,17 @@ public class MessageDeserializerGenerator {
                 .build();
     }
 
-    private void checkFromOrdinalMethodExists(TypeMirror enumType) {
+    private void checkFromIdMethodExists(TypeMirror enumType) {
         assert typeUtils.isEnum(enumType) : enumType;
 
         typeUtils.types().asElement(enumType).getEnclosedElements().stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
-                .filter(element -> element.getSimpleName().toString().equals(FROM_ORDINAL_METHOD_NAME))
+                .filter(element -> element.getSimpleName().toString().equals(FROM_ID_METHOD_NAME))
                 .filter(element -> element.getModifiers().contains(Modifier.PUBLIC))
                 .filter(element -> element.getModifiers().contains(Modifier.STATIC))
                 .findAny()
                 .orElseThrow(() -> new ProcessingException(
-                        String.format("Missing public static method \"%s\" for enum %s", FROM_ORDINAL_METHOD_NAME, enumType)
+                        String.format("Missing public static method \"%s\" for enum %s", FROM_ID_METHOD_NAME, enumType)
                 ));
     }
 }

@@ -23,11 +23,11 @@ import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 
 /**
  * Handshake start response message, contains info about the node, connection id and the quantity of the received messages.
- * This message is sent from a client to a server as a response to the {@link HandshakeStartMessage}.
+ * This message is sent from an initiator to an acceptor as a response to the {@link HandshakeStartMessage}.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
 public interface HandshakeStartResponseMessage extends InternalMessage {
-    /** Returns the client node that sends this. */
+    /** Returns the initiator node that sends this. */
     ClusterNodeMessage clientNode();
 
     /**

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
@@ -28,13 +26,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -44,7 +41,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -59,11 +55,14 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Zone rebalance manager. It listens to the changes in the distribution zones data nodes and replicas and triggers rebalance
  * for the corresponding partitions. By triggering rebalance, it updates the pending assignments in the metastore.
- * // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
- * // TODO: after switching to zone-based replication
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Rename to DistributionZoneRebalanceEngine.
 public class DistributionZoneRebalanceEngineV2 {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
+
+    /** Special flag to skip rebalance on node recovery for tests. */
+    // TODO: IGNITE-24607 Remove it
+    public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -127,7 +126,11 @@ public class DistributionZoneRebalanceEngineV2 {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return recoveryRebalanceTrigger(recoveryRevision);
+            if (getBoolean(SKIP_REBALANCE_TRIGGERS_RECOVERY, false)) {
+                return nullCompletedFuture();
+            } else {
+                return recoveryRebalanceTrigger(recoveryRevision);
+            }
         });
     }
 
@@ -144,16 +147,12 @@ public class DistributionZoneRebalanceEngineV2 {
 
     private WatchListener createDistributionZonesDataNodesListener() {
         return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            Set<NodeWithAttributes> dataNodesWithAttributes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
+            Set<NodeWithAttributes> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
 
-            if (dataNodesWithAttributes == null) {
+            if (dataNodes == null) {
                 // The zone was removed so data nodes were removed too.
                 return nullCompletedFuture();
             }
-
-            Set<Node> dataNodes = dataNodesWithAttributes.stream()
-                    .map(NodeWithAttributes::node)
-                    .collect(toSet());
 
             int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES);
 
@@ -173,25 +172,21 @@ public class DistributionZoneRebalanceEngineV2 {
                 return nullCompletedFuture();
             }
 
-            Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
-
-            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodesWithAttributes, zoneDescriptor));
+            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodes, zoneDescriptor));
 
             if (LOG.isInfoEnabled()) {
                 var matchedNodes = new ArrayList<NodeWithAttributes>();
                 var filteredOutNodes = new ArrayList<NodeWithAttributes>();
 
-                for (Node dataNode : dataNodes) {
-                    NodeWithAttributes nodeWithAttributes = nodesAttributes.get(dataNode.nodeId());
-
+                for (NodeWithAttributes dataNode : dataNodes) {
                     if (filteredDataNodes.contains(dataNode.nodeName())) {
-                        matchedNodes.add(nodeWithAttributes);
+                        matchedNodes.add(dataNode);
                     } else {
-                        filteredOutNodes.add(nodeWithAttributes);
+                        filteredOutNodes.add(dataNode);
                     }
                 }
 
-                if (!filteredOutNodes.isEmpty()) {
+                if (!filteredOutNodes.isEmpty() && !filteredDataNodes.isEmpty()) {
                     LOG.info(
                             "Some data nodes were filtered out because they don't match zone's attributes:"
                                     + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
@@ -205,6 +200,12 @@ public class DistributionZoneRebalanceEngineV2 {
             }
 
             if (filteredDataNodes.isEmpty()) {
+                LOG.info("Rebalance is not triggered because data nodes are empty [zoneId={}, filter={}, storageProfiles={}]",
+                        zoneDescriptor.id(),
+                        zoneDescriptor.filter(),
+                        zoneDescriptor.storageProfiles().profiles()
+                );
+
                 return nullCompletedFuture();
             }
 
@@ -302,7 +303,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
         } else {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

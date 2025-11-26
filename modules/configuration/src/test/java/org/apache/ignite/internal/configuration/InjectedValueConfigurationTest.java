@@ -72,7 +72,7 @@ public class InjectedValueConfigurationTest {
 
     @BeforeEach
     void setUp() {
-        List<RootKey<?, ?>> roots = List.of(
+        List<RootKey<?, ?, ?>> roots = List.of(
                 HoconInjectedValueRootConfiguration.KEY
         );
 
@@ -95,7 +95,7 @@ public class InjectedValueConfigurationTest {
     class HoconConverterTest {
         @Test
         void testEmpty() {
-            assertEquals("nestedNamed{}", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed=[]", asHoconStr(List.of("rootInjectedValue")));
         }
 
         @Test

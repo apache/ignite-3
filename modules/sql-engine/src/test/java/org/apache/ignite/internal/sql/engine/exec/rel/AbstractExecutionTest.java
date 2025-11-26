@@ -47,11 +47,13 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
@@ -65,7 +67,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -87,7 +89,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     @BeforeEach
     public void beforeTest() {
         var failureProcessor = new FailureManager(new NoOpFailureHandler());
-        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
+        var metricManager = new NoOpMetricManager();
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor, metricManager);
         taskExecutor.start();
     }
 
@@ -118,7 +121,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     protected ExecutionContext<T> executionContext(int bufferSize, boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
-                    NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
+                    IgniteThreadFactory.create("fake-test-node", "sqlTestExec", log),
                     false,
                     0);
 
@@ -138,21 +141,25 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
+        InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,
                 new ExecutionId(randomUUID(), 0),
-                new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
-                "fake-test-node",
+                node,
+                node.name(),
+                node.id(),
                 fragmentDesc,
                 rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                SqlCommon.DEFAULT_TIME_ZONE_ID,
                 bufferSize,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                null,
+                1L
         );
 
         contexts.add(executionContext);
@@ -271,7 +278,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                                         return null;
                                 }
                             })
-                            .collect(Collectors.toList()).toArray(new Function[rowType.getFieldCount()])
+                            .collect(Collectors.toList()).toArray(new Function[0])
             );
         }
 

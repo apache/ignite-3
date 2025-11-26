@@ -36,7 +36,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,10 +111,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(offset);
-        shuttle.apply(fetch);
+        RexNode offset0 = shuttle.apply(offset);
+        RexNode fetch0 = shuttle.apply(fetch);
 
-        return super.accept(shuttle);
+        if (offset0 == offset && fetch0 == fetch) {
+            return this;
+        }
+
+        return new IgniteLimit(getCluster(), getTraitSet(), getInput(), offset0, fetch0);
     }
 
     /** {@inheritDoc} */
@@ -124,7 +128,7 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
             return null;
         }
 
-        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(required) != IgniteDistributions.single()) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(required) != TraitUtils.distribution(this)) {
             return null;
         }
 
@@ -149,7 +153,7 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
             return null;
         }
 
-        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(childTraits) != IgniteDistributions.single()) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(childTraits) != TraitUtils.distribution(this)) {
             return null;
         }
 
@@ -171,12 +175,19 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
-        double inputRowCount = mq.getRowCount(getInput());
+        return estimateRowCount(mq.getRowCount(getInput()), offset, fetch);
+    }
 
+    /** Returns the estimated row count based on provided input and offset and fetch attributes. */
+    public static double estimateRowCount(
+            double inputRowCount,
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
+    ) {
         double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
         double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
 
-        return Math.max(0, Math.min(lim, inputRowCount - off));
+        return Math.max(1, Math.min(lim, inputRowCount - off));
     }
 
     /**
@@ -203,5 +214,18 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (offset != null) {
+            writer.addOffset(offset);
+        }
+
+        if (fetch != null) {
+            writer.addFetch(fetch);
+        }
+
+        return writer;
     }
 }

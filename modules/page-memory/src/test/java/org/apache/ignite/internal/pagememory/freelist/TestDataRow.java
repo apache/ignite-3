@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.freelist;
 
-
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.util.PageUtils;

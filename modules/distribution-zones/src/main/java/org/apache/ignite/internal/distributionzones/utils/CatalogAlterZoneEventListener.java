@@ -102,16 +102,16 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
             addFuture(futures, onFilterUpdate(parameters, oldZone.filter()));
         }
 
-        if (newZone.dataNodesAutoAdjust() != oldZone.dataNodesAutoAdjust()) {
-            addFuture(futures, onAutoAdjustUpdate(parameters, oldZone.dataNodesAutoAdjust()));
-        }
-
         if (newZone.dataNodesAutoAdjustScaleUp() != oldZone.dataNodesAutoAdjustScaleUp()) {
             addFuture(futures, onAutoAdjustScaleUpUpdate(parameters, oldZone.dataNodesAutoAdjustScaleUp()));
         }
 
         if (newZone.dataNodesAutoAdjustScaleDown() != oldZone.dataNodesAutoAdjustScaleDown()) {
             addFuture(futures, onAutoAdjustScaleDownUpdate(parameters, oldZone.dataNodesAutoAdjustScaleDown()));
+        }
+
+        if (!oldZone.name().equals(newZone.name())) {
+            addFuture(futures, onNameUpdate(parameters, oldZone.name()));
         }
 
         return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
@@ -165,18 +165,6 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)} with a non-null
-     * {@link CatalogZoneDescriptor#dataNodesAutoAdjust()}.
-     *
-     * @param parameters Zone update parameters.
-     * @param oldAutoAdjust Old value.
-     * @return Future that signifies the end of the callback execution.
-     */
-    protected CompletableFuture<Void> onAutoAdjustUpdate(AlterZoneEventParameters parameters, int oldAutoAdjust) {
-        return nullCompletedFuture();
-    }
-
-    /**
      * Called when a zone change via {@link CatalogManager#execute(CatalogCommand)} with a non-null
      * {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleUp()}.
      *
@@ -197,6 +185,17 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
+        return nullCompletedFuture();
+    }
+
+    /**
+     * Called when the zone name changes via {@link CatalogManager#execute(CatalogCommand)}.
+     *
+     * @param parameters Zone update parameters.
+     * @param oldName Old zone name.
+     * @return Future that signifies the end of the callback execution.
+     */
+    protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
         return nullCompletedFuture();
     }
 

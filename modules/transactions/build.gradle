@@ -23,8 +23,8 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/jmh.gradle"
 
 dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
-    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
 
     api project(':ignite-configuration-system')
@@ -51,15 +51,15 @@ dependencies {
     implementation libs.fastutil.core
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-configuration-system')))
-    testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
-    testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-configuration-system'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-cluster-management')
@@ -87,15 +87,15 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-client-handler')
-    integrationTestImplementation libs.jetbrains.annotations
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
-    integrationTestImplementation(testFixtures(project(':ignite-transactions')))
-    integrationTestImplementation(testFixtures(project(':ignite-table')))
-    integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
-    integrationTestImplementation(testFixtures(project(':ignite-runner')))
-    integrationTestImplementation(testFixtures(project(':ignite-catalog')))
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
+    integrationTestImplementation testFixtures(project(':ignite-transactions'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation libs.netty.transport
+    integrationTestImplementation libs.awaitility
 
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')
@@ -107,14 +107,7 @@ dependencies {
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-table')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.params
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 }
 
 description = 'ignite-transactions'

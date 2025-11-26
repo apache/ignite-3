@@ -30,7 +30,6 @@ import org.treesitter.TreeSitterSql;
  */
 public final class Parser {
 
-
     /**
      * Parses the input text as SQL.
      *

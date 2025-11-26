@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -58,9 +57,8 @@ import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJobsApi;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.CancelHandle;
@@ -102,6 +100,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 .map(this::node)
                 .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::node)
+                .map(InternalClusterNode::toPublicNode)
                 .collect(toSet());
     }
 
@@ -122,13 +121,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     @Test
     void remoteExecutionWorkerShutdown() throws Exception {
-        // Given entry node.
-        Ignite entryNode = node(0);
         // And remote candidates to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(remoteWorkerCandidates);
 
         // Then one of candidates became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -181,13 +178,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     @Test
     void remoteExecutionSingleWorkerShutdown() throws Exception {
-        // Given.
-        Ignite entryNode = node(0);
         // And only one remote candidate to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1));
 
         // When execute job.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(remoteWorkerCandidates);
 
         // Then the job is running on worker node.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -209,7 +204,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         Ignite entryNode = node(0);
 
         // When execute job locally.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, Set.of(entryNode.name()));
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(Set.of(entryNode.name()));
 
         // Then the job is running.
         InteractiveJobs.globalJob().assertAlive();
@@ -234,7 +229,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // When start broadcast job.
         CompletableFuture<BroadcastExecution<String>> executionFut = compute(entryNode).submitAsync(
-                BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1), clusterNode(2)),
+                BroadcastJobTarget.nodes(publicClusterNode(0), publicClusterNode(1), publicClusterNode(2)),
                 InteractiveJobs.interactiveJobDescriptor(),
                 null
         );
@@ -281,7 +276,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // Given table with replicas == 3 and partitions == 1.
         createReplicatedTestTableWithOneRow();
         // And partition leader for partition 1.
-        ClusterNode primaryReplica = getPrimaryReplica(node(0));
+        InternalClusterNode primaryReplica = getPrimaryReplica(node(0));
         String firstWorkerName = primaryReplica.name();
 
         // When start broadcast job on any node that is not primary replica.
@@ -331,14 +326,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     @Test
     void cancelRemoteExecutionOnRestartedJob() throws Exception {
-        // Given entry node.
-        Ignite entryNode = node(0);
         // And remote candidates to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
         CancelHandle cancelHandle = CancelHandle.create();
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates, cancelHandle.token());
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(remoteWorkerCandidates, cancelHandle.token());
 
         // Then one of candidates became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -370,7 +363,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // Given table with replicas == 3 and partitions == 1.
         createReplicatedTestTableWithOneRow();
         // And partition leader for K=1.
-        ClusterNode primaryReplica = getPrimaryReplica(cluster.node(0));
+        InternalClusterNode primaryReplica = getPrimaryReplica(cluster.node(0));
 
         // When start colocated job on node that is not primary replica.
         Ignite entryNode = anyNodeExcept(primaryReplica);
@@ -405,14 +398,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         assertThat(failoverNodeName, not(equalTo(firstWorkerNodeName)));
     }
 
-    private ClusterNode getPrimaryReplica(Ignite node) {
+    private InternalClusterNode getPrimaryReplica(Ignite node) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
 
         HybridClock clock = igniteImpl.clock();
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        PartitionGroupId replicationGroupId = enabledColocation()
-                ? new ZonePartitionId(table.zoneId(), table.partitionId(Tuple.create(1).set("K", 1)))
-                : new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), table.partitionId(Tuple.create(1).set("K", 1)));
 
         CompletableFuture<ReplicaMeta> replicaFuture = igniteImpl.placementDriver()
                 .awaitPrimaryReplica(replicationGroupId, clock.now(), 30, TimeUnit.SECONDS);
@@ -427,11 +418,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return clusterNode(nodeByName(replicaMeta.getLeaseholder()));
     }
 
-    private void stopNode(ClusterNode clusterNode) {
+    private void stopNode(InternalClusterNode clusterNode) {
         stopNode(clusterNode.name());
     }
 
-    private Ignite anyNodeExcept(ClusterNode except) {
+    private Ignite anyNodeExcept(InternalClusterNode except) {
         String candidateName = allNodeNames()
                 .stream()
                 .filter(name -> !name.equals(except.name()))
@@ -445,12 +436,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return cluster.runningNodes().filter(node -> node.name().equals(candidateName)).findFirst().orElseThrow();
     }
 
-    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes) {
-        return executeGlobalInteractiveJob(entryNode, nodes, null);
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Set<String> nodes) {
+        return executeGlobalInteractiveJob(nodes, null);
     }
 
-    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes, CancellationToken token) {
-        return new TestingJobExecution<>(compute(entryNode).submitAsync(
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Set<String> nodes, CancellationToken token) {
+        return new TestingJobExecution<>(compute(node(0)).submitAsync(
                 JobTarget.anyNode(clusterNodesByNames(nodes)),
                 JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
                 null,

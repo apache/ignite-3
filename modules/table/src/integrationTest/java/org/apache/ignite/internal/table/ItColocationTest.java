@@ -19,9 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -31,7 +29,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -43,7 +40,6 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -54,7 +50,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -67,7 +62,9 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
@@ -85,13 +82,12 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
@@ -106,6 +102,7 @@ import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersion
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -122,11 +119,11 @@ import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -134,9 +131,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 import org.mockito.stubbing.Answer;
 
 /**
@@ -194,7 +190,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     @BeforeAll
     static void beforeAllTests() {
-        ClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
@@ -225,7 +221,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 resourcesRegistry,
                 transactionInflights,
                 new TestLowWatermark(),
-                commonExecutor
+                commonExecutor,
+                new NoOpMetricManager()
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -233,6 +230,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     ReplicationGroupId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
+                    boolean recovery,
                     Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
@@ -268,17 +266,15 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(enabledColocation() ? new ZonePartitionId(ZONE_ID, i) : new TablePartitionId(TABLE_ID, i), r);
+            groupRafts.put(new ZonePartitionId(ZONE_ID, i), r);
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
             String nodeName = invocation.getArgument(0);
-            ClusterNode node = clusterNodeByName(nodeName);
+            InternalClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            ReplicationGroupIdMessage commitPartId = enabledColocation()
-                    ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0)) :
-                    toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
+            ZonePartitionIdMessage commitPartId = toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
@@ -293,7 +289,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                                 .build())
                         );
 
-                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                         .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .messageRowsToUpdate(rows)
@@ -306,7 +302,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
-                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                         .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .rowUuid(UUID.randomUUID())
@@ -370,11 +366,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                true,
+                new TableMetricSource(QualifiedName.fromSimple("TEST"))
         );
     }
 
-    private static ClusterNode clusterNodeByName(String nodeName) {
+    private static InternalClusterNode clusterNodeByName(String nodeName) {
         assertThat(nodeName, is(DummyInternalTableImpl.LOCAL_NODE.name()));
 
         return DummyInternalTableImpl.LOCAL_NODE;
@@ -399,24 +397,14 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         CMDS_MAP.clear();
     }
 
-    private static Stream<Arguments> twoColumnsParameters() {
-        List<Arguments> args = new ArrayList<>();
-
-        for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
-            for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
-                args.add(Arguments.of(t0, t1));
-            }
-        }
-
-        return args.stream();
-    }
-
     /**
      * Check colocation by two columns for all types.
      */
-    @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
-    @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumnsInsert(NativeTypeSpec t0, NativeTypeSpec t1) {
+    @CartesianTest
+    public void colocationTwoColumnsInsert(
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+    ) {
         init(t0, t1);
 
         for (int i = 0; i < KEYS; ++i) {
@@ -437,10 +425,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     /**
      * Check colocation by two columns for all types.
      */
-    @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
-    @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1) {
-        int keysCount = t0 == NativeTypeSpec.BOOLEAN && t0 == t1 ? 2 : KEYS;
+    @CartesianTest
+    public void colocationTwoColumnsInsertAll(
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+    ) {
+        int keysCount = t0 == ColumnType.BOOLEAN && t0 == t1 ? 2 : KEYS;
 
         init(t0, t1);
 
@@ -472,7 +462,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         });
     }
 
-    private void init(NativeTypeSpec t0, NativeTypeSpec t1) {
+    private void init(ColumnType t0, ColumnType t1) {
         schema = new SchemaDescriptor(1,
                 List.of(
                         new Column("ID", NativeTypes.INT64, false),
@@ -497,7 +487,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         return lockManager;
     }
 
-    private Tuple createTuple(int k, NativeTypeSpec t0, NativeTypeSpec t1) {
+    private Tuple createTuple(int k, ColumnType t0, ColumnType t1) {
         return Tuple.create()
                 .set("ID", 1L)
                 .set("ID0", SqlTestUtils.generateStableValueByType(k, t0))

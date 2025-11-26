@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
@@ -37,6 +38,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,6 +53,9 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
 
     /** Default history size. */
     static final int DEFAULT_MAX_HISTORY_SIZE = 10;
+
+    /** Name of the versioned value. */
+    private final String name;
 
     /** Size of the history of changes to store, including last applied token. */
     private final int maxHistorySize;
@@ -84,18 +89,25 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
-    BaseVersionedValue(@Nullable Supplier<T> defaultValueSupplier) {
-        this(DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
+    BaseVersionedValue(String name, @Nullable Supplier<T> defaultValueSupplier) {
+        this(name, DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
     }
 
-    BaseVersionedValue(int maxHistorySize, @Nullable Supplier<T> defaultValueSupplier) {
+    BaseVersionedValue(String name, int maxHistorySize, @Nullable Supplier<T> defaultValueSupplier) {
+        this.name = name;
         this.maxHistorySize = maxHistorySize;
         this.defaultValue = defaultValueSupplier == null ? null : new Lazy<>(defaultValueSupplier);
     }
 
     @Override
+    public String name() {
+        return name;
+    }
+
+    @Override
     public CompletableFuture<T> get(long causalityToken) {
-        assert causalityToken > NOT_INITIALIZED;
+        assert causalityToken > NOT_INITIALIZED
+                : format("Reading with invalid causality token [name={}, token={}]", name, causalityToken);
 
         readWriteLock.readLock().lock();
 
@@ -156,8 +168,9 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * completed.</p>
      *
      * @param causalityToken Causality token.
+     * @return A future that will be completed when the operation is done.
      */
-    void complete(long causalityToken) {
+    CompletableFuture<Void> complete(long causalityToken) {
         CompletableFuture<T> futureForToken;
 
         readWriteLock.writeLock().lock();
@@ -188,7 +201,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
             readWriteLock.writeLock().unlock();
         }
 
-        notifyCompletionListeners(causalityToken, futureForToken);
+        return notifyCompletionListeners(causalityToken, futureForToken);
     }
 
     /**
@@ -202,9 +215,11 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * completed.</p>
      *
      * @param causalityToken Causality token.
+     * @param future Future to complete the Versioned Value with.
+     * @return A future that will be completed when the operation is done.
      */
-    void complete(long causalityToken, CompletableFuture<T> future) {
-        assert future.isDone();
+    CompletableFuture<Void> complete(long causalityToken, CompletableFuture<T> future) {
+        assert future.isDone() : format("Future is not done during completion [name={}, future={}]", name, future);
 
         readWriteLock.writeLock().lock();
 
@@ -225,7 +240,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
             readWriteLock.writeLock().unlock();
         }
 
-        notifyCompletionListeners(causalityToken, future);
+        return notifyCompletionListeners(causalityToken, future);
     }
 
     /**
@@ -274,7 +289,9 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
 
             futuresToComplete.forEach(f -> f.complete(defaultValue));
         } else {
-            assert previousCompleteFuture.isDone();
+            assert previousCompleteFuture.isDone() : format(
+                    "Future is not done during 'completePreviousFutures' [name={}, previousCompleteFuture={}]", name, previousCompleteFuture
+            );
 
             // Create an effectively final variable.
             List<CompletableFuture<T>> futuresToCompleteCopy = futuresToComplete;
@@ -295,10 +312,12 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * Updates the current token. Must be called under the {@link #readWriteLock writeLock}.
      */
     private void setActualToken(long causalityToken) {
-        assert actualToken < causalityToken
-                : format("Token must be greater than last applied [token={}, lastApplied={}]", causalityToken, actualToken);
-        assert causalityToken > deletedToken
-                : format("Token must be greater than last deleted [token={}, lastDeleted={}]", causalityToken, deletedToken);
+        assert causalityToken > actualToken : format(
+                "Token must be greater than last applied [name={}, token={}, lastApplied={}]", name, causalityToken, actualToken
+        );
+        assert causalityToken > deletedToken : format(
+                "Token must be greater than last deleted [name{}, token={}, lastDeleted={}]", name, causalityToken, deletedToken
+        );
 
         actualToken = causalityToken;
     }
@@ -319,7 +338,13 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
             Map.Entry<Long, CompletableFuture<T>> next = it.next();
 
             // All futures must be explicitly completed before history trimming occurs.
-            assert next.getValue().isDone();
+            assert next.getValue().isDone() : format(
+                    "Future is not done during 'trimHistory' [name={}, token={}, oldRevision={}, oldFuture={}]",
+                    name,
+                    actualToken,
+                    next.getKey(),
+                    next.getValue()
+            );
 
             it.remove();
         }
@@ -329,8 +354,8 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * Copies the state of the {@code from} future to the incomplete {@code to} future.
      */
     private void copyState(CompletableFuture<T> from, CompletableFuture<T> to) {
-        assert from.isDone();
-        assert !to.isDone();
+        assert from.isDone() : format("Future is not done during 'copyState' [name={}, from={}]", name, from);
+        assert !to.isDone() : format("Copying state into a completed future [name={}, to={}]", name, to);
 
         from.whenComplete(copyStateTo(to));
     }
@@ -358,18 +383,22 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
     /**
      * Notifies completion listeners.
      */
-    private void notifyCompletionListeners(long causalityToken, CompletableFuture<T> future) {
-        future.whenComplete((v, t) -> {
+    private CompletableFuture<Void> notifyCompletionListeners(long causalityToken, CompletableFuture<T> future) {
+        return future.handle((v, t) -> {
             Throwable unpackedThrowable = t instanceof CompletionException ? t.getCause() : t;
+
+            ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
 
             for (CompletionListener<T> listener : completionListeners) {
                 try {
-                    listener.whenComplete(causalityToken, v, unpackedThrowable);
+                    futs.add(listener.whenComplete(causalityToken, v, unpackedThrowable));
                 } catch (Exception e) {
                     log.error("Exception when notifying a completion listener", e);
                 }
             }
-        });
+
+            return CompletableFutures.allOf(futs);
+        }).thenCompose(identity());
     }
 
     /**
@@ -384,10 +413,12 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
         readWriteLock.writeLock().lock();
 
         try {
-            assert causalityToken < actualToken
-                    : format("Token must be less than last applied [token={}, lastApplied={}]", causalityToken, actualToken);
-            assert causalityToken > deletedToken
-                    : format("Token must be greater than last deleted [token={}, lastDeleted={}]", causalityToken, deletedToken);
+            assert causalityToken < actualToken : format(
+                    "Token must be less than last applied [name={}, token={}, lastApplied={}]", name, causalityToken, actualToken
+            );
+            assert causalityToken > deletedToken : format(
+                    "Token must be greater than last deleted [name={}, token={}, lastDeleted={}]", name, causalityToken, deletedToken
+            );
 
             deletedToken = causalityToken;
 

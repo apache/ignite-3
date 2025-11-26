@@ -1,0 +1,276 @@
+# description: Tests for printout of various aggregation operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+# simple group colocated hash aggregate
+explain plan
+SELECT sum(c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ColocatedHashAggregate
+      fieldNames: [C1, EXPR$0]
+      group: [C1]
+      aggregation: [SUM(C2)]
+      est: (rows=20)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+
+# simple group colocated sort aggregate
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule',
+           'MapReduceHashAggregateConverterRule') */ sum(c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ColocatedSortAggregate
+      fieldNames: [C1, EXPR$0]
+      collation: [C1 ASC]
+      group: [C1]
+      aggregation: [SUM(C2)]
+      est: (rows=20)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      Sort
+          collation: [X ASC]
+          est: (rows=100)
+        TableFunctionScan
+            fieldNames: [X]
+            invocation: SYSTEM_RANGE(1, 10)
+            est: (rows=100)
+
+# simple group map-reduce hash aggregate
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule') */ sum(c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ReduceHashAggregate
+      fieldNames: [C1, EXPR$0]
+      group: [C1]
+      aggregation: [SUM(_ACC0)]
+      est: (rows=20)
+    MapHashAggregate
+        fieldNames: [C1, _ACC0, _GROUP_ID]
+        group: [C1]
+        aggregation: [SUM(C2)]
+        est: (rows=20)
+      Project
+          fieldNames: [C1, C2]
+          projection: [X, X]
+          est: (rows=100)
+        TableFunctionScan
+            fieldNames: [X]
+            invocation: SYSTEM_RANGE(1, 10)
+            est: (rows=100)
+
+# simple group map-reduce sort aggregate
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule', 
+           'ColocatedHashAggregateConverterRule',
+           'ColocatedSortAggregateConverterRule',
+           'MapReduceHashAggregateConverterRule') */ sum(c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ReduceSortAggregate
+      fieldNames: [C1, EXPR$0]
+      collation: [C1 ASC]
+      group: [C1]
+      aggregation: [SUM(_ACC0)]
+      est: (rows=20)
+    MapSortAggregate
+        fieldNames: [C1, _ACC0]
+        collation: [C1 ASC]
+        group: [C1]
+        aggregation: [SUM(C2)]
+        est: (rows=20)
+      Project
+          fieldNames: [C1, C2]
+          projection: [X, X]
+          est: (rows=100)
+        Sort
+            collation: [X ASC]
+            est: (rows=100)
+          TableFunctionScan
+              fieldNames: [X]
+              invocation: SYSTEM_RANGE(1, 10)
+              est: (rows=100)
+
+# aggregation by group set colocated hash aggregate
+explain plan
+SELECT sum(c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY ROLLUP (c1, c3);
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=36)
+  ColocatedHashAggregate
+      fieldNames: [C1, C3, EXPR$0]
+      group: [C1, C3]
+      groupSets: [[C1, C3], [C1], []]
+      aggregation: [SUM(C2)]
+      est: (rows=36)
+    Project
+        fieldNames: [C1, C3, C2]
+        projection: [X, X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+
+# aggregation by group set map-reduce hash aggregate
+explain plan
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule') */ sum(c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY ROLLUP (c1, c3);
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=36)
+  ReduceHashAggregate
+      fieldNames: [C1, C3, EXPR$0]
+      group: [C1, C3]
+      groupSets: [[C1, C3], [C1], []]
+      aggregation: [SUM(_ACC0)]
+      est: (rows=36)
+    MapHashAggregate
+        fieldNames: [C1, C3, _ACC0, _GROUP_ID]
+        group: [C1, C3]
+        groupSets: [[C1, C3], [C1], []]
+        aggregation: [SUM(C2)]
+        est: (rows=36)
+      Project
+          fieldNames: [C1, C3, C2]
+          projection: [X, X, X]
+          est: (rows=100)
+        TableFunctionScan
+            fieldNames: [X]
+            invocation: SYSTEM_RANGE(1, 10)
+            est: (rows=100)
+
+# distinct aggregate
+explain plan
+SELECT sum(DISTINCT c2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ColocatedHashAggregate
+      fieldNames: [C1, EXPR$0]
+      group: [C1]
+      aggregation: [SUM(DISTINCT C2)]
+      est: (rows=20)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, X]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+
+# aggregate within distinct
+explain plan
+SELECT sum(c2) WITHIN DISTINCT (c2 / 2)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ColocatedHashAggregate
+      fieldNames: [C1, EXPR$0]
+      group: [C1]
+      aggregation: [SUM(C2) WITHIN DISTINCT ($f2)]
+      est: (rows=20)
+    Project
+        fieldNames: [C1, C2, $f2]
+        projection: [X, X, /(X, 2)]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+
+# aggregate with additional filtration
+explain plan
+SELECT sum(c2) FILTER (WHERE c2 % 2 = 1)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ColocatedHashAggregate
+      fieldNames: [C1, EXPR$0]
+      group: [C1]
+      aggregation: [SUM(C2) FILTER $f2]
+      est: (rows=20)
+    Project
+        fieldNames: [C1, C2, $f2]
+        projection: [X, X, =(MOD(X, 2), 1)]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+
+# aggregate with all modification
+explain plan
+SELECT count(DISTINCT c2) WITHIN DISTINCT (c2 / 2) FILTER (WHERE c2 % 2 = 1)
+  FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
+ GROUP BY c1;
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
+    est: (rows=20)
+  ColocatedHashAggregate
+      fieldNames: [C1, EXPR$0]
+      group: [C1]
+      aggregation: [COUNT(DISTINCT C2) WITHIN DISTINCT ($f3) FILTER $f2]
+      est: (rows=20)
+    Project
+        fieldNames: [C1, C2, $f2, $f3]
+        projection: [X, X, =(MOD(X, 2), 1), /(X, 2)]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)

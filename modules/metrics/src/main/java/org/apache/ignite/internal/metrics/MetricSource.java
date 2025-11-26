@@ -31,6 +31,27 @@ public interface MetricSource {
     String name();
 
     /**
+     * Returns metrics source description.
+     *
+     * @return Metrics source description.
+     **/
+    default @Nullable String description() {
+        return null;
+    }
+
+    /**
+     * Returns a group name for this metric source.
+     * In general, a group name is a prefix of the source name.
+     * For example, thread pool metric sources have the following group: {@code thread.pools}.
+     * This group name allows adding additional grouping in external systems like JConsole.
+     *
+     * @return Group name.
+     */
+    default @Nullable String group() {
+        return null;
+    }
+
+    /**
      * Enables metrics for metric source. Creates and returns {@link MetricSet} built during enabling. Nothing happens if
      * the metrics are already enabled for this source.
      *

@@ -18,7 +18,7 @@
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <string>
 
@@ -48,6 +48,21 @@ static inline const std::string secret{"secret"};
 /** Key for timezone. */
 static inline const std::string timezone{"timezone"};
 
+/** Key for SSL mode. */
+static inline const std::string ssl_mode{"ssl_mode"};
+
+/** Key for the SSL private key file path. */
+static inline const std::string ssl_key_file{"ssl_key_file"};
+
+/** Key for the SSL certificate file path. */
+static inline const std::string ssl_cert_file{"ssl_cert_file"};
+
+/** Key for the SSL certificate authority file path. */
+static inline const std::string ssl_ca_file{"ssl_ca_file"};
+
+/** Key for the heartbeat interval in ms. */
+static inline const std::string heartbeat_interval{"heartbeat_interval"};
+
 } // namespace key
 
 namespace ignite {
@@ -60,18 +75,24 @@ void try_get_string_param(
     }
 }
 
+template<typename T, typename V>
+void try_get_int_param(
+    value_with_default<V> &dst, const config_map &config_params, const std::string &key, const std::string &err_msg) {
+    auto it = config_params.find(key);
+    if (it != config_params.end()) {
+        auto opt = parse_int<T>(it->second);
+        if (!opt)
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                err_msg + it->second);
+
+        dst = {V{*opt}, true};
+    }
+}
+
 void configuration::from_config_map(const config_map &config_params) {
     *this = configuration();
 
-    auto page_size_it = config_params.find(key::page_size);
-    if (page_size_it != config_params.end()) {
-        auto page_size_opt = parse_int<std::int32_t>(page_size_it->second);
-        if (!page_size_opt)
-            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                "Invalid page size value: " + page_size_it->second);
-
-        m_page_size = {*page_size_opt, true};
-    }
+    try_get_int_param<std::int32_t>(m_page_size, config_params, key::page_size, "Invalid page size value: ");
 
     auto address_it = config_params.find(key::address);
     if (address_it != config_params.end())
@@ -93,10 +114,34 @@ void configuration::from_config_map(const config_map &config_params) {
         m_end_points = {{{host, port}}, true};
     }
 
+    auto ssl_mode_it = config_params.find(key::ssl_mode);
+    if (ssl_mode_it != config_params.end()) {
+        auto ssl_mode = ssl_mode_from_string(ssl_mode_it->second);
+        if (ssl_mode == ssl_mode_t::UNKNOWN) {
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                "Unsupported SSL mode value: " + ssl_mode_it->second);
+        }
+        m_ssl_mode = {ssl_mode, true};
+    }
+
     try_get_string_param(m_schema, config_params, key::schema);
+
     try_get_string_param(m_auth_identity, config_params, key::identity);
     try_get_string_param(m_auth_secret, config_params, key::secret);
+
     try_get_string_param(m_timezone, config_params, key::timezone);
+
+    try_get_string_param(m_ssl_key_file, config_params, key::ssl_key_file);
+    try_get_string_param(m_ssl_cert_file, config_params, key::ssl_cert_file);
+    try_get_string_param(m_ssl_ca_file, config_params, key::ssl_ca_file);
+
+    try_get_int_param<std::int32_t>(m_heartbeat_interval, config_params, key::heartbeat_interval,
+        "Invalid heartbeat interval value: ");
+    if (m_heartbeat_interval.get_value().count() < 0) {
+        throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+            std::string("Heartbeat interval value could not be negative: ") +
+            std::to_string(m_heartbeat_interval.get_value().count()));
+    }
 }
 
 } // namespace ignite

@@ -20,22 +20,22 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.awaitility.Awaitility.with;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,19 +58,22 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
@@ -93,8 +96,15 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration("mock : {checkpointThreads=1, intervalMillis=1000, intervalDeviationPercent=0}")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
+    private final AtomicLong intervalMillis = new AtomicLong(1_000L);
+
+    private final AtomicInteger intervalDeviationPercent = new AtomicInteger(0);
+
+    private final CheckpointConfiguration checkpointConfig = CheckpointConfiguration.builder()
+            .checkpointThreads(1)
+            .intervalMillis(intervalMillis::get)
+            .intervalDeviationPercent(intervalDeviationPercent::get)
+            .build();
 
     @BeforeAll
     static void beforeAll() {
@@ -110,17 +120,24 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartAndStop() throws Exception {
-        Checkpointer checkpointer = new Checkpointer(
+        PartitionMetaManager mockParititonMetaManager = mock(PartitionMetaManager.class);
+
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                createCheckpointPagesWriterFactory(mockParititonMetaManager, partitionDestructionLockManager),
                 mock(FilePageStoreManager.class),
+                mockParititonMetaManager,
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         );
 
         assertNull(checkpointer.runner());
@@ -131,11 +148,17 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         checkpointer.start();
 
-        assertTrue(waitForCondition(() -> checkpointer.runner() != null, 10, 100));
+        with().pollInterval(10, MILLISECONDS)
+                .await()
+                .timeout(100, MILLISECONDS)
+                .until(checkpointer::runner, notNullValue());
 
         checkpointer.stop();
 
-        assertTrue(waitForCondition(() -> checkpointer.runner() == null, 10, 100));
+        with().pollInterval(10, MILLISECONDS)
+                .await()
+                .timeout(100, MILLISECONDS)
+                .until(checkpointer::runner, nullValue());
 
         assertTrue(checkpointer.isShutdownNow());
         assertTrue(checkpointer.isCancelled());
@@ -151,10 +174,13 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                new PartitionDestructionLockManager(),
+                new CheckpointMetricSource("test")
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -247,7 +273,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitCheckpointEvent() throws Exception {
-        checkpointConfig.intervalMillis().update(200L).get(100, MILLISECONDS);
+        intervalMillis.set(200L);
 
         Checkpointer checkpointer = new Checkpointer(
                 "test",
@@ -256,10 +282,13 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                new PartitionDestructionLockManager(),
+                new CheckpointMetricSource("test")
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -277,26 +306,31 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCheckpointBody() throws Exception {
-        checkpointConfig.intervalMillis().update(100L).get(100, MILLISECONDS);
+        intervalMillis.set(100L);
 
-        Checkpointer checkpointer = spy(new Checkpointer(
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class), partitionDestructionLockManager),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         ));
 
-        ((CheckpointProgressImpl) checkpointer.scheduledProgress())
+        checkpointer.scheduledProgress()
                 .futureFor(FINISHED)
                 .whenComplete((unused, throwable) -> {
                     try {
-                        checkpointConfig.intervalMillis().update(10_000L).get(100, MILLISECONDS);
+                        intervalMillis.set(10_000L);
 
                         verify(checkpointer, times(1)).doCheckpoint();
 
@@ -352,7 +386,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testDoCheckpoint() throws Exception {
         CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
-                fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
+                dirtyFullPageId(0, 0, 1), dirtyFullPageId(0, 0, 2), dirtyFullPageId(0, 0, 3)
         ));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
@@ -370,17 +404,29 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         LogSyncer mockLogSyncer = mock(LogSyncer.class);
 
-        Checkpointer checkpointer = spy(new Checkpointer(
+        PartitionMetaManager mock = mock(PartitionMetaManager.class);
+
+        FakePartitionMeta meta = new FakePartitionMeta(10, 1);
+        meta.init(UUID.randomUUID());
+
+        when(mock.getMeta(any())).thenReturn(meta);
+
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(partitionMetaManager),
+                createCheckpointPagesWriterFactory(partitionMetaManager, partitionDestructionLockManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
+                mock,
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
-                mockLogSyncer
+                mockLogSyncer,
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -390,7 +436,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         verify(compactor, times(1)).triggerCompaction();
         verify(mockLogSyncer, times(1)).sync();
 
-        assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
+        assertEquals(3, checkpointer.lastCheckpointProgress().currentCheckpointPagesCount());
 
         verify(checkpointer, times(1)).updateLastProgressAfterReleaseWriteLock();
     }
@@ -401,17 +447,25 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         Compactor compactor = mock(Compactor.class);
 
-        Checkpointer checkpointer = spy(new Checkpointer(
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
+                createCheckpointPagesWriterFactory(
+                        new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY),
+                        partitionDestructionLockManager
+                ),
                 createFilePageStoreManager(Map.of()),
+                mock(PartitionMetaManager.class),
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -420,13 +474,13 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         verify(checkpointer, times(1)).startCheckpointProgress();
         verify(compactor, never()).triggerCompaction();
 
-        assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
+        assertEquals(0, checkpointer.lastCheckpointProgress().currentCheckpointPagesCount());
 
         verify(checkpointer, times(1)).updateLastProgressAfterReleaseWriteLock();
     }
 
     @Test
-    void testNextCheckpointInterval() throws Exception {
+    void testNextCheckpointInterval() {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
@@ -434,32 +488,34 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                new PartitionDestructionLockManager(),
+                new CheckpointMetricSource("test")
         );
 
         // Checks case 0 deviation.
+        intervalDeviationPercent.set(0);
 
-        checkpointConfig.intervalDeviationPercent().update(0).get(100, MILLISECONDS);
-
-        checkpointConfig.intervalMillis().update(1_000L).get(100, MILLISECONDS);
+        intervalMillis.set(1_000L);
         assertEquals(1_000, checkpointer.nextCheckpointInterval());
 
-        checkpointConfig.intervalMillis().update(2_000L).get(100, MILLISECONDS);
+        intervalMillis.set(2_000L);
         assertEquals(2_000, checkpointer.nextCheckpointInterval());
 
         // Checks for non-zero deviation.
 
-        checkpointConfig.intervalDeviationPercent().update(10).get(100, MILLISECONDS);
+        intervalDeviationPercent.set(10);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_900L), lessThanOrEqualTo(2_100L))
         );
 
-        checkpointConfig.intervalDeviationPercent().update(20).get(100, MILLISECONDS);
+        intervalDeviationPercent.set(20);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
@@ -467,53 +523,11 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Test
-    void testPrepareToDestroyPartition() throws Exception {
-        Checkpointer checkpointer = new Checkpointer(
-                "test",
-                null,
-                mock(FailureManager.class),
-                mock(CheckpointWorkflow.class),
-                mock(CheckpointPagesWriterFactory.class),
-                mock(FilePageStoreManager.class),
-                mock(Compactor.class),
-                PAGE_SIZE,
-                checkpointConfig,
-                mock(LogSyncer.class)
-        );
-
-        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
-
-        // Everything should be fine as there is no current running checkpoint.
-        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
-
-        CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
-
-        checkpointer.startCheckpointProgress();
-
-        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
-
-        checkpointProgress.transitTo(LOCK_RELEASED);
-        assertTrue(checkpointProgress.inProgress());
-
-        // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
-        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
-
-        // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
-        checkpointProgress.blockPartitionDestruction(groupPartitionId);
-
-        CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
-
-        checkpointProgress.unblockPartitionDestruction(groupPartitionId);
-
-        onPartitionDestructionFuture.get(1, SECONDS);
-    }
-
-    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
+    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, DirtyFullPageId... pageIds) {
         return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, pageIds)));
     }
 
-    private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
+    private static CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
         when(mock.markCheckpointBegin(
@@ -548,12 +562,16 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return mock;
     }
 
-    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(PartitionMetaManager partitionMetaManager) {
+    private static CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
+            PartitionMetaManager partitionMetaManager,
+            PartitionDestructionLockManager partitionDestructionLockManager
+    ) {
         return new CheckpointPagesWriterFactory(
                 mock(WriteDirtyPage.class),
                 ioRegistry,
                 partitionMetaManager,
-                PAGE_SIZE
+                PAGE_SIZE,
+                partitionDestructionLockManager
         );
     }
 
@@ -565,7 +583,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return manager;
     }
 
-    private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
-        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    private static DirtyFullPageId dirtyFullPageId(int grpId, int partId, int pageIdx) {
+        return new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1);
     }
 }

@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -34,7 +34,11 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -51,18 +55,22 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -84,23 +92,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Test default table name. */
     protected static final String DEFAULT_TABLE_NAME = "person";
 
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
+    /** Default partition count for tests. */
+    protected static final int DEFAULT_PARTITION_COUNT = 25;
 
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
@@ -174,13 +167,14 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     void stopCluster() {
         CLUSTER.shutdown();
 
-        MicronautCleanup.removeShutdownHooks();
+        TestMvTableStorage.resetPartitionStorageFactory();
     }
 
     /** Drops all visible tables. */
     protected static void dropAllTables() {
         Ignite aliveNode = CLUSTER.aliveNode();
         String dropTablesScript = aliveNode.tables().tables().stream()
+                .filter(t -> !CatalogUtils.SYSTEM_SCHEMAS.contains(t.qualifiedName().schemaName()))
                 .map(Table::name)
                 .map(name -> "DROP TABLE " + name)
                 .collect(Collectors.joining(";\n"));
@@ -188,6 +182,52 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         if (!dropTablesScript.isEmpty()) {
             sqlScript(dropTablesScript);
         }
+    }
+
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param zone The name of the distribution zone to check.
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    protected static void awaitPartitionsToBeHealthy(
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;
+
+                    if (colocationEnabled()) {
+                        globalPartitionStates = node.disasterRecoveryManager()
+                                .globalPartitionStates(Set.of(zone), partitionIds)
+                                .thenApply(map -> map.entrySet().stream()
+                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
+                    } else {
+                        globalPartitionStates = node.disasterRecoveryManager()
+                                .globalTablePartitionStates(Set.of(zone), partitionIds)
+                                .thenApply(map -> map.entrySet().stream()
+                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
+                    }
+
+                    assertThat(globalPartitionStates, willCompleteSuccessfully());
+
+                    Map<?, GlobalPartitionStateEnum> globalStateStates;
+                    try {
+                        globalStateStates = globalPartitionStates.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    return globalStateStates.values()
+                            .stream()
+                            .allMatch(state -> state == GlobalPartitionStateEnum.AVAILABLE);
+                },
+                30_000
+        ));
     }
 
     /** Drops all non-system schemas. */
@@ -236,6 +276,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      *
      * @param name Table name.
      * @param replicas Replica factor.
+     */
+    protected static Table createTable(String name, int replicas) {
+        return createZoneAndTable(zoneName(name), name, replicas, DEFAULT_PARTITION_COUNT);
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
     protected static Table createTable(String name, int replicas, int partitions) {
@@ -252,6 +302,20 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         sql(format(
                 "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) ZONE \"{}\"",
                 tableName, zoneName
+        ));
+
+        return CLUSTER.node(0).tables().table(tableName);
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param tableName Table name.
+     */
+    protected static Table createTableOnly(String tableName) {
+        sql(format(
+                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)",
+                tableName
         ));
 
         return CLUSTER.node(0).tables().table(tableName);
@@ -414,12 +478,45 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.aliveNodesWithIndices();
     }
 
-    protected static List<List<Object>> sql(String sql, Object... args) {
-        return sql(null, sql, args);
+    protected static long[] dmlBatch(String dmlQuery, BatchedArguments batchedArgs) {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+        Statement statement = sql.createStatement(dmlQuery);
+
+        return sql.executeBatch(null, statement, batchedArgs);
     }
 
-    protected static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
+    /**
+     * Run SQL on the first Ignite instance with implicit transaction and parameters.
+     *
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(String sql, Object... args) {
+        return sql((Transaction) null, sql, args);
+    }
+
+    /**
+     * Run SQL on given Ignite instance with implicit transaction and parameters.
+     *
+     * @param nodeIndex Ignite instance to run a query.
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
         return sql(nodeIndex, null, sql, args);
+    }
+
+    /**
+     * Run SQL on given Ignite instance with given parameters.
+     *
+     * @param node Ignite instance to run a query.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(Ignite node, String sql, Object... args) {
+        return sql(node, null, null, null, sql, args);
     }
 
     /**
@@ -510,17 +607,33 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
      * {@link #deletePeople(String, int...)} to remove people.
      */
-    protected static class Person {
-        final int id;
+    public static class Person {
+        public final int id;
 
-        final String name;
+        public final String name;
 
-        final double salary;
+        public final double salary;
 
+        /** Default constructor. */
+        public Person() {
+            this(0, null, 0);
+        }
+
+        /** Constructor. */
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+
+        /** Returns value tuple to work with KV storage. */
+        public Tuple toValueTuple() {
+            return Tuple.create().set("name", name).set("salary", salary);
+        }
+
+        /** Returns key tuple to work with KV storage. */
+        public Tuple toKeyTuple() {
+            return Tuple.create().set("id", id);
         }
     }
 
@@ -544,7 +657,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @param ignite Node.
      * @param indexName Index name that is being checked.
      */
-    protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
+    public static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
@@ -594,9 +707,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static ClusterNode clusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node();
+        return unwrapIgniteImpl(node).node().toPublicNode();
     }
-
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
     @RegisterExtension

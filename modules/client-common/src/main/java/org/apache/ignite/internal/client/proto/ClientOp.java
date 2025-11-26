@@ -188,8 +188,8 @@ public class ClientOp {
     /** Execute partitioned compute job. */
     public static final int COMPUTE_EXECUTE_PARTITIONED = 69;
 
-    /** Cancel execution of a SQL query previously initiated on the same connection. */
-    public static final int SQL_CANCEL_EXEC = 70;
+    /** Cancel execution of a request previously initiated on the same connection. */
+    public static final int OPERATION_CANCEL = 70;
 
     /** Get tables (returns Qualified names). */
     public static final int TABLES_GET_QUALIFIED = 71;
@@ -199,6 +199,9 @@ public class ClientOp {
 
     /** Response to a server->client operation. */
     public static final int SERVER_OP_RESPONSE = 73;
+
+    /** Get next result set. */
+    public static final int SQL_CURSOR_NEXT_RESULT_SET = 74;
 
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
@@ -210,6 +213,12 @@ public class ClientOp {
 
     /** Write mask. */
     private static final BitSet WRITE_MASK = new BitSet(64);
+
+    /** Batch mask. */
+    private static final BitSet BATCH_MASK = new BitSet(64);
+
+    /** Partition operation mask. */
+    private static final BitSet OP_MASK = new BitSet(64);
 
     static {
         WRITE_MASK.set(TUPLE_UPSERT);
@@ -225,15 +234,74 @@ public class ClientOp {
         WRITE_MASK.set(TUPLE_INSERT_ALL);
         WRITE_MASK.set(TUPLE_DELETE_ALL);
         WRITE_MASK.set(TUPLE_DELETE_ALL_EXACT);
+
+        BATCH_MASK.set(TUPLE_CONTAINS_ALL_KEYS);
+        BATCH_MASK.set(TUPLE_GET_ALL);
+        BATCH_MASK.set(TUPLE_UPSERT_ALL);
+        BATCH_MASK.set(TUPLE_INSERT_ALL);
+        BATCH_MASK.set(TUPLE_DELETE_ALL);
+        BATCH_MASK.set(TUPLE_DELETE_ALL_EXACT);
+
+        OP_MASK.set(TABLES_GET);
+        OP_MASK.set(TUPLE_UPSERT);
+        OP_MASK.set(TUPLE_GET);
+        OP_MASK.set(TUPLE_GET_AND_UPSERT);
+        OP_MASK.set(TUPLE_INSERT);
+        OP_MASK.set(TUPLE_REPLACE);
+        OP_MASK.set(TUPLE_REPLACE_EXACT);
+        OP_MASK.set(TUPLE_GET_AND_REPLACE);
+        OP_MASK.set(TUPLE_DELETE);
+        OP_MASK.set(TUPLE_DELETE_EXACT);
+        OP_MASK.set(TUPLE_GET_AND_DELETE);
+        OP_MASK.set(TUPLE_CONTAINS_KEY);
+        OP_MASK.set(STREAMER_BATCH_SEND);
+        OP_MASK.set(TX_COMMIT);
+        OP_MASK.set(TX_ROLLBACK);
+        OP_MASK.set(TUPLE_GET_ALL);
+        OP_MASK.set(TUPLE_CONTAINS_ALL_KEYS);
     }
 
     /**
-     * Test if operation is write.
+     * Test if the operation is a write.
      *
      * @param opCode The operation code.
      * @return The status.
      */
     public static boolean isWrite(int opCode) {
         return WRITE_MASK.get(opCode);
+    }
+
+    /**
+     * Test if the operation is a batch.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isBatch(int opCode) {
+        return BATCH_MASK.get(opCode);
+    }
+
+    /**
+     * Test if the partition operation.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isPartitionOperation(int opCode) {
+        // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
+        // (for instance, cancellation must not be processed until execution request is registered).
+        // || opCode == ClientOp.SQL_EXEC
+        // || opCode == ClientOp.SQL_EXEC_BATCH
+        // || opCode == ClientOp.SQL_EXEC_SCRIPT
+        // || opCode == ClientOp.SQL_QUERY_META;
+
+        // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
+        // || opCode == ClientOp.TUPLE_UPSERT_ALL
+        // || opCode == ClientOp.TUPLE_GET_ALL
+        // || opCode == ClientOp.TUPLE_INSERT_ALL
+        // || opCode == ClientOp.TUPLE_DELETE_ALL
+        // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
+        // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
+        return OP_MASK.get(opCode);
     }
 }

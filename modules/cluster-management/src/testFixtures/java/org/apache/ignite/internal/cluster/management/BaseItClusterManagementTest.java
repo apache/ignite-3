@@ -23,12 +23,16 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -44,8 +48,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     private static final int PORT_BASE = 10000;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.retryTimeoutMillis = 60000")
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration userNodeAttributes;
@@ -61,6 +68,10 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     }
 
     protected List<MockNode> createNodes(int numNodes) {
+        return createNodes(numNodes, (i, config) -> {});
+    }
+
+    protected List<MockNode> createNodes(int numNodes, BiConsumer<Integer, RaftGroupConfiguration> onConfigurationCommittedListener) {
         List<NetworkAddress> seedAddresses = createSeedAddresses(numNodes);
         NodeFinder nodeFinder = new StaticNodeFinder(seedAddresses);
 
@@ -71,9 +82,10 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                         nodeFinder,
                         workDir,
                         raftConfiguration,
+                        systemLocalConfiguration,
                         userNodeAttributes,
-                        storageConfiguration
-
+                        storageConfiguration,
+                        config -> onConfigurationCommittedListener.accept(i, config)
                 ))
                 .collect(toList());
     }
@@ -87,14 +99,40 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     }
 
     protected MockNode createNode(int idx, int clusterSize) {
+        return createNode(idx, clusterSize, config -> {});
+    }
+
+    protected MockNode createNode(int idx, int clusterSize, Consumer<RaftGroupConfiguration> onConfigurationCommittedListener) {
         return new MockNode(
                 testInfo,
                 new NetworkAddress("localhost", PORT_BASE + idx),
                 new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
+                systemLocalConfiguration,
                 userNodeAttributes,
-                storageConfiguration
+                storageConfiguration,
+                onConfigurationCommittedListener
+        );
+    }
+
+    protected MockNode createNode(
+            int idx,
+            int clusterSize,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener,
+            NodeAttributesProvider attributesProvider
+    ) {
+        return new MockNode(
+                testInfo,
+                new NetworkAddress("localhost", PORT_BASE + idx),
+                new StaticNodeFinder(createSeedAddresses(clusterSize)),
+                workDir,
+                raftConfiguration,
+                systemLocalConfiguration,
+                userNodeAttributes,
+                attributesProvider,
+                storageConfiguration,
+                onConfigurationCommittedListener
         );
     }
 

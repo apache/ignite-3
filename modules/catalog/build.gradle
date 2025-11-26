@@ -42,24 +42,17 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
 
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-failure-handler')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation libs.assertj.core
 
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation project(':ignite-system-view-api')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation(testFixtures(project(':ignite-vault')))
-    testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
-    testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-vault'))
+    testFixturesImplementation testFixtures(project(':ignite-metastorage'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation testFixtures(project(':ignite-runner'))

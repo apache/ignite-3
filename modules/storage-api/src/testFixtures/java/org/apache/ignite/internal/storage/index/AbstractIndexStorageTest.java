@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
@@ -44,6 +43,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -51,10 +51,12 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -83,8 +85,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> extends BaseIgniteAbstractTest {
     /** Definitions of all supported column types. */
-    @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
-    public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
+    static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
     protected static final int TEST_PARTITION = 12;
 
@@ -96,7 +97,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected static final String INDEX_NAME = "TEST_IDX";
 
-    private static List<ColumnParams> allTypesColumnParams() {
+    static List<ColumnParams> allTypesColumnParams() {
         return List.of(
                 columnParamsBuilder(ColumnType.INT8).nullable(true).build(),
                 columnParamsBuilder(ColumnType.INT16).nullable(true).build(),
@@ -162,17 +163,20 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         int zoneId = catalogId.getAndIncrement();
         int pkIndexId = catalogId.getAndIncrement();
 
-        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                tableId,
-                schemaId,
-                pkIndexId,
-                TABLE_NAME,
-                zoneId,
-                Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
-                List.of(pkColumn.name()),
-                null,
-                DEFAULT_STORAGE_PROFILE
-        );
+        List<CatalogTableColumnDescriptor> columns = Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream())
+                .map(CatalogUtils::fromParams)
+                .collect(toList());
+        IntList pkCols = IntList.of(0);
+        CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(schemaId)
+                .primaryKeyIndexId(pkIndexId)
+                .name(TABLE_NAME)
+                .zoneId(zoneId)
+                .newColumns(columns)
+                .primaryKeyColumns(pkCols)
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
         when(catalog.table(eq(SCHEMA_NAME), eq(TABLE_NAME))).thenReturn(tableDescriptor);
         when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);

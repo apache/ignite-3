@@ -70,7 +70,7 @@ public class MessageClass {
     }
 
     /**
-     * Finds all getters in the given element and all of its superinterfaces.
+     * Finds all getters in the given element and all of its superinterfaces, ordered by {@link MessageGeneratorUtils#propertyName}.
      */
     private static List<ExecutableElement> extractGetters(ProcessingEnvironment processingEnv, TypeElement element) {
         var typeUtils = new TypeUtils(processingEnv);
@@ -88,7 +88,7 @@ public class MessageClass {
                 .filter(e -> !e.getModifiers().contains(Modifier.STATIC))
                 // use a tree map to sort getters by name and remove duplicates
                 .collect(Collectors.toMap(
-                        e -> e.getSimpleName().toString(),
+                        MessageGeneratorUtils::propertyName,
                         Function.identity(),
                         (e1, e2) -> e1,
                         TreeMap::new

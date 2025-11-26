@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Holds marshalled binary data for the compute, used for the optimization to reduce number of conversions in case when thin client requests
  * job execution on another node. In this case, the argument (POJO or a Tuple) is packed on the client, unpacked as a byte array on the
@@ -27,7 +29,9 @@ package org.apache.ignite.internal.compute;
 public class ComputeJobDataHolder {
     private final ComputeJobDataType type;
 
-    private final byte[] data;
+    private final byte @Nullable [] data;
+
+    private final @Nullable Long observableTimestamp;
 
     /**
      * Constructs a holder.
@@ -35,9 +39,20 @@ public class ComputeJobDataHolder {
      * @param type Job argument type.
      * @param data Marshalled data.
      */
-    public ComputeJobDataHolder(ComputeJobDataType type, byte[] data) {
+    public ComputeJobDataHolder(ComputeJobDataType type, byte @Nullable [] data) {
+        this(type, data, null);
+    }
+
+    /**
+     * Constructs a holder.
+     *
+     * @param type Job argument type.
+     * @param data Marshalled data.
+     */
+    public ComputeJobDataHolder(ComputeJobDataType type, byte @Nullable [] data, @Nullable Long observableTimestamp) {
         this.type = type;
         this.data = data;
+        this.observableTimestamp = observableTimestamp;
     }
 
     /**
@@ -56,5 +71,14 @@ public class ComputeJobDataHolder {
      */
     public byte[] data() {
         return data;
+    }
+
+    /**
+     * Returns observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    public @Nullable Long observableTimestamp() {
+        return observableTimestamp;
     }
 }

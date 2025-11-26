@@ -19,6 +19,7 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/migration-tools-integration-test.gradle"
 
 description = 'migration-tools-persistence'
 
@@ -31,16 +32,14 @@ dependencies {
     implementation libs.commons.collections4
     implementation libs.jackson.databind
     implementation libs.slf4j.api
+    implementation libs.bytebuddy
     compileOnly libs.spotbugs.annotations
 
     testImplementation project(":migration-tools-commons-tests")
     testImplementation project(":migration-tools-e2e-core")
     testImplementation project(":migration-tools-e2e-implementations")
     testImplementation testFixtures(project(":migration-tools-ai2-test-fixtures"))
-    testImplementation libs.mockito.core
     testImplementation libs.assertj.core
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
 
     integrationTestImplementation project(":migration-tools-commons")
     integrationTestImplementation project(path: ":migration-tools-ignite3-repack", configuration: "shadow")
@@ -52,12 +51,7 @@ dependencies {
     integrationTestImplementation libs.commons.lang3
     integrationTestImplementation libs.commons.collections4
     integrationTestImplementation libs.jackson.databind
-    integrationTestImplementation libs.mockito.core
     integrationTestImplementation libs.assertj.core
-    integrationTestImplementation libs.junit5.api
-    integrationTestImplementation libs.junit5.params
     integrationTestImplementation libs.testcontainers.core
     integrationTestImplementation libs.testcontainers.junit
 }
-
-tasks.integrationTest.dependsOn += ":migration-tools-e2e-ai2-runner:docker"

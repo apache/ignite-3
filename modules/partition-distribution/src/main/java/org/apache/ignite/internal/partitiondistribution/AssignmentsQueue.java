@@ -62,6 +62,16 @@ public class AssignmentsQueue implements Iterable<Assignments> {
     }
 
     /**
+     * Retrieves, but does not remove, the first element of this queue.
+     *
+     * @return the tail of this queue
+     */
+    public Assignments peekFirst() {
+        assert !queue.isEmpty() : "Assignments queue must contain at least one element.";
+        return queue.peekFirst();
+    }
+
+    /**
      * Retrieves, but does not remove, the last element of this queue.
      *
      * @return the tail of this queue

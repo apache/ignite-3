@@ -82,18 +82,53 @@ public class DotNetComputeExecutor {
     /**
      * Creates a callable for executing a job.
      *
-     * @param deploymentUnitPaths Paths to deployment units.
      * @param jobClassName Name of the job class.
-     * @param input Job argument.
+     * @param arg Job argument.
      * @param context Job execution context.
      * @return Callable that executes the job.
      */
     public Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
-            List<String> deploymentUnitPaths,
             String jobClassName,
-            ComputeJobDataHolder input,
-            JobExecutionContext context) {
-        return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
+            @Nullable ComputeJobDataHolder arg,
+            JobExecutionContext context
+    ) {
+        return () -> executeJobAsync(jobClassName, arg, context);
+    }
+
+    /**
+     * Starts undeploy process for the specified deployment units.
+     *
+     * @param unitPath Paths to deployment units to undeploy.
+     */
+    public synchronized void beginUndeployUnit(Path unitPath) {
+        try {
+            String unitPathStr = unitPath.toRealPath().toString();
+
+            if (process == null || isDead(process) || process.connectionFut().isCompletedExceptionally()) {
+                // Process is not started or already dead, nothing to undeploy.
+                return;
+            }
+
+            process.connectionFut()
+                    .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
+                    .exceptionally(e -> {
+                        var cause = unwrapCause(e);
+
+                        if (cause instanceof TraceableException) {
+                            TraceableException te = (TraceableException) cause;
+
+                            if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                // Connection was lost (process exited), nothing to do.
+                                return true;
+                            }
+                        }
+
+                        LOG.warn(".NET unit undeploy error: " + e.getMessage(), e);
+                        return false;
+                    });
+        } catch (Throwable t) {
+            LOG.warn(".NET unit undeploy error: " + t.getMessage(), t);
+        }
     }
 
     /**
@@ -106,10 +141,10 @@ public class DotNetComputeExecutor {
     }
 
     private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
-            List<String> deploymentUnitPaths,
             String jobClassName,
-            ComputeJobDataHolder input,
-            JobExecutionContext context) {
+            @Nullable ComputeJobDataHolder arg,
+            JobExecutionContext context
+    ) {
         if (context.isCancelled()) {
             return CompletableFuture.failedFuture(new CancellationException("Job was cancelled"));
         }
@@ -119,7 +154,7 @@ public class DotNetComputeExecutor {
 
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()
-                        .thenCompose(c -> c.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
+                        .thenCompose(c -> c.executeJobAsync(jobId, jobClassName, context, arg))
                         .exceptionally(e -> {
                             var cause = unwrapCause(e);
 
@@ -196,9 +231,7 @@ public class DotNetComputeExecutor {
         return fut;
     }
 
-    private static Throwable handleTransportError(Process proc, Throwable cause) {
-        Throwable cause0 = unwrapCause(cause);
-
+    private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
         String output = getProcessOutputTail(proc, 10_000);
 
         if (proc.isAlive()) {
@@ -206,11 +239,14 @@ public class DotNetComputeExecutor {
             proc.destroyForcibly();
         }
 
-        if (cause0 instanceof TraceableException) {
-            TraceableException te = (TraceableException) cause;
+        if (cause != null) {
+            Throwable cause0 = unwrapCause(cause);
+            if (cause0 instanceof TraceableException) {
+                TraceableException te = (TraceableException) cause;
 
-            if (te.code() == Client.PROTOCOL_COMPATIBILITY_ERR) {
-                return cause;
+                if (te.code() == Client.PROTOCOL_COMPATIBILITY_ERR) {
+                    return cause;
+                }
             }
         }
 
@@ -246,7 +282,11 @@ public class DotNetComputeExecutor {
 
             // 2. Start the process. It connects to the server, passes the id, and the server knows it is the right one.
             String dotnetBinaryPath = DOTNET_BINARY_PATH;
-            LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
+            }
+
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
 
             proc.onExit().thenRun(() -> {
@@ -307,7 +347,7 @@ public class DotNetComputeExecutor {
             // Dev mode, class file.
             return basePath.resolve(Path.of("..", "..", "..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
-        } else if (basePath.toString().endsWith("-SNAPSHOT.jar")) {
+        } else if (basePath.getParent().endsWith(Paths.get("modules", "compute", "build", "libs"))) {
             // Dev mode, jar file.
             return basePath.getParent().resolve(Path.of("..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));

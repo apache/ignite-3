@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -102,14 +101,6 @@ public final class NativeTypeValues {
             default:
                 throw new IllegalArgumentException("Unsupported type " + type);
         }
-    }
-
-    /** Returns a value of a {@link NativeType native type} that corresponds to the given {@link NativeTypeSpec}. */
-    public static Object value(int i, NativeTypeSpec spec) {
-        Object value = value(i, spec.asColumnType());
-
-        assert value != null : "Returned a null value for " + spec;
-        return value;
     }
 
     /** Returns a value of a {@link NativeType native type} that corresponds to the given {@link RelDataType}. */

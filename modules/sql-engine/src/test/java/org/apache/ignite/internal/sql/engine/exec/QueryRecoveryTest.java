@@ -43,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionalOperatio
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -57,8 +56,10 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,6 +79,11 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
     private static QueryCheckerFactory queryCheckerFactory;
 
     private TestCluster cluster;
+
+    @BeforeAll
+    static void warmUpCluster() throws Exception {
+        TestBuilders.warmupTestCluster();
+    }
 
     @BeforeEach
     void startCluster() {
@@ -109,7 +115,7 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource
-    void queryWithImplicitTxRecoversWhenNodeLeftClusterBeforeFragmentHasBeenSent(TxType txType) throws Exception {
+    void queryWithImplicitTxRecoversWhenNodeDisconnectsBeforeFragmentHasBeenSent(TxType txType) {
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
 
         QueryTransactionContext txContext = createTxContext(txType, true);
@@ -121,6 +127,33 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
                 .returns(firstExpectedNode)
                 .check();
 
+        // Disconnect just removes node from physical topology, but not logical. This implies, that query
+        // will be mapped on disconnected node, and after first unsuccessful try query should be remapped
+        // on other node, if any.
+        cluster.node(firstExpectedNode).disconnect();
+
+        // first expected node is not available, query must be remapped to next available node
+        assertQuery(gatewayNode, "SELECT node FROM t1 WHERE part_id = 0", txContext)
+                .returns(DATA_NODES.get(1))
+                .check();
+    }
+
+    @ParameterizedTest
+    @EnumSource
+    void queryWithImplicitTxNotFailsWhenNodeLeftClusterBeforeFragmentHasBeenSent(TxType txType) throws Exception {
+        TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
+
+        QueryTransactionContext txContext = createTxContext(txType, true);
+
+        // mapping is supposed to be stable, thus if it returns 0th node from DATA_NODES on some environment,
+        // it should return the same node on all environments
+        String firstExpectedNode = DATA_NODES.get(0);
+        assertQuery(gatewayNode, "SELECT node FROM t1 WHERE part_id = 0", txContext)
+                .returns(firstExpectedNode)
+                .check();
+
+        // Node stop removes node both from physical and logic topology. This implies that query won't be
+        // mapped on missed node if there are alternatives.
         cluster.node(firstExpectedNode).stop();
 
         // first expected node is not available, query must be remapped to next available node
@@ -131,7 +164,7 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource
-    void queryWithExplicitTxCannotRecoverWhenNodeLeftClusterBeforeFragmentHasBeenSent(TxType txType) throws Exception {
+    void queryWithExplicitTxCannotRecoverWhenNodeDisconnectsBeforeFragmentHasBeenSent(TxType txType) {
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
 
         QueryTransactionContext txContext = createTxContext(txType, false);
@@ -143,13 +176,40 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
                 .returns(firstExpectedNode)
                 .check();
 
-        cluster.node(firstExpectedNode).stop();
+        // Disconnect just removes node from physical topology, but not logical. This implies, that query
+        // will be mapped on disconnected node, and after first unsuccessful try related transaction will
+        // be invalidated, which makes it impossible to recover.
+        cluster.node(firstExpectedNode).disconnect();
 
         assertThrows(
-                UnknownNodeException.class,
+                SqlException.class,
                 () -> assertQuery(gatewayNode, "SELECT node FROM t1 WHERE part_id = 0", txContext).check(),
-                "Unknown node: " + firstExpectedNode
+                "Node left the cluster. Node: " + firstExpectedNode
         );
+    }
+
+    @ParameterizedTest
+    @EnumSource
+    void queryWithExplicitTxNotFailsWhenNodeLeftClusterBeforeFragmentHasBeenSent(TxType txType) throws Exception {
+        TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
+
+        QueryTransactionContext txContext = createTxContext(txType, false);
+
+        // mapping is supposed to be stable, thus if it returns 0th node from DATA_NODES on some environment,
+        // it should return the same node on all environments
+        String firstExpectedNode = DATA_NODES.get(0);
+        assertQuery(gatewayNode, "SELECT node FROM t1 WHERE part_id = 0", txContext)
+                .returns(firstExpectedNode)
+                .check();
+
+        // Node stop removes node both from physical and logic topology. This implies that query won't be
+        // mapped on missed node if there are alternatives.
+        cluster.node(firstExpectedNode).stop();
+
+        // first expected node is not available, query must be mapped to next available node
+        assertQuery(gatewayNode, "SELECT node FROM t1 WHERE part_id = 0", txContext)
+                .returns(DATA_NODES.get(1))
+                .check();
     }
 
     @Test
@@ -303,7 +363,6 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         FailingIterator(Exception ex) {
             this.ex = ex;
         }
-
 
         @Override
         public boolean hasNext() {

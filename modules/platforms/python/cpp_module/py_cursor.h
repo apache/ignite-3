@@ -23,9 +23,7 @@
 
 #define PY_CURSOR_CLASS_NAME "PyCursor"
 
-namespace ignite {
-class sql_statement;
-}
+class statement;
 
 /**
  * Cursor Python object.
@@ -34,18 +32,8 @@ struct py_cursor {
     PyObject_HEAD
 
     /** Statement. */
-    ignite::sql_statement *m_statement;
+    statement *m_statement;
 };
-
-/**
- * Connection init function.
- */
-int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds);
-
-/**
- * Connection dealloc function.
- */
-void py_cursor_dealloc(py_cursor *self);
 
 /**
  * Create a new instance of py_cursor python class.
@@ -53,7 +41,7 @@ void py_cursor_dealloc(py_cursor *self);
  * @param stmt Statement.
  * @return A new class instance.
  */
-py_cursor* make_py_cursor(std::unique_ptr<ignite::sql_statement> stmt);
+py_cursor* make_py_cursor(std::unique_ptr<statement> stmt);
 
 /**
  * Prepare PyCursor type for registration.

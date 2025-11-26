@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -127,8 +128,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
                         List.of(
-                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true, false),
+                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true, false)
                         ),
                         true
                 )
@@ -180,7 +181,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
 
         TestStorageUtils.completeBuiltIndexes(storage, hashInnerStorage, sortedInnerStorage);
@@ -199,7 +201,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, lastCommitTime, null);
     }
 
     static BinaryRow defaultRow() {
@@ -247,7 +249,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     void commitWrite(RowId rowId) {
         storage.runConsistently(locker -> {
-            storage.commitWrite(rowId, now());
+            storage.commitWrite(rowId, now(), TX_ID);
 
             return null;
         });

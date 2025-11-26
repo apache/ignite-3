@@ -231,7 +231,6 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         assertEquals(resultExpected, result);
     }
 
-
     @Test
     void submitBroadcast() {
         // When.

@@ -27,8 +27,240 @@
 #include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
+
+#include <detail/string_utils.h>
+
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
+
+namespace {
+
+using namespace ignite;
+
+/**
+ * Convert to SQL constant.
+ *
+ * @param value Nullability.
+ * @return SQL constant.
+ */
+[[nodiscard]] SQLLEN nullability_to_sql(protocol::nullability value) {
+    switch (value) {
+        case protocol::nullability::NO_NULL:
+            return SQL_NO_NULLS;
+
+        case protocol::nullability::NULLABLE:
+            return SQL_NULLABLE;
+
+        case protocol::nullability::NULLABILITY_UNKNOWN:
+            return SQL_NULLABLE_UNKNOWN;
+
+        default:
+            break;
+    }
+
+    assert(false);
+    return SQL_NULLABLE_UNKNOWN;
+}
+
+/**
+ * Try to get attribute of a string type.
+ *
+ * @param meta Meta.
+ * @param field_id Field ID.
+ * @param value Output attribute value.
+ * @return True if the attribute supported and false otherwise.
+ */
+bool get_attribute(const protocol::column_meta &meta, uint16_t field_id, std::string &value) {
+    switch (field_id) {
+        case SQL_DESC_LABEL:
+        case SQL_DESC_BASE_COLUMN_NAME:
+        case SQL_DESC_NAME: {
+            value = meta.get_column_name();
+
+            return true;
+        }
+
+        case SQL_DESC_TABLE_NAME:
+        case SQL_DESC_BASE_TABLE_NAME: {
+            value = meta.get_table_name();
+
+            return true;
+        }
+
+        case SQL_DESC_SCHEMA_NAME: {
+            value = meta.get_schema_name();
+
+            return true;
+        }
+
+        case SQL_DESC_CATALOG_NAME: {
+            value.clear();
+
+            return true;
+        }
+
+        case SQL_DESC_LITERAL_PREFIX:
+        case SQL_DESC_LITERAL_SUFFIX: {
+            if (meta.get_data_type() == ignite_type::STRING)
+                value = "'";
+            else
+                value.clear();
+
+            return true;
+        }
+
+        case SQL_DESC_TYPE_NAME:
+        case SQL_DESC_LOCAL_TYPE_NAME: {
+            value = ignite_type_to_sql_type_name(meta.get_data_type());
+
+            return true;
+        }
+
+        case SQL_DESC_PRECISION:
+        case SQL_COLUMN_LENGTH:
+        case SQL_COLUMN_PRECISION: {
+            if (meta.get_precision() == -1)
+                return false;
+
+            value = lexical_cast<std::string>(meta.get_precision());
+
+            return true;
+        }
+
+        case SQL_DESC_SCALE:
+        case SQL_COLUMN_SCALE: {
+            if (meta.get_scale() == -1)
+                return false;
+
+            value = lexical_cast<std::string>(meta.get_scale());
+
+            return true;
+        }
+
+        default:
+            return false;
+    }
+}
+
+/**
+ * Try to get attribute of an integer type.
+ *
+ * @param meta Meta.
+ * @param field_id Field ID.
+ * @param value Output attribute value.
+ * @return True if the attribute supported and false otherwise.
+ */
+bool get_attribute(const protocol::column_meta &meta, uint16_t field_id, SQLLEN &value) {
+    switch (field_id) {
+        case SQL_DESC_FIXED_PREC_SCALE: {
+            if (meta.get_scale() == -1)
+                value = SQL_FALSE;
+            else
+                value = SQL_TRUE;
+
+            break;
+        }
+
+        case SQL_DESC_AUTO_UNIQUE_VALUE: {
+            value = SQL_FALSE;
+
+            break;
+        }
+
+        case SQL_DESC_CASE_SENSITIVE: {
+            if (meta.get_data_type() == ignite_type::STRING)
+                value = SQL_TRUE;
+            else
+                value = SQL_FALSE;
+
+            break;
+        }
+
+        case SQL_DESC_CONCISE_TYPE:
+        case SQL_DESC_TYPE: {
+            value = ignite_type_to_sql_type(meta.get_data_type());
+
+            break;
+        }
+
+        case SQL_DESC_DISPLAY_SIZE: {
+            value = ignite_type_display_size(meta.get_data_type());
+
+            break;
+        }
+
+        case SQL_DESC_LENGTH:
+        case SQL_DESC_OCTET_LENGTH:
+        case SQL_COLUMN_LENGTH: {
+            if (meta.get_precision() == -1)
+                value = ignite_type_transfer_length(meta.get_data_type());
+            else
+                value = meta.get_precision();
+
+            break;
+        }
+
+        case SQL_COLUMN_NULLABLE:
+        case SQL_DESC_NULLABLE: {
+            value = nullability_to_sql(meta.get_nullability());
+
+            break;
+        }
+
+        case SQL_DESC_NUM_PREC_RADIX: {
+            value = ignite_type_num_precision_radix(meta.get_data_type());
+
+            break;
+        }
+
+        case SQL_DESC_PRECISION:
+        case SQL_COLUMN_PRECISION: {
+            value = meta.get_precision() < 0 ? 0 : meta.get_precision();
+
+            break;
+        }
+
+        case SQL_DESC_SCALE:
+        case SQL_COLUMN_SCALE: {
+            value = meta.get_scale() < 0 ? 0 : meta.get_scale();
+
+            break;
+        }
+
+        case SQL_DESC_SEARCHABLE: {
+            value = SQL_PRED_BASIC;
+
+            break;
+        }
+
+        case SQL_DESC_UNNAMED: {
+            value = meta.get_column_name().empty() ? SQL_UNNAMED : SQL_NAMED;
+
+            break;
+        }
+
+        case SQL_DESC_UNSIGNED: {
+            value = is_ignite_type_unsigned(meta.get_data_type()) ? SQL_TRUE : SQL_FALSE;
+
+            break;
+        }
+
+        case SQL_DESC_UPDATABLE: {
+            value = SQL_ATTR_READWRITE_UNKNOWN;
+
+            break;
+        }
+
+        default:
+            return false;
+    }
+
+    LOG_MSG("value: " << value);
+
+    return true;
+}
+
+} // anonymous namespace
 
 namespace ignite {
 
@@ -95,7 +327,7 @@ int32_t sql_statement::get_column_number() {
 }
 
 sql_result sql_statement::internal_get_column_number(int32_t &res) {
-    const column_meta_vector *meta = get_meta();
+    const protocol::column_meta_vector *meta = get_meta();
 
     if (!meta)
         return sql_result::AI_ERROR;
@@ -781,7 +1013,7 @@ sql_result sql_statement::internal_fetch_row() {
     return errors == 0 ? sql_result::AI_NO_DATA : sql_result::AI_ERROR;
 }
 
-const column_meta_vector *sql_statement::get_meta() {
+const protocol::column_meta_vector *sql_statement::get_meta() {
     if (!m_current_query) {
         add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
         return nullptr;
@@ -815,7 +1047,7 @@ void sql_statement::get_column_attribute(uint16_t column_idx, uint16_t attr_id, 
 
 sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uint16_t attr_id, char *string_buf,
     int16_t buffer_len, int16_t *result_len, SQLLEN *numeric_buf) {
-    const column_meta_vector *meta = get_meta();
+    const protocol::column_meta_vector *meta = get_meta();
 
     LOG_MSG("Column ID: " << column_idx << ", Attribute ID: " << attr_id);
 
@@ -828,17 +1060,17 @@ sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uin
         return sql_result::AI_ERROR;
     }
 
-    const column_meta &column_meta = meta->at(column_idx - 1);
+    auto &column_meta = meta->at(column_idx - 1);
 
     bool found = false;
 
     if (numeric_buf)
-        found = column_meta.get_attribute(attr_id, *numeric_buf);
+        found = ::get_attribute(column_meta, attr_id, *numeric_buf);
 
     if (!found) {
         std::string out;
 
-        found = column_meta.get_attribute(attr_id, out);
+        found = ::get_attribute(column_meta, attr_id, out);
 
         size_t outSize = out.size();
 

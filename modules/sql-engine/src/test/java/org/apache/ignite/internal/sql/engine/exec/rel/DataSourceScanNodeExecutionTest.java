@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Spliterator;
@@ -38,7 +37,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -49,23 +48,23 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
-import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.StructNativeType;
+import org.apache.ignite.internal.type.StructNativeType.Field;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Tests to verify {@link DataSourceScanNode}. */
 @SuppressWarnings("resource")
 public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
-    private static final RowSchema ROW_SCHEMA = RowSchema.builder()
-            .addField(NativeTypes.INT32)
-            .addField(NativeTypes.INT64)
-            .addField(NativeTypes.INT8)
-            .addField(NativeTypes.stringOf(64))
-            .addField(NativeTypes.UUID)
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.rowBuilder()
+            .addField("C1", NativeTypes.INT32, true)
+            .addField("C2", NativeTypes.INT64, true)
+            .addField("C3", NativeTypes.INT8, true)
+            .addField("C4", NativeTypes.stringOf(64), true)
+            .addField("C5", NativeTypes.UUID, true)
             .build();
 
     private static final BinaryTupleSchema TUPLE_SCHEMA = fromRowSchema(ROW_SCHEMA);
@@ -106,7 +105,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
     void scanWithRequiredFields() {
         ExecutionContext<RowWrapper> context = executionContext();
         RowHandler<RowWrapper> handler = context.rowHandler();
-        List<RowWrapper> rows = initScanAndGetResults(context, null, null, ImmutableBitSet.of(1, 3, 4).toBitSet());
+        List<RowWrapper> rows = initScanAndGetResults(context, null, null, ImmutableIntList.of(1, 3, 4));
 
         assertThat(rows, notNullValue());
 
@@ -189,9 +188,9 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         ExecutionContext<RowWrapper> context = executionContext();
         RowHandler<RowWrapper> handler = context.rowHandler();
 
-        BitSet requiredFields = ImmutableBitSet.of(1, 3, 4).toBitSet();
+        ImmutableIntList requiredFields = ImmutableIntList.of(1, 3, 4);
 
-        RowFactory<RowWrapper> factory = handler.factory(project(ROW_SCHEMA, requiredFields.stream().toArray()));
+        RowFactory<RowWrapper> factory = handler.factory(project(ROW_SCHEMA, requiredFields.toIntArray()));
 
         // predicate matching goes before projection transformation, thus this predicate is valid
         Predicate<RowWrapper> onlyEven = row -> ((Long) handler.get(0, row)) % 2 == 0;
@@ -243,7 +242,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
     private void checkDataSourceScan(int bufferSize, int sourceSize) {
         ExecutionContext<RowWrapper> ctx = executionContext(bufferSize);
 
-        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
+        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, true).build();
         RowFactory<RowWrapper> rowFactory = ctx.rowHandler().factory(schema);
         BinaryTupleSchema tupleSchema = fromRowSchema(schema);
         TupleFactory tupleFactory = tupleFactoryFromSchema(tupleSchema);
@@ -259,18 +258,17 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         assertEquals(sourceSize, count);
     }
 
-
     @SuppressWarnings("DataFlowIssue")
     private static List<RowWrapper> initScanAndGetResults(
             ExecutionContext<RowWrapper> context,
             @Nullable Predicate<RowWrapper> predicate,
             @Nullable Function<RowWrapper, RowWrapper> projection,
-            @Nullable BitSet requiredFields
+            @Nullable ImmutableIntList requiredFields
     ) {
         RowHandler<RowWrapper> handler = context.rowHandler();
         RowFactory<RowWrapper> factory;
         if (requiredFields != null) {
-            factory = handler.factory(project(ROW_SCHEMA, requiredFields.stream().toArray()));
+            factory = handler.factory(project(ROW_SCHEMA, requiredFields.toIntArray()));
         } else {
             factory = handler.factory(ROW_SCHEMA);
         }
@@ -302,7 +300,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         public Publisher<InternalTuple> scan() {
             Iterator<InternalTuple> it = iterable.iterator();
 
-            return new Publisher<InternalTuple>() {
+            return new Publisher<>() {
                 @Override
                 public void subscribe(Subscriber<? super InternalTuple> subscriber) {
                     Subscription subscription = new Subscription() {
@@ -342,23 +340,22 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         return SqlRowHandler.INSTANCE;
     }
 
-    private static BinaryTupleSchema fromRowSchema(RowSchema schema) {
+    private static BinaryTupleSchema fromRowSchema(StructNativeType schema) {
         Element[] elements = new Element[schema.fields().size()];
 
         int idx = 0;
-        for (TypeSpec spec : schema.fields()) {
-            assert spec instanceof BaseTypeSpec : spec;
-
-            elements[idx++] = new Element(((BaseTypeSpec) spec).nativeType(), spec.isNullable());
+        for (Field field : schema.fields()) {
+            elements[idx++] = new Element(field.type(), field.nullable());
         }
 
         return BinaryTupleSchema.create(elements);
     }
 
-    private static RowSchema project(RowSchema schema, int[] projection) {
-        RowSchema.Builder builder = RowSchema.builder();
+    private static StructNativeType project(StructNativeType schema, int[] projection) {
+        RowTypeBuilder builder = NativeTypes.rowBuilder();
         for (int i : projection) {
-            builder.addField(schema.fields().get(i));
+            Field field = schema.fields().get(i);
+            builder.addField(field.name(), field.type(), field.nullable());
         }
 
         return builder.build();

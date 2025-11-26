@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -36,12 +35,12 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.StructNativeType;
 
 /**
  * HashAggregateExecutionTest.
@@ -61,7 +60,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
         ImmutableBitSet grpSet = grpSets.get(0);
-        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
@@ -122,8 +121,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         // Map node
 
         RelDataType reduceRowType = PlanUtils.createHashAggRowType(grpSets, ctx.getTypeFactory(), inRowType, List.of(call));
-        RowSchema reduceRowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(reduceRowType));
-        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(reduceRowSchema);
+        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(TypeUtils.convertStructuredType(reduceRowType));
 
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
@@ -147,7 +145,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
-        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
