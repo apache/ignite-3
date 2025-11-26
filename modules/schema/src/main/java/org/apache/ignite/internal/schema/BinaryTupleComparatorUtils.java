@@ -583,21 +583,6 @@ public class BinaryTupleComparatorUtils {
     ) {
         int i = 0;
         int remaining = Math.min(trimmedSize1, trimmedSize2);
-        while (i + 4 < remaining) {
-            int w1 = buf1.getInt(begin1 + i);
-            int w2 = buf2.getInt(begin2 + i);
-
-            if (((w1 | w2) & 0x80808080) != 0) {
-                return Integer.MIN_VALUE;
-            }
-
-            if (w1 != w2) {
-                // Big endian comparison of 4 ASCII characters. None of the bytes have a sign bit set.
-                return Integer.compare(Integer.reverseBytes(w1), Integer.reverseBytes(w2));
-            }
-
-            i += 4;
-        }
 
         while (i < remaining) {
             byte b1 = buf1.get(begin1 + i);
