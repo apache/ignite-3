@@ -159,12 +159,13 @@ class IndexBuildTask {
             return;
         }
 
+        String indexInfo = createCommonIndexInfo();
         if (afterDisasterRecovery) {
             LOG.warn("Start building the index due to disaster recovery of an AVAILABLE index. This shouldn't normally occur [{}]",
-                    createCommonIndexInfo()
+                    indexInfo
             );
         } else {
-            LOG.info("Start building the index [{}]", createCommonIndexInfo());
+            LOG.info("Start building the index [{}]", indexInfo);
         }
 
         try {
@@ -175,11 +176,12 @@ class IndexBuildTask {
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            String errorMessage = String.format("Index build error [%s]", createCommonIndexInfo());
                             if (ignorable(throwable)) {
-                                LOG.info(errorMessage, throwable);
+                                LOG.info("Ignorable index build error [{}, {}]", indexInfo, throwable);
                             } else {
-                                failureProcessor.process(new FailureContext(throwable, errorMessage));
+                                String message = String.format("Index build error [%s, %s]", indexInfo, throwable);
+
+                                failureProcessor.process(new FailureContext(throwable, message));
                             }
 
                             taskFuture.completeExceptionally(throwable);

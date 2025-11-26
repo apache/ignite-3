@@ -89,7 +89,7 @@ class IndexBuildTaskStatisticsLoggingListener {
         long time = getBuildTime();
         String status = throwable == null
                 ? "SUCCESS"
-                : String.format("FAILURE [%s: %s]", throwable.getClass().getName(), throwable.getMessage());
+                : String.format("FAILURE [%s]", throwable);
         String buildReason = afterDisasterRecovery ? "DISASTER_RECOVERY" : "BUILD";
 
         LOG.info(
