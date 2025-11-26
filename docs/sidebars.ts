@@ -119,15 +119,37 @@ const sidebars: SidebarsConfig = {
           label: "SQL Reference",
           link: { type: "generated-index" },
           items: [
-            "sql/reference/ddl",
-            "sql/reference/dml",
-            "sql/reference/data-types",
-            "sql/reference/operators-and-functions",
-            "sql/reference/grammar-reference",
-            "sql/reference/keywords",
-            "sql/reference/sql-conformance",
-            "sql/reference/transactions",
-            "sql/reference/operational-commands",
+            {
+              type: "category",
+              label: "Language Definition",
+              link: { type: "generated-index" },
+              items: [
+                "sql/reference/ddl",
+                "sql/reference/dml",
+                "sql/advanced/distribution-zones",
+                "sql/reference/transactions",
+                "sql/reference/grammar-reference",
+              ],
+            },
+            {
+              type: "category",
+              label: "Data Types and Functions",
+              link: { type: "generated-index" },
+              items: [
+                "sql/reference/data-types",
+                "sql/reference/operators-and-functions",
+                "sql/reference/operational-commands",
+              ],
+            },
+            {
+              type: "category",
+              label: "SQL Conformance",
+              link: { type: "generated-index" },
+              items: [
+                "sql/reference/sql-conformance",
+                "sql/reference/keywords",
+              ],
+            },
           ],
         },
         {
@@ -135,7 +157,6 @@ const sidebars: SidebarsConfig = {
           label: "Advanced SQL",
           link: { type: "generated-index" },
           items: [
-            "sql/advanced/distribution-zones",
             "sql/advanced/explain-statement",
             "sql/advanced/performance-tuning",
           ],

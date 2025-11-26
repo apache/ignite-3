@@ -831,33 +831,33 @@ article.markdown img {
   text-decoration: underline;
 }
 
-/* Dark Mode: Light fills with dark borders (inverted) */
+/* Dark Mode: Dark fills matching page background */
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram {
   background-color: rgba(0, 0, 0, 0.3) !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg text {
-  fill: #000000 !important;
+  fill: #f0f0f0 !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram rect,
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram circle {
-  fill: #e8e8e8 !important;
-  stroke: #4d4d4d !important;
+  fill: var(--ifm-background-color) !important;
+  stroke: #f0f0f0 !important;
   stroke-width: 2px !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram path {
-  stroke: #4d4d4d !important;
+  stroke: #f0f0f0 !important;
   stroke-width: 2px !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a:hover rect {
-  fill: #d0d0d0 !important;
+  fill: #2a2a2c !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a text {
-  fill: var(--ignite-red) !important;
+  fill: #fb6b70 !important;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
 }
