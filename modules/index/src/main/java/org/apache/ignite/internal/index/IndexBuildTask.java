@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 
 import java.util.ArrayList;
@@ -177,9 +178,9 @@ class IndexBuildTask {
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
                             if (ignorable(throwable)) {
-                                LOG.info("Ignorable index build error [{}, {}]", indexInfo, throwable);
+                                LOG.info("Ignorable index build error [{}, error={}]", indexInfo, unwrapCause(throwable));
                             } else {
-                                String message = String.format("Index build error [%s, %s]", indexInfo, throwable);
+                                String message = String.format("Index build error [%s, error=%s]", indexInfo, unwrapCause(throwable));
 
                                 failureProcessor.process(new FailureContext(throwable, message));
                             }

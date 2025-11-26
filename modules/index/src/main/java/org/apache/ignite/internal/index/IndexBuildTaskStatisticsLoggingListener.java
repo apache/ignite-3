@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -89,7 +91,7 @@ class IndexBuildTaskStatisticsLoggingListener {
         long time = getBuildTime();
         String status = throwable == null
                 ? "SUCCESS"
-                : String.format("FAILURE [%s]", throwable);
+                : String.format("FAILURE [error=%s]", unwrapCause(throwable));
         String buildReason = afterDisasterRecovery ? "DISASTER_RECOVERY" : "BUILD";
 
         LOG.info(
