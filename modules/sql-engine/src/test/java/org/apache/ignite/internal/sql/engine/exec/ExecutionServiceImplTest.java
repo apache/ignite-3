@@ -82,7 +82,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -1271,7 +1270,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
@@ -1301,7 +1299,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         LogicalTopology logicalTopology = TestBuilders.logicalTopology(logicalNodes);
         var service = new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
-                new SystemPropertiesNodeProperties(), Runnable::run
+                Runnable::run
         );
 
         service.onTopologyLeap(logicalTopology.getLogicalTopology());
