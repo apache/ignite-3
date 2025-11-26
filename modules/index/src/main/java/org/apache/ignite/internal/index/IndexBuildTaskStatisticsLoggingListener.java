@@ -93,7 +93,7 @@ class IndexBuildTaskStatisticsLoggingListener {
         String buildReason = afterDisasterRecovery ? "DISASTER_RECOVERY" : "BUILD";
 
         LOG.info(
-                "Index build statistics: ["
+                "Index build statistics ["
                         + "status={}, "
                         + "taskId={}, "
                         + "buildReason={}, "

@@ -160,11 +160,11 @@ class IndexBuildTask {
         }
 
         if (afterDisasterRecovery) {
-            LOG.warn("Start building the index: [{}] due to disaster recovery of an AVAILABLE index. This shouldn't normally occur",
+            LOG.warn("Start building the index due to disaster recovery of an AVAILABLE index. This shouldn't normally occur [{}]",
                     createCommonIndexInfo()
             );
         } else {
-            LOG.info("Start building the index: [{}]", createCommonIndexInfo());
+            LOG.info("Start building the index [{}]", createCommonIndexInfo());
         }
 
         try {
@@ -175,7 +175,7 @@ class IndexBuildTask {
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            String errorMessage = String.format("Index build error: [%s]", createCommonIndexInfo());
+                            String errorMessage = String.format("Index build error [%s]", createCommonIndexInfo());
                             if (ignorable(throwable)) {
                                 LOG.info(errorMessage, throwable);
                             } else {
@@ -256,7 +256,7 @@ class IndexBuildTask {
                             }
                         } else if (indexStorage.getNextRowIdToBuild() == null) {
                             // Index has been built.
-                            LOG.info("Index build completed: [{}]", createCommonIndexInfo());
+                            LOG.info("Index build completed [{}]", createCommonIndexInfo());
 
                             notifyBuildCompletionListeners(taskId);
 
@@ -356,7 +356,7 @@ class IndexBuildTask {
 
     private String createCommonIndexInfo() {
         return IgniteStringFormatter.format(
-                "zoneId = {}, tableId={}, partitionId={}, indexId={}",
+                "zoneId={}, tableId={}, partitionId={}, indexId={}",
                 taskId.getZoneId(), taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
         );
     }
