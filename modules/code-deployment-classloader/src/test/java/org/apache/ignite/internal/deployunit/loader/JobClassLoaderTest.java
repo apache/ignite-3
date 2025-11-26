@@ -32,7 +32,6 @@ import static org.mockito.Mockito.verify;
 import java.net.URL;
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteException;
@@ -55,7 +54,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of("java.lang.String", String.class),
                 Arguments.of("javax.lang.String", String.class),
-                Arguments.of("org.apache.ignite.internal.compute.JobExecutionContextImpl", JobExecutionContextImpl.class)
+                Arguments.of("org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderImpl", UnitsClassLoaderImpl.class)
         );
     }
 
