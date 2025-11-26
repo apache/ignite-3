@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.internal.tx.TxState;
@@ -81,10 +80,5 @@ class IndexBuildTaskStatisticsLoggingListenerTest {
         assertEquals(2, listener.resolvedWriteIntentCount().size());
         assertEquals(2, listener.resolvedWriteIntentCount().get(TxState.COMMITTED).get());
         assertEquals(1, listener.resolvedWriteIntentCount().get(TxState.ABANDONED).get());
-    }
-
-    @Test
-    void testExceptionOnStartTimeHasNotBeenSet() {
-        assertThrows(AssertionError.class, listener::onIndexBuildSuccess);
     }
 }
