@@ -209,16 +209,6 @@ public class IgniteServiceCollectionExtensionsTests
     private static void ValidateKeyedRegistrationScope(ServiceLifetime lifetime, Action<ServiceCollection, object> register)
     {
         var services = new ServiceCollection();
-
-        services.AddIgniteClientGroup(new IgniteClientGroupConfiguration
-        {
-            ClientConfiguration = new IgniteClientConfiguration
-            {
-                Endpoints = { "localhost" }
-            },
-            Size = 2
-        });
-
         var keys = new[] { "key1", "key2" };
 
         foreach (var key in keys)
