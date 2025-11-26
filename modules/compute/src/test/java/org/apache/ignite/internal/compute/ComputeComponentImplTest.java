@@ -77,9 +77,6 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
-import org.apache.ignite.internal.compute.loader.JobContext;
-import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
@@ -96,6 +93,9 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
+import org.apache.ignite.internal.deployunit.loader.UnitsContext;
+import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -145,7 +145,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private ComputeConfiguration computeConfiguration;
 
     @Mock
-    private JobContextManager jobContextManager;
+    private UnitsContextManager jobContextManager;
 
     private ComputeComponentImpl computeComponent;
 
@@ -163,8 +163,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
-        JobContext jobContext = new JobContext(classLoader, ignored -> {});
+        UnitsClassLoader classLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
+        UnitsContext jobContext = new UnitsContext(classLoader, ignored -> {});
         lenient().when(jobContextManager.acquireClassLoader(anyList()))
                 .thenReturn(completedFuture(jobContext));
 

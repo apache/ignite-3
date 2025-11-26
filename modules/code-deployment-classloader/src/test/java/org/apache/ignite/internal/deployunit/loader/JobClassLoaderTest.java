@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContaining;
@@ -90,7 +90,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
         DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
 
-        try (JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader)) {
+        try (UnitsClassLoader jobClassLoader = new UnitsClassLoader(List.of(unit1, unit2), parentClassLoader)) {
             jobClassLoader.close();
             verify(unit1, times(1)).release();
             verify(unit2, times(1)).release();
@@ -104,12 +104,12 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         RuntimeException toBeThrown = new RuntimeException("Expected exception");
         doThrow(toBeThrown).when(unit1).release();
 
-        JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader);
+        UnitsClassLoader jobClassLoader = new UnitsClassLoader(List.of(unit1, unit2), parentClassLoader);
         IgniteException igniteException = assertThrows(IgniteException.class, jobClassLoader::close);
         assertThat(igniteException.getSuppressed(), arrayContaining(toBeThrown));
     }
 
-    private static class TestJobClassLoaderImpl extends JobClassLoaderImpl {
+    private static class TestJobClassLoaderImpl extends UnitsClassLoaderImpl {
         TestJobClassLoaderImpl(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
             super(units, urls, parent);
         }
