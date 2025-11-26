@@ -567,7 +567,10 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         req.commitPartitionId().asReplicationGroupId(),
                         null,
                         old == null ? null : old.tx(),
-                        old == null ? null : old.isFinishedDueToTimeout()
+                        old == null ? null : old.initialVacuumObservationTimestamp(),
+                        old == null ? null : old.cleanupCompletionTimestamp(),
+                        old == null ? null : old.isFinishedDueToTimeout(),
+                        old == null ? req.txLabel() : old.txLabel()
                 ));
             }
         }
@@ -766,7 +769,10 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     req.commitPartitionId().asReplicationGroupId(),
                     null,
                     old == null ? null : old.tx(),
-                    old == null ? null : old.isFinishedDueToTimeout()
+                    old == null ? null : old.initialVacuumObservationTimestamp(),
+                    old == null ? null : old.cleanupCompletionTimestamp(),
+                    old == null ? null : old.isFinishedDueToTimeout(),
+                    old == null ? req.txLabel() : old.txLabel()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());

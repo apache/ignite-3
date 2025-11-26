@@ -433,7 +433,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
         if (readOnly) {
             return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
         }
@@ -441,7 +441,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
         var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
 
-        txStateVolatileStorage.initialize(tx);
+        txStateVolatileStorage.initialize(tx, txLabel);
         txMetrics.onTransactionStarted();
 
         return tx;
@@ -459,7 +459,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, txOptions);
         }
 
-        txStateVolatileStorage.initialize(tx);
+        txStateVolatileStorage.initialize(tx, txOptions.txLabel());
         txMetrics.onTransactionStarted();
 
         return tx;
@@ -607,7 +607,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         old == null ? null : old.commitPartitionId(),
                         ts,
                         old == null ? null : old.tx(),
-                        timeoutExceeded
+                        old == null ? null : old.initialVacuumObservationTimestamp(),
+                        old == null ? null : old.cleanupCompletionTimestamp(),
+                        timeoutExceeded,
+                        old == null ? null : old.txLabel()
                 ));
 
         txMetrics.onReadWriteTransactionFinished(txId, finalState == COMMITTED);
@@ -648,7 +651,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     commitPartition,
                     commitTimestamp(commitIntent),
                     old == null ? null : old.tx(),
-                    timeout
+                    old == null ? null : old.initialVacuumObservationTimestamp(),
+                    old == null ? null : old.cleanupCompletionTimestamp(),
+                    timeout,
+                    old == null ? null : old.txLabel()
             ));
 
             txMetrics.onReadWriteTransactionFinished(txId, commitIntent);
@@ -670,7 +676,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         TxStateMetaFinishing finishingStateMeta =
                 txMeta == null
-                        ? new TxStateMetaFinishing(null, commitPartition, timeout)
+                        ? new TxStateMetaFinishing(null, commitPartition, timeout, null)
                         : txMeta.finishing(timeout);
 
         TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
@@ -755,6 +761,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                 return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
                                         .thenAccept(ignored -> {
                                             // Don't keep useless state.
+                                            TxStateMeta previous = txStateVolatileStorage.state(txId);
                                             txStateVolatileStorage.updateMeta(txId, old -> null);
 
                                             TxStateMeta meta = new TxStateMeta(
@@ -765,7 +772,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                                     null,
                                                     null,
                                                     System.currentTimeMillis(),
-                                                    null
+                                                    null,
+                                                    previous == null ? null : previous.txLabel()
                                             );
 
                                             txFinishFuture.complete(meta);
@@ -843,7 +851,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             old == null ? null : old.tx(),
                                             old == null ? null : old.initialVacuumObservationTimestamp(),
                                             old == null ? null : old.cleanupCompletionTimestamp(),
-                                            old == null ? null : old.isFinishedDueToTimeout()
+                                            old == null ? null : old.isFinishedDueToTimeout(),
+                                            old == null ? null : old.txLabel()
                                     )
                             );
 
@@ -911,7 +920,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     old == null ? null : old.tx(),
                                     old == null ? null : old.initialVacuumObservationTimestamp(),
                                     old == null ? null : old.cleanupCompletionTimestamp(),
-                                    old == null ? null : old.isFinishedDueToTimeout()
+                                    old == null ? null : old.isFinishedDueToTimeout(),
+                                    old == null ? null : old.txLabel()
                             ));
 
                     assert isFinalState(updatedMeta.txState()) :

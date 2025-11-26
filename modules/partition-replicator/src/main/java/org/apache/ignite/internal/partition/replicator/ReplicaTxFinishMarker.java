@@ -56,7 +56,8 @@ public class ReplicaTxFinishMarker {
                 old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp(),
-                old == null ? null : old.isFinishedDueToTimeout()
+                old == null ? null : old.isFinishedDueToTimeout(),
+                old == null ? null : old.txLabel()
         ));
     }
 }

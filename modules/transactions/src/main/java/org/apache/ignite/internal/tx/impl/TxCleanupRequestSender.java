@@ -151,7 +151,8 @@ public class TxCleanupRequestSender {
                         oldMeta == null ? null : oldMeta.tx(),
                         oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
                         cleanupCompletionTimestamp,
-                        oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
+                        oldMeta == null ? null : oldMeta.isFinishedDueToTimeout(),
+                        oldMeta == null ? null : oldMeta.txLabel()
                 )
                 )
         );
