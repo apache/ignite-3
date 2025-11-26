@@ -30,7 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
@@ -88,7 +88,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+            public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
                 return null;
             }
 
@@ -98,18 +98,18 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+            public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
                 return false;
             }
 
             @Override
-            public TablePartitionId commitPartition() {
+            public ZonePartitionId commitPartition() {
                 return null;
             }
 
             @Override
             public void enlist(
-                    ReplicationGroupId replicationGroupId,
+                    ZonePartitionId replicationGroupId,
                     int tableId,
                     String primaryNodeConsistentId,
                     long consistencyToken
@@ -223,7 +223,7 @@ public class FakeTxManager implements TxManager {
             boolean commitIntent,
             boolean timeoutExceeded,
             boolean recovery,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         return nullCompletedFuture();
@@ -289,7 +289,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
+    public InternalTransaction beginRemote(UUID txId, ZonePartitionId commitPartId, UUID coord, long token, long timeout,
             Consumer<Throwable> cb) {
         return null;
     }

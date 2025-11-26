@@ -51,7 +51,7 @@ public class ClientSqlQueryMetadataRequest {
             ClientResourceRegistry resources,
             HybridTimestampTracker tsTracker
     ) {
-        var tx = readTx(in, tsTracker, resources, null, null, null);
+        var tx = readTx(in, tsTracker, resources, null, null, null, null);
 
         String schema = in.unpackString();
         String query = in.unpackString();

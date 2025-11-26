@@ -97,7 +97,16 @@ class ClientTupleRequestBase {
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
+        InternalTransaction tx = readOrStartImplicitTx(
+                in,
+                tsTracker,
+                resources,
+                txManager,
+                tables,
+                options,
+                notificationSender,
+                resIdHolder
+        );
 
         int schemaId = in.unpackInt();
 

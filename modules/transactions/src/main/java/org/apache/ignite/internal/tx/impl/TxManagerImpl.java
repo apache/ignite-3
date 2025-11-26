@@ -481,8 +481,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txId,
                 localNodeId,
                 implicit,
-                timeout,
-                nodeProperties.colocationEnabled()
+                timeout
         );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
@@ -619,6 +618,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return commit ? clockService.now() : null;
     }
 
+    // TODO extends
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
@@ -626,7 +626,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean commitIntent,
             boolean timeout,
             boolean recovery,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commitIntent, txId, enlistedGroups, commitPartition);
@@ -732,7 +732,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             @Nullable ReplicationGroupId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture,
             boolean unlock
@@ -952,9 +952,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
+    public InternalTransaction beginRemote(UUID txId, ZonePartitionId commitPartId, UUID coord, long token, long timeout,
             Consumer<Throwable> cb) {
-        assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
+        // TODO commitPartId.zoneId() > 0 || commitPartId.zoneId() >= 0
+        assert commitPartId.zoneId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
 
         // Switch to default timeout if needed.
         timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
@@ -1235,13 +1236,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @return Verification future.
      */
     private CompletableFuture<Void> verifyCommitTimestamp(
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             HybridTimestamp commitTimestamp
     ) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;
 
-        for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
+        for (Map.Entry<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
             ReplicationGroupId groupId = enlistedGroup.getKey();
             long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().consistencyToken();
 
