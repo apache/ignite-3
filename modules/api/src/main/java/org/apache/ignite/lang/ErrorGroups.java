@@ -284,7 +284,7 @@ public class ErrorGroups {
         public static final int RESOURCE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Client operation timeout. */
-        public static final int CLIENT_OPERATION_TIMEOUT_ERR = CLIENT_ERR_GROUP.registerErrorCode ((short) 11);
+        public static final int CLIENT_OPERATION_TIMEOUT_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** SQL error group. */
