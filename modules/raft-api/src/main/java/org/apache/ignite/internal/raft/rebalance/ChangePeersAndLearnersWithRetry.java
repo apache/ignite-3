@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.raft.rebalance;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteBusyLock;
@@ -64,7 +66,7 @@ public class ChangePeersAndLearnersWithRetry {
     public CompletableFuture<Void> execute(
             PeersAndLearners peersAndLearners,
             long sequenceToken,
-            Function<RaftGroupService, CompletableFuture<@Nullable RaftWithTerm>> leaderFilter) {
+            Function<RaftGroupService, CompletableFuture<@Nullable IgniteBiTuple<RaftGroupService, Long>>> leaderFilter) {
 
         return raftCommand.execute(() ->
                 raftGroupServiceSupplier
@@ -75,8 +77,13 @@ public class ChangePeersAndLearnersWithRetry {
                                 return nullCompletedFuture();
                             }
 
-                            return raftWithTerm.raftClient()
-                                    .changePeersAndLearnersAsync(peersAndLearners, raftWithTerm.term(), sequenceToken);
+                            RaftGroupService raftClient = raftWithTerm.get1();
+                            assert raftClient != null;
+
+                            Long term = raftWithTerm.get2();
+                            assert term != null;
+
+                            return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken);
                         }));
     }
 
@@ -88,15 +95,6 @@ public class ChangePeersAndLearnersWithRetry {
      * @return Function which performs {@link RaftGroupService#changePeersAndLearnersAsync}.
      */
     public CompletableFuture<Void> executeOnLeader(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
-        return raftCommand.execute(() ->
-                raftGroupServiceSupplier
-                        .get()
-                        .thenCompose(raftClient -> {
-                            if (raftClient == null) {
-                                return nullCompletedFuture();
-                            }
-
-                            return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken);
-                        }));
+        return execute(peersAndLearners, sequenceToken, raftClient -> completedFuture(new IgniteBiTuple<>(raftClient, term)));
     }
 }

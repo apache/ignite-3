@@ -108,6 +108,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -145,7 +146,6 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
 import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
-import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -1494,7 +1494,7 @@ public class PartitionReplicaLifecycleManager extends
         }
     }
 
-    private CompletableFuture<@Nullable RaftWithTerm> ensureLeader(
+    private CompletableFuture<@Nullable IgniteBiTuple<RaftGroupService, Long>> ensureLeader(
             ZonePartitionId replicaGrpId,
             RaftGroupService raftClient
     ) {
@@ -1517,7 +1517,7 @@ public class PartitionReplicaLifecycleManager extends
                         return null;
                     }
 
-                    return new RaftWithTerm(raftClient, leaderWithTerm.term());
+                    return new IgniteBiTuple<>(raftClient, leaderWithTerm.term());
                 });
     }
 

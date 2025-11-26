@@ -39,6 +39,8 @@ import org.apache.ignite.internal.util.IgniteBusyLock;
 public class RaftCommandWithRetry {
     private static final IgniteLogger LOG = Loggers.forClass(RaftCommandWithRetry.class);
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-27203
+    //  Either avoid it after adding a possible infinity while waiting on the RAFT client, or add it to the configuration.
     private static final long MOVE_RESCHEDULE_DELAY_MILLIS = 100;
 
     private final IgniteBusyLock busyLock;

@@ -656,7 +656,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             peersAndLearners
                     );
 
-                    // TODO: Intentionally did not change as colocation disabled mode is officially not supported.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-27174
+                    //  Intentionally did not change as colocation disabled mode is officially not supported.
                     return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term(), request.sequenceToken());
                 });
     }
