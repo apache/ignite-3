@@ -113,7 +113,6 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Apache Ignite 3',
       logo: {
         alt: 'Apache Ignite Logo',
         src: 'img/logo.svg',

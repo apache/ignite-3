@@ -873,6 +873,137 @@ article.markdown img {
   }
 }
 
+/* Railroad diagram wrapper and expand button */
+.railroad-diagram-wrapper {
+  position: relative;
+}
+
+.railroad-expand-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background-color: var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 4px;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, transform 0.1s;
+  z-index: 1;
+  color: var(--ifm-color-content);
+}
+
+.railroad-expand-button:hover {
+  background-color: var(--ifm-color-emphasis-300);
+  transform: scale(1.05);
+}
+
+.railroad-expand-button:active {
+  transform: scale(0.95);
+}
+
+[data-theme='dark'] .railroad-expand-button {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ifm-color-content);
+}
+
+[data-theme='dark'] .railroad-expand-button:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal overlay */
+.railroad-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 2rem;
+  overflow: auto;
+}
+
+/* Modal content */
+.railroad-modal-content {
+  position: relative;
+  max-width: 95vw;
+  max-height: 95vh;
+  background-color: var(--ifm-background-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  overflow: auto;
+}
+
+[data-theme='dark'] .railroad-modal-content {
+  background-color: #1b1b1d;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* Close button */
+.railroad-modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background-color: var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 4px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: bold;
+  color: var(--ifm-color-content);
+  transition: background-color 0.2s, transform 0.1s;
+  z-index: 10000;
+}
+
+.railroad-modal-close:hover {
+  background-color: var(--ifm-color-emphasis-400);
+  transform: scale(1.1);
+}
+
+.railroad-modal-close:active {
+  transform: scale(0.9);
+}
+
+[data-theme='dark'] .railroad-modal-close {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .railroad-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal diagram - remove margin to fit better */
+.railroad-diagram-modal {
+  margin: 0;
+  min-width: fit-content;
+}
+
+/* Mobile responsive modal */
+@media (max-width: 767px) {
+  .railroad-modal-overlay {
+    padding: 1rem;
+  }
+
+  .railroad-modal-content {
+    max-width: 100vw;
+    max-height: 100vh;
+  }
+}
+
 /* ============================================
    Card Component System for Index Pages
    ============================================ */
