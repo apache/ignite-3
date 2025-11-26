@@ -237,18 +237,7 @@ class IndexBuildTask {
 
         try {
             return createBatchToIndex(highestRowId)
-                    .thenCompose(batch ->
-                            replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
-                                    .whenComplete((unused, throwable) -> {
-                                        if (throwable == null) {
-                                            statisticsLoggingListener.onRaftCallSuccess();
-                                        } else {
-                                            statisticsLoggingListener.onRaftCallFailure();
-                                        }
-                                    })
-                                    .thenApply(unused -> batch)
-                    )
-                    .thenAccept(batch -> statisticsLoggingListener.onBatchProcessed(batch.rowIds.size()))
+                    .thenCompose(this::processBatch)
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -328,6 +317,20 @@ class IndexBuildTask {
 
         return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId)
                 .thenApply(statisticsLoggingListener::onWriteIntentResolved);
+    }
+
+    private CompletableFuture<Void> processBatch(BatchToIndex batch) {
+        BuildIndexReplicaRequest request = createBuildIndexReplicaRequest(batch, initialOperationTimestamp);
+
+        return replicaService.invoke(node, request)
+                .whenComplete((unused, throwable) -> {
+                    if (throwable == null) {
+                        statisticsLoggingListener.onRaftCallSuccess();
+                    } else {
+                        statisticsLoggingListener.onRaftCallFailure();
+                    }
+                })
+                .thenAccept(unused -> statisticsLoggingListener.onBatchProcessed(batch.rowIds.size()));
     }
 
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(BatchToIndex batch, HybridTimestamp initialOperationTimestamp) {
