@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
@@ -116,6 +115,8 @@ class IndexBuildTask {
 
     private final HybridTimestamp initialOperationTimestamp;
 
+    private final IndexBuilderMetricSource indexBuilderMetricSource;
+
     IndexBuildTask(
             IndexBuildTaskId taskId,
             HybridTimestamp indexCreationActivationTs,
@@ -131,7 +132,8 @@ class IndexBuildTask {
             List<IndexBuildCompletionListener> buildCompletionListeners,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,
-            HybridTimestamp initialOperationTimestamp
+            HybridTimestamp initialOperationTimestamp,
+            IndexBuilderMetricSource indexBuilderMetricSource
     ) {
         this.taskId = taskId;
         this.indexCreationActivationTs = indexCreationActivationTs;
@@ -150,6 +152,7 @@ class IndexBuildTask {
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.afterDisasterRecovery = afterDisasterRecovery;
         this.initialOperationTimestamp = initialOperationTimestamp;
+        this.indexBuilderMetricSource = indexBuilderMetricSource;
     }
 
     /** Starts building the index. */
@@ -235,9 +238,25 @@ class IndexBuildTask {
             return nullCompletedFuture();
         }
 
+        Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
+
+        indexBuilderMetricSource.onTransitionToReadingRows();
+
+        List<RowId> rowIds;
+
         try {
-            return createBatchToIndex(highestRowId)
-                    .thenCompose(this::processBatch)
+            rowIds = getRowIds(highestRowId, transactionsToResolve);
+        } catch (Exception e) {
+            indexBuilderMetricSource.onRowsReadError();
+            leaveBusy();
+            return failedFuture(e);
+        }
+
+        indexBuilderMetricSource.onTransitionToWaitingForTransactions(transactionsToResolve.size());
+
+        try {
+            return waitForTransactions(transactionsToResolve, rowIds)
+                    .thenCompose(this::invokeRequest)
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -265,15 +284,19 @@ class IndexBuildTask {
         }
     }
 
-    private CompletableFuture<BatchToIndex> createBatchToIndex(@Nullable RowId highestRowId) {
+    private CompletableFuture<Object> invokeRequest(BatchToIndex batch) {
+        return replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
+                .whenComplete((ignored, e) -> indexBuilderMetricSource.onIndexBuildFinished());
+    }
+
+    private List<RowId> getRowIds(@Nullable RowId highestRowId, Map<UUID, CommitPartitionId> transactionsToResolve) {
         if (highestRowId == null) {
-            return completedFuture(new BatchToIndex(List.of(), Set.of()));
+            return List.of();
         }
 
         RowId nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         List<RowId> rowIds = new ArrayList<>(batchSize);
-        Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
 
         List<RowMeta> rows = nextRowIdToBuild == null ? List.of()
                 : partitionStorage.rowsStartingWith(nextRowIdToBuild, highestRowId, batchSize);
@@ -295,6 +318,10 @@ class IndexBuildTask {
             }
         }
 
+        return rowIds;
+    }
+
+    private CompletableFuture<BatchToIndex> waitForTransactions(Map<UUID, CommitPartitionId> transactionsToResolve, List<RowId> rowIds) {
         Map<UUID, CompletableFuture<TxState>> txStateResolveFutures = transactionsToResolve.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), resolveFinalTxStateIfNeeded(entry.getKey(), entry.getValue())))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -307,6 +334,13 @@ class IndexBuildTask {
                             .collect(toUnmodifiableSet());
 
                     return new BatchToIndex(rowIds, abortedTransactionIds);
+                })
+                .whenComplete((ignored, e) -> {
+                    if (e != null) {
+                        indexBuilderMetricSource.onWaitingForTransactionsError(transactionsToResolve.size());
+                    } else {
+                        indexBuilderMetricSource.onTransitionToWaitingForReplicaResponse(transactionsToResolve.size());
+                    }
                 });
     }
 

@@ -58,6 +58,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -93,7 +94,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
             new NoOpFailureManager(),
             new CommittedFinalTransactionStateResolver(),
-            indexMetaStorage
+            indexMetaStorage,
+            mock(MetricManager.class)
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
