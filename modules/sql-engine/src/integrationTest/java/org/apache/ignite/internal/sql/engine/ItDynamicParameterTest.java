@@ -256,7 +256,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
-            names = {"DURATION", "PERIOD"},
+            names = {"DURATION", "PERIOD", "STRUCT"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {

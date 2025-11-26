@@ -157,7 +157,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
     @Override
     @Test
-    public void cancelBatch() throws InterruptedException {
+    public void cancelBatch() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
@@ -205,13 +205,13 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         assertThat(txManager().pending(), is(0));
     }
 
-    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) throws InterruptedException {
+    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) {
         CancelHandle cancelHandle = CancelHandle.create();
 
         // Run statement in another thread
         CompletableFuture<long[]> f = execute.apply(cancelHandle.token());
 
-        waitUntilRunningQueriesCount(greaterThan(0));
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
         assertThat(f.isDone(), is(false));
 
         cancelHandle.cancelAsync();

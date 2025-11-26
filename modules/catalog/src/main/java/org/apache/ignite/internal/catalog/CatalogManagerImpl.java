@@ -182,8 +182,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public int latestCatalogVersion() {
-        return catalogByVer.lastEntry().getKey();
+    public Catalog latestCatalog() {
+        return catalogByVer.lastEntry().getValue();
     }
 
     @Override

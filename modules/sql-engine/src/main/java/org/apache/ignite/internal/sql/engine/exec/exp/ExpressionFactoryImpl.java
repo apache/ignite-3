@@ -138,8 +138,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType) {
-        return projectionImplementor.implement(projects, rowType);
+    public SqlProjection<RowT> project(List<RexNode> projects, RelDataType inputRowType) {
+        return projectionImplementor.implement(projects, inputRowType);
     }
 
     /** {@inheritDoc} */

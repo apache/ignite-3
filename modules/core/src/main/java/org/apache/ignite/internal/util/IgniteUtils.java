@@ -874,9 +874,9 @@ public class IgniteUtils {
      * @param fn Function to run.
      * @param <T> Type of returned value from {@code fn}.
      * @return Result of the provided function.
-     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteBusyLock#enterBusy()} failed.
      */
-    public static <T> T inBusyLock(IgniteSpinBusyLock busyLock, Supplier<T> fn) {
+    public static <T> T inBusyLock(IgniteBusyLock busyLock, Supplier<T> fn) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -893,9 +893,9 @@ public class IgniteUtils {
      * @param busyLock Component's busy lock.
      * @param fn Function to run.
      * @return Result of the provided function.
-     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteBusyLock#enterBusy()} failed.
      */
-    public static int inBusyLock(IgniteSpinBusyLock busyLock, IntSupplier fn) {
+    public static int inBusyLock(IgniteBusyLock busyLock, IntSupplier fn) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -911,9 +911,9 @@ public class IgniteUtils {
      *
      * @param busyLock Component's busy lock.
      * @param fn Runnable to run.
-     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteBusyLock#enterBusy()} failed.
      */
-    public static void inBusyLock(IgniteSpinBusyLock busyLock, Runnable fn) {
+    public static void inBusyLock(IgniteBusyLock busyLock, Runnable fn) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -931,9 +931,9 @@ public class IgniteUtils {
      * @param busyLock Component's busy lock.
      * @param fn Function to run.
      * @return Future returned from the {@code fn}, or future with the {@link NodeStoppingException} if
-     *         {@link IgniteSpinBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
+     *         {@link IgniteBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
      */
-    public static <T> CompletableFuture<T> inBusyLockAsync(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
+    public static <T> CompletableFuture<T> inBusyLockAsync(IgniteBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -948,13 +948,13 @@ public class IgniteUtils {
     }
 
     /**
-     * Method that runs the provided {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just
+     * Method that runs the provided {@code fn} in {@code busyLock} if {@link IgniteBusyLock#enterBusy()} succeed. Otherwise it just
      * silently returns.
      *
      * @param busyLock Component's busy lock.
      * @param fn Runnable to run.
      */
-    public static void inBusyLockSafe(IgniteSpinBusyLock busyLock, Runnable fn) {
+    public static void inBusyLockSafe(IgniteBusyLock busyLock, Runnable fn) {
         if (!busyLock.enterBusy()) {
             return;
         }

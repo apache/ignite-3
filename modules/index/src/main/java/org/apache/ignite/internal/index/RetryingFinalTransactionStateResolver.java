@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -48,7 +48,7 @@ public class RetryingFinalTransactionStateResolver implements FinalTransactionSt
     }
 
     @Override
-    public CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ReplicationGroupId commitGroupId) {
+    public CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ZonePartitionId commitGroupId) {
         return stateResolver.resolveTxState(transactionId, commitGroupId, null, Long.MAX_VALUE, SECONDS)
                 .thenCompose(txMeta -> {
                     if (txMeta != null && TxState.isFinalState(txMeta.txState())) {
@@ -67,7 +67,7 @@ public class RetryingFinalTransactionStateResolver implements FinalTransactionSt
                 .thenCompose(identity());
     }
 
-    private CompletableFuture<TxState> retryResolve(UUID transactionId, ReplicationGroupId commitGroupId) {
+    private CompletableFuture<TxState> retryResolve(UUID transactionId, ZonePartitionId commitGroupId) {
         return supplyAsync(() -> resolveFinalTxState(transactionId, commitGroupId), delayedExecutor)
                 .thenCompose(identity());
     }

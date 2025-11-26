@@ -44,7 +44,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
+import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngineV2;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -58,7 +58,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
-/** Manages table partitions assignments (excluding rebalance, see {@link DistributionZoneRebalanceEngine}). */
+/** Manages table partitions assignments (excluding rebalance, see {@link DistributionZoneRebalanceEngineV2}). */
 public class TableAssignmentsService {
     private static final IgniteLogger LOG = Loggers.forClass(TableAssignmentsService.class);
 

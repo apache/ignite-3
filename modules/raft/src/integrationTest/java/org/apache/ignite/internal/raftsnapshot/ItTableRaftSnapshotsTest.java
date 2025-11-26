@@ -108,7 +108,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -763,7 +762,6 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         assertThat(getFromNode(2, 1), is("one"));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26849")
     @Test
     void testRestartNodeAfterTruncateRaftLogPrefixAndAbortRebalance() throws Exception {
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
