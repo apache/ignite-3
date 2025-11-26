@@ -303,5 +303,11 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link LocalTablePartitionStateResponse}. */
         short LOCAL_TABLE_PARTITION_STATE_RESPONSE = 105;
+
+        /** Message type for disaster recovery request forwarding. */
+        short DISASTER_RECOVERY_REQUEST = 106;
+
+        /** Message type for disaster recovery request forwarding response. */
+        short DISASTER_RECOVERY_RESPONSE = 111;
     }
 }

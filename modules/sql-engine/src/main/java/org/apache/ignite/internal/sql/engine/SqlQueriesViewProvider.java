@@ -119,6 +119,7 @@ public class SqlQueriesViewProvider {
             case OPTIMIZING:
                 return "OPTIMIZATION";
             case CURSOR_INITIALIZATION: // fall through
+            case CURSOR_PUBLICATION: // fall through
             case SCRIPT_INITIALIZATION: // fall through
             case EXECUTING:
                 return "EXECUTION";
