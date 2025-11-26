@@ -23,7 +23,6 @@
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/ignite_client_configuration.h"
 #include "ignite/protocol/protocol_context.h"
-#include "timeout_worker.h"
 
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/detail/thread_timer.h"
@@ -407,8 +406,6 @@ private:
 
     /** Timer thread. */
     std::shared_ptr<thread_timer> m_timer_thread;
-
-    std::unique_ptr<timeout_worker> m_timeout_worker;
 };
 
 } // namespace ignite::detail

@@ -36,15 +36,15 @@ node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::asyn
 
 node_connection::~node_connection() {
     for (auto& req : m_request_handlers) {
-        auto handling_res = result_of_operation<void>([req,this]() {
+        auto handling_res = result_of_operation<void>([&]() {
             auto handler = req.second.handler;
             auto res = handler->set_error(ignite_error("Connection closed before response was received"));
             if (res.has_error())
-                this->m_logger->log_error(
+                m_logger->log_error(
                     "Uncaught user callback exception while handling operation error: " + res.error().what_str());
         });
         if (handling_res.has_error())
-            this->m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
+            m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
     }
 }
 
@@ -222,7 +222,9 @@ void node_connection::handle_timeouts() {
         for (auto& [id, req] : m_request_handlers) {
             if (req.timeouts_at > now) {
 
-                auto res = req.handler->set_error(ignite_error("TIMEOUT!")); // TODO fix wording
+                std::stringstream ss;
+                ss << "Operation timeout [req_id=" << id << "]";
+                auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT,ss.str()));
 
                 keys_for_erasure.push_back(id);
 

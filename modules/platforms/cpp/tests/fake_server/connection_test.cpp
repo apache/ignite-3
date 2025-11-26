@@ -55,6 +55,6 @@ TEST_F(connection_test, request_timeout) {
     try {
         auto cluster_nodes = cl.get_cluster_nodes();
     } catch (ignite_error& err) {
-        std::cout << err.what() << "\n";
+        EXPECT_EQ(error::code::CLIENT_OPERATION_TIMEOUT, err.get_status_code());
     }
 }
