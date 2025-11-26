@@ -507,13 +507,13 @@ public final class ReliableChannel implements AutoCloseable {
     private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
         chFailLsnrs.forEach(Runnable::run);
 
-        // Roll current channel even if a topology changes. To help find working channel faster.
-        rollCurrentChannel(hld);
-
         if (scheduledChannelsReinit.compareAndSet(false, true)) {
             // Refresh addresses and reinit channels.
-            channelsInitAsync();
+            initChannelHolders();
         }
+
+        // Roll current channel even if a topology changes. To help find working channel faster.
+        rollCurrentChannel(hld);
     }
 
     /**
@@ -821,7 +821,7 @@ public final class ReliableChannel implements AutoCloseable {
         if (timestamp > old) {
             // New assignment timestamp, topology change possible.
             if (scheduledChannelsReinit.compareAndSet(false, true)) {
-                channelsInitAsync();
+                initChannelHolders();
             }
         }
     }

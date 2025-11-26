@@ -139,6 +139,8 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
             // Stop first node.
             server4.close();
 
+            Thread.sleep(100L); // Wait for channels were reinitialized.
+
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server5", client.connections().get(0).name());
@@ -146,7 +148,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testClientRefreshesDnsOnPrimaryReplicaChange() {
+    void testClientRefreshesDnsOnPrimaryReplicaChange() throws Exception {
         String[] addresses = {"my-cluster:" + port};
 
         // One valid address points to first node.
@@ -164,6 +166,8 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
                     1,
                     1,
                     ch.partitionAssignmentTimestamp() + 1);
+
+            Thread.sleep(100L); // Wait for channels were reinitialized.
 
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());
@@ -252,8 +256,8 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
                 500,
                 0,
                 null,
-                1000,
-                1000,
+                50,
+                50,
                 new RetryLimitPolicy(),
                 null,
                 null,
