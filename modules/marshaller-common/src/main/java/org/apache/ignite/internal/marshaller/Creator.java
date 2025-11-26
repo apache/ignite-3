@@ -20,13 +20,9 @@ package org.apache.ignite.internal.marshaller;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 class Creator<T> {
-    private static final IgniteLogger LOG = Loggers.forClass(Creator.class);
-
     final Class<T> clazz;
     private final FieldAccessor[] accessors;
     private @Nullable Annotated defaultConstructor;
@@ -124,9 +120,6 @@ class Creator<T> {
                 return true;
             }
         } catch (Exception e) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Canonical constructor introspection failed", e);
-            }
             return false;
         }
 
