@@ -756,33 +756,59 @@ article.markdown img {
    Railroad Diagram Styling
    ============================================ */
 
+/*
+ * Railroad diagram styling - matches Mermaid neutral color scheme
+ * Features:
+ *   - Container matching code blocks (border + padding)
+ *   - Neutral gray color scheme for light mode
+ *   - Dark mode with appropriate contrast
+ *   - Monospace font for technical content
+ *   - Clickable links with hover effects
+ */
+
+/* Container */
 .railroad-diagram-container {
   margin: 2rem 0;
-  overflow-x: auto;
-  background-color: var(--ifm-background-color);
-  border: 1px solid var(--code-border-color);
-  border-radius: var(--ifm-code-border-radius);
   padding: 1.5rem;
+  background-color: var(--block-code-background);
+  border: 1px solid var(--code-border-color);
+  border-radius: 5px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+[data-theme='dark'] .railroad-diagram-container {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-color: var(--code-border-color);
 }
 
 .railroad-diagram-container svg {
   max-width: 100%;
   height: auto;
-  display: block;
+  display: inline-block;
   margin: 0 auto;
 }
 
-/* Railroad diagram text styling */
+/* Light Mode: Neutral gray fills and borders */
 .railroad-diagram-container svg text {
-  font-family: var(--ifm-font-family-monospace);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
+  fill: #333333;
 }
 
-/* Override railroad-diagrams default colors */
-.railroad-diagram-container svg.railroad-diagram rect {
-  fill: white;
-  stroke: black;
-  stroke-width: 3;
+/* Shapes: neutral gray fills with dark borders */
+.railroad-diagram-container svg.railroad-diagram rect,
+.railroad-diagram-container svg.railroad-diagram circle {
+  fill: #e8e8e8 !important;
+  stroke: #666666 !important;
+  stroke-width: 2px !important;
+}
+
+/* Paths/lines: neutral gray */
+.railroad-diagram-container svg.railroad-diagram path {
+  stroke: #666666 !important;
+  stroke-width: 2px !important;
+  fill: none !important;
 }
 
 /* Make links clickable and visible */
@@ -790,12 +816,14 @@ article.markdown img {
   cursor: pointer;
 }
 
+/* Link hover effects - lighter fill */
 .railroad-diagram-container svg.railroad-diagram a:hover rect {
-  fill: var(--ifm-color-primary-lightest);
+  fill: #d0d0d0 !important;
 }
 
+/* Link text styling - Ignite red */
 .railroad-diagram-container svg.railroad-diagram a text {
-  fill: var(--ifm-link-color);
+  fill: var(--ignite-red) !important;
   text-decoration: none;
 }
 
@@ -803,22 +831,46 @@ article.markdown img {
   text-decoration: underline;
 }
 
-/* Dark mode support for railroad diagrams */
-[data-theme='dark'] .railroad-diagram-container {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-
-[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram rect {
-  fill: var(--ifm-color-emphasis-100);
-  stroke: var(--ifm-color-emphasis-800);
-}
-
-[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram path {
-  stroke: var(--ifm-color-emphasis-800);
+/* Dark Mode: Light fills with dark borders (inverted) */
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram {
+  background-color: rgba(0, 0, 0, 0.3) !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg text {
-  fill: currentColor;
+  fill: #000000 !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram rect,
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram circle {
+  fill: #e8e8e8 !important;
+  stroke: #4d4d4d !important;
+  stroke-width: 2px !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram path {
+  stroke: #4d4d4d !important;
+  stroke-width: 2px !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a:hover rect {
+  fill: #d0d0d0 !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a text {
+  fill: var(--ignite-red) !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+}
+
+/* Responsive sizing */
+@media (max-width: 767px) {
+  .railroad-diagram-container {
+    padding: 1rem;
+  }
+
+  .railroad-diagram-container svg text {
+    font-size: 12px;
+  }
 }
 
 /* ============================================
