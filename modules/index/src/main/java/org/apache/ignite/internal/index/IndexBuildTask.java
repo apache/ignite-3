@@ -236,15 +236,14 @@ class IndexBuildTask {
             return createBatchToIndex(highestRowId)
                     .thenCompose(batch ->
                             replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
-                                    .handle((unused, throwable) -> {
+                                    .whenComplete((unused, throwable) -> {
                                         if (throwable == null) {
                                             statisticsLoggingListener.onRaftCallSuccess();
                                         } else {
                                             statisticsLoggingListener.onRaftCallFailure();
                                         }
-
-                                        return batch;
                                     })
+                                    .thenApply(unused -> batch)
                     )
                     .thenAccept(batch -> statisticsLoggingListener.onBatchProcessed(batch.rowIds.size()))
                     .handleAsync((unused, throwable) -> {
