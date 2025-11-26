@@ -86,25 +86,26 @@ class IndexBuildTaskStatisticsLoggingListener {
     }
 
     private void logStatistics(@Nullable Throwable throwable) {
+        long time = getBuildTime();
         String status = throwable == null
-                ? "success"
-                : String.format("failure (%s: %s)", throwable.getClass().getName(), throwable.getMessage());
-        String reason = afterDisasterRecovery ? "disaster recovery of an AVAILABLE index" : "normal build";
+                ? "SUCCESS"
+                : String.format("FAILURE [%s: %s]", throwable.getClass().getName(), throwable.getMessage());
+        String buildReason = afterDisasterRecovery ? "DISASTER_RECOVERY" : "BUILD";
 
         LOG.info(
                 "Index build statistics: ["
-                        + "task id: {}, "
-                        + "status: {}, "
-                        + "build reason: {}, "
-                        + "time: {} ms, "
-                        + "rows indexed: {}, "
-                        + "successful raft calls: {}, "
-                        + "failed raft calls: {}, "
-                        + "resolved write intents: {}]",
-                taskId,
+                        + "status={}, "
+                        + "taskId={}, "
+                        + "buildReason={}, "
+                        + "time={}ms, "
+                        + "rowsIndexed={}, "
+                        + "successfulRaftCalls={}, "
+                        + "failedRaftCalls={}, "
+                        + "resolvedWriteIntents={}]",
                 status,
-                reason,
-                getBuildTime(),
+                taskId,
+                buildReason,
+                time,
                 rowIndexedCount,
                 successfulRaftCallCount,
                 failedRaftCallCount,
