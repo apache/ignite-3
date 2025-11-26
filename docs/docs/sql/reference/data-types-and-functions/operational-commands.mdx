@@ -1,4 +1,5 @@
 ---
+id: operational-commands
 title: Operational Commands
 ---
 
@@ -8,19 +9,61 @@ title: Operational Commands
 
 Retrieves data from a table or multiple tables.
 
-```sql
-SELECT [hint_comment] [ALL | DISTINCT] project_item [, project_item]*
-FROM table_expression
-[WHERE where_boolean_expression]
-[GROUP BY [ALL | DISTINCT] group_item [, group_item]*]
-[HAVING having_boolean_expression]
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('SELECT'),
+Optional(NonTerminal('hint_comment')),
+Optional(Sequence(
+Choice(1,
+Terminal('ALL'),
+Terminal('DISTINCT')
+))),
+Sequence(
+OneOrMore(Sequence(Terminal('project_item', {href:'../language-definition/grammar-reference/#project_item'})
+),
+Terminal(',')
+),
+),
+Terminal('FROM'),
+NonTerminal('table_expression', {href:'../language-definition/grammar-reference/#table_expression'}),
+Optional(
+Sequence(
+NonTerminal('WHERE'),
+Terminal('where_boolean_expression')
+)
+),
+End({type:'complex'}))
+`}</RailroadDiagram>
+
+<RailroadDiagram>{`
+Diagram(
+Start({type:'complex'}),
+Optional(
+Sequence(
+NonTerminal('GROUP BY'),
+Optional(Choice(1,
+Terminal('ALL'),
+Terminal('DISTINCT')
+)),
+OneOrMore(Sequence(Terminal('group_item', {href:'../language-definition/grammar-reference/#group_item'})
+),
+Terminal(',')
+),
+)
+),
+Optional(
+Sequence(
+NonTerminal('HAVING'),
+Terminal('having_boolean_expression')
+)))
+`}</RailroadDiagram>
+
 
 ### Parameters
 
 - `hint_comment` - an sql [optimizer hint](/docs/3.1.0/sql/advanced/performance-tuning#optimizer-hints).
 - `where_boolean_expression` - an SQL expression that is run against table records and returns a boolean value. Only the records for which `TRUE` was returned will be returned. If not specified, all matching records are returned.
-- `having_boolean_expression` - an SQL expression that is run against groups and returns a boolean value. Can use [aggregate functions](/docs/3.1.0/sql/reference/operators-and-functions#aggregate-functions). Only the groups for which `TRUE` was returned will be returned. If not specified, all matching groups are returned.
+- `having_boolean_expression` - an SQL expression that is run against groups and returns a boolean value. Can use [aggregate functions](/docs/3.1.0/sql/reference/data-types-and-functions/operators-and-functions#aggregate-functions). Only the groups for which `TRUE` was returned will be returned. If not specified, all matching groups are returned.
 
 ### JOINs
 
@@ -32,10 +75,23 @@ Apache Ignite supports colocated and non-colocated distributed SQL joins. Furthe
 
 Imports data from an external source into a table or exports data to a file from the table. The table the data is imported into must exist.
 
-```sql
-COPY FROM source INTO target FORMAT formatType
-[WITH parameter [, parameter]*]
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('COPY'),
+Terminal('FROM'),
+NonTerminal('source'),
+Terminal('INTO'),
+NonTerminal('target'),
+Terminal('FORMAT'),
+NonTerminal('formatType'),
+Optional(
+Sequence(
+Terminal('WITH'),
+OneOrMore (NonTerminal('parameter', {href:'../language-definition/grammar-reference/#parameter'}), Terminal(','))
+)
+)
+)
+`}</RailroadDiagram>
 
 ### Parameters
 
@@ -183,9 +239,14 @@ partitioned_table_dir/
 
 Cancels a running query. When a query is canceled with the `KILL` command, all parts of the query running on all other nodes are canceled too.
 
-```sql
-KILL QUERY query_id [NO WAIT]
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('KILL'),
+Terminal('QUERY'),
+NonTerminal('query_id'),
+Optional(Terminal('NO WAIT'))
+)
+`}</RailroadDiagram>
 
 ### Parameters
 
@@ -196,9 +257,14 @@ KILL QUERY query_id [NO WAIT]
 
 Cancels an active transaction.
 
-```sql
-KILL TRANSACTION transaction_id [NO WAIT]
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('KILL'),
+Terminal('TRANSACTION'),
+NonTerminal('transaction_id'),
+Optional(Terminal('NO WAIT'))
+)
+`}</RailroadDiagram>
 
 ### Parameters
 
@@ -209,9 +275,14 @@ KILL TRANSACTION transaction_id [NO WAIT]
 
 Cancels a running compute job. When a job is canceled with the `KILL` command, all parts of the job running on all other nodes are canceled too.
 
-```sql
-KILL COMPUTE job_id [NO WAIT]
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('KILL'),
+Terminal('COMPUTE'),
+NonTerminal('job_id'),
+Optional(Terminal('NO WAIT'))
+)
+`}</RailroadDiagram>
 
 ### Parameters
 

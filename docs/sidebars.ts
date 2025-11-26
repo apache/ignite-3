@@ -124,11 +124,11 @@ const sidebars: SidebarsConfig = {
               label: "Language Definition",
               link: { type: "generated-index" },
               items: [
-                "sql/reference/ddl",
-                "sql/reference/dml",
-                "sql/advanced/distribution-zones",
-                "sql/reference/transactions",
-                "sql/reference/grammar-reference",
+                "sql/reference/language-definition/ddl",
+                "sql/reference/language-definition/dml",
+                "sql/reference/language-definition/distribution-zones",
+                "sql/reference/language-definition/transactions",
+                "sql/reference/language-definition/grammar-reference",
               ],
             },
             {
@@ -136,9 +136,9 @@ const sidebars: SidebarsConfig = {
               label: "Data Types and Functions",
               link: { type: "generated-index" },
               items: [
-                "sql/reference/data-types",
-                "sql/reference/operators-and-functions",
-                "sql/reference/operational-commands",
+                "sql/reference/data-types-and-functions/data-types",
+                "sql/reference/data-types-and-functions/operators-and-functions",
+                "sql/reference/data-types-and-functions/operational-commands",
               ],
             },
             {
@@ -146,8 +146,8 @@ const sidebars: SidebarsConfig = {
               label: "SQL Conformance",
               link: { type: "generated-index" },
               items: [
-                "sql/reference/sql-conformance",
-                "sql/reference/keywords",
+                "sql/reference/sql-conformance/sql-conformance",
+                "sql/reference/sql-conformance/keywords",
               ],
             },
           ],

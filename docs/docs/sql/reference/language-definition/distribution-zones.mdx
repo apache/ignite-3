@@ -1,4 +1,5 @@
 ---
+id: distribution-zones
 title: Distribution Zones
 sidebar_position: 1
 ---
@@ -14,6 +15,39 @@ Creates a new distribution zone.
 :::note
 This can also be done via the [Java API](/docs/3.1.0/develop/work-with-data/java-to-tables).
 :::
+
+<RailroadDiagram>{`
+Diagram(
+Terminal("CREATE ZONE"),
+Optional(Terminal("IF NOT EXISTS")),
+NonTerminal("qualified_zone_name", { href: "./grammar-reference/#qualified-zone-name" }),
+Optional(
+Sequence(
+Terminal("("),
+OneOrMore(
+NonTerminal("zone_parameter", { href: "./grammar-reference/#zone-parameter" }),
+Terminal(",")
+),
+Terminal(")")
+)
+),
+End({ type: "complex" })
+)
+`}</RailroadDiagram>
+
+<RailroadDiagram>{`
+Diagram(
+Start({ type: "complex" }),
+Terminal("STORAGE PROFILES"),
+Terminal("["),
+OneOrMore(
+NonTerminal("storage_profile", { href: "./grammar-reference/#storage-profile" }),
+Terminal(",")
+),
+Terminal("]"),
+Terminal(";")
+)
+`}</RailroadDiagram>
 
 ### Keywords and parameters
 
@@ -70,7 +104,7 @@ CREATE ZONE IF NOT EXISTS exampleZone (NODES FILTER '$[?(@.storage == "SSD")]') 
 ```
 
 :::note
-The example above assumes that there are nodes that have the attribute set as shown in the [node filtering](/docs/3.1.0/sql/advanced/distribution-zones) example.
+The example above assumes that there are nodes that have the attribute set as shown in the [node filtering](/docs/3.1.0/sql/reference/language-definition/distribution-zones) example.
 :::
 
 Creates an `exampleZone` distribution zone with consistency mode set to `HIGH_AVAILABILITY`:
@@ -84,6 +118,16 @@ CREATE ZONE IF NOT EXISTS exampleZone (REPLICAS 5, CONSISTENCY MODE 'HIGH_AVAILA
 Modifies a distribution zone.
 
 ### ALTER ZONE RENAME TO new_qualified_zone_name
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('ALTER ZONE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_zone_name'),
+Terminal('RENAME TO'),
+NonTerminal('new_qualified_zone_name'),
+)
+`}</RailroadDiagram>
 
 #### Keywords and parameters
 
@@ -101,6 +145,19 @@ ALTER ZONE IF EXISTS exampleZone RENAME TO renamedZone;
 ```
 
 ### ALTER ZONE SET
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('ALTER ZONE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_zone_name'),
+Sequence(Terminal('SET'),
+Optional('('),
+OneOrMore(
+NonTerminal('parameter', {href:'./grammar-reference/#parameter'}),
+','),
+Optional(')')))
+`}</RailroadDiagram>
 
 #### Keywords and parameters
 
@@ -146,6 +203,14 @@ Drops an existing distribution zone.
 :::note
 This can also be done via the [Java API](/docs/3.1.0/develop/work-with-data/java-to-tables).
 :::
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('DROP ZONE'),
+Terminal('IF EXISTS'),
+NonTerminal('qualified_zone_name')
+)
+`}</RailroadDiagram>
 
 ### Keywords and parameters
 

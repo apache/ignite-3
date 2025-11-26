@@ -35,7 +35,7 @@ sidebar_position: 3
 : The process of redistributing partitions equally across all nodes in a cluster.
 
 **Distribution zone**
-: Distribution zone controls how data is placed into partitions, and how partitions are distributed on nodes on the cluster. Distribution zones are part of cluster configuration, and can be modified with [SQL commands](/docs/3.1.0/sql/advanced/distribution-zones).
+: Distribution zone controls how data is placed into partitions, and how partitions are distributed on nodes on the cluster. Distribution zones are part of cluster configuration, and can be modified with [SQL commands](/docs/3.1.0/sql/reference/distribution-zones).
 
 ## L
 
