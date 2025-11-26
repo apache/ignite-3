@@ -120,7 +120,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testClientRefreshesDnsOnNodeFailure() {
+    void testClientRefreshesDnsOnNodeFailure() throws Exception {
         // One valid address.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress});
 
