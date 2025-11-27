@@ -32,15 +32,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -105,7 +104,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     protected JdbcUrlRegistry jdbcUrlRegistry;
 
     @Inject
-    protected ConnectCall connectCall;
+    private Session session;
 
     private CommandLine cmd;
 
@@ -345,10 +344,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
      * wouldn't help because it will start to ask questions.
      */
     protected void connect(String url) {
-        Flows.from(ConnectCallInput.builder().url(url).build())
-                .then(Flows.fromCall(connectCall))
-                .print()
-                .start();
+        eventPublisher.publish(Events.connect(SessionInfo.builder().nodeUrl(url).build()));
     }
 
     protected static void createAndPopulateTable() {
