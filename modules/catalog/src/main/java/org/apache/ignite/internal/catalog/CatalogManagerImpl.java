@@ -33,10 +33,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -79,10 +76,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
 
     /** Versioned catalog descriptors. */
-    private final NavigableMap<Integer, Catalog> catalogByVer = new ConcurrentSkipListMap<>();
+    private volatile CatalogByIndexMap catalogByVer = new CatalogByIndexMap();
 
     /** Versioned catalog descriptors sorted in chronological order. */
-    private final NavigableMap<Long, Catalog> catalogByTs = new ConcurrentSkipListMap<>();
+    private volatile CatalogByIndexMap catalogByTs = new CatalogByIndexMap();
 
     /** A future that completes when an empty catalog is initialised. If catalog is not empty this future when this completes starts. */
     private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
@@ -173,17 +170,17 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public int earliestCatalogVersion() {
-        return catalogByVer.firstEntry().getKey();
+        return (int) catalogByVer.firstKey();
     }
 
     @Override
     public Catalog earliestCatalog() {
-        return catalogByVer.firstEntry().getValue();
+        return catalogByVer.firstValue();
     }
 
     @Override
     public Catalog latestCatalog() {
-        return catalogByVer.lastEntry().getValue();
+        return catalogByVer.lastValue();
     }
 
     @Override
@@ -213,13 +210,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private Catalog catalogAt(long timestamp) {
-        Entry<Long, Catalog> entry = catalogByTs.floorEntry(timestamp);
+        Catalog catalog = catalogByTs.floorValue(timestamp);
 
-        if (entry == null) {
+        if (catalog == null) {
             throw new CatalogNotFoundException("Catalog not found for given timestamp: " + timestamp);
         }
 
-        return entry.getValue();
+        return catalog;
     }
 
     @Override
@@ -273,13 +270,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private void registerCatalog(Catalog newCatalog) {
-        catalogByVer.put(newCatalog.version(), newCatalog);
-        catalogByTs.put(newCatalog.time(), newCatalog);
+        catalogByVer = catalogByVer.appendOrUpdate(newCatalog.version(), newCatalog);
+        catalogByTs = catalogByTs.appendOrUpdate(newCatalog.time(), newCatalog);
     }
 
     private void truncateUpTo(Catalog catalog) {
-        catalogByVer.headMap(catalog.version(), false).clear();
-        catalogByTs.headMap(catalog.time(), false).clear();
+        catalogByVer = catalogByVer.clearHead(catalog.version());
+        catalogByTs = catalogByTs.clearHead(catalog.time());
 
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
@@ -372,7 +369,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 return failedFuture(new IgniteInternalException(INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
             }
 
-            Catalog catalog = catalogByVer.lastEntry().getValue();
+            Catalog catalog = catalogByVer.lastValue();
 
             BitSet applyResults = new BitSet(updateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
