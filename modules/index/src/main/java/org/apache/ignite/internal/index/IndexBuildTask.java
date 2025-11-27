@@ -238,25 +238,26 @@ class IndexBuildTask {
             return nullCompletedFuture();
         }
 
+        indexBuilderMetricSource.transitionToReadingRows();
+
         Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
-
-        indexBuilderMetricSource.onTransitionToReadingRows();
-
         List<RowId> rowIds;
 
         try {
             rowIds = getRowIds(highestRowId, transactionsToResolve);
         } catch (Exception e) {
-            indexBuilderMetricSource.onRowsReadError();
+            indexBuilderMetricSource.rowsReadError();
+
             leaveBusy();
+
             return failedFuture(e);
         }
 
-        indexBuilderMetricSource.onTransitionToWaitingForTransactions(transactionsToResolve.size());
+        indexBuilderMetricSource.transitionToWaitingForTransactions(transactionsToResolve.size());
 
         try {
             return waitForTransactions(transactionsToResolve, rowIds)
-                    .thenCompose(this::invokeRequest)
+                    .thenCompose(this::sendBuildIndexReplicaRequest)
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -284,9 +285,9 @@ class IndexBuildTask {
         }
     }
 
-    private CompletableFuture<Object> invokeRequest(BatchToIndex batch) {
+    private CompletableFuture<Object> sendBuildIndexReplicaRequest(BatchToIndex batch) {
         return replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
-                .whenComplete((ignored, e) -> indexBuilderMetricSource.onIndexBuildFinished());
+                .whenComplete((ignored, e) -> indexBuilderMetricSource.indexBuildFinished());
     }
 
     private List<RowId> getRowIds(@Nullable RowId highestRowId, Map<UUID, CommitPartitionId> transactionsToResolve) {
@@ -337,9 +338,9 @@ class IndexBuildTask {
                 })
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
-                        indexBuilderMetricSource.onWaitingForTransactionsError(transactionsToResolve.size());
+                        indexBuilderMetricSource.waitingForTransactionsError(transactionsToResolve.size());
                     } else {
-                        indexBuilderMetricSource.onTransitionToWaitingForReplicaResponse(transactionsToResolve.size());
+                        indexBuilderMetricSource.transitionToWaitingForReplicaResponse(transactionsToResolve.size());
                     }
                 });
     }

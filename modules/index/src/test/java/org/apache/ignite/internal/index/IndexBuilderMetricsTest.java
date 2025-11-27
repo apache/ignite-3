@@ -57,25 +57,25 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
     void testIndexBuildFlow() {
         int pendingTx = 5;
 
-        metricSource.onTransitionToReadingRows();
+        metricSource.transitionToReadingRows();
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForTransactions(pendingTx);
+        metricSource.transitionToWaitingForTransactions(pendingTx);
         checkMetrics(1, 0, 1, pendingTx, 0);
 
-        metricSource.onTransitionToWaitingForReplicaResponse(pendingTx);
+        metricSource.transitionToWaitingForReplicaResponse(pendingTx);
         checkMetrics(1, 0, 0, 0, 1);
 
-        metricSource.onIndexBuildFinished();
+        metricSource.indexBuildFinished();
         checkMetrics(0, 0, 0, 0, 0);
     }
 
     @Test
     void testReadingRowsFailed() {
-        metricSource.onTransitionToReadingRows();
+        metricSource.transitionToReadingRows();
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onRowsReadError();
+        metricSource.rowsReadError();
         checkMetrics(0, 0, 0, 0, 0);
     }
 
@@ -83,13 +83,13 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
     void testWaitingForTransactionsFailed() {
         int pendingTx = 3;
 
-        metricSource.onTransitionToReadingRows();
+        metricSource.transitionToReadingRows();
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForTransactions(pendingTx);
+        metricSource.transitionToWaitingForTransactions(pendingTx);
         checkMetrics(1, 0, 1, pendingTx, 0);
 
-        metricSource.onWaitingForTransactionsError(pendingTx);
+        metricSource.waitingForTransactionsError(pendingTx);
         checkMetrics(0, 0, 0, 0, 0);
     }
 
@@ -97,16 +97,16 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
     void testWaitingForReplicaResponseFailed() {
         int pendingTx = 4;
 
-        metricSource.onTransitionToReadingRows();
+        metricSource.transitionToReadingRows();
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForTransactions(pendingTx);
+        metricSource.transitionToWaitingForTransactions(pendingTx);
         checkMetrics(1, 0, 1, pendingTx, 0);
 
-        metricSource.onTransitionToWaitingForReplicaResponse(pendingTx);
+        metricSource.transitionToWaitingForReplicaResponse(pendingTx);
         checkMetrics(1, 0, 0, 0, 1);
 
-        metricSource.onIndexBuildFinished();
+        metricSource.indexBuildFinished();
         checkMetrics(0, 0, 0, 0, 0);
     }
 

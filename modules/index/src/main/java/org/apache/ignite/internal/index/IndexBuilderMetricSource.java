@@ -28,10 +28,7 @@ import org.apache.ignite.internal.metrics.Metric;
 public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderMetricSource.Holder> {
     public static final String METRIC_GROUP = "index.builder";
 
-    /**
-     * Creates a new metric source for the given storage engine and table, with a name {@code storage} and group {@value METRIC_GROUP}.
-     *
-     */
+    /** Constructor. */
     public IndexBuilderMetricSource() {
         super(METRIC_GROUP, "Index metrics.");
     }
@@ -41,7 +38,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         return new Holder();
     }
 
-    void onTransitionToReadingRows() {
+    void transitionToReadingRows() {
         Holder holder = holder();
         if (holder != null) {
             holder.totalIndexesBuilding.increment();
@@ -49,7 +46,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void onTransitionToWaitingForTransactions(int transactionsToWait) {
+    void transitionToWaitingForTransactions(int transactionsToWait) {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesReadingStorage.decrement();
@@ -58,7 +55,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void onRowsReadError() {
+    void rowsReadError() {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesReadingStorage.decrement();
@@ -66,7 +63,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void onWaitingForTransactionsError(int size) {
+    void waitingForTransactionsError(int size) {
         Holder holder = holder();
         if (holder != null) {
             holder.totalIndexesBuilding.decrement();
@@ -75,7 +72,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void onTransitionToWaitingForReplicaResponse(int size) {
+    void transitionToWaitingForReplicaResponse(int size) {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesWaitingForTransactionn.decrement();
@@ -84,7 +81,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void onIndexBuildFinished() {
+    void indexBuildFinished() {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesWaitingForReplica.decrement();
@@ -93,7 +90,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
     }
 
     /**
-     * Holder for the storage engine table metrics.
+     * Holder for the index builder metrics.
      */
     public static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final AtomicIntMetric totalIndexesBuilding = (
