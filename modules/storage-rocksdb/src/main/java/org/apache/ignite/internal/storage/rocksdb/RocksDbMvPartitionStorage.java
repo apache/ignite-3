@@ -1290,7 +1290,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+    // TODO: IGNITE-26988 Переделать
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
         WriteBatchWithIndex batch = requireWriteBatch();
 
         // No busy lock required, we're already in "runConsistently" closure.

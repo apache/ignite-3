@@ -698,17 +698,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+    // TODO: IGNITE-26998 Переделать
+    public synchronized List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
         assert THREAD_LOCAL_LOCKER.get() != null;
 
         try {
             VersionChain versionChain = gcQueue.first();
 
-            if (versionChain.ts.compareTo(lowWatermark) > 0) {
-                return null;
+            if (versionChain == null || versionChain.ts.compareTo(lowWatermark) > 0) {
+                return List.of();
             }
 
-            return versionChain;
+            return List.of(versionChain);
         } catch (NoSuchElementException e) {
             return null;
         }

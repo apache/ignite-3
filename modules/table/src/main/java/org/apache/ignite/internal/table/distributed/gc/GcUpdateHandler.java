@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -75,7 +76,7 @@ public class GcUpdateHandler {
             return true;
         }
 
-        IntHolder countHolder = new IntHolder(count);
+        var countHolder = new IntHolder(count);
 
         while (countHolder.get() > 0) {
             VacuumResult vacuumResult = internalVacuumBatch(lowWatermark, countHolder);
@@ -131,12 +132,14 @@ public class GcUpdateHandler {
                 return VacuumResult.SHOULD_RELEASE;
             }
 
-            GcEntry gcEntry = storage.peek(lowWatermark);
+            // TODO: IGNITE-26998 Переделать а пока заглушка
+            List<GcEntry> gcEntries = storage.peek(lowWatermark, 1);
 
-            if (gcEntry == null) {
+            if (gcEntries.isEmpty()) {
                 return VacuumResult.NO_GARBAGE_LEFT;
             }
 
+            GcEntry gcEntry = gcEntries.get(0);
             RowId rowId = gcEntry.getRowId();
 
             if (useTryLock) {

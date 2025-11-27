@@ -35,8 +35,10 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.jetbrains.annotations.Nullable;
@@ -173,13 +175,12 @@ class GarbageCollector {
     }
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#peek(HybridTimestamp)}.
+     * Polls an elements for vacuum. See {@link MvPartitionStorage#peek}.
      *
      * @param writeBatch Current Write Batch.
      * @param lowWatermark Low watermark.
-     * @return Garbage collected element descriptor.
      */
-    @Nullable GcEntry peek(WriteBatchWithIndex writeBatch, HybridTimestamp lowWatermark) {
+    List<GcEntry> peek(WriteBatchWithIndex writeBatch, HybridTimestamp lowWatermark) {
         // We retrieve the first element of the GC queue and seek for it in the data CF.
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
@@ -189,7 +190,7 @@ class GarbageCollector {
 
             if (invalid(gcIt)) {
                 // GC queue is empty.
-                return null;
+                return List.of();
             }
 
             ByteBuffer gcKeyBuffer = readGcKey(gcIt);
@@ -198,16 +199,16 @@ class GarbageCollector {
 
             if (gcRowVersion.getTimestamp().compareTo(lowWatermark) > 0) {
                 // No elements to garbage collect.
-                return null;
+                return List.of();
             }
 
-            return gcRowVersion;
+            return List.of(gcRowVersion);
         }
     }
 
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#vacuum(GcEntry)}.
+     * Polls an element for vacuum. See {@link MvPartitionStorage#vacuum(GcEntry)}.
      *
      * @param batch Write batch.
      * @param entry Entry, previously returned by {@link #peek}.

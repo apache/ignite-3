@@ -962,7 +962,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+    // TODO: IGNITE-26998 Исправить реализацию
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
         assert THREAD_LOCAL_LOCKER.get() != null;
 
         // Assertion above guarantees that we're in "runConsistently" closure.
@@ -972,17 +973,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         // Garbage collection queue is empty.
         if (head == null) {
-            return null;
+            return List.of();
         }
 
         HybridTimestamp rowTimestamp = head.getTimestamp();
 
         // There are no versions in the garbage collection queue before watermark.
         if (rowTimestamp.compareTo(lowWatermark) > 0) {
-            return null;
+            return List.of();
         }
 
-        return head;
+        return List.of(head);
     }
 
     @Override

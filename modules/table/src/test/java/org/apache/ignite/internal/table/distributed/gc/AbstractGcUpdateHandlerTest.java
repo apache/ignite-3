@@ -90,7 +90,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
 
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
-        verify(partitionStorage).peek(lowWatermark);
+        verify(partitionStorage).peek(eq(lowWatermark), eq(1));
 
         // Let's check that StorageUpdateHandler#vacuumBatch returns true.
         clearInvocations(partitionStorage);
@@ -102,7 +102,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         addWriteCommitted(partitionStorage, rowId, row, clock.now());
 
         assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
-        verify(partitionStorage).peek(lowWatermark);
+        verify(partitionStorage).peek(eq(lowWatermark), eq(1));
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId), any(), isNull());
     }
 
@@ -129,7 +129,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5));
 
-        verify(partitionStorage, times(3)).peek(lowWatermark);
+        verify(partitionStorage, times(3)).peek(eq(lowWatermark), eq(5));
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any(), isNull());
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any(), isNull());
     }
