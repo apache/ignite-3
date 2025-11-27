@@ -329,67 +329,70 @@ h1 {
 }
 
 /* ============================================
-   Layout - Optimal Reading Width Configuration
+   Layout - Dynamic Content Width Configuration
    ============================================ */
 
 /*
- * Strategy: Use Docusaurus CSS variables and work WITH the grid system.
+ * Strategy: Dynamic content width that adapts to available viewport space.
  * Goals:
- *   - 60-75 characters per line for optimal readability
- *   - Consistent content width across all pages
- *   - Fixed sidebar widths to prevent layout shift
+ *   - Content fills available space between sidebar and TOC
+ *   - Maximum width: 2000px (supports ultra-wide displays)
+ *   - Minimum width: 600px (readability on smaller screens)
+ *   - Fixed sidebar and TOC widths to prevent layout shift
  *   - Respect Docusaurus's responsive breakpoints
  */
 
 :root {
   /* Layout Width Variables */
   --doc-sidebar-width: 300px;
-  --ifm-container-width: 1320px; /* Total width for sidebar + content + TOC */
-  --ifm-container-width-xl: 1440px; /* Large screens */
-
-  /* Content area optimal reading width */
-  --content-max-width: 750px; /* Achieves 65-75 characters per line at 16px */
-  --content-max-width-xl: 800px; /* Slightly wider for large screens */
-
-  /* TOC width */
   --toc-width: 240px;
+
+  /* Override Docusaurus default container widths */
+  --ifm-container-width: 100%;
+  --ifm-container-width-xl: 100%;
 }
 
-/* Desktop: Constrain main content container for optimal reading */
+/* Desktop: Dynamic content width that fills available space */
 @media (min-width: 997px) {
   /* Main content area wrapper */
   .container {
-    max-width: var(--ifm-container-width);
+    max-width: 100% !important;
   }
 
-  /* Content column in 9/3 layout (article with TOC) */
+  /* Row container - remove Docusaurus default max-width */
+  .row {
+    max-width: none !important;
+    justify-content: space-between;
+  }
+
+  /* Main wrapper - ensure no max-width */
+  .main-wrapper {
+    max-width: none !important;
+  }
+
+  /* Docs wrapper - ensure no max-width */
+  .docs-wrapper {
+    max-width: none !important;
+  }
+
+  /* Content column in 9/3 layout (article with TOC) - dynamic width */
   .col--9 {
-    max-width: var(--content-max-width);
+    flex: 1 1 auto;
+    max-width: 2000px;
+    min-width: 600px;
   }
 
-  /* TOC column width */
+  /* TOC column width - fixed */
   .col--3 {
     flex: 0 0 var(--toc-width);
     max-width: var(--toc-width);
   }
 }
 
-/* Large Desktop: Slightly wider content for better use of space */
-@media (min-width: 1441px) {
-  .container {
-    max-width: var(--ifm-container-width-xl);
-  }
-
-  .col--9 {
-    max-width: var(--content-max-width-xl);
-  }
-}
-
-/* Tablet: Reduce widths proportionally */
+/* Tablet: Reduce sidebar width */
 @media (min-width: 768px) and (max-width: 996px) {
   :root {
     --doc-sidebar-width: 260px;
-    --content-max-width: 650px; /* 60-70 characters per line */
   }
 }
 
@@ -756,33 +759,59 @@ article.markdown img {
    Railroad Diagram Styling
    ============================================ */
 
+/*
+ * Railroad diagram styling - matches Mermaid neutral color scheme
+ * Features:
+ *   - Container matching code blocks (border + padding)
+ *   - Neutral gray color scheme for light mode
+ *   - Dark mode with appropriate contrast
+ *   - Monospace font for technical content
+ *   - Clickable links with hover effects
+ */
+
+/* Container */
 .railroad-diagram-container {
   margin: 2rem 0;
-  overflow-x: auto;
-  background-color: var(--ifm-background-color);
-  border: 1px solid var(--code-border-color);
-  border-radius: var(--ifm-code-border-radius);
   padding: 1.5rem;
+  background-color: var(--block-code-background);
+  border: 1px solid var(--code-border-color);
+  border-radius: 5px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+[data-theme='dark'] .railroad-diagram-container {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-color: var(--code-border-color);
 }
 
 .railroad-diagram-container svg {
   max-width: 100%;
   height: auto;
-  display: block;
+  display: inline-block;
   margin: 0 auto;
 }
 
-/* Railroad diagram text styling */
+/* Light Mode: Neutral gray fills and borders */
 .railroad-diagram-container svg text {
-  font-family: var(--ifm-font-family-monospace);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
+  fill: #333333;
 }
 
-/* Override railroad-diagrams default colors */
-.railroad-diagram-container svg.railroad-diagram rect {
-  fill: white;
-  stroke: black;
-  stroke-width: 3;
+/* Shapes: neutral gray fills with dark borders */
+.railroad-diagram-container svg.railroad-diagram rect,
+.railroad-diagram-container svg.railroad-diagram circle {
+  fill: #e8e8e8 !important;
+  stroke: #666666 !important;
+  stroke-width: 2px !important;
+}
+
+/* Paths/lines: neutral gray */
+.railroad-diagram-container svg.railroad-diagram path {
+  stroke: #666666 !important;
+  stroke-width: 2px !important;
+  fill: none !important;
 }
 
 /* Make links clickable and visible */
@@ -790,12 +819,14 @@ article.markdown img {
   cursor: pointer;
 }
 
+/* Link hover effects - lighter fill */
 .railroad-diagram-container svg.railroad-diagram a:hover rect {
-  fill: var(--ifm-color-primary-lightest);
+  fill: #d0d0d0 !important;
 }
 
+/* Link text styling - Ignite red */
 .railroad-diagram-container svg.railroad-diagram a text {
-  fill: var(--ifm-link-color);
+  fill: var(--ignite-red) !important;
   text-decoration: none;
 }
 
@@ -803,22 +834,177 @@ article.markdown img {
   text-decoration: underline;
 }
 
-/* Dark mode support for railroad diagrams */
-[data-theme='dark'] .railroad-diagram-container {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-
-[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram rect {
-  fill: var(--ifm-color-emphasis-100);
-  stroke: var(--ifm-color-emphasis-800);
-}
-
-[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram path {
-  stroke: var(--ifm-color-emphasis-800);
+/* Dark Mode: Dark fills matching page background */
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram {
+  background-color: rgba(0, 0, 0, 0.3) !important;
 }
 
 [data-theme='dark'] .railroad-diagram-container svg text {
-  fill: currentColor;
+  fill: #f0f0f0 !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram rect,
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram circle {
+  fill: var(--ifm-background-color) !important;
+  stroke: #f0f0f0 !important;
+  stroke-width: 2px !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram path {
+  stroke: #f0f0f0 !important;
+  stroke-width: 2px !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a:hover rect {
+  fill: #2a2a2c !important;
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a text {
+  fill: #fb6b70 !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+}
+
+/* Responsive sizing */
+@media (max-width: 767px) {
+  .railroad-diagram-container {
+    padding: 1rem;
+  }
+
+  .railroad-diagram-container svg text {
+    font-size: 12px;
+  }
+}
+
+/* Railroad diagram wrapper and expand button */
+.railroad-diagram-wrapper {
+  position: relative;
+}
+
+.railroad-expand-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background-color: var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 4px;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, transform 0.1s;
+  z-index: 1;
+  color: var(--ifm-color-content);
+}
+
+.railroad-expand-button:hover {
+  background-color: var(--ifm-color-emphasis-300);
+  transform: scale(1.05);
+}
+
+.railroad-expand-button:active {
+  transform: scale(0.95);
+}
+
+[data-theme='dark'] .railroad-expand-button {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ifm-color-content);
+}
+
+[data-theme='dark'] .railroad-expand-button:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal overlay */
+.railroad-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 2rem;
+  overflow: auto;
+}
+
+/* Modal content */
+.railroad-modal-content {
+  position: relative;
+  max-width: 95vw;
+  max-height: 95vh;
+  background-color: var(--ifm-background-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  overflow: auto;
+}
+
+[data-theme='dark'] .railroad-modal-content {
+  background-color: #1b1b1d;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* Close button */
+.railroad-modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background-color: var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 4px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: bold;
+  color: var(--ifm-color-content);
+  transition: background-color 0.2s, transform 0.1s;
+  z-index: 10000;
+}
+
+.railroad-modal-close:hover {
+  background-color: var(--ifm-color-emphasis-400);
+  transform: scale(1.1);
+}
+
+.railroad-modal-close:active {
+  transform: scale(0.9);
+}
+
+[data-theme='dark'] .railroad-modal-close {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .railroad-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal diagram - remove margin to fit better */
+.railroad-diagram-modal {
+  margin: 0;
+  min-width: fit-content;
+}
+
+/* Mobile responsive modal */
+@media (max-width: 767px) {
+  .railroad-modal-overlay {
+    padding: 1rem;
+  }
+
+  .railroad-modal-content {
+    max-width: 100vw;
+    max-height: 100vh;
+  }
 }
 
 /* ============================================
@@ -926,10 +1112,9 @@ article.markdown img {
   border-top-color: var(--ifm-color-emphasis-200);
 }
 
-/* Content column width constraints for card layouts */
-/* Optimized for 1, 2, or 3 cards at max width (325px) */
+/* Card layout - fully dynamic, reflows based on available space */
 
-/* Mobile: Full width */
+/* Mobile: Full width cards */
 @media (max-width: 767px) {
   .card-container {
     gap: 1rem;
@@ -941,27 +1126,23 @@ article.markdown img {
   }
 }
 
-/* Tablet: 2 columns max - content width for 2 cards */
-@media (min-width: 768px) and (max-width: 996px) {
-  .col--9 {
-    max-width: 700px; /* 2 cards × 325px + gap */
-  }
-}
-
-/* Desktop: 3 columns max - content width for 3 cards */
+/* Desktop: Optimized for 3-column layout */
 @media (min-width: 997px) {
-  .col--9 {
-    max-width: 1050px; /* 3 cards × 325px + gaps */
-  }
-}
-
-/* Large Desktop: Maintain 3 columns with comfortable spacing */
-@media (min-width: 1441px) {
-  .col--9 {
-    max-width: 1100px; /* 3 cards × 325px + larger gaps */
-  }
-
   .card-container {
     gap: 2rem;
+  }
+
+  .card {
+    /* Allow cards to grow and maintain 3-column layout */
+    flex: 1 1 calc(33.333% - 1.5rem);
+    min-width: 280px;
+    max-width: 450px;
+  }
+}
+
+/* Large Desktop: Even better spacing */
+@media (min-width: 1441px) {
+  .card-container {
+    gap: 2.5rem;
   }
 }

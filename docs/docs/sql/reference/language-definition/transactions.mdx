@@ -1,4 +1,5 @@
 ---
+id: transactions
 title: Transactions
 ---
 
@@ -12,9 +13,13 @@ Transaction control statements are only allowed within a [script](/docs/3.1.0/sq
 
 In Apache Ignite 3, you start the transaction by using the `START TRANSACTION` statement:
 
-```sql
-START TRANSACTION [READ ONLY | READ WRITE]
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('START TRANSACTION'),
+ZeroOrMore(
+Terminal('READ ONLY'),
+Terminal('READ WRITE')))
+`}</RailroadDiagram>
 
 :::note
 DDL statements are not supported inside transactions.
@@ -27,9 +32,10 @@ Parameters:
 
 You close and commit the transaction by using the `COMMIT` statement:
 
-```sql
-COMMIT
-```
+<RailroadDiagram>{`
+Diagram(
+Terminal('COMMIT'))
+`}</RailroadDiagram>
 
 ## Example
 

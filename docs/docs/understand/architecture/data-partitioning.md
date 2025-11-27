@@ -10,7 +10,7 @@ Data partitioning is a method of subdividing large sets of data into smaller chu
 
 ## How Data is Partitioned
 
-When the table is created, it is always assigned to a [distribution zone](/docs/3.1.0/sql/advanced/distribution-zones). Based on the distribution zone parameters, the table is separated into `PARTITIONS` parts, called *partitions*, stored `REPLICAS` times across the cluster. Each partition is identified by a number from a limited set (0 to 24 for the default zone). Each individual copy of a partition is called a *replica*, and is stored on separate nodes, if possible. Partitions with the same number for all tables in the zone are always stored on the same node.
+When the table is created, it is always assigned to a [distribution zone](/docs/3.1.0/sql/reference/distribution-zones). Based on the distribution zone parameters, the table is separated into `PARTITIONS` parts, called *partitions*, stored `REPLICAS` times across the cluster. Each partition is identified by a number from a limited set (0 to 24 for the default zone). Each individual copy of a partition is called a *replica*, and is stored on separate nodes, if possible. Partitions with the same number for all tables in the zone are always stored on the same node.
 
 Apache Ignite uses the *Fair* partition distribution algorithm. It means that it stores information on partition distribution and uses this information for assigning new partitions. This information is preserved in cluster metastorage, and is recalculated only when necessary.
 
@@ -47,17 +47,17 @@ Otherwise, Apache Ignite will automatically calculate the recommended number of 
 dataNodesCount * coresOnNode * 2 / replicas
 ```
 
-In this case, the `dataNodesCount` is the estimated number of nodes that will be in the distribution zone when it is created, according to its [filter](/docs/3.1.0/sql/advanced/distribution-zones) and [storage profiles](/docs/3.1.0/understand/architecture/storage-architecture). At least 1 partition is always created.
+In this case, the `dataNodesCount` is the estimated number of nodes that will be in the distribution zone when it is created, according to its [filter](/docs/3.1.0/sql/reference/distribution-zones) and [storage profiles](/docs/3.1.0/understand/architecture/storage-architecture). At least 1 partition is always created.
 
 ### Replica Number
 
 When creating a distribution zone, you can configure the number of *replicas* (individual copies of data on the cluster) by setting the `REPLICAS` parameter. By default, no additional replicas of data are created. As more replicas are added, additional copies of data will be stored on the cluster, and automatically spread to ensure data availability in case of a node leaving the cluster.
 
-Replicas of each partition form a RAFT group, and a [quorum](/docs/3.1.0/sql/advanced/distribution-zones) in that group is required to perform updates to the partition. The default quorum size depends on the number of replicas in the distribution zone: 3 replicas are required for quorum if the distribution zone has 5 or more replicas, 2 if there are between 2 and 4 replicas, or 1 if only one data replica exists.
+Replicas of each partition form a RAFT group, and a [quorum](/docs/3.1.0/sql/reference/distribution-zones) in that group is required to perform updates to the partition. The default quorum size depends on the number of replicas in the distribution zone: 3 replicas are required for quorum if the distribution zone has 5 or more replicas, 2 if there are between 2 and 4 replicas, or 1 if only one data replica exists.
 
 Some replicas will be selected as part of a consensus group. These nodes will be voting members, confirming all data changes in the replication group, while other replicas will be *learners*, only passively receiving data from the group leader and not participating in elections.
 
-Losing the majority of the consensus group leads the partition to enter the `Read-only` state. In this state, no data can be written and only explicit read-only transactions can be used to retrieve data. If the distribution zone [scales](/docs/3.1.0/sql/advanced/distribution-zones) up or down (typically, due to a node entering or leaving the cluster), new replicas will be selected as the consensus group.
+Losing the majority of the consensus group leads the partition to enter the `Read-only` state. In this state, no data can be written and only explicit read-only transactions can be used to retrieve data. If the distribution zone [scales](/docs/3.1.0/sql/reference/distribution-zones) up or down (typically, due to a node entering or leaving the cluster), new replicas will be selected as the consensus group.
 
 The size of the consensus group is automatically calculated based on quorum size:
 
@@ -111,4 +111,4 @@ Reset is likely to result in Partition Rebalance, which may take a long time.
 
 ## Partition Rebalance
 
-When the [cluster size changes](/docs/3.1.0/sql/advanced/distribution-zones), Apache Ignite waits for the timeout specified in the `AUTO SCALE UP` or `AUTO SCALE DOWN` distribution zone properties, and then redistributes partitions according to partition distribution algorithm and transfers data to make it up-to-date with the replication group. This process is called *data rebalance*.
+When the [cluster size changes](/docs/3.1.0/sql/reference/distribution-zones), Apache Ignite waits for the timeout specified in the `AUTO SCALE UP` or `AUTO SCALE DOWN` distribution zone properties, and then redistributes partitions according to partition distribution algorithm and transfers data to make it up-to-date with the replication group. This process is called *data rebalance*.

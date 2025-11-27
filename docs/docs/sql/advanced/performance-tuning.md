@@ -87,7 +87,7 @@ The query cannot have both `FORCE_INDEX` and `NO_INDEX` hints at the same time.
 
 ### EXPLAIN PLAN FOR Statement
 
-Apache Ignite supports the [`EXPLAIN PLAN FOR`](/docs/3.1.0/sql/reference/operational-commands) statement that can be used to read the execution plan of a query.
+Apache Ignite supports the [`EXPLAIN PLAN FOR`](/docs/3.1.0/sql/reference/data-types-and-functions/operational-commands) statement that can be used to read the execution plan of a query.
 
 Use this command to analyse your queries for possible optimization, for example:
 
@@ -115,7 +115,7 @@ Here is how the results of the explanation may look like:
 
 ### EXPLAIN MAPPING FOR Statement
 
-Apache Ignite supports the [`EXPLAIN MAPPING FOR`](/docs/3.1.0/sql/reference/operational-commands) statement that can be used to track how the query is split and what nodes the subqueries are executed on.
+Apache Ignite supports the [`EXPLAIN MAPPING FOR`](/docs/3.1.0/sql/reference/data-types-and-functions/operational-commands) statement that can be used to track how the query is split and what nodes the subqueries are executed on.
 
 Use this command if you need an insight into how the query is broken down and executed across multiple nodes in the distributed cluster.
 
@@ -153,8 +153,8 @@ Apache Ignite handles batched requests faster than individual requests, so we re
 
 When executing multiple queries in a single call, similar requests are automatically batched together. When writing large scripts that perform multiple different kinds of operations, we recommend the following order:
 
-- All required [DDL operations](/docs/3.1.0/sql/reference/ddl);
-- Assigning [access permissions](/docs/3.1.0/sql/reference/operational-commands);
+- All required [DDL operations](/docs/3.1.0/sql/reference/language-definition/ddl);
+- Assigning [access permissions](/docs/3.1.0/sql/reference/data-types-and-functions/operational-commands);
 - Loading data into the tables.
 
 As execution of each statement is considered complete when the first page is ready to be returned, when working with large data sets, `SELECT` statements may be affected by later statements in the same script.
