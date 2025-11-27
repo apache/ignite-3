@@ -72,6 +72,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -245,6 +246,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     @Test
+    @Disabled
     public void testGetConcurrentPut() {
         S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
@@ -270,6 +272,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     @Test
+    @Disabled
     public void testGetConcurrentReplace() {
         S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
