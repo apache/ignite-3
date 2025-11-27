@@ -410,6 +410,23 @@ public class FilePageStore implements PageStore {
     }
 
     /**
+     * Returns completed delta files.
+     *
+     * <p>Thread safe.
+     */
+    public List<DeltaFilePageStoreIo> getCompletedDeltaFiles() {
+        List<DeltaFilePageStoreIo> deltaFilePageStoreIos = this.deltaFilePageStoreIos;
+        CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture = this.newDeltaFilePageStoreIoFuture;
+
+        // Second check in case new future was created after getting snapshot of delta files.
+        if (newDeltaFilePageStoreIoFuture != null && deltaFilePageStoreIos.contains(newDeltaFilePageStoreIoFuture.join())) {
+            return deltaFilePageStoreIos.subList(1, deltaFilePageStoreIos.size());
+        }
+
+        return deltaFilePageStoreIos;
+    }
+
+    /**
      * Deletes delta file.
      *
      * <p>Thread safe.</p>
