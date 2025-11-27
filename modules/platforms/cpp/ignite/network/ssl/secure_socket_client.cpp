@@ -39,6 +39,33 @@ void free_bio(BIO* bio)
     gateway.BIO_free_all_(bio);
 }
 
+SSL* ssl_from_bio_no_check(void* bio) {
+    ssl_gateway &gateway = ssl_gateway::get_instance();
+    SSL* ssl = nullptr;
+    gateway.BIO_get_ssl_(reinterpret_cast<BIO*>(bio), &ssl);
+    return ssl;
+}
+
+SSL* ssl_from_bio(void* bio, ignite::error::code on_fail_code, const std::string& on_fail_msg) {
+    SSL* ssl = ssl_from_bio_no_check(bio);
+    if (!ssl)
+        throw ignite::ignite_error(on_fail_code, on_fail_msg);
+
+    assert(ssl != nullptr);
+
+    return ssl;
+}
+
+SSL* ssl_from_bio(void* bio, const std::string& on_fail_msg) {
+    SSL* ssl = ssl_from_bio_no_check(bio);
+    if (!ssl)
+        throw_last_secure_error(on_fail_msg);
+
+    assert(ssl != nullptr);
+
+    return ssl;
+}
+
 } // anonymous namespace
 
 namespace ignite::network
@@ -68,28 +95,26 @@ bool secure_socket_client::connect(const char* hostname, std::uint16_t port, std
             throw_last_secure_error("Can not create SSL context", "Aborting connect");
     }
 
-    m_ssl = make_ssl(m_context, hostname, port, m_blocking);
+    m_bio = make_ssl(m_context, hostname, port, m_blocking);
 
-    assert(m_ssl != nullptr);
+    SSL* ssl = ssl_from_bio(m_bio, "Can not get SSL instance from BIO");
 
     auto cleanup = ::ignite::detail::defer([&] { close_internal(); });
 
-    SSL* ssl0 = reinterpret_cast<SSL*>(m_ssl);
-
-    int res = gateway.SSL_set_tlsext_host_name_(ssl0, hostname);
+    int res = gateway.SSL_set_tlsext_host_name_(ssl, hostname);
 
     if (res != SSL_OPERATION_SUCCESS)
         throw_last_secure_error("Can not set host name for secure connection");
 
-    gateway.SSL_set_connect_state_(ssl0);
+    gateway.SSL_set_connect_state_(ssl);
 
-    bool connected = complete_connect_internal(ssl0, timeout);
+    bool connected = complete_connect_internal(ssl, timeout);
 
     if (!connected)
         return false;
 
     // Verify a server certificate was presented during the negotiation
-    X509* cert = gateway.SSL_get_peer_certificate_(ssl0);
+    X509* cert = gateway.SSL_get_peer_certificate_(ssl);
     if (cert)
         gateway.X509_free_(cert);
     else
@@ -97,11 +122,11 @@ bool secure_socket_client::connect(const char* hostname, std::uint16_t port, std
 
     // Verify the result of chain verification.
     // Verification performed according to RFC 4158.
-    res = gateway.SSL_get_verify_result_(ssl0);
+    res = gateway.SSL_get_verify_result_(ssl);
     if (X509_V_OK != res)
         throw_last_secure_error("Certificate chain verification failed");
 
-    res = wait_on_socket(m_ssl, timeout, false);
+    res = wait_on_socket(ssl, timeout, false);
 
     if (res == wait_result::TIMEOUT)
         return false;
@@ -125,20 +150,17 @@ int secure_socket_client::send(const std::byte* data, std::size_t size, std::int
 
     assert(gateway.is_loaded());
 
-    if (!m_ssl)
-        throw ignite_error(error::code::CONNECTION, "Trying to send data using closed connection");
+    SSL* ssl = ssl_from_bio(m_bio, error::code::CONNECTION, "Trying to send data using closed connection");
 
-    SSL* ssl0 = reinterpret_cast<SSL*>(m_ssl);
-
-    int res = wait_on_socket(m_ssl, timeout, false);
+    int res = wait_on_socket(ssl, timeout, false);
 
     if (res == wait_result::TIMEOUT)
         return res;
 
     do {
-        res = gateway.SSL_write_(ssl0, data, static_cast<int>(size));
+        res = gateway.SSL_write_(ssl, data, static_cast<int>(size));
 
-        int waitRes = wait_on_socket_if_needed(res, m_ssl, timeout);
+        int waitRes = wait_on_socket_if_needed(res, ssl, timeout);
         if (waitRes <= 0)
             return waitRes;
     } while (res <= 0);
@@ -152,24 +174,21 @@ int secure_socket_client::receive(std::byte* buffer, std::size_t size, std::int3
 
     assert(gateway.is_loaded());
 
-    if (!m_ssl)
-        throw ignite_error(error::code::CONNECTION, "Trying to receive data using closed connection");
-
-    SSL* ssl0 = reinterpret_cast<SSL*>(m_ssl);
+    SSL* ssl = ssl_from_bio(m_bio, error::code::CONNECTION, "Trying to receive data using closed connection");
 
     int res = 0;
-    if (!m_blocking && gateway.SSL_pending_(ssl0) == 0)
+    if (!m_blocking && gateway.SSL_pending_(ssl) == 0)
     {
-        res = wait_on_socket(m_ssl, timeout, true);
+        res = wait_on_socket(ssl, timeout, true);
 
         if (res < 0 || res == wait_result::TIMEOUT)
             return res;
     }
 
     do {
-        res = gateway.SSL_read_(ssl0, buffer, static_cast<int>(size));
+        res = gateway.SSL_read_(ssl, buffer, static_cast<int>(size));
 
-        int waitRes = wait_on_socket_if_needed(res, m_ssl, timeout);
+        int waitRes = wait_on_socket_if_needed(res, ssl, timeout);
         if (waitRes <= 0)
             return waitRes;
     } while (res <= 0);
@@ -200,14 +219,9 @@ void* secure_socket_client::make_ssl(void* context, const char* hostname, std::u
     if (res != SSL_OPERATION_SUCCESS)
         throw_last_secure_error("Can not set SSL connection hostname");
 
-    SSL* m_ssl = nullptr;
-    gateway.BIO_get_ssl_(bio, &m_ssl);
-    if (!m_ssl)
-        throw_last_secure_error("Can not get SSL instance from BIO");
-
     cleanup.release();
 
-    return m_ssl;
+    return bio;
 }
 
 bool secure_socket_client::complete_connect_internal(void* m_ssl, int timeout)
@@ -259,11 +273,11 @@ void secure_socket_client::close_internal()
 {
     ssl_gateway &gateway = ssl_gateway::get_instance();
 
-    if (gateway.is_loaded() && m_ssl)
+    if (gateway.is_loaded() && m_bio)
     {
-        gateway.SSL_free_(reinterpret_cast<SSL*>(m_ssl));
+        gateway.BIO_free_all_(reinterpret_cast<BIO*>(m_bio));
 
-        m_ssl = nullptr;
+        m_bio = nullptr;
     }
 }
 
