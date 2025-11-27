@@ -323,7 +323,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         });
     }
 
-
     private void assertDeployed(String id) {
         assertDeployed(id, "*1.0.0");
     }
