@@ -27,6 +27,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -134,10 +135,9 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
     void testConnectionRestoredAfterBackgroundReconnectInterval() throws Exception {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});
-        int reconnectInterval = 300;
-        int timeout = reconnectInterval * 2;
+        int backgroundReconnectInterval = 300;
 
-        try (Connection connection = getConnection(nodesCount, "reconnectInterval=" + reconnectInterval)) {
+        try (Connection connection = getConnection(nodesCount, "backgroundReconnectInterval=" + backgroundReconnectInterval)) {
             Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
 
             cluster.stopNode(0);
@@ -146,13 +146,12 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
 
             cluster.startNode(0);
 
-            Thread.sleep(timeout);
-
-            assertThat(channelsCount(connection), is(nodesCount));
+            Awaitility.await().atMost(Duration.ofMillis(backgroundReconnectInterval * 2))
+                    .until(() -> channelsCount(connection), is(nodesCount));
         }
 
         // No background reconnection is expected.
-        try (Connection connection = getConnection(nodesCount, "reconnectInterval=0")) {
+        try (Connection connection = getConnection(nodesCount, "backgroundReconnectInterval=0")) {
             Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
 
             cluster.stopNode(0);
@@ -161,7 +160,9 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
 
             cluster.startNode(0);
 
-            Thread.sleep(timeout);
+            // Ensure that no new connections occur during the specified background reconnect interval.
+            Awaitility.await().during(Duration.ofMillis(backgroundReconnectInterval * 2))
+                    .until(() -> channelsCount(connection), is(nodesCount - 1));
 
             assertThat(channelsCount(connection), is(nodesCount - 1));
         }

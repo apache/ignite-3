@@ -105,7 +105,7 @@ public interface ConnectionProperties {
      *
      * <p>Default is {@link org.apache.ignite.client.IgniteClientConfiguration#DFLT_BACKGROUND_RECONNECT_INTERVAL}.
      */
-    long getReconnectInterval();
+    long getBackgroundReconnectInterval();
 
     /**
      * Gets the maximum number of retry attempts to establish connection.

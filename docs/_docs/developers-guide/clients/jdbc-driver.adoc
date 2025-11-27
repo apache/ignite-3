@@ -72,8 +72,11 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 ** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
 ** `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
 ** `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
-** `reconnectInterval` - Background reconnect interval, in milliseconds. `0` means that background reconnect is disabled. Default value: `30_000`.
-** `reconnectRetriesLimit` - Maximum number of retry attempts to establish connection. `0` means that no retries will be made. `-1` means that the number of retries is not limited. Default value: `16`.
+** `backgroundReconnectInterval` - Background reconnect interval, in milliseconds. The value `0` can be used to disable background reconnection. Default value is `30000` (30 seconds).
+Background reconnection is used to restore old and establish new connections to cluster nodes in the background.
+For example, if you disable it, the client will not try to restore connections to temporarily unavailable cluster nodes.
+** `reconnectRetriesLimit` - Maximum number of *retry* attempts to establish connection. The value `0` means that no retries will be made. The value `-1` means that the number of retries is not limited. Default value is `16`.
+This value sets the maximum number of retries to connect to cluster nodes. For example, in a 3-node cluster, the driver connects to the first node, but for some reason it is unavailable. If the `reconnectRetriesLimit` is zero, the driver will not attempt to connect to the second node and will immediately return a connection error.
 ** `username` - username for basic authentication to the cluster.
 ** `password` - user password for basic authentication to the cluster.
 ** `sslEnabled` - Determines if SSL is enabled. Possible values: `true`, `false`. Default value: `false`

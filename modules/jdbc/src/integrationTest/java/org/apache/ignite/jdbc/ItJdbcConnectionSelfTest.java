@@ -1027,12 +1027,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testChangeBackgroundReconnectInterval() throws SQLException {
-        String propertyName = "reconnectInterval";
+        String propertyName = "backgroundReconnectInterval";
         String urlPrefix = URL + "?" + propertyName;
 
         SqlThrowingFunction<String, Number> valueGetter = url -> {
             try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(url)) {
-                return conn.properties().getReconnectInterval();
+                return conn.properties().getBackgroundReconnectInterval();
             }
         };
 

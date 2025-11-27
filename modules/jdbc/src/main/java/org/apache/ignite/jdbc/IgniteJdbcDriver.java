@@ -115,16 +115,16 @@ import org.jetbrains.annotations.Nullable;
  *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
- *      <td>reconnectInterval</td>
+ *      <td>backgroundReconnectInterval</td>
  *      <td>Background reconnect interval, in milliseconds.
- *          <br>The value {@code 0} can be used to disable background reconnection
+ *          <br>The value {@code 0} can be used to disable background reconnection.
  *          <br>The default value is {@code 30 000}.</td>
  *   </tr>
  *   <tr>
  *      <td>reconnectRetriesLimit</td>
  *      <td>Maximum number of retry attempts to establish connection.
  *          <br>The value {@code 0} means that no retries will be made.
- *          <br>The value {@code -1} means that the number of retries is not limited
+ *          <br>The value {@code -1} means that the number of retries is not limited.
  *          <br>The default value is {@code 16}.</td>
  *   </tr>
  *   <tr>
@@ -316,7 +316,7 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 addresses,
                 networkTimeout,
-                connectionProperties.getReconnectInterval(),
+                connectionProperties.getBackgroundReconnectInterval(),
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
