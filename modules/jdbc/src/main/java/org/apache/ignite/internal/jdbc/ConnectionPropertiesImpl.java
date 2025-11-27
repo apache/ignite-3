@@ -72,7 +72,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             0L, false, 0, Integer.MAX_VALUE);
 
     /** JDBC background reconnect interval. */
-    private final LongProperty reconnectInterval = new LongProperty("reconnectInterval",
+    private final LongProperty backgroundReconnectInterval = new LongProperty("backgroundReconnectInterval",
             "Sets the background reconnect interval."
                     + " Zero means that background reconnect is disabled.",
             IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL, false, 0, Long.MAX_VALUE);
@@ -130,7 +130,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, ciphers, keyStorePath, keyStorePassword,
             username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize,
-            reconnectInterval, reconnectRetriesLimit
+            backgroundReconnectInterval, reconnectRetriesLimit
     };
 
     /** {@inheritDoc} */
@@ -221,8 +221,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public long getReconnectInterval() {
-        return reconnectInterval.value();
+    public long getBackgroundReconnectInterval() {
+        return backgroundReconnectInterval.value();
     }
 
     /** {@inheritDoc} */
