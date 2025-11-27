@@ -271,19 +271,39 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private void registerCatalog(Catalog newCatalog) {
-        CatalogByIndexMap catalogByVer = this.catalogByVer.get();
-        this.catalogByVer.set(catalogByVer.appendOrUpdate(newCatalog.version(), newCatalog));
+        while (true) {
+            CatalogByIndexMap catalogMap = catalogByVer.get();
 
-        CatalogByIndexMap catalogByTs = this.catalogByTs.get();
-        this.catalogByTs.set(catalogByTs.appendOrUpdate(newCatalog.time(), newCatalog));
+            if (catalogByVer.compareAndSet(catalogMap, catalogMap.appendOrUpdate(newCatalog.version(), newCatalog))) {
+                break;
+            }
+        }
+
+        while (true) {
+            CatalogByIndexMap catalogMap = catalogByTs.get();
+
+            if (catalogByTs.compareAndSet(catalogMap, catalogMap.appendOrUpdate(newCatalog.time(), newCatalog))) {
+                break;
+            }
+        }
     }
 
     private void truncateUpTo(Catalog catalog) {
-        CatalogByIndexMap catalogByVer = this.catalogByVer.get();
-        this.catalogByVer.set(catalogByVer.clearHead(catalog.version()));
+        while (true) {
+            CatalogByIndexMap catalogMap = catalogByVer.get();
 
-        CatalogByIndexMap catalogByTs = this.catalogByTs.get();
-        this.catalogByTs.set(catalogByTs.clearHead(catalog.time()));
+            if (catalogByVer.compareAndSet(catalogMap, catalogMap.clearHead(catalog.version()))) {
+                break;
+            }
+        }
+
+        while (true) {
+            CatalogByIndexMap catalogMap = catalogByTs.get();
+
+            if (catalogByTs.compareAndSet(catalogMap, catalogMap.clearHead(catalog.time()))) {
+                break;
+            }
+        }
 
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
