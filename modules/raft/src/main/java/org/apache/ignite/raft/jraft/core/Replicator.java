@@ -605,17 +605,22 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void installSnapshot() {
+        installSnapshotIfNeeded(-1, null);
+    }
+
+    /** Returns true if skipped snapshot and didn't unlock ID. */
+    boolean installSnapshotIfNeeded(long nextSendIndex, @Nullable AppendEntriesRequestBuilder rb) {
         if (getState() == State.Snapshot) {
             LOG.warn("Replicator is installing snapshot, ignoring the new request [node={}].", this.options.getNode().getNodeId());
             unlockId();
-            return;
+            return true;
         }
         boolean doUnlock = true;
         if (!this.rpcService.connect(this.options.getPeerId())) {
             throttledLogger.warn("Fail to check install snapshot connection to node={}, give up to send install snapshot request."
                             + " Check if node is up.", this.options.getNode().getNodeId());
             block(Utils.nowMs(), RaftError.EHOSTDOWN.getNumber());
-            return;
+            return true;
         }
         try {
             Requires.requireTrue(this.reader == null,
@@ -629,7 +634,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return;
+                return true;
             }
             final String uri = this.reader.generateURIForCopy();
             if (uri == null) {
@@ -640,7 +645,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return;
+                return true;
             }
             final RaftOutter.SnapshotMeta meta = this.reader.load();
             if (meta == null) {
@@ -652,7 +657,19 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return;
+                return true;
+            }
+
+            if (meta.lastIncludedIndex() < nextSendIndex) {
+                LOG.info("Snapshot doesn't have new entries, ignoring [node={}", this.options.getPeerId());
+
+                releaseReader();
+
+                doUnlock = false;
+
+                rb.prevLogTerm(meta.lastIncludedTerm());
+
+                return false;
             }
 
             final InstallSnapshotRequest request = raftOptions.getRaftMessagesFactory()
@@ -684,6 +701,8 @@ public class Replicator implements ThreadId.OnError {
                     }
                 });
             addInflight(RequestType.Snapshot, this.nextIndex, 0, 0, seq, rpcFuture);
+
+            return true;
         }
         finally {
             if (doUnlock) {
@@ -1590,11 +1609,19 @@ public class Replicator implements ThreadId.OnError {
 
     private boolean fillCommonFields(final AppendEntriesRequestBuilder rb, long prevLogIndex,
         final boolean isHeartbeat) {
+        rb.term(this.options.getTerm());
+        rb.groupId(this.options.getGroupId());
+        rb.serverId(this.options.getServerId().toString());
+        rb.peerId(this.options.getPeerId().toString());
+        rb.prevLogIndex(prevLogIndex);
+        rb.committedIndex(this.options.getBallotBox().getLastCommittedIndex());
+
         final long prevLogTerm = this.options.getLogManager().getTerm(prevLogIndex);
         if (prevLogTerm == 0 && prevLogIndex != 0) {
             if (!isHeartbeat) {
                 Requires.requireTrue(prevLogIndex < this.options.getLogManager().getFirstLogIndex());
                 LOG.debug("Log was compacted [node={}, logIndex={}].", this.options.getNode().getNodeId(), prevLogIndex);
+
                 return false;
             }
             else {
@@ -1606,13 +1633,9 @@ public class Replicator implements ThreadId.OnError {
                 prevLogIndex = 0;
             }
         }
-        rb.term(this.options.getTerm());
-        rb.groupId(this.options.getGroupId());
-        rb.serverId(this.options.getServerId().toString());
-        rb.peerId(this.options.getPeerId().toString());
-        rb.prevLogIndex(prevLogIndex);
+
         rb.prevLogTerm(prevLogTerm);
-        rb.committedIndex(this.options.getBallotBox().getLastCommittedIndex());
+
         return true;
     }
 
@@ -1672,9 +1695,10 @@ public class Replicator implements ThreadId.OnError {
     private boolean sendEntries(final long nextSendingIndex) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
-            // unlock id in installSnapshot
-            installSnapshot();
-            return false;
+            // If true, unlocked id in installSnapshot
+            if (installSnapshotIfNeeded(nextSendingIndex, rb)) {
+                return false;
+            }
         }
 
         ByteBufferCollector dataBuf = null;

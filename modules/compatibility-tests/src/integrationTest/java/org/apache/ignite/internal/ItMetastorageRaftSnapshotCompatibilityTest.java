@@ -32,7 +32,6 @@ import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -63,7 +62,6 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27185")
     void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
         cluster.startEmbedded(2);
