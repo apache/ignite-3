@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -76,10 +77,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
 
     /** Versioned catalog descriptors. */
-    private volatile CatalogByIndexMap catalogByVer = new CatalogByIndexMap();
+    private final AtomicReference<CatalogByIndexMap> catalogByVer = new AtomicReference<>(new CatalogByIndexMap());
 
     /** Versioned catalog descriptors sorted in chronological order. */
-    private volatile CatalogByIndexMap catalogByTs = new CatalogByIndexMap();
+    private final AtomicReference<CatalogByIndexMap> catalogByTs = new AtomicReference<>(new CatalogByIndexMap());
 
     /** A future that completes when an empty catalog is initialised. If catalog is not empty this future when this completes starts. */
     private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
@@ -170,17 +171,17 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public int earliestCatalogVersion() {
-        return (int) catalogByVer.firstKey();
+        return (int) catalogByVer.get().firstKey();
     }
 
     @Override
     public Catalog earliestCatalog() {
-        return catalogByVer.firstValue();
+        return catalogByVer.get().firstValue();
     }
 
     @Override
     public Catalog latestCatalog() {
-        return catalogByVer.lastValue();
+        return catalogByVer.get().lastValue();
     }
 
     @Override
@@ -195,7 +196,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public Catalog catalog(int catalogVersion) {
-        Catalog catalog = catalogByVer.get(catalogVersion);
+        Catalog catalog = catalogByVer.get().get(catalogVersion);
 
         if (catalog == null) {
             throw new CatalogNotFoundException("Catalog version not found: " + catalogVersion);
@@ -210,7 +211,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private Catalog catalogAt(long timestamp) {
-        Catalog catalog = catalogByTs.floorValue(timestamp);
+        Catalog catalog = catalogByTs.get().floorValue(timestamp);
 
         if (catalog == null) {
             throw new CatalogNotFoundException("Catalog not found for given timestamp: " + timestamp);
@@ -270,13 +271,19 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private void registerCatalog(Catalog newCatalog) {
-        catalogByVer = catalogByVer.appendOrUpdate(newCatalog.version(), newCatalog);
-        catalogByTs = catalogByTs.appendOrUpdate(newCatalog.time(), newCatalog);
+        CatalogByIndexMap catalogByVer = this.catalogByVer.get();
+        this.catalogByVer.set(catalogByVer.appendOrUpdate(newCatalog.version(), newCatalog));
+
+        CatalogByIndexMap catalogByTs = this.catalogByTs.get();
+        this.catalogByTs.set(catalogByTs.appendOrUpdate(newCatalog.time(), newCatalog));
     }
 
     private void truncateUpTo(Catalog catalog) {
-        catalogByVer = catalogByVer.clearHead(catalog.version());
-        catalogByTs = catalogByTs.clearHead(catalog.time());
+        CatalogByIndexMap catalogByVer = this.catalogByVer.get();
+        this.catalogByVer.set(catalogByVer.clearHead(catalog.version()));
+
+        CatalogByIndexMap catalogByTs = this.catalogByTs.get();
+        this.catalogByTs.set(catalogByTs.clearHead(catalog.time()));
 
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
@@ -292,7 +299,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
                         if (errUnwrapped instanceof CatalogVersionAwareValidationException) {
                             CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) errUnwrapped;
-                            Catalog catalog = catalogByVer.get(err0.version());
+                            Catalog catalog = catalogByVer.get().get(err0.version());
                             Throwable error = err0.initial();
 
                             if (catalog.version() == 0) {
@@ -339,7 +346,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private CompletableFuture<Integer> awaitVersionActivation(int version) {
-        Catalog catalog = catalogByVer.get(version);
+        Catalog catalog = catalogByVer.get().get(version);
 
         HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
@@ -369,7 +376,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 return failedFuture(new IgniteInternalException(INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
             }
 
-            Catalog catalog = catalogByVer.lastValue();
+            Catalog catalog = catalogByVer.get().lastValue();
 
             BitSet applyResults = new BitSet(updateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
@@ -414,7 +421,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     })
                     .thenCompose(result -> {
                         if (result) {
-                            long newCatalogTime = catalogByVer.get(newVersion).time();
+                            long newCatalogTime = catalogByVer.get().get(newVersion).time();
                             return completedFuture(new CatalogApplyResult(applyResults, newVersion, newCatalogTime));
                         }
 
@@ -453,7 +460,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         private CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             int version = update.version();
-            Catalog catalog = catalogByVer.get(version - 1);
+            Catalog catalog = catalogByVer.get().get(version - 1);
 
             assert catalog != null : version - 1;
 
