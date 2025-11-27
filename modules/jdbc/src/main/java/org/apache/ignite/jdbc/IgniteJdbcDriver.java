@@ -101,6 +101,12 @@ import org.jetbrains.annotations.Nullable;
  *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
+ *       <td>partitionAwarenessMetadataCacheSize</td>
+ *       <td>Size of cache to store partition awareness metadata of queries, in number of entries.
+ *           <br>By default, the cache stores 1024 entries.
+ *           <br>The value {@code 0} can be used to disable partition awareness.</td>
+ *   </tr>
+ *   <tr>
  *      <th colspan="2">Connection properties</th>
  *   </tr>
  *   <tr>
@@ -161,12 +167,6 @@ import org.jetbrains.annotations.Nullable;
  *   <tr>
  *      <td>ciphers</td>
  *      <td>SSL ciphers list separated by comma '<b>,</b>'.</td>
- *   </tr>
- *   <tr>
- *       <td>partitionAwarenessMetadataCacheSize</td>
- *       <td>Size of cache to store partition awareness metadata of queries, in number of entries.
- *           <br>By default, the cache stores 1024 entries.
- *           <br>The value {@code 0} can be used to disable partition awareness.</td>
  *   </tr>
  *  </table>
  * <br>The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available
