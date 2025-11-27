@@ -72,6 +72,7 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 * `schema` is the schema name to access. PUBLIC is used by default. This name should correspond to the SQL ANSI-99 standard. Non-quoted identifiers are not case sensitive. Quoted identifiers are case sensitive. When semicolon format is used, the schema may be defined as a parameter with name schema.
 * `parameters` are optional parameters. The following parameters are available:
 ** `connectionTimeZone` - Client connection time-zone ID. This property can be used by the client to change the time zone of the session on the server. Affects the interpretation of dates in queries that do not specify the time zone explicitly. If not set, system default on client timezone will be used.
+** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
 ** `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
 ** `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
 ** `username` - username for basic authentication to the cluster.
@@ -83,7 +84,6 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 *** `keyStorePassword` - Key store password.
 *** `clientAuth` - SSL client authentication. Possible values: `NONE`, `OPTIONAL`, `REQUIRE`.
 *** `ciphers` - comma-separated SSL ciphers list.
-** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
 
 === Parameter Precedence
 
