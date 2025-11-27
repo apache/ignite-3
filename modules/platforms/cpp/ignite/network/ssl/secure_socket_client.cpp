@@ -51,8 +51,6 @@ SSL* ssl_from_bio(void* bio, ignite::error::code on_fail_code, const std::string
     if (!ssl)
         throw ignite::ignite_error(on_fail_code, on_fail_msg);
 
-    assert(ssl != nullptr);
-
     return ssl;
 }
 
@@ -60,8 +58,6 @@ SSL* ssl_from_bio(void* bio, const std::string& on_fail_msg) {
     SSL* ssl = ssl_from_bio_no_check(bio);
     if (!ssl)
         throw_last_secure_error(on_fail_msg);
-
-    assert(ssl != nullptr);
 
     return ssl;
 }
