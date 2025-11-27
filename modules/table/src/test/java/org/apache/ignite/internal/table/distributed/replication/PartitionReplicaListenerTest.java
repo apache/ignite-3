@@ -681,7 +681,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 lowWatermark,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 

@@ -633,7 +633,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clusterNodeResolver,
                 mockRaftClient,
                 failureManager,
-                new SystemPropertiesNodeProperties(),
                 localNode,
                 zonePartitionId
         );
@@ -671,7 +670,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 lowWatermark,
                 failureManager,
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 

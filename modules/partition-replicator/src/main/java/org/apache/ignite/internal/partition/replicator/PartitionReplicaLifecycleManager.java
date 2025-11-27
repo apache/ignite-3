@@ -724,7 +724,6 @@ public class PartitionReplicaLifecycleManager extends
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
-                                                nodeProperties,
                                                 topologyService.localMember(),
                                                 zonePartitionId
                                         );

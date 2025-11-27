@@ -1082,8 +1082,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private PartitionReplicaListener createReplicaListener(
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Use ZonePartitionIdInstead.
-            PartitionGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             MvPartitionStorage mvPartitionStorage,
@@ -1120,7 +1119,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 lowWatermark,
                 failureProcessor,
-                nodeProperties,
                 table.metrics()
         );
     }

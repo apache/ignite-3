@@ -326,7 +326,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txManager,
                 lockManager,
                 ForkJoinPool.commonPool(),
-                colocationEnabled() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId),
+                new ZonePartitionId(ZONE_ID, partId),
                 TABLE_ID,
                 Map::of,
                 new Lazy<>(() -> null),
@@ -347,7 +347,6 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 indexMetaStorage,
                 new TestLowWatermark(),
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
     }

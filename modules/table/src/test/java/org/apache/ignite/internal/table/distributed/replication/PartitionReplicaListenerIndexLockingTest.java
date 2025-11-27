@@ -293,7 +293,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
