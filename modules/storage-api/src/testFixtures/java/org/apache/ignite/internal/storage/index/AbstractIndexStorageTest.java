@@ -34,11 +34,9 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -46,7 +44,6 @@ import static org.mockito.Mockito.when;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collection;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -72,7 +69,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -243,59 +239,6 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         assertThat(getAll(index, row2), containsInAnyOrder(row1.rowId(), row2.rowId()));
         assertThat(getAll(index, row3), contains(row3.rowId()));
         assertThat(getAll(index, row4), is(empty()));
-    }
-
-    @Test
-    @Disabled
-    public void testGetConcurrentPut() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
-        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
-
-        Object[] columnValues = { 1, "foo" };
-        IndexRow row1 = serializer.serializeRow(columnValues, new RowId(TEST_PARTITION, 1, 1));
-        IndexRow row2 = serializer.serializeRow(columnValues, new RowId(TEST_PARTITION, 2, 2));
-
-        try (Cursor<RowId> cursor = index.get(row1.indexColumns())) {
-            put(index, row1);
-
-            assertTrue(cursor.hasNext());
-            assertEquals(row1.rowId(), cursor.next());
-
-            put(index, row2);
-
-            assertTrue(cursor.hasNext());
-            assertEquals(row2.rowId(), cursor.next());
-
-            assertFalse(cursor.hasNext());
-            assertThrows(NoSuchElementException.class, cursor::next);
-        }
-    }
-
-    @Test
-    @Disabled
-    public void testGetConcurrentReplace() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
-        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
-
-        Object[] columnValues = { 1, "foo" };
-        IndexRow row1 = serializer.serializeRow(columnValues, new RowId(TEST_PARTITION, 1, 1));
-        IndexRow row2 = serializer.serializeRow(columnValues, new RowId(TEST_PARTITION, 2, 2));
-
-        put(index, row1);
-
-        try (Cursor<RowId> cursor = index.get(row1.indexColumns())) {
-            assertTrue(cursor.hasNext());
-            assertEquals(row1.rowId(), cursor.next());
-
-            remove(index, row1);
-            put(index, row2);
-
-            assertTrue(cursor.hasNext());
-            assertEquals(row2.rowId(), cursor.next());
-
-            assertFalse(cursor.hasNext());
-            assertThrows(NoSuchElementException.class, cursor::next);
-        }
     }
 
     /**
