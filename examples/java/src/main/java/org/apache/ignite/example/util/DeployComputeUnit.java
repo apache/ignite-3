@@ -14,14 +14,8 @@ import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import org.apache.ignite.deployment.DeploymentUnit;
 
+
 public class DeployComputeUnit {
-
-
-    private static final String UNIT_NAME = "codeDeploymentExampleUnit";
-    private static final String UNIT_VERSION = "1.0.0";
-
-    private static final DeploymentUnit DEPLOYMENT_UNIT = new DeploymentUnit(UNIT_NAME, UNIT_VERSION);
-
 
     private static final String BASE_URL = "http://localhost:10300";
     private static final HttpClient HTTP = HttpClient.newHttpClient();
