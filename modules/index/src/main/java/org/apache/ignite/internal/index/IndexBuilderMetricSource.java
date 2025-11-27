@@ -23,7 +23,7 @@ import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.Metric;
 
 /**
- * Metric source for storage engine metrics related to a specific table.
+ * Metric source for indexes build on the current node.
  */
 public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderMetricSource.Holder> {
     public static final String METRIC_GROUP = "index.builder";
