@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -43,6 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,6 +108,106 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         verify(filePageStore, times(1)).sync();
         verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
 
+        verify(deltaFilePageStoreIo, times(1)).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo, times(1)).stop(eq(true));
+    }
+
+    @Test
+    void testMergeDeltaFileToMainFileWithNewerDeltaFile() throws Throwable {
+        Compactor compactor = newCompactor();
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo(new int[]{0, 1});
+        when(deltaFilePageStoreIo.fileIndex()).thenReturn(2);
+        FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
+
+        DeltaFilePageStoreIo newerDeltaFile = createDeltaFilePageStoreIo(new int[]{1, 2});
+        when(newerDeltaFile.fileIndex()).thenReturn(3);
+        DeltaFilePageStoreIo olderDeltaFile = createDeltaFilePageStoreIo(new int[]{0, 1});
+        when(olderDeltaFile.fileIndex()).thenReturn(1);
+
+        when(filePageStore.getCompletedDeltaFiles()).thenReturn(List.of(deltaFilePageStoreIo, olderDeltaFile, newerDeltaFile));
+
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
+
+        verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
+
+        verify(filePageStore, times(1)).getCompletedDeltaFiles();
+        verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class));
+
+        verify(filePageStore, times(1)).sync();
+        verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
+
+        verify(deltaFilePageStoreIo, times(1)).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo, times(1)).stop(eq(true));
+    }
+
+    @Test
+    void testMergeDeltaFileWithMultipleNewerDeltaFiles() throws Throwable {
+        Compactor compactor = newCompactor();
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo(new int[]{0, 1, 2, 3, 4, 5});
+        when(deltaFilePageStoreIo.fileIndex()).thenReturn(1);
+
+        // Check processing the first page index.
+        DeltaFilePageStoreIo newerDeltaFile1 = createDeltaFilePageStoreIo(new int[]{0});
+        when(newerDeltaFile1.fileIndex()).thenReturn(2);
+
+        // Check processing the last page index.
+        DeltaFilePageStoreIo newerDeltaFile2 = createDeltaFilePageStoreIo(new int[]{5});
+        when(newerDeltaFile2.fileIndex()).thenReturn(3);
+
+        // No matches.
+        DeltaFilePageStoreIo newerDeltaFileNoMatches = createDeltaFilePageStoreIo(new int[]{30});
+        when(newerDeltaFileNoMatches.fileIndex()).thenReturn(4);
+
+        // Multiple page matches.
+        DeltaFilePageStoreIo newerDeltaFile3 = createDeltaFilePageStoreIo(new int[]{2, 3});
+        when(newerDeltaFile3.fileIndex()).thenReturn(5);
+
+        FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
+        when(filePageStore.getCompletedDeltaFiles()).thenReturn(List.of(
+                deltaFilePageStoreIo, newerDeltaFile1, newerDeltaFileNoMatches, newerDeltaFile2, newerDeltaFile3
+        ));
+
+        CompactionMetricsTracker tracker = new CompactionMetricsTracker();
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, tracker);
+
+        // Pages 1, 4 were in no newer delta files, so they should be written.
+        verify(filePageStore, times(2)).write(eq(1L), any(ByteBuffer.class));
+
+        verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(1L), anyLong(), any(ByteBuffer.class), anyBoolean());
+        verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(4L), anyLong(), any(ByteBuffer.class), anyBoolean());
+
+        verify(filePageStore, times(1)).sync();
+        verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
+
+        assertThat(tracker.dataPagesSkipped(), is(4));
+        assertThat(tracker.dataPagesWritten(), is(2));
+    }
+
+    @Test
+    void testMergeDeltaFileWhenAllPagesSkipped() throws Throwable {
+        Compactor compactor = newCompactor();
+
+        // Delta file to compact has pages [0, 1]
+        DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo(new int[]{0, 1});
+        when(deltaFilePageStoreIo.fileIndex()).thenReturn(1);
+
+        DeltaFilePageStoreIo newerDeltaFile = createDeltaFilePageStoreIo(new int[]{0, 1});
+        when(newerDeltaFile.fileIndex()).thenReturn(2);
+
+        FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
+        when(filePageStore.getCompletedDeltaFiles()).thenReturn(List.of(deltaFilePageStoreIo, newerDeltaFile));
+
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
+
+        verify(filePageStore, never()).write(anyLong(), any(ByteBuffer.class));
+
+        verify(deltaFilePageStoreIo, never()).readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(ByteBuffer.class), anyBoolean());
+
+        verify(filePageStore, never()).sync();
+
+        verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
         verify(deltaFilePageStoreIo, times(1)).markMergedToFilePageStore();
         verify(deltaFilePageStoreIo, times(1)).stop(eq(true));
     }
@@ -282,9 +384,13 @@ public class CompactorTest extends BaseIgniteAbstractTest {
     }
 
     private static DeltaFilePageStoreIo createDeltaFilePageStoreIo() throws Exception {
+        return createDeltaFilePageStoreIo(new int[]{0});
+    }
+
+    private static DeltaFilePageStoreIo createDeltaFilePageStoreIo(int[] pageIndexes) throws Exception {
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
 
-        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(new int[]{0});
+        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(pageIndexes);
 
         when(deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(ByteBuffer.class), anyBoolean()))
                 .then(answer -> {

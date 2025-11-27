@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.raft.rebalance;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.jetbrains.annotations.Nullable;
 
-/** Disables write intent switches on the local node until restart. */
-public class DisableWriteIntentSwitchExecutionJob implements ComputeJob<Void, Void> {
-    @Override
-    public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, @Nullable Void arg) {
-        IgniteImpl igniteImpl = JobsCommon.unwrapIgniteImpl(context.ignite());
-
-        igniteImpl.dropMessages((recipientId, message) -> message.getClass().getName().contains("WriteIntentSwitchReplicaRequest"));
-
-        return null;
-    }
+/**
+ * Executor for a Raft command.
+ */
+@FunctionalInterface
+public interface RaftCommand {
+    /**
+     * Executes a Raft command.
+     *
+     * @return Completion stage.
+     */
+    CompletableFuture<Void> execute();
 }
