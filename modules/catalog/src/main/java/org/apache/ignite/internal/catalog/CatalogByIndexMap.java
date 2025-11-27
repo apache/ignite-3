@@ -23,6 +23,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * An immutable map-like structure that maps long keys to {@link Catalog} values.
+ *
  * <p>
  * The keys are stored in a sorted array to allow efficient binary search lookups.
  */
@@ -86,7 +87,7 @@ class CatalogByIndexMap {
     }
 
     /**
-     * Returns the greatest value associated with a key less than or equal to the given key,
+     * Returns the greatest value associated with a key less than or equal to the given key.
      */
     @Nullable Catalog floorValue(long key) {
         int idx = Arrays.binarySearch(keys, key);
