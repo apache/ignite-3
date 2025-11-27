@@ -98,7 +98,6 @@ import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -900,7 +899,7 @@ public class PlatformTestNodeRunner {
             Tuple key = Tuple.create().set("key", id);
             Partition partition = table.partitionManager().partitionAsync(key).join();
 
-            return completedFuture(((HashPartition) partition).partitionId());
+            return completedFuture(partition.partitionId());
         }
     }
 

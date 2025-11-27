@@ -40,21 +40,21 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test suite for {@link PartitionManager}.
+ * Test suite for {@link PartitionDistribution}.
  */
-public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestIntegrationTest {
+public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTestIntegrationTest {
     protected static final String TABLE_NAME = "tableName";
 
     protected static final String ZONE_NAME = "TEST_ZONE";
 
     private static final int PARTITIONS = 3;
 
-    protected abstract PartitionManager partitionManager();
+    protected abstract PartitionDistribution partitionDistribution();
 
     @BeforeEach
     public void setup() {
@@ -99,7 +99,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
         for (int i = 0; i < partitions; i++) {
             CompletableFuture<InternalClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(i);
 
-            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager()
+            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionDistribution()
                     .primaryReplicaAsync(new HashPartition(i));
 
             assertThat(clusterNodeCompletableFuture.join().id(), equalTo(clusterNodeCompletableFuture1.join().id()));
@@ -131,7 +131,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
                     Tuple tuple = tuple(registry.resolve(item, registry.lastKnownSchemaVersion()));
 
                     Tuple key = Tuple.create().set("key", tuple.intValue("key"));
-                    assertThat(partitionManager().partitionAsync(key), willBe(value));
+                    assertThat(partitionDistribution().partitionAsync(key), willBe(value));
                 }
 
                 @Override

@@ -25,20 +25,21 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Reference to {@link PartitionManager} under a swappable {@link Ignite} instance. When a restart happens, this switches to the new Ignite
- * instance.
+ * Reference to {@link PartitionDistribution} under a swappable {@link Ignite} instance. When a restart happens,
+ * this switches to the new Ignite instance.
  *
  * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
-class RestartProofPartitionManager extends RestartProofApiObject<PartitionManager> implements PartitionManager {
+class RestartProofPartitionManager extends RestartProofApiObject<PartitionDistribution> implements PartitionManager {
     RestartProofPartitionManager(
             IgniteAttachmentLock attachmentLock,
             Ignite initialIgnite,
-            Function<Ignite, PartitionManager> factory
+            Function<Ignite, PartitionDistribution> factory
     ) {
         super(attachmentLock, initialIgnite, factory);
     }
@@ -50,7 +51,7 @@ class RestartProofPartitionManager extends RestartProofApiObject<PartitionManage
 
     @Override
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
-        return attachedAsync(PartitionManager::primaryReplicasAsync);
+        return attachedAsync(PartitionDistribution::primaryReplicasAsync);
     }
 
     @Override

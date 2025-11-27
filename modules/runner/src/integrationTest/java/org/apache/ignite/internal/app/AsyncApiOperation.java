@@ -117,10 +117,10 @@ enum AsyncApiOperation {
 
     MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.getAsync(null, new Record(1, ""))),
 
-    PARTITION_MANAGER_PRIMARY_REPLICA(refs -> refs.partitionManager.primaryReplicaAsync(new HashPartition(0))),
-    PARTITION_MANAGER_PRIMARY_REPLICAS(refs -> refs.partitionManager.primaryReplicasAsync()),
-    PARTITION_MANAGER_PARTITION_BY_KEY(refs -> refs.partitionManager.partitionAsync(1, Mapper.of(Integer.class))),
-    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partitionAsync(KEY_TUPLE)),
+    PARTITION_MANAGER_PRIMARY_REPLICA(refs -> refs.partitionDistribution.primaryReplicaAsync(new HashPartition(0))),
+    PARTITION_MANAGER_PRIMARY_REPLICAS(refs -> refs.partitionDistribution.primaryReplicasAsync()),
+    PARTITION_MANAGER_PARTITION_BY_KEY(refs -> refs.partitionDistribution.partitionAsync(1, Mapper.of(Integer.class))),
+    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionDistribution.partitionAsync(KEY_TUPLE)),
 
     TRANSACTIONS_BEGIN(refs -> refs.transactions.beginAsync()),
     TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.beginAsync(null)),

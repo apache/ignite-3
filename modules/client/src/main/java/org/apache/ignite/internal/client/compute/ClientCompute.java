@@ -66,7 +66,6 @@ import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -445,7 +444,7 @@ public class ClientCompute implements IgniteCompute {
             UUID taskId,
             @Nullable T arg
     ) {
-        int partitionId = ((HashPartition) partition).partitionId();
+        int partitionId = partition.partitionId();
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_PARTITIONED,
                 (schema, outputChannel, unused) -> {

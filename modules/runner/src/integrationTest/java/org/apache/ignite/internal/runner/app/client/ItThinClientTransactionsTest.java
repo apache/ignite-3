@@ -57,7 +57,6 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.ErrorGroups;
@@ -72,7 +71,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -513,7 +512,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         }
 
         List<Tuple> keys = new ArrayList<>();
-        PartitionManager partitionManager = table.partitionManager();
+        PartitionDistribution partitionManager = table.partitionDistribution();
 
         int k = start;
         while (keys.size() != count) {
@@ -540,7 +539,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             Table table
     ) {
         List<Tuple> keys = new ArrayList<>();
-        PartitionManager partitionManager = table.partitionManager();
+        PartitionDistribution partitionManager = table.partitionDistribution();
 
         int k = start;
         while (keys.size() != count) {
@@ -548,9 +547,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             Tuple t = key(k);
 
             Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
-            HashPartition hashPart = (HashPartition) part;
 
-            if (hashPart.partitionId() == partId) {
+            if (part.partitionId() == partId) {
                 keys.add(t);
             }
         }
@@ -559,7 +557,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     private static Integer partitions(Collection<Tuple> keys, Table table) {
-        PartitionManager partitionManager = table.partitionManager();
+        PartitionDistribution partitionManager = table.partitionDistribution();
 
         Set<Partition> count = new HashSet<>();
 
@@ -607,10 +605,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
 
-        List<String> origPartMap = map.entrySet().stream().sorted(comparing(e -> {
-            HashPartition part = (HashPartition) e.getKey();
-            return part.partitionId();
-        })).map(e -> e.getValue().name()).collect(Collectors.toList());
+        List<String> origPartMap = map.entrySet().stream()
+                .sorted(comparing(e -> e.getKey().partitionId()))
+                .map(e -> e.getValue().name())
+                .collect(Collectors.toList());
 
         List<String> emptyPartMap = new ArrayList<>(Collections.nCopies(10, null));
 

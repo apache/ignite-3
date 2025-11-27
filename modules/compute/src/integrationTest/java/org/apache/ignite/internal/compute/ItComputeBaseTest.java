@@ -80,7 +80,6 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -807,7 +806,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         Map<Partition, ClusterNode> replicas = node(0).tables().table("test").partitionManager().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
-                .collect(toMap(entry -> ((HashPartition) entry.getKey()).partitionId(), Entry::getValue));
+                .collect(toMap(entry -> entry.getKey().partitionId(), Entry::getValue));
 
         // When run job that will return its partition id
         JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
