@@ -234,7 +234,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-
     private final ZonePartitionId replicationGroupId;
 
     private final int tableId;
