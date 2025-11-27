@@ -22,13 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link CatalogByIndexMap}.
  */
-class CatalogByIndexMapTest {
+class CatalogByIndexMapTest extends BaseIgniteAbstractTest {
     private CatalogByIndexMap map;
     private final Catalog catalog1 = mock(Catalog.class);
     private final Catalog catalog2 = mock(Catalog.class);
