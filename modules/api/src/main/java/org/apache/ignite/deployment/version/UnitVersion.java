@@ -18,33 +18,38 @@
 package org.apache.ignite.deployment.version;
 
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.ignite.lang.SemanticVersion;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link Version} interface based on the three numbers format, like x.x.x. where x is short number.
+ * Implementation of {@link Version} interface based on the relaxed semantic versioning - minor and maintenance can be omitted.
  */
 class UnitVersion implements Version {
-    private final short major;
+    /**
+     * This pattern allows optional minor and maintenance to maintain compatibility with previous versions.
+     */
+    private static final Pattern VERSION_PATTERN = Pattern.compile(
+            "(?<major>\\d+)(?:\\.(?<minor>\\d+))?(?:\\.(?<maintenance>\\d+))?(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
+    );
 
-    private final short minor;
-
-    private final short patch;
+    private final SemanticVersion version;
 
     /**
      * Constructor.
      *
      * @param major Major part of version.
      * @param minor Minor part of version.
-     * @param patch Patch part of version.
+     * @param maintenance Maintenance part of version.
      */
-    UnitVersion(short major, short minor, short patch) {
-        this.major = major;
-        this.minor = minor;
-        this.patch = patch;
+    UnitVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
+        this.version = new SemanticVersion(major, minor, maintenance, patch, preRelease);
     }
 
     @Override
     public String render() {
-        return major + "." + minor + "." + patch;
+        return version.toString();
     }
 
     /**
@@ -57,19 +62,31 @@ class UnitVersion implements Version {
     public static UnitVersion parse(String rawVersion) {
         Objects.requireNonNull(rawVersion);
         try {
-            String[] split = rawVersion.split("\\.", -1);
-            if (split.length > 3 || split.length == 0) {
+            Matcher matcher = VERSION_PATTERN.matcher(rawVersion);
+
+            if (!matcher.matches()) {
                 throw new VersionParseException(rawVersion, "Invalid version format");
             }
 
-            short major = Short.parseShort(split[0]);
-            short minor = split.length > 1 ? Short.parseShort(split[1]) : 0;
-            short patch = split.length > 2 ? Short.parseShort(split[2]) : 0;
+            String minor = matcher.group("minor");
+            String maintenance = matcher.group("maintenance");
+            String patch = matcher.group("patch");
+            String preRelease = matcher.group("preRelease");
 
-            return new UnitVersion(major, minor, patch);
+            return new UnitVersion(
+                    Byte.parseByte(matcher.group("major")),
+                    nullOrBlank(minor) ? 0 : Byte.parseByte(minor),
+                    nullOrBlank(maintenance) ? 0 : Byte.parseByte(maintenance),
+                    nullOrBlank(patch) ? null : Byte.parseByte(patch),
+                    nullOrBlank(preRelease) ? null : preRelease
+            );
         } catch (NumberFormatException e) {
             throw new VersionParseException(rawVersion, e);
         }
+    }
+
+    private static boolean nullOrBlank(String str) {
+        return str == null || str.isBlank();
     }
 
     @Override
@@ -78,19 +95,8 @@ class UnitVersion implements Version {
             return -1;
         }
 
-        UnitVersion version = (UnitVersion) o;
-
-        int majorCompare = Short.compare(major, version.major);
-        if (majorCompare != 0) {
-            return majorCompare;
-        }
-
-        int minorCompare = Short.compare(minor, version.minor);
-        if (minorCompare != 0) {
-            return minorCompare;
-        }
-
-        return Short.compare(patch, version.patch);
+        UnitVersion unitVersion = (UnitVersion) o;
+        return version.compareTo(unitVersion.version);
     }
 
     @Override
@@ -102,23 +108,13 @@ class UnitVersion implements Version {
             return false;
         }
 
-        UnitVersion version = (UnitVersion) o;
-
-        if (major != version.major) {
-            return false;
-        }
-        if (minor != version.minor) {
-            return false;
-        }
-        return patch == version.patch;
+        UnitVersion unitVersion = (UnitVersion) o;
+        return version.equals(unitVersion.version);
     }
 
     @Override
     public int hashCode() {
-        int result = major;
-        result = 31 * result + minor;
-        result = 31 * result + patch;
-        return result;
+        return version.hashCode();
     }
 
     @Override

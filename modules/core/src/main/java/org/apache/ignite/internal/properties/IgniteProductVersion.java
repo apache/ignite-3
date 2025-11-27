@@ -17,18 +17,16 @@
 
 package org.apache.ignite.internal.properties;
 
-import java.io.Serializable;
-import java.util.Objects;
-import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.SemanticVersion;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class representing an Ignite version.
  */
-public class IgniteProductVersion implements Serializable, Comparable<IgniteProductVersion> {
+public class IgniteProductVersion implements Comparable<IgniteProductVersion> {
     /**
      * Ignite version in the following formats "major.minor.maintenance(.patch)?(-preRelease)?".
      *
@@ -62,30 +60,11 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
     /** Product name of the current node. */
     public static final String CURRENT_PRODUCT = IgniteProperties.get(IgniteProperties.PRODUCT);
 
-    /** Major version number. */
-    private final byte major;
-
-    /** Minor version number. */
-    private final byte minor;
-
-    /** Maintenance version number. */
-    private final byte maintenance;
-
-    /** Patch version number. */
-    @Nullable
-    private final Byte patch;
-
-    /** Pre-release version. */
-    @Nullable
-    private final String preRelease;
+    private final SemanticVersion version;
 
     /** Constructor. */
     public IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
-        this.major = major;
-        this.minor = minor;
-        this.maintenance = maintenance;
-        this.patch = patch;
-        this.preRelease = preRelease;
+        version = new SemanticVersion(major, minor, maintenance, patch, preRelease);
     }
 
     /**
@@ -122,97 +101,40 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
      * Returns the major version number.
      */
     public byte major() {
-        return major;
+        return version.major();
     }
 
     /**
      * Returns the minor version number.
      */
     public byte minor() {
-        return minor;
+        return version.minor();
     }
 
     /**
      * Returns the maintenance version number.
      */
     public byte maintenance() {
-        return maintenance;
+        return version.maintenance();
     }
 
     /**
      * Returns the patch version number, {@code null} if no patch version has been specified.
      */
     public @Nullable Byte patch() {
-        return patch;
+        return version.patch();
     }
 
     /**
      * Returns the pre-release version, {@code null} if no pre-release version has been specified.
      */
     public @Nullable String preRelease() {
-        return preRelease;
+        return version.preRelease();
     }
 
     @Override
     public int compareTo(IgniteProductVersion other) {
-        int res;
-
-        // Compare major, minor, maintenance
-        res = Byte.compare(major(), other.major());
-        if (res != 0) {
-            return res;
-        }
-
-        res = Byte.compare(minor(), other.minor());
-        if (res != 0) {
-            return res;
-        }
-
-        res = Byte.compare(maintenance(), other.maintenance());
-        if (res != 0) {
-            return res;
-        }
-
-        // Compare patch (nullable)
-        res = compareNullable(patch(), other.patch());
-        if (res != 0) {
-            return res;
-        }
-
-        // Compare pre-release order (nullable)
-        res = compareNullable(preReleaseOrder(preRelease()), preReleaseOrder(other.preRelease()));
-        return res;
-    }
-
-    private static int compareNullable(@Nullable Byte a, @Nullable Byte b) {
-        if (a != null && b != null) {
-            return Byte.compare(a, b);
-        } else if (a != null) {
-            return 1;
-        } else if (b != null) {
-            return -1;
-        }
-        return 0;
-    }
-
-    @Nullable
-    private static Byte preReleaseOrder(@Nullable String preRelease) {
-        if (preRelease == null) {
-            return null;
-        }
-        switch (preRelease.toLowerCase()) {
-            case "alpha":
-                return 0;
-            case "beta":
-                return 1;
-            case "rc":
-                return 2;
-            case "final":
-            case "":
-                return 3;
-            default:
-                return 4; // Unknown or custom stages
-        }
+        return version.compareTo(other.version);
     }
 
     @Override
@@ -227,23 +149,16 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
 
         IgniteProductVersion that = (IgniteProductVersion) o;
 
-        return major == that.major && minor == that.minor && maintenance == that.maintenance
-                && Objects.equals(patch, that.patch) && Objects.equals(preRelease, that.preRelease);
+        return version.equals(that.version);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(major, minor, maintenance, patch, preRelease);
+        return version.hashCode();
     }
 
     @Override
     public String toString() {
-        StringJoiner joiner = new StringJoiner(".").add(String.valueOf(major)).add(String.valueOf(minor)).add(String.valueOf(maintenance));
-
-        if (patch != null) {
-            joiner.add(patch.toString());
-        }
-
-        return joiner + (preRelease == null ? "" : "-" + preRelease);
+        return version.toString();
     }
 }
