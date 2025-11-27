@@ -68,11 +68,9 @@ public class GcUpdateHandler {
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
-     * @param strict {@code true} if needed to remove the strictly passed {@code count} oldest stale entries, {@code false} if a premature
-     *      exit is allowed when it is not possible to acquire a lock for the {@link RowId}.
      * @return {@code False} if there is no garbage left in the storage.
      */
-    public boolean vacuumBatch(HybridTimestamp lowWatermark, int count, boolean strict) {
+    public boolean vacuumBatch(HybridTimestamp lowWatermark, int count) {
         if (count <= 0) {
             return true;
         }
@@ -88,11 +86,7 @@ public class GcUpdateHandler {
                 case SUCCESS:
                     return true;
                 case FAILED_ACQUIRE_LOCK:
-                    if (strict) {
-                        continue;
-                    }
-
-                    return true;
+                    continue;
                 case SHOULD_RELEASE:
                     // Storage engine needs resources (e.g., checkpoint needs write lock).
                     // Exit the closure to allow the engine to proceed.
