@@ -97,9 +97,9 @@ bool secure_socket_client::connect(const char* hostname, std::uint16_t port, std
 
     m_bio = make_ssl(m_context, hostname, port, m_blocking);
 
-    SSL* ssl = ssl_from_bio(m_bio, "Can not get SSL instance from BIO");
-
     auto cleanup = ::ignite::detail::defer([&] { close_internal(); });
+
+    SSL* ssl = ssl_from_bio(m_bio, "Can not get SSL instance from BIO");
 
     int res = gateway.SSL_set_tlsext_host_name_(ssl, hostname);
 
