@@ -17,10 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
@@ -46,7 +48,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -172,7 +174,8 @@ public class ClientTableCommon {
     static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
-            SchemaRegistry schemaRegistry) {
+            SchemaRegistry schemaRegistry
+    ) {
         writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry);
     }
 
@@ -247,7 +250,12 @@ public class ClientTableCommon {
     }
 
     public static CompletableFuture<Tuple> readTuple(
-            int schemaId, BitSet noValueSet, byte[] tupleBytes, TableViewInternal table, boolean keyOnly) {
+            int schemaId,
+            BitSet noValueSet,
+            byte[] tupleBytes,
+            TableViewInternal table,
+            boolean keyOnly
+    ) {
         return readSchema(schemaId, table).thenApply(schema -> readTuple(noValueSet, tupleBytes, keyOnly, schema));
     }
 
@@ -301,7 +309,7 @@ public class ClientTableCommon {
             // This method can return a table that is being stopped, but it's not a problem - any operation on such table will fail.
             TableViewInternal cachedTable = tablesInternal.cachedTable(tableId);
             if (cachedTable != null) {
-                return CompletableFuture.completedFuture(cachedTable);
+                return completedFuture(cachedTable);
             }
 
             return tablesInternal.tableAsync(tableId)
@@ -326,7 +334,11 @@ public class ClientTableCommon {
      * @param req Request.
      */
     static void writeTxMeta(
-            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTupleRequestBase req) {
+            ClientMessagePacker out,
+            HybridTimestampTracker tsTracker,
+            @Nullable ClockService clockService,
+            ClientTupleRequestBase req
+    ) {
         writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
     }
 
@@ -339,7 +351,11 @@ public class ClientTableCommon {
      * @param req Request.
      */
     static void writeTxMeta(
-            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTuplesRequestBase req) {
+            ClientMessagePacker out,
+            HybridTimestampTracker tsTracker,
+            @Nullable ClockService clockService,
+            ClientTuplesRequestBase req
+    ) {
         writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
     }
 
@@ -352,8 +368,13 @@ public class ClientTableCommon {
      * @param tx Transaction.
      * @param resourceId Resource id.
      */
-    public static void writeTxMeta(ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService,
-            InternalTransaction tx, long resourceId) {
+    public static void writeTxMeta(
+            ClientMessagePacker out,
+            HybridTimestampTracker tsTracker,
+            @Nullable ClockService clockService,
+            InternalTransaction tx,
+            long resourceId
+    ) {
         if (resourceId != 0) {
             // Resource id is assigned on a first request in direct mode.
             out.packLong(resourceId);
@@ -393,14 +414,25 @@ public class ClientTableCommon {
      * @param resourceIdHolder Resource id holder.
      * @return Transaction, if present, or null.
      */
-    public static @Nullable InternalTransaction readTx(
+    public static CompletableFuture<@Nullable InternalTransaction> readTx(
             ClientMessageUnpacker in,
             HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
+            @Nullable IgniteTables tables,
             @Nullable NotificationSender notificationSender,
-            long[] resourceIdHolder) {
-        return readTx(in, tsUpdater, resources, txManager, notificationSender, resourceIdHolder, EnumSet.noneOf(RequestOptions.class));
+            long[] resourceIdHolder
+    ) {
+        return readTx(
+                in,
+                tsUpdater,
+                resources,
+                txManager,
+                tables,
+                notificationSender,
+                resourceIdHolder,
+                EnumSet.noneOf(RequestOptions.class)
+        );
     }
 
     /**
@@ -415,21 +447,26 @@ public class ClientTableCommon {
      * @param options Request options. Defines how a request is processed.
      * @return Transaction, if present, or null.
      */
-    public static @Nullable InternalTransaction readTx(
+    public static CompletableFuture<@Nullable InternalTransaction> readTx(
             ClientMessageUnpacker in,
             HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
+            @Nullable IgniteTables tables,
             @Nullable NotificationSender notificationSender,
             long[] resourceIdHolder,
-            EnumSet<RequestOptions> options) {
+            EnumSet<RequestOptions> options
+    ) {
         if (in.tryUnpackNil()) {
-            return null;
+            return nullCompletedFuture();
         }
 
         try {
             long id = in.unpackLong();
+
             if (id == TX_ID_FIRST_DIRECT) {
+                assert txManager != null : "Transaction manager must be specified to process directly mapped requests.";
+
                 // This is first mapping request, which piggybacks transaction creation.
                 long observableTs = in.unpackLong();
 
@@ -457,29 +494,41 @@ public class ClientTableCommon {
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
 
-                return tx;
+                return completedFuture(tx);
             } else if (id == TX_ID_DIRECT) {
+                assert txManager != null : "Transaction manager must be specified to process directly mapped requests.";
+                assert tables != null : "Tables manager must be specified to process directly mapped requests.";
+
                 // This is direct request mapping.
                 long token = in.unpackLong();
                 UUID txId = in.unpackUuid();
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25017
+                // partition awareness feature should be reworked to use zone ids.
                 int commitTableId = in.unpackInt();
                 int commitPart = in.unpackInt();
+
                 UUID coord = in.unpackUuid();
                 long timeout = in.unpackLong();
 
-                InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
-                        coord, token, timeout, err -> {
-                            // Will be called for write txns.
-                            notificationSender.sendNotification(w -> w.packUuid(txId), err, NULL_HYBRID_TIMESTAMP);
+                return readTableAsync(commitTableId, tables)
+                        .thenApply(table -> {
+                            InternalTransaction remote = txManager.beginRemote(txId, new ZonePartitionId(table.zoneId(), commitPart),
+                                    coord, token, timeout, err -> {
+                                            if (notificationSender != null) {
+                                                // Will be called for write txns.
+                                                notificationSender.sendNotification(w -> w.packUuid(txId), err, NULL_HYBRID_TIMESTAMP);
+                                            }
+                                    });
+
+                            // Remote transaction will be synchronously rolled back if the timeout has exceeded.
+                            if (remote.isRolledBackWithTimeoutExceeded()) {
+                                throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                                        "Transaction is already finished [tx=" + remote + "].");
+                            }
+
+                            return remote;
                         });
-
-                // Remote transaction will be synchronously rolled back if the timeout has exceeded.
-                if (remote.isRolledBackWithTimeoutExceeded()) {
-                    throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                            "Transaction is already finished [tx=" + remote + "].");
-                }
-
-                return remote;
             }
 
             var tx = resources.get(id).get(InternalTransaction.class);
@@ -490,29 +539,33 @@ public class ClientTableCommon {
                 tsUpdater.update(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
             }
 
-            return tx;
+            return completedFuture(tx);
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
     }
 
-    static InternalTransaction readOrStartImplicitTx(
+    static CompletableFuture<InternalTransaction> readOrStartImplicitTx(
             ClientMessageUnpacker in,
             HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
             TxManager txManager,
+            IgniteTables tables,
             EnumSet<RequestOptions> options,
             @Nullable NotificationSender notificationSender,
-            long[] resourceIdHolder) {
-        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder, options);
+            long[] resourceIdHolder
+    ) {
+        return readTx(in, readTs, resources, txManager, tables, notificationSender, resourceIdHolder, options)
+                .thenApply(tx -> {
+                    if (tx == null) {
+                        // Implicit transactions do not use an observation timestamp because RW never depends on it,
+                        // and implicit RO is always direct.
+                        // The direct transaction uses a current timestamp on the primary replica by definition.
+                        tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY));
+                    }
 
-        if (tx == null) {
-            // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
-            // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY));
-        }
-
-        return tx;
+                    return tx;
+                });
     }
 
     /**
