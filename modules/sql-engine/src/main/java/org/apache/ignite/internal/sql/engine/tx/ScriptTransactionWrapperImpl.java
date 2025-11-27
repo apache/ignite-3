@@ -20,7 +20,9 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -85,6 +88,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> finalise(Throwable error) {
+        Collection<CompletableFuture<? extends AsyncCursor<?>>> cursorsToClose;
         assert error != null;
 
         synchronized (mux) {
@@ -94,6 +98,17 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
             rollbackCause = error;
             txState = State.ROLLBACK;
+
+            cursorsToClose = List.copyOf(openedCursors.values());
+        }
+
+        // Close all associated cursors on error.
+        for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToClose) {
+            fut.whenComplete((cursor, ex) -> {
+                if (cursor != null) {
+                    cursor.closeAsync();
+                }
+            });
         }
 
         completeTx();

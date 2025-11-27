@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
@@ -302,8 +301,6 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertThrowsSqlException(RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                 () -> await(insCur.nextResult()));
-
-        expectQueryCancelled(new DrainCursor(insCur));
 
         verifyFinishedTxCount(1);
     }
