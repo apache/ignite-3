@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.index;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
-import org.apache.ignite.internal.metrics.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
 
 /**
@@ -27,6 +30,12 @@ import org.apache.ignite.internal.metrics.Metric;
  */
 public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderMetricSource.Holder> {
     public static final String METRIC_GROUP = "index.builder";
+
+    private final Map<IndexBuildTaskId, Integer> transactionsToResolveByTaskId = new ConcurrentHashMap<>();
+    private final Set<IndexBuildTaskId> indexesReading = ConcurrentHashMap.newKeySet();
+    private final Set<IndexBuildTaskId> indexesWaitingForResponse = ConcurrentHashMap.newKeySet();
+    // Using separate instead of sum to avoid returning incorrect number of indexes while index changes state.
+    private final Set<IndexBuildTaskId> indexesBuilding = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
     public IndexBuilderMetricSource() {
@@ -38,95 +47,71 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         return new Holder();
     }
 
-    void onTransitionToReadingRows() {
-        Holder holder = holder();
-        if (holder != null) {
-            holder.totalIndexesBuilding.increment();
-            holder.indexesReadingStorage.increment();
-        }
+    void onBatchProcessingStarted(IndexBuildTaskId taskId) {
+        indexesBuilding.add(taskId);
+        indexesReading.add(taskId);
     }
 
-    void onTransitionToWaitingForTransactions(int transactionsToWait) {
-        Holder holder = holder();
-        if (holder != null) {
-            holder.indexesReadingStorage.decrement();
-            holder.indexesWaitingForTransactionn.increment();
-            holder.transactionsWaitingFor.add(transactionsToWait);
-        }
+    void onTransitionToWaitingForTransactions(IndexBuildTaskId taskId, int transactionsToWait) {
+        indexesReading.remove(taskId);
+        transactionsToResolveByTaskId.put(taskId, transactionsToWait);
     }
 
-    void onRowsReadError() {
-        Holder holder = holder();
-        if (holder != null) {
-            holder.indexesReadingStorage.decrement();
-            holder.totalIndexesBuilding.decrement();
-        }
+    void onTransitionToWaitingForReplicaResponse(IndexBuildTaskId taskId) {
+        transactionsToResolveByTaskId.remove(taskId);
+        indexesWaitingForResponse.add(taskId);
     }
 
-    void onWaitingForTransactionsError(int size) {
-        Holder holder = holder();
-        if (holder != null) {
-            holder.totalIndexesBuilding.decrement();
-            holder.indexesWaitingForTransactionn.decrement();
-            holder.transactionsWaitingFor.add(-size);
-        }
-    }
-
-    void onTransitionToWaitingForReplicaResponse(int size) {
-        Holder holder = holder();
-        if (holder != null) {
-            holder.indexesWaitingForTransactionn.decrement();
-            holder.transactionsWaitingFor.add(-size);
-            holder.indexesWaitingForReplica.increment();
-        }
-    }
-
-    void onIndexBuildFinished() {
-        Holder holder = holder();
-        if (holder != null) {
-            holder.indexesWaitingForReplica.decrement();
-            holder.totalIndexesBuilding.decrement();
-        }
+    void onBatchProcessingFinished(IndexBuildTaskId taskId) {
+        indexesReading.remove(taskId);
+        indexesWaitingForResponse.remove(taskId);
+        transactionsToResolveByTaskId.remove(taskId);
+        indexesBuilding.remove(taskId);
     }
 
     /**
      * Holder for the index builder metrics.
      */
-    public static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final AtomicIntMetric totalIndexesBuilding = (
-                new AtomicIntMetric(
+    public class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final IntGauge totalIndexesBuilding = (
+                new IntGauge(
                         "TotalIndexesBuilding",
-                        "Total number of indexes that node builds at the moment."
+                        "Total number of indexes that node builds at the moment.",
+                        indexesBuilding::size
                 ));
 
-        private final AtomicIntMetric indexesReadingStorage = (
-                new AtomicIntMetric(
+        private final IntGauge indexesReadingStorage = (
+                new IntGauge(
                         "IndexesReadingStorage",
-                        "Number of indexes that are currently reading data from storage."
+                        "Number of indexes that are currently reading data from storage.",
+                        indexesReading::size
                 ));
 
-        private final AtomicIntMetric indexesWaitingForTransactionn = (
-                new AtomicIntMetric(
+        private final IntGauge indexesWaitingForTransaction = (
+                new IntGauge(
                         "IndexesWaitingForTransactions",
-                        "Number of indexes that are currently waiting for transactions to complete."
+                        "Number of indexes that are currently waiting for transactions to complete.",
+                        transactionsToResolveByTaskId::size
                 ));
 
-        private final AtomicIntMetric transactionsWaitingFor = (
-                new AtomicIntMetric(
+        private final IntGauge transactionsWaitingFor = (
+                new IntGauge(
                         "TransactionsWaitingFor",
-                        "Number of transactions that indexes are currently waiting for."
+                        "Number of transactions that indexes are currently waiting for.",
+                        () -> transactionsToResolveByTaskId.values().stream().mapToInt(Integer::intValue).sum()
                 ));
 
-        private final AtomicIntMetric indexesWaitingForReplica = (
-                new AtomicIntMetric(
+        private final IntGauge indexesWaitingForReplica = (
+                new IntGauge(
                         "IndexesWaitingForReplica",
-                        "Number of indexes that are currently waiting for replica response."
+                        "Number of indexes that are currently waiting for replica response.",
+                        indexesWaitingForResponse::size
                 ));
 
         private final List<Metric> metrics = List.of(
                 totalIndexesBuilding,
                 indexesReadingStorage,
-                indexesWaitingForTransactionn,
+                indexesWaitingForTransaction,
                 transactionsWaitingFor,
                 indexesWaitingForReplica
         );

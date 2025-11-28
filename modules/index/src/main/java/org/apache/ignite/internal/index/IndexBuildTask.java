@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
@@ -238,27 +239,14 @@ class IndexBuildTask {
             return nullCompletedFuture();
         }
 
-        indexBuilderMetricSource.onTransitionToReadingRows();
-
-        Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
-        List<RowId> rowIds;
+        indexBuilderMetricSource.onBatchProcessingStarted(taskId);
 
         try {
-            rowIds = getRowIds(highestRowId, transactionsToResolve);
-        } catch (Exception e) {
-            indexBuilderMetricSource.onRowsReadError();
-
-            leaveBusy();
-
-            return failedFuture(e);
-        }
-
-        indexBuilderMetricSource.onTransitionToWaitingForTransactions(transactionsToResolve.size());
-
-        try {
-            return waitForTransactions(transactionsToResolve, rowIds)
+            return createBatchToIndex(highestRowId)
                     .thenCompose(this::processBatch)
                     .handleAsync((unused, throwable) -> {
+                        indexBuilderMetricSource.onBatchProcessingFinished(taskId);
+
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
 
@@ -279,20 +267,23 @@ class IndexBuildTask {
                     }, executor)
                     .thenCompose(Function.identity());
         } catch (Throwable t) {
+            indexBuilderMetricSource.onBatchProcessingFinished(taskId);
+
             return failedFuture(t);
         } finally {
             leaveBusy();
         }
     }
 
-    private List<RowId> getRowIds(@Nullable RowId highestRowId, Map<UUID, CommitPartitionId> transactionsToResolve) {
+    private CompletableFuture<BatchToIndex> createBatchToIndex(@Nullable RowId highestRowId) {
         if (highestRowId == null) {
-            return List.of();
+            return completedFuture(new BatchToIndex(List.of(), Set.of()));
         }
 
         RowId nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         List<RowId> rowIds = new ArrayList<>(batchSize);
+        Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
 
         List<RowMeta> rows = nextRowIdToBuild == null ? List.of()
                 : partitionStorage.rowsStartingWith(nextRowIdToBuild, highestRowId, batchSize);
@@ -314,13 +305,11 @@ class IndexBuildTask {
             }
         }
 
-        return rowIds;
-    }
-
-    private CompletableFuture<BatchToIndex> waitForTransactions(Map<UUID, CommitPartitionId> transactionsToResolve, List<RowId> rowIds) {
         Map<UUID, CompletableFuture<TxState>> txStateResolveFutures = transactionsToResolve.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), resolveFinalTxStateIfNeeded(entry.getKey(), entry.getValue())))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        indexBuilderMetricSource.onTransitionToWaitingForTransactions(taskId, txStateResolveFutures.size());
 
         return CompletableFutures.allOf(txStateResolveFutures.values())
                 .thenApply(unused -> {
@@ -330,13 +319,6 @@ class IndexBuildTask {
                             .collect(toUnmodifiableSet());
 
                     return new BatchToIndex(rowIds, abortedTransactionIds);
-                })
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        indexBuilderMetricSource.onWaitingForTransactionsError(transactionsToResolve.size());
-                    } else {
-                        indexBuilderMetricSource.onTransitionToWaitingForReplicaResponse(transactionsToResolve.size());
-                    }
                 });
     }
 
@@ -352,10 +334,10 @@ class IndexBuildTask {
     private CompletableFuture<Void> processBatch(BatchToIndex batch) {
         BuildIndexReplicaRequest request = createBuildIndexReplicaRequest(batch, initialOperationTimestamp);
 
+        indexBuilderMetricSource.onTransitionToWaitingForReplicaResponse(taskId);
+
         return replicaService.invoke(node, request)
                 .whenComplete((unused, throwable) -> {
-                    indexBuilderMetricSource.onIndexBuildFinished();
-
                     if (throwable == null) {
                         statisticsLoggingListener.onRaftCallSuccess();
                     } else {

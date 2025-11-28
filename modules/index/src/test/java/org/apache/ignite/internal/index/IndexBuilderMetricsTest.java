@@ -38,6 +38,9 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
 
     private final MetricManager metricManager = new TestMetricManager();
 
+    private final IndexBuildTaskId taskId = new IndexBuildTaskId(0, 1, 2, 3);
+    private final IndexBuildTaskId secondTaskId = new IndexBuildTaskId(1, 2, 3, 4);
+
     @BeforeEach
     void setUp() {
         metricManager.registerSource(metricSource);
@@ -57,25 +60,37 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
     void testIndexBuildFlow() {
         int pendingTx = 5;
 
-        metricSource.onTransitionToReadingRows();
+        metricSource.onBatchProcessingStarted(taskId);
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForTransactions(pendingTx);
-        checkMetrics(1, 0, 1, pendingTx, 0);
+        metricSource.onBatchProcessingStarted(secondTaskId);
+        checkMetrics(2, 2, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForReplicaResponse(pendingTx);
+        metricSource.onTransitionToWaitingForTransactions(taskId, pendingTx);
+        checkMetrics(2, 1, 1, pendingTx, 0);
+
+        metricSource.onTransitionToWaitingForTransactions(secondTaskId, pendingTx);
+        checkMetrics(2, 0, 2, 2 * pendingTx, 0);
+
+        metricSource.onTransitionToWaitingForReplicaResponse(taskId);
+        checkMetrics(2, 0, 1, pendingTx, 1);
+
+        metricSource.onTransitionToWaitingForReplicaResponse(secondTaskId);
+        checkMetrics(2, 0, 0, 0, 2);
+
+        metricSource.onBatchProcessingFinished(taskId);
         checkMetrics(1, 0, 0, 0, 1);
 
-        metricSource.onIndexBuildFinished();
+        metricSource.onBatchProcessingFinished(secondTaskId);
         checkMetrics(0, 0, 0, 0, 0);
     }
 
     @Test
     void testReadingRowsFailed() {
-        metricSource.onTransitionToReadingRows();
+        metricSource.onBatchProcessingStarted(taskId);
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onRowsReadError();
+        metricSource.onBatchProcessingFinished(taskId);
         checkMetrics(0, 0, 0, 0, 0);
     }
 
@@ -83,13 +98,13 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
     void testWaitingForTransactionsFailed() {
         int pendingTx = 3;
 
-        metricSource.onTransitionToReadingRows();
+        metricSource.onBatchProcessingStarted(taskId);
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForTransactions(pendingTx);
+        metricSource.onTransitionToWaitingForTransactions(taskId, pendingTx);
         checkMetrics(1, 0, 1, pendingTx, 0);
 
-        metricSource.onWaitingForTransactionsError(pendingTx);
+        metricSource.onBatchProcessingFinished(taskId);
         checkMetrics(0, 0, 0, 0, 0);
     }
 
@@ -97,16 +112,16 @@ public class IndexBuilderMetricsTest extends BaseIgniteAbstractTest {
     void testWaitingForReplicaResponseFailed() {
         int pendingTx = 4;
 
-        metricSource.onTransitionToReadingRows();
+        metricSource.onBatchProcessingStarted(taskId);
         checkMetrics(1, 1, 0, 0, 0);
 
-        metricSource.onTransitionToWaitingForTransactions(pendingTx);
+        metricSource.onTransitionToWaitingForTransactions(taskId, pendingTx);
         checkMetrics(1, 0, 1, pendingTx, 0);
 
-        metricSource.onTransitionToWaitingForReplicaResponse(pendingTx);
+        metricSource.onTransitionToWaitingForReplicaResponse(taskId);
         checkMetrics(1, 0, 0, 0, 1);
 
-        metricSource.onIndexBuildFinished();
+        metricSource.onBatchProcessingFinished(taskId);
         checkMetrics(0, 0, 0, 0, 0);
     }
 
