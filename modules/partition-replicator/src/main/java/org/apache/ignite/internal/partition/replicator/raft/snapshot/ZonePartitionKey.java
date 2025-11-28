@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
 import java.util.Objects;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -71,5 +73,10 @@ public class ZonePartitionKey implements PartitionKey {
     @Override
     public String toString() {
         return S.toString(ZonePartitionKey.class, this);
+    }
+
+    @Override
+    public ReplicationGroupId toReplicationGroupId() {
+        return new ZonePartitionId(zoneId, partitionId);
     }
 }

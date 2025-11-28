@@ -985,7 +985,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void cancelLongRunningStatement() throws InterruptedException {
+    public void cancelLongRunningStatement() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
@@ -1001,9 +1001,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        waitUntilRunningQueriesCount(greaterThan(0));
-        // Wait a bit more to improve failure rate.
-        Thread.sleep(500);
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
 
         // Wait for query cancel.
         cancelHandle.cancel();
@@ -1272,6 +1270,29 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public abstract void cancelBatch() throws InterruptedException;
+
+    @Test
+    public void cancelDdlScript() {
+        IgniteSql sql = igniteSql();
+
+        String script =
+                "CREATE TABLE test1 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test3 (id INT PRIMARY KEY);";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+
+        waitUntilRunningQueriesCount(greaterThan(0));
+
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> await(scriptFut));
+
+        waitUntilRunningQueriesCount(is(0));
+    }
 
     @Test
     public void cancelQueryBeforeExecution() {

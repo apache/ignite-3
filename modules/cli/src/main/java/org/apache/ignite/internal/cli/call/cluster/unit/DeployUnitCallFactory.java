@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Factory for {@link DeployUnitCall}. */
 @Singleton
-public class DeployUnitCallFactory {
+public class DeployUnitCallFactory implements AsyncCallFactory<DeployUnitCallInput, String> {
 
     private final ApiClientFactory factory;
 
@@ -31,7 +33,8 @@ public class DeployUnitCallFactory {
         this.factory = factory;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
+    @Override
+    public AsyncCall<DeployUnitCallInput, String> create(ProgressTracker tracker) {
         return new DeployUnitCall(tracker, factory);
     }
 }

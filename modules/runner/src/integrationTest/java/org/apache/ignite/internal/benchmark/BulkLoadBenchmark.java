@@ -21,6 +21,10 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -73,6 +77,14 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
     private int batchSize;
 
     /**
+     * Benchmark for SQL insert via JDBC client.
+     */
+    @Benchmark
+    public void jdbcInsert(JdbcState state) throws SQLException {
+        state.upload(count, batchSize);
+    }
+
+    /**
      * Benchmark for SQL insert via thin client.
      */
     @Benchmark
@@ -118,6 +130,54 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
                 .build();
 
         new Runner(opt).run();
+    }
+
+    /**
+     * Benchmark state for {@link #jdbcInsert(JdbcState)}.
+     *
+     * <p>Holds {@link Connection} and {@link PreparedStatement}.
+     */
+    @State(Scope.Benchmark)
+    public static class JdbcState {
+        private Connection connection;
+        private PreparedStatement statement;
+
+        /**
+         * Initializes session and statement.
+         */
+        @Setup
+        public void setUp() throws SQLException {
+            String queryStr = createInsertStatement();
+
+            String clientAddrs = String.join(",", getServerEndpoints(clusterSize));
+
+            String jdbcUrl = "jdbc:ignite:thin://" + clientAddrs;
+
+            connection = DriverManager.getConnection(jdbcUrl);
+
+            connection.setAutoCommit(false);
+
+            statement = connection.prepareStatement(queryStr);
+        }
+
+        /**
+         * Closes resources.
+         */
+        @TearDown
+        public void tearDown() throws Exception {
+            connection.close();
+        }
+
+        void upload(int count, int batch) throws SQLException {
+            for (int i = 0; i < count; i++) {
+                if (i % batch == 0) {
+                    connection.commit();
+                }
+
+                statement.setInt(1, i);
+                statement.executeUpdate();
+            }
+        }
     }
 
     /**

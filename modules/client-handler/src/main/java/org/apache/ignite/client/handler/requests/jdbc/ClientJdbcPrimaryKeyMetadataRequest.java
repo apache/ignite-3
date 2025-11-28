@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler.requests.jdbc;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
 
 /**
@@ -36,7 +36,7 @@ public class ClientJdbcPrimaryKeyMetadataRequest {
      */
     public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            JdbcQueryEventHandler handler
+            JdbcDatabaseMetadataHandler handler
     ) {
         var req = new JdbcMetaPrimaryKeysRequest();
 

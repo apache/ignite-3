@@ -76,7 +76,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -590,7 +589,8 @@ public class TestBuilders {
                     zoneId,
                     -1,
                     clock,
-                    null
+                    null,
+                    1L
             );
         }
     }
@@ -772,7 +772,6 @@ public class TestBuilders {
                                 0,
                                 partitionPruner,
                                 executionProvider,
-                                new SystemPropertiesNodeProperties(),
                                 Runnable::run
                         );
 
@@ -885,7 +884,6 @@ public class TestBuilders {
         return new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                new SystemPropertiesNodeProperties(),
                 CaffeineCacheFactory.INSTANCE,
                 0
         );

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -50,8 +49,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final ClockService clockService;
 
-    private final NodeProperties nodeProperties;
-
     /** Executable tables cache. */
     final Cache<CacheKey, ExecutableTable> tableCache;
 
@@ -62,7 +59,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
             SqlSchemaManager sqlSchemaManager,
             ReplicaService replicaService,
             ClockService clockService,
-            NodeProperties nodeProperties,
             int cacheSize,
             CacheFactory cacheFactory
     ) {
@@ -72,7 +68,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
         this.clockService = clockService;
-        this.nodeProperties = nodeProperties;
         this.tableCache = cacheFactory.create(cacheSize);
     }
 
@@ -102,14 +97,10 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         TableRowConverter rowConverter = converterFactory.create(null);
 
         UpdatableTableImpl updatableTable = new UpdatableTableImpl(
-                sqlTable.id(),
-                sqlTable.zoneId(),
                 tableDescriptor,
-                internalTable.partitions(),
                 internalTable,
                 replicaService,
                 clockService,
-                nodeProperties,
                 rowConverter
         );
 

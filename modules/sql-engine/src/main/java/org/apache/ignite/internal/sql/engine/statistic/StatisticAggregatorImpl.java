@@ -41,24 +41,30 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModifiedTsResponse;
 import org.apache.ignite.internal.table.message.PartitionModificationInfoMessage;
 import org.apache.ignite.internal.table.message.TableMessageGroup;
 import org.apache.ignite.internal.table.message.TableMessagesFactory;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Statistic aggregator. */
 public class StatisticAggregatorImpl implements
         StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> {
     private static final IgniteLogger LOG = Loggers.forClass(StatisticAggregatorImpl.class);
+
     private final Supplier<Set<LogicalNode>> clusterNodes;
+
     private final MessagingService messagingService;
+
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+
     private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
-    private final AtomicReference<@Nullable Map<TablePartitionId, CompletableFuture<Object>>> requestsCompletion = new AtomicReference<>();
+
+    private final AtomicReference<@Nullable Map<TablePartitionIdentifier, CompletableFuture<Object>>> requestsCompletion =
+            new AtomicReference<>();
 
     /** Constructor. */
     public StatisticAggregatorImpl(
@@ -72,12 +78,12 @@ public class StatisticAggregatorImpl implements
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-        Map<TablePartitionId, CompletableFuture<Object>> completedRequests = requestsCompletion.get();
+        Map<TablePartitionIdentifier, CompletableFuture<Object>> completedRequests = requestsCompletion.get();
 
         if (message instanceof GetEstimatedSizeWithLastModifiedTsResponse && completedRequests != null) {
             GetEstimatedSizeWithLastModifiedTsResponse response = (GetEstimatedSizeWithLastModifiedTsResponse) message;
             for (PartitionModificationInfoMessage ent : response.modifications()) {
-                TablePartitionId id = new TablePartitionId(ent.tableId(), ent.partId());
+                TablePartitionIdentifier id = new TablePartitionIdentifier(ent.tableId(), ent.partId());
                 long estSize = ent.estimatedSize();
                 long modificationCounter = ent.lastModificationCounter();
 
@@ -117,12 +123,12 @@ public class StatisticAggregatorImpl implements
         GetEstimatedSizeWithLastModifiedTsRequest request =
                 TABLE_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest().tables(tablesId).build();
 
-        HashMap<TablePartitionId, CompletableFuture<Object>> partIdRequests = new HashMap<>();
+        HashMap<TablePartitionIdentifier, CompletableFuture<Object>> partIdRequests = new HashMap<>();
         requestsCompletion.set(partIdRequests);
 
         for (InternalTable t : tables) {
             for (int p = 0; p < t.partitions(); ++p) {
-                partIdRequests.put(new TablePartitionId(t.tableId(), p),
+                partIdRequests.put(new TablePartitionIdentifier(t.tableId(), p),
                         new CompletableFuture<>().orTimeout(REQUEST_ESTIMATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
             }
         }
@@ -142,8 +148,8 @@ public class StatisticAggregatorImpl implements
         Int2ObjectMap<PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
 
         for (InternalTable t : tables) {
-            Map<TablePartitionId, CompletableFuture<Object>> tableResponses = new HashMap<>();
-            for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : partIdRequests.entrySet()) {
+            Map<TablePartitionIdentifier, CompletableFuture<Object>> tableResponses = new HashMap<>();
+            for (Map.Entry<TablePartitionIdentifier, CompletableFuture<Object>> ent : partIdRequests.entrySet()) {
                 if (ent.getKey().tableId() == t.tableId()) {
                     tableResponses.put(ent.getKey(), ent.getValue());
                 }
@@ -160,7 +166,7 @@ public class StatisticAggregatorImpl implements
 
                         if (!isCompletedSuccessfully(allResponses)) {
                             if (LOG.isDebugEnabled()) {
-                                for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
+                                for (Map.Entry<TablePartitionIdentifier, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
                                     if (isCompletedSuccessfully(ent.getValue())) {
                                         LOG.debug("Can`t update statistics for table partition [id={}].", ent.getKey());
                                     }
@@ -169,7 +175,7 @@ public class StatisticAggregatorImpl implements
                             return null;
                         }
 
-                        for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
+                        for (Map.Entry<TablePartitionIdentifier, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
                             PartitionModificationInfo info = (PartitionModificationInfo) ent.getValue().join();
                             long estSize = info.getEstimatedSize();
                             long modificationCounter = info.lastModificationCounter();
@@ -194,5 +200,48 @@ public class StatisticAggregatorImpl implements
 
             return summary;
         });
+    }
+
+    private static class TablePartitionIdentifier {
+        final int tableId;
+        final int partitionId;
+
+        TablePartitionIdentifier(int tableId, int partitionId) {
+            this.tableId = tableId;
+            this.partitionId = partitionId;
+        }
+
+        int tableId() {
+            return tableId;
+        }
+
+        int partitionId() {
+            return partitionId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TablePartitionIdentifier that = (TablePartitionIdentifier) o;
+            return tableId == that.tableId && partitionId == that.partitionId;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 31 + partitionId;
+            hash += hash * 31 + tableId;
+
+            return hash;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(TablePartitionIdentifier.class, this);
+        }
     }
 }

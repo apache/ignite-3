@@ -69,6 +69,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -78,8 +79,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -580,7 +582,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         // start response trigger
         CountDownLatch startResponse = new CountDownLatch(1);
 
+        AtomicLong currentTopologyVersion = new AtomicLong();
+
         nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNode, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                QueryStartRequest startRequest = (QueryStartRequest) msg;
+                Long topologyVersion = startRequest.topologyVersion();
+                if (topologyVersion == null) {
+                    throw new IllegalStateException("Topology version is missing");
+                }
+                currentTopologyVersion.set(topologyVersion);
+            }
+
             if (node.node.name().equals(nodeNames.get(0))) {
                 // On node_1, hang until an exception from another node fails the query to make sure that the root fragment does not execute
                 // before other fragments.
@@ -613,7 +626,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         CompletableFuture<BatchedResult<InternalSqlRow>> resFut = cursor.requestNextAsync(9);
 
         startResponse.await();
-        execService.onDisappeared(firstNode);
+        execService.onNodeLeft(
+                new LogicalNode(firstNode, Map.of()), 
+                new LogicalTopologySnapshot(currentTopologyVersion.get(), List.of(), randomUUID())
+        );
 
         nodeFailedLatch.countDown();
 
@@ -999,13 +1015,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      * <p>The sequence of events on real cluster is as follow:<ul>
      * <li>Given: cluster of 3 nodes, distribution zone spans all these nodes.</li>
      * <li>Node 1 has been restarted.</li>
-     * <li>Notification of org.apache.ignite.internal.network.TopologyEventHandler#onDisappeared handlers are delayed on node 2 (due to
-     * metastorage lagging or whatever reason).</li>
+     * <li>Notification of org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener#onNodeLeft 
+     * handlers are delayed on node 2 (due to metastorage lagging or whatever reason).</li>
      * <li>Query started from node 1.</li>
      * <li>Root fragment processed locally, QueryBatchRequest came to node 2 before QueryStartRequest. This step
      * is crucial since it puts not completed future to mailbox registry
      * (org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl#locals).</li>
-     * <li>TopologyEventHandler's are notified on node 2. This step
+     * <li>LogicalTopologyEventListener's are notified on node 2. This step
      * causes onNodeLeft handler to be chained to the future from previous step. QueryStartRequest came to node 2. Query fragment is created
      * an immediately closed by onNodeLeft handler.</li>
      * </ul>
@@ -1042,16 +1058,74 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     throw new RuntimeException(e);
                 }
 
-                InternalClusterNode sameNameDifferentIdNode = clusterNode(nodeNames.get(0));
-                // Fire NODE_LEFT event on map-node in question. This event contains
-                // cluster node with consistent ID equals to ID of node-initiator, but
-                // different volatile id. This emulates situation, when request prepared
-                // on newer topology outruns event processing from previous topology change.
-                testCluster.node(nodeNames.get(2)).notifyNodeLeft(sameNameDifferentIdNode);
+                QueryStartRequest queryStartRequest = (QueryStartRequest) msg;
+                Long topologyVersion = queryStartRequest.topologyVersion();
+                if (topologyVersion == null) {
+                    throw new IllegalStateException("Topology version is missing");
+                }
+
+                InternalClusterNode node = clusterNode(nodeNames.get(2));
+                // This emulates situation, when request prepared on newer topology outruns event processing from previous topology change.
+                testCluster.node(nodeNames.get(2)).notifyNodeLeft(node, topologyVersion - 1);
             }
 
             return nullCompletedFuture();
         });
+
+        SqlOperationContext ctx = createContext();
+
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> cursorFuture = executionServices.get(0).executePlan(plan, ctx);
+        // Request must not hung.
+        await(await(cursorFuture).requestNextAsync(100));
+    }
+
+    /**
+     * Tests scenario when nodes receive a node left event from the previous topology.
+     */
+    @Test
+    void outdatedNodeLeftEventDoesntCauseQueryToHangAllNodes() {
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", createContext());
+
+        AtomicLong currentTopologyVersion = new AtomicLong(); 
+        CountDownLatch latch = new CountDownLatch(1);
+
+        // Triggers node left events with previous topology version for every node in the cluster.
+        for (String nodeName : nodeNames) {
+            testCluster.node(nodeName).interceptor((senderNode, msg, original) -> {
+                original.onMessage(senderNode, msg);
+
+                if (msg instanceof QueryStartRequest
+                        // Fragment without target is a root.
+                        && ((QueryStartRequest) msg).fragmentDescription().target() == null) {
+
+                    QueryStartRequest queryStartRequest = (QueryStartRequest) msg;
+                    Long topologyVersion = queryStartRequest.topologyVersion();
+                    if (topologyVersion == null) {
+                        throw new IllegalStateException("Topology version is missing");
+                    }
+
+                    currentTopologyVersion.set(topologyVersion);
+                    latch.countDown();
+                }
+
+                if (!(msg instanceof QueryStartRequest)) {
+                    try {
+                        latch.await();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException("Test was interrupted", e);
+                    }
+                    long previousVersion = currentTopologyVersion.get() - 1;
+
+                    InternalClusterNode node = clusterNode(nodeName);
+                    // This emulates situation, when request prepared on newer topology receive an event from previous topology change.
+                    testCluster.node(nodeName).notifyNodeLeft(node, previousVersion);
+
+                    return nullCompletedFuture();
+                } else {
+                    return nullCompletedFuture();
+                }
+            });
+        }
 
         SqlOperationContext ctx = createContext();
 
@@ -1196,7 +1270,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
@@ -1226,7 +1299,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         LogicalTopology logicalTopology = TestBuilders.logicalTopology(logicalNodes);
         var service = new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
-                new SystemPropertiesNodeProperties(), Runnable::run
+                Runnable::run
         );
 
         service.onTopologyLeap(logicalTopology.getLogicalTopology());
@@ -1311,8 +1384,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 this.mailboxRegistry = mailboxRegistry;
             }
 
-            public void notifyNodeLeft(InternalClusterNode node) {
-                mailboxRegistry.onDisappeared(node);
+            public void notifyNodeLeft(InternalClusterNode node, long topologyVersion) {
+                LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(topologyVersion, Set.of(), randomUUID());
+                mailboxRegistry.onNodeLeft(new LogicalNode(node, Map.of()), newTopology);
             }
 
             public void dataset(List<Object[]> dataset) {

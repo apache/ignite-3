@@ -106,11 +106,16 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final TimeZoneProperty connectionTimeZone = new TimeZoneProperty("connectionTimeZone",
             "Client connection time-zone ID", ZoneId.systemDefault(), null, false, null);
 
+    /** The size of the partition awareness metadata cache. */
+    private final IntegerProperty partitionAwarenessMetadataCacheSize = new IntegerProperty("partitionAwarenessMetadataCacheSize",
+            "Partition awareness metadata cache size", IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE,
+            false, 0, Integer.MAX_VALUE);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, ciphers, keyStorePath, keyStorePassword,
-            username, password, connectionTimeZone
+            username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize
     };
 
     /** {@inheritDoc} */
@@ -298,6 +303,11 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setConnectionTimeZone(ZoneId timeZoneId) {
         connectionTimeZone.setValue(timeZoneId);
+    }
+
+    @Override
+    public int getPartitionAwarenessMetadataCacheSize() {
+        return partitionAwarenessMetadataCacheSize.value();
     }
 
     /**

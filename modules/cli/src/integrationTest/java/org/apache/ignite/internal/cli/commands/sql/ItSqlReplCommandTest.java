@@ -112,7 +112,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("SQL query validation error"),
                 () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );

@@ -54,8 +54,6 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -106,9 +104,6 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private HybridClock clock;
-
-    @Spy
-    private final NodeProperties nodeProperties = new SystemPropertiesNodeProperties();
 
     @InjectMocks
     private IgniteComputeImpl compute;

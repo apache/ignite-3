@@ -21,8 +21,8 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 
 /**
  * Test execution of MINUS (EXCEPT) operator.
@@ -33,24 +33,24 @@ public class MinusExecutionTest extends AbstractSetOpExecutionTest {
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
             AggregateType type, int columnCount, boolean all, int inputsCnt) {
 
-        RowSchema rowSchema;
+        StructNativeType rowSchema;
 
         switch (type) {
             case MAP:
-                rowSchema = RowSchema.builder()
+                rowSchema = NativeTypes.rowBuilder()
                         // input columns
-                        .addField(NativeTypes.STRING)
-                        .addField(NativeTypes.INT32)
+                        .addField("C1", NativeTypes.STRING, false)
+                        .addField("C1", NativeTypes.INT32, false)
                         // counters
-                        .addField(NativeTypes.INT32)
-                        .addField(NativeTypes.INT32)
+                        .addField("C1", NativeTypes.INT32, false)
+                        .addField("C1", NativeTypes.INT32, false)
                         .build();
                 break;
             case REDUCE:
             case SINGLE:
-                rowSchema = RowSchema.builder()
-                        .addField(NativeTypes.STRING)
-                        .addField(NativeTypes.INT32)
+                rowSchema = NativeTypes.rowBuilder()
+                        .addField("C1", NativeTypes.STRING, false)
+                        .addField("C1", NativeTypes.INT32, false)
                         .build();
                 break;
             default:

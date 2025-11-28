@@ -75,7 +75,7 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
             var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
             return loadFromResource(variantQueryFile);
         } else {
-            var queryFile = String.format("tpcds/plan/q%s_colocated.plan", numericId);
+            var queryFile = String.format("tpcds/plan/q%s.plan", numericId);
 
             return loadFromResource(queryFile);
         }
@@ -107,7 +107,7 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
         if (variant) {
             planLocation = targetDirectory.resolve(String.format("variant_q%d.plan", numericId));
         } else {
-            planLocation = targetDirectory.resolve(String.format("q%s_colocated.plan", numericId));
+            planLocation = targetDirectory.resolve(String.format("q%s.plan", numericId));
         }
 
         try {

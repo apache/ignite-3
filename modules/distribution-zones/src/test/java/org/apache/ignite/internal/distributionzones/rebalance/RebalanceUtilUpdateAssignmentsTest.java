@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.toBytes;
@@ -34,7 +38,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
@@ -44,9 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -74,10 +75,9 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,23 +106,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     @Mock
     private MetaStorageManager metaStorageManager;
 
-    private final CatalogTableDescriptor tableDescriptor;
-
-    {
-        List<CatalogTableColumnDescriptor> columns = List.of(
-                new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)
-        );
-        tableDescriptor = CatalogTableDescriptor.builder()
-                .id(1)
-                .schemaId(-1)
-                .primaryKeyIndexId(-1)
-                .name("table1")
-                .zoneId(0)
-                .newColumns(columns)
-                .primaryKeyColumns(IntList.of(0))
-                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
-                .build();
-    }
+    @Mock
+    private CatalogZoneDescriptor zoneDescriptor;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -282,11 +267,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             Set<Assignment> expectedPendingAssignments,
             Set<Assignment> expectedPlannedAssignments
     ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 1);
 
         if (currentStableAssignments != null) {
             keyValueStorage.put(
-                    RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(),
+                    stablePartAssignmentsKey(zonePartitionId).bytes(),
                     toBytes(currentStableAssignments, assignmentsTimestamp),
                     KV_UPDATE_CONTEXT
             );
@@ -294,7 +279,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         if (currentPendingAssignments != null) {
             keyValueStorage.put(
-                    RebalanceUtil.pendingPartAssignmentsQueueKey(tablePartitionId).bytes(),
+                    pendingPartAssignmentsQueueKey(zonePartitionId).bytes(),
                     AssignmentsQueue.toBytes(Assignments.of(currentPendingAssignments, assignmentsTimestamp)),
                     KV_UPDATE_CONTEXT
             );
@@ -302,21 +287,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         if (currentPlannedAssignments != null) {
             keyValueStorage.put(
-                    RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(),
+                    plannedPartAssignmentsKey(zonePartitionId).bytes(),
                     toBytes(currentPlannedAssignments, assignmentsTimestamp),
                     KV_UPDATE_CONTEXT
             );
         }
 
         keyValueStorage.put(
-                RebalanceUtil.pendingChangeTriggerKey(tablePartitionId).bytes(),
+                pendingChangeTriggerKey(zonePartitionId).bytes(),
                 longToBytesKeepingOrder(1),
                 KV_UPDATE_CONTEXT
         );
 
-        RebalanceUtil.updatePendingAssignmentsKeys(
-                tableDescriptor,
-                tablePartitionId,
+        ZoneRebalanceUtil.updatePendingAssignmentsKeys(
+                zoneDescriptor,
+                zonePartitionId,
                 nodesForNewAssignments,
                 partNum + 1,
                 replicas,
@@ -331,28 +316,28 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 ConsistencyMode.STRONG_CONSISTENCY
         );
 
-        byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualStableBytes = keyValueStorage.get(stablePartAssignmentsKey(zonePartitionId).bytes()).value();
         Set<Assignment> actualStableAssignments = null;
 
         if (actualStableBytes != null) {
             actualStableAssignments = Assignments.fromBytes(actualStableBytes).nodes();
         }
 
-        byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsQueueKey(tablePartitionId).bytes()).value();
+        byte[] actualPendingBytes = keyValueStorage.get(pendingPartAssignmentsQueueKey(zonePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
             actualPendingAssignments = AssignmentsQueue.fromBytes(actualPendingBytes).poll().nodes();
         }
 
-        byte[] actualPlannedBytes = keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualPlannedBytes = keyValueStorage.get(plannedPartAssignmentsKey(zonePartitionId).bytes()).value();
         Set<Assignment> actualPlannedAssignments = null;
 
         if (actualPlannedBytes != null) {
             actualPlannedAssignments = Assignments.fromBytes(actualPlannedBytes).nodes();
         }
 
-        byte[] pendingChangeTriggerKey = keyValueStorage.get(RebalanceUtil.pendingChangeTriggerKey(tablePartitionId).bytes()).value();
+        byte[] pendingChangeTriggerKey = keyValueStorage.get(pendingChangeTriggerKey(zonePartitionId).bytes()).value();
         HybridTimestamp actualPendingChangeTimestamp = hybridTimestamp(bytesToLongKeepingOrder(pendingChangeTriggerKey));
 
         LOG.info("stableAssignments {}", actualStableAssignments);

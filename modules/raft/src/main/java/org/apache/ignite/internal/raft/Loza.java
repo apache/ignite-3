@@ -63,6 +63,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -482,6 +483,24 @@ public class Loza implements RaftManager {
     }
 
     /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param nodeId ID of the Raft node.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void createMetaStorage(RaftNodeId nodeId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            raftServer.createMetaStorage(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Returns Raft node IDs for which any storage (log storage or Raft meta storage) is present on disk.
      */
     public Set<StoredRaftNodeId> raftNodeIdsOnDisk() throws NodeStoppingException {
@@ -643,11 +662,11 @@ public class Loza implements RaftManager {
      * @param peersAndLearners New node configuration.
      * @param sequenceToken Sequence token.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
         LOG.warn("Reset peers for raft group {}, new configuration is {}, sequence token {}",
                 raftNodeId, peersAndLearners, sequenceToken);
 
-        raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+        return raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
     }
 
     /**

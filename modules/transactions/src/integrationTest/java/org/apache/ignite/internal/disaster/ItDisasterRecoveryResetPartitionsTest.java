@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -39,8 +38,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -109,15 +106,9 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
     }
 
     private static ByteArray prefix(String zoneName, String tableName, IgniteImpl ignite) {
-        if (colocationEnabled()) {
-            int zoneId = getZoneId(ignite.catalogManager(), zoneName, ignite.clock().nowLong());
+        int zoneId = getZoneId(ignite.catalogManager(), zoneName, ignite.clock().nowLong());
 
-            return new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + zoneId);
-        } else {
-            int tableId = unwrapTableViewInternal(ignite.tables().table(tableName)).tableId();
-
-            return new ByteArray(RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + tableId);
-        }
+        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + zoneId);
     }
 
     private static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {

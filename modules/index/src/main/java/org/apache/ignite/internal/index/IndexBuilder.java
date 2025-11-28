@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -72,8 +71,6 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final FinalTransactionStateResolver finalTransactionStateResolver;
 
     private final IndexMetaStorage indexMetaStorage;
@@ -84,21 +81,19 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<IndexBuildCompletionListener> buildCompletionListeners = new CopyOnWriteArrayList<>();
 
     /** Constructor. */
     IndexBuilder(
             Executor executor,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             FinalTransactionStateResolver finalTransactionStateResolver,
             IndexMetaStorage indexMetaStorage
     ) {
         this.executor = executor;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.finalTransactionStateResolver = finalTransactionStateResolver;
         this.indexMetaStorage = indexMetaStorage;
     }
@@ -138,7 +133,7 @@ class IndexBuilder implements ManuallyCloseable {
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
-                for (IndexBuildCompletionListener listener : listeners) {
+                for (IndexBuildCompletionListener listener : buildCompletionListeners) {
                     listener.onBuildCompletion(indexId, tableId, partitionId);
                 }
 
@@ -154,13 +149,12 @@ class IndexBuilder implements ManuallyCloseable {
                     partitionStorage,
                     replicaService,
                     failureProcessor,
-                    nodeProperties,
                     finalTransactionStateResolver,
                     executor,
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners,
+                    buildCompletionListeners,
                     enlistmentConsistencyToken,
                     false,
                     initialOperationTimestamp
@@ -219,13 +213,12 @@ class IndexBuilder implements ManuallyCloseable {
                     partitionStorage,
                     replicaService,
                     failureProcessor,
-                    nodeProperties,
                     finalTransactionStateResolver,
                     executor,
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners,
+                    buildCompletionListeners,
                     enlistmentConsistencyToken,
                     true,
                     initialOperationTimestamp
@@ -241,17 +234,6 @@ class IndexBuilder implements ManuallyCloseable {
 
         long tsLong = indexMeta.statusChange(MetaIndexStatus.REGISTERED).activationTimestamp();
         return HybridTimestamp.hybridTimestamp(tsLong);
-    }
-
-    /**
-     * Stops building all indexes (for a table partition) if they are in progress.
-     *
-     * @param tableId Table ID.
-     * @param partitionId Partition ID.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-    public void stopBuildingTableIndexes(int tableId, int partitionId) {
-        stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
     }
 
     /**
@@ -298,12 +280,12 @@ class IndexBuilder implements ManuallyCloseable {
 
     /** Adds a listener. */
     public void listen(IndexBuildCompletionListener listener) {
-        listeners.add(listener);
+        buildCompletionListeners.add(listener);
     }
 
     /** Removes a listener. */
     public void stopListen(IndexBuildCompletionListener listener) {
-        listeners.remove(listener);
+        buildCompletionListeners.remove(listener);
     }
 
     private void putAndStartTaskIfAbsent(IndexBuildTaskId taskId, IndexBuildTask task) {

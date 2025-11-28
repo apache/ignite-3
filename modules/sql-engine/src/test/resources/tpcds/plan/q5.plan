@@ -171,13 +171,10 @@ Sort
                               predicate: AND(=(WR_ITEM_SK, WS_ITEM_SK), =(WR_ORDER_NUMBER, WS_ORDER_NUMBER))
                               type: left
                               est: (rows=71763)
-                            Exchange
-                                distribution: table PUBLIC.WEB_SALES in zone "Default" by [WR_ITEM_SK, WR_ORDER_NUMBER]
+                            TableScan
+                                table: PUBLIC.WEB_RETURNS
+                                fieldNames: [WR_RETURNED_DATE_SK, WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_AMT, WR_NET_LOSS]
                                 est: (rows=71763)
-                              TableScan
-                                  table: PUBLIC.WEB_RETURNS
-                                  fieldNames: [WR_RETURNED_DATE_SK, WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_AMT, WR_NET_LOSS]
-                                  est: (rows=71763)
                             TableScan
                                 table: PUBLIC.WEB_SALES
                                 fieldNames: [WS_ITEM_SK, WS_WEB_SITE_SK, WS_ORDER_NUMBER]

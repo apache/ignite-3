@@ -65,6 +65,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -873,6 +874,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                 break;
             }
+
+            case ESTALE:
+                fut.completeExceptionally(new RaftStaleUpdateException(resp.errorMsg()));
+
+                break;
 
             default:
                 fut.completeExceptionally(new RaftException(error, resp.errorMsg()));
