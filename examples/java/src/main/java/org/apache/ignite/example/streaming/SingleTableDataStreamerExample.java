@@ -42,6 +42,9 @@ public class SingleTableDataStreamerExample {
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
+            System.out.println("Creating Accounts table");
+            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS ACCOUNTS (id INT PRIMARY KEY, name VARCHAR(255), balance BIGINT, active BOOLEAN);");
+
             RecordView<Account> view = client.tables().table("Accounts").recordView(Account.class);
 
             /* PUT entries into the table*/
@@ -55,6 +58,9 @@ public class SingleTableDataStreamerExample {
 
             /* Check that table doesnt contain data */
             verifyRemove(view);
+
+            System.out.println("Dropping Accounts table.");
+            client.sql().execute(null, "DROP TABLE IF EXISTS ACCOUNTS;");
 
         }
     }
