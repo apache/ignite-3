@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.storage.pagememory.mv.BlobStorage;
 import org.jetbrains.annotations.Nullable;
@@ -58,10 +57,14 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_LOW_OFF + Long.BYTES;
 
     /** Estimated size here is not a size of a meta, but an approximate rows count. */
-    private static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
+    protected static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
 
-    /** I/O versions. */
-    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
+    /**
+     * Constructor.
+     */
+    protected StoragePartitionMetaIo() {
+        this(1);
+    }
 
     /**
      * Constructor.

@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.storage.pagememory;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
 
-/**
- * Reads {@link RowVersion#value()} from page-memory.
- */
-class ReadRowVersionValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueSizeOffsetInFirstSlot();
-    }
-
-    @Override
-    protected int valueOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueOffsetInFirstSlot();
-    }
+/** Storage partition meta I/O versions. */
+public class StoragePartitionMetaIoVersions {
+    /** I/O versions. */
+    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
+            new StoragePartitionMetaIo()
+    );
 }
