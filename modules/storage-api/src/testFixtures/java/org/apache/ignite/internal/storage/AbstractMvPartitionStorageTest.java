@@ -150,9 +150,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void testAddWriteReplaceWriteIntent() {
         RowId rowId = insert(binaryRow, txId);
 
-        AddWriteResult actual = addWrite(rowId, binaryRow2, txId);
         assertThat(
-                actual,
+                addWrite(rowId, binaryRow2, txId),
                 equalsToAddWriteResult(AddWriteResult.success(binaryRow))
         );
     }
