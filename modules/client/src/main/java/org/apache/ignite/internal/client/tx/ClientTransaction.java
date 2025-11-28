@@ -221,13 +221,27 @@ public class ClientTransaction implements Transaction {
         boolean enabled = ch.protocolContext().isFeatureSupported(TX_PIGGYBACK);
         CompletableFuture<Void> finishFut = enabled ? ch.inflights().finishFuture(txId()) : nullCompletedFuture();
 
-        CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
-            w.out().packLong(id);
+        CompletableFuture<Void> mainFinishFut = finishFut.handle((ignored, e) -> {
+            if (e != null) {
+                ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
+                    w.out().packLong(id);
 
-            if (!isReadOnly && enabled) {
-                packEnlisted(w);
+                    if (!isReadOnly && enabled) {
+                        packEnlisted(w);
+                    }
+                }, r -> null);
+
+                return CompletableFuture.<Void>failedFuture(e);
             }
-        }, r -> null));
+
+            return ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
+                w.out().packLong(id);
+
+                if (!isReadOnly && enabled) {
+                    packEnlisted(w);
+                }
+            }, r -> (Void) null);
+        }).thenCompose(x -> x);
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
