@@ -505,16 +505,18 @@ public class ClientTableCommon {
 
                 // TODO https://issues.apache.org/jira/browse/IGNITE-25017
                 // partition awareness feature should be reworked to use zone ids.
-                int commitTableId = in.unpackInt();
+                int tableId = in.unpackInt();
                 int commitPart = in.unpackInt();
 
                 UUID coord = in.unpackUuid();
                 long timeout = in.unpackLong();
 
-                return readTableAsync(commitTableId, tables)
+                return readTableAsync(tableId, tables)
                         .thenApply(table -> {
                             InternalTransaction remote = txManager.beginRemote(txId, new ZonePartitionId(table.zoneId(), commitPart),
                                     coord, token, timeout, err -> {
+                                            // Need clarification: why might this listener be null when processing SQL queries?
+                                            // See ClientSqlExecuteRequest#process
                                             if (notificationSender != null) {
                                                 // Will be called for write txns.
                                                 notificationSender.sendNotification(w -> w.packUuid(txId), err, NULL_HYBRID_TIMESTAMP);
