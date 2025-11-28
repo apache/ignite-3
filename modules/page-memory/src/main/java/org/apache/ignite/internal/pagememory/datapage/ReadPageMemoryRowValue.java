@@ -50,7 +50,7 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     private int transferredBytes = 0;
 
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Void ignoredArg) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, @Nullable Void ignoredArg) {
         if (readingFirstSlot) {
             readingFirstSlot = false;
             return readFullyOrStartReadingFragmented(pageAddr, payload);

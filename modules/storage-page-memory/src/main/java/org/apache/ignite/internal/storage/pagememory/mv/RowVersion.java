@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.nio.ByteBuffer;
@@ -261,6 +262,10 @@ public class RowVersion implements Storable {
 
     RowVersionOperations operations() {
         return PlainRowVersionOperations.INSTANCE;
+    }
+
+    static long readNextLink(int partitionId, long pageAddr, int offset) {
+        return readPartitionless(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
     }
 
     @Override
