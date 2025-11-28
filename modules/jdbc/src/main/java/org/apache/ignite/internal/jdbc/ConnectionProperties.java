@@ -99,6 +99,15 @@ public interface ConnectionProperties {
     void setConnectionTimeout(Integer connTimeout) throws SQLException;
 
     /**
+     * Gets the background reconnect interval, in milliseconds.
+     *
+     * <p>Value {@code 0} means that background reconnect is disabled.
+     *
+     * <p>Default is {@link org.apache.ignite.client.IgniteClientConfiguration#DFLT_BACKGROUND_RECONNECT_INTERVAL}.
+     */
+    long getBackgroundReconnectInterval();
+
+    /**
      * SSL enabled.
      *
      * @return true if SSL is enabled.
