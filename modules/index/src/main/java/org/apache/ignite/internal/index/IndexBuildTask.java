@@ -238,7 +238,7 @@ class IndexBuildTask {
             return nullCompletedFuture();
         }
 
-        indexBuilderMetricSource.transitionToReadingRows();
+        indexBuilderMetricSource.onTransitionToReadingRows();
 
         Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
         List<RowId> rowIds;
@@ -246,18 +246,18 @@ class IndexBuildTask {
         try {
             rowIds = getRowIds(highestRowId, transactionsToResolve);
         } catch (Exception e) {
-            indexBuilderMetricSource.rowsReadError();
+            indexBuilderMetricSource.onRowsReadError();
 
             leaveBusy();
 
             return failedFuture(e);
         }
 
-        indexBuilderMetricSource.transitionToWaitingForTransactions(transactionsToResolve.size());
+        indexBuilderMetricSource.onTransitionToWaitingForTransactions(transactionsToResolve.size());
 
         try {
             return waitForTransactions(transactionsToResolve, rowIds)
-                    .thenCompose(this::sendBuildIndexReplicaRequest)
+                    .thenCompose(this::processBatch)
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -283,11 +283,6 @@ class IndexBuildTask {
         } finally {
             leaveBusy();
         }
-    }
-
-    private CompletableFuture<Object> sendBuildIndexReplicaRequest(BatchToIndex batch) {
-        return replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
-                .whenComplete((ignored, e) -> indexBuilderMetricSource.indexBuildFinished());
     }
 
     private List<RowId> getRowIds(@Nullable RowId highestRowId, Map<UUID, CommitPartitionId> transactionsToResolve) {
@@ -338,9 +333,9 @@ class IndexBuildTask {
                 })
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
-                        indexBuilderMetricSource.waitingForTransactionsError(transactionsToResolve.size());
+                        indexBuilderMetricSource.onWaitingForTransactionsError(transactionsToResolve.size());
                     } else {
-                        indexBuilderMetricSource.transitionToWaitingForReplicaResponse(transactionsToResolve.size());
+                        indexBuilderMetricSource.onTransitionToWaitingForReplicaResponse(transactionsToResolve.size());
                     }
                 });
     }
@@ -359,6 +354,8 @@ class IndexBuildTask {
 
         return replicaService.invoke(node, request)
                 .whenComplete((unused, throwable) -> {
+                    indexBuilderMetricSource.onIndexBuildFinished();
+
                     if (throwable == null) {
                         statisticsLoggingListener.onRaftCallSuccess();
                     } else {

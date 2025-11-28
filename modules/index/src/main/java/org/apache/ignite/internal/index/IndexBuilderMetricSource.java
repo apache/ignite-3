@@ -30,7 +30,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
 
     /** Constructor. */
     public IndexBuilderMetricSource() {
-        super(METRIC_GROUP, "Index metrics.");
+        super(METRIC_GROUP, "Index builder metrics.");
     }
 
     @Override
@@ -38,7 +38,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         return new Holder();
     }
 
-    void transitionToReadingRows() {
+    void onTransitionToReadingRows() {
         Holder holder = holder();
         if (holder != null) {
             holder.totalIndexesBuilding.increment();
@@ -46,7 +46,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void transitionToWaitingForTransactions(int transactionsToWait) {
+    void onTransitionToWaitingForTransactions(int transactionsToWait) {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesReadingStorage.decrement();
@@ -55,7 +55,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void rowsReadError() {
+    void onRowsReadError() {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesReadingStorage.decrement();
@@ -63,7 +63,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void waitingForTransactionsError(int size) {
+    void onWaitingForTransactionsError(int size) {
         Holder holder = holder();
         if (holder != null) {
             holder.totalIndexesBuilding.decrement();
@@ -72,7 +72,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void transitionToWaitingForReplicaResponse(int size) {
+    void onTransitionToWaitingForReplicaResponse(int size) {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesWaitingForTransactionn.decrement();
@@ -81,7 +81,7 @@ public class IndexBuilderMetricSource extends AbstractMetricSource<IndexBuilderM
         }
     }
 
-    void indexBuildFinished() {
+    void onIndexBuildFinished() {
         Holder holder = holder();
         if (holder != null) {
             holder.indexesWaitingForReplica.decrement();
