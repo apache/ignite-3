@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -177,35 +178,36 @@ class GarbageCollector {
     /**
      * Polls an elements for vacuum. See {@link MvPartitionStorage#peek}.
      *
-     * @param writeBatch Current Write Batch.
      * @param lowWatermark Low watermark.
+     * @param count Requested count of entries.
      */
-    List<GcEntry> peek(WriteBatchWithIndex writeBatch, HybridTimestamp lowWatermark) {
-        // We retrieve the first element of the GC queue and seek for it in the data CF.
-        // However, the element that we need to garbage collect is the next (older one) element.
-        // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
-        // If the next element exists, that should be the element that we want to garbage collect.
-        try (RocksIterator gcIt = newWrappedIterator(writeBatch, gcQueueCf, helper.upperBoundReadOpts)) {
+    List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        if (count <= 0) {
+            return List.of();
+        }
+
+        var res = new ArrayList<GcEntry>(count);
+
+        try (RocksIterator gcIt = db.newIterator(gcQueueCf, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
-            if (invalid(gcIt)) {
-                // GC queue is empty.
-                return List.of();
+            while (res.size() < count && !invalid(gcIt)) {
+                ByteBuffer gcKeyBuffer = readGcKey(gcIt);
+
+                GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
+
+                if (gcRowVersion.getTimestamp().compareTo(lowWatermark) > 0) {
+                    break;
+                }
+
+                res.add(gcRowVersion);
+
+                gcIt.next();
             }
-
-            ByteBuffer gcKeyBuffer = readGcKey(gcIt);
-
-            GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
-
-            if (gcRowVersion.getTimestamp().compareTo(lowWatermark) > 0) {
-                // No elements to garbage collect.
-                return List.of();
-            }
-
-            return List.of(gcRowVersion);
         }
-    }
 
+        return res;
+    }
 
     /**
      * Polls an element for vacuum. See {@link MvPartitionStorage#vacuum(GcEntry)}.

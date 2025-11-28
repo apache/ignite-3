@@ -1290,14 +1290,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    // TODO: IGNITE-26988 Переделать
     public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
-        WriteBatchWithIndex batch = requireWriteBatch();
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        // No busy lock required, we're already in "runConsistently" closure.
-        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-        return gc.peek(batch, lowWatermark);
+            return gc.peek(lowWatermark, count);
+        });
     }
 
     @Override
