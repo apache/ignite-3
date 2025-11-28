@@ -302,6 +302,12 @@ public class ClientOp {
         // || opCode == ClientOp.TUPLE_DELETE_ALL
         // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
         // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
-        return OP_MASK.get(opCode);
+        return OP_MASK.get(opCode)
+                || opCode == ClientOp.TUPLE_UPSERT_ALL
+                || opCode == ClientOp.TUPLE_GET_ALL
+                || opCode == ClientOp.TUPLE_INSERT_ALL
+                || opCode == ClientOp.TUPLE_DELETE_ALL
+                || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
+                || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
     }
 }

@@ -30,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(PartitionReplicationMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
 public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, TableAware {
+    long startTs();
     /**
      * Deleted flags (one for every tuple in {@link #binaryTuples()}.
      *
