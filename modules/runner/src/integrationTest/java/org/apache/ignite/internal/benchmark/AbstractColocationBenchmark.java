@@ -108,14 +108,14 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    public void nodeSetUp() throws Exception {
+    public void clusterSetUp() throws Exception {
         boolean colocationFeatureEnabled = enableColocationFeature();
 
         // Enable/disable colocation feature.
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationFeatureEnabled));
 
         // Start the cluster and initialize it.
-        super.nodeSetUp();
+        super.clusterSetUp();
     }
 
     protected boolean enableColocationFeature() {
