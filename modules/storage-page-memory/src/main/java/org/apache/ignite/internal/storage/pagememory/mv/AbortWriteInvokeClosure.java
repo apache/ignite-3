@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
-import static org.apache.ignite.internal.storage.pagememory.mv.WriteIntentListSupport.removeNodeFromWriteIntentsList;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -113,8 +112,8 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     @Override
     public void onUpdate() {
-        if (toRemove != null && toRemove instanceof WiLinkableRowVersion) {
-            removeNodeFromWriteIntentsList((WiLinkableRowVersion) toRemove, storage, this::abortWriteInfo);
+        if (toRemove != null) {
+            toRemove.operations().removeFromWriteIntentsList(toRemove, storage, this::abortWriteInfo);
         }
     }
 

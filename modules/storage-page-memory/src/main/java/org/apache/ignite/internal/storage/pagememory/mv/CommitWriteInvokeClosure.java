@@ -18,17 +18,12 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
-import static org.apache.ignite.internal.storage.pagememory.mv.WriteIntentListSupport.removeNodeFromWriteIntentsList;
-import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
-import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -171,14 +166,9 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (linkToWriteIntentToCommit != NULL_LINK) {
             assert !currentRowVersion.isCommitted() : commitWriteInfo() + ", currentRowVersion=" + currentRowVersion;
 
-            boolean isWiLinkable = currentRowVersion instanceof WiLinkableRowVersion;
-            if (isWiLinkable) {
-                removeNodeFromWriteIntentsList((WiLinkableRowVersion) currentRowVersion, storage, this::commitWriteInfo);
-            }
+            currentRowVersion.operations().removeFromWriteIntentsList(currentRowVersion, storage, this::commitWriteInfo);
 
-            PageHandler<HybridTimestamp, Object> updateHandler = isWiLinkable
-                    ? UpdateTimestampAndZeroWiLinksHandler.INSTANCE
-                    : UpdateTimestampHandler.INSTANCE;
+            PageHandler<HybridTimestamp, Object> updateHandler = currentRowVersion.operations().converterToCommittedVersion();
             try {
                 freeList.updateDataRow(linkToWriteIntentToCommit, updateHandler, timestamp);
             } catch (IgniteInternalCheckedException e) {
@@ -232,53 +222,5 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private String commitWriteInfo() {
         return storage.commitWriteInfo(rowId, timestamp, txId);
-    }
-
-    private static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
-        private static final UpdateTimestampHandler INSTANCE = new UpdateTimestampHandler();
-
-        @Override
-        public Object run(
-                int groupId,
-                long pageId,
-                long page,
-                long pageAddr,
-                PageIo io,
-                HybridTimestamp timestamp,
-                int itemId
-        ) {
-            DataPageIo dataIo = (DataPageIo) io;
-
-            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
-
-            HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
-
-            return true;
-        }
-    }
-
-    private static class UpdateTimestampAndZeroWiLinksHandler implements PageHandler<HybridTimestamp, Object> {
-        private static final UpdateTimestampAndZeroWiLinksHandler INSTANCE = new UpdateTimestampAndZeroWiLinksHandler();
-
-        @Override
-        public Object run(
-                int groupId,
-                long pageId,
-                long page,
-                long pageAddr,
-                PageIo io,
-                HybridTimestamp timestamp,
-                int itemId
-        ) {
-            DataPageIo dataIo = (DataPageIo) io;
-
-            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
-
-            HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
-            writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
-            writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
-
-            return true;
-        }
     }
 }

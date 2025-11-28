@@ -259,6 +259,10 @@ public class RowVersion implements Storable {
         // No-op.
     }
 
+    RowVersionOperations operations() {
+        return PlainRowVersionOperations.INSTANCE;
+    }
+
     @Override
     public String toString() {
         return S.toString(RowVersion.class, this);

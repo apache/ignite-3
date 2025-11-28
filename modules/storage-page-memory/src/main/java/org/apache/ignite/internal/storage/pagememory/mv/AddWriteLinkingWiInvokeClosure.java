@@ -93,7 +93,7 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
             WiLinkableRowVersion newVersion = insertRowVersion(oldRow.newestCommittedLink(), newNextWiLink, newPrevWiLink);
 
             if (!replacingExistingWriteIntent) {
-                // Add ourselves to the head of the WI list.
+                // Add our new version to the head of the WI list.
                 newWiListHeadLink = newVersion.link();
             }
 
