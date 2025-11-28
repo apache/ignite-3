@@ -108,15 +108,6 @@ public interface ConnectionProperties {
     long getBackgroundReconnectInterval();
 
     /**
-     * Gets the maximum number of retry attempts to establish connection.
-     *
-     * <p>Value {@code 0} means that no retries will be made, {@code -1} means that the number of retries is unlimited.
-     *
-     * <p>Default is {@link org.apache.ignite.client.RetryLimitPolicy#DFLT_RETRY_LIMIT}.
-     */
-    int getReconnectRetriesLimit();
-
-    /**
      * SSL enabled.
      *
      * @return true if SSL is enabled.

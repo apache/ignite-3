@@ -55,7 +55,6 @@ import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.awaitility.Awaitility;
@@ -1048,33 +1047,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
         assertInvalid(urlPrefix + "=9223372036854775808",
                 format("Failed to parse int property [name={}, value=9223372036854775808]", propertyName));
-    }
-
-    @Test
-    public void testChangeReconnectRetriesLimit() throws SQLException {
-        String propertyName = "reconnectRetriesLimit";
-        String urlPrefix = URL + "?" + propertyName;
-
-        SqlThrowingFunction<String, Number> valueGetter = url -> {
-            try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(url)) {
-                return conn.properties().getReconnectRetriesLimit();
-            }
-        };
-
-        assertThat(valueGetter.apply(URL), is(RetryLimitPolicy.DFLT_RETRY_LIMIT));
-        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
-        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
-        // -1 is a valid value, meaning an unlimited number of attempts.
-        assertThat(valueGetter.apply(urlPrefix + "=-1"), is(-1));
-
-        assertInvalid(urlPrefix + "=A",
-                format("Failed to parse int property [name={}, value=A]", propertyName));
-
-        assertInvalid(urlPrefix + "=-2",
-                format("Property cannot be lower than -1 [name={}, value=-2]", propertyName));
-
-        assertInvalid(urlPrefix + "=2147483648",
-                format("Failed to parse int property [name={}, value=2147483648]", propertyName));
     }
 
     /**

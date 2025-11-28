@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
 import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -77,13 +76,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     + " Zero means that background reconnect is disabled.",
             IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL, false, 0, Long.MAX_VALUE);
 
-    /** JDBC maximum number of reconnect attempts. */
-    private final IntegerProperty reconnectRetriesLimit = new IntegerProperty("reconnectRetriesLimit",
-            "Sets the maximum number of retry attempts to establish connection."
-                    + " The value `0` means that no retries will be made."
-                    + " The value `-1` means that the number of retries is unlimited.",
-            RetryLimitPolicy.DFLT_RETRY_LIMIT, false, -1, Integer.MAX_VALUE);
-
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
             "Path to trust store", null, null, false, null);
@@ -130,7 +122,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, ciphers, keyStorePath, keyStorePassword,
             username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize,
-            backgroundReconnectInterval, reconnectRetriesLimit
+            backgroundReconnectInterval
     };
 
     /** {@inheritDoc} */
@@ -223,12 +215,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public long getBackgroundReconnectInterval() {
         return backgroundReconnectInterval.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int getReconnectRetriesLimit() {
-        return reconnectRetriesLimit.value();
     }
 
     /** {@inheritDoc} */

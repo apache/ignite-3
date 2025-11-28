@@ -121,13 +121,6 @@ import org.jetbrains.annotations.Nullable;
  *          <br>The default value is {@code 30 000}.</td>
  *   </tr>
  *   <tr>
- *      <td>reconnectRetriesLimit</td>
- *      <td>Maximum number of retry attempts to establish connection.
- *          <br>The value {@code 0} means that no retries will be made.
- *          <br>The value {@code -1} means that the number of retries is not limited.
- *          <br>The default value is {@code 16}.</td>
- *   </tr>
- *   <tr>
  *       <th colspan="2">Basic authentication</th>
  *   </tr>
  *   <tr>
@@ -320,7 +313,7 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                new RetryReadPolicy().retryLimit(connectionProperties.getReconnectRetriesLimit()),
+                new RetryReadPolicy(),
                 null,
                 extractSslConfiguration(connectionProperties),
                 false,

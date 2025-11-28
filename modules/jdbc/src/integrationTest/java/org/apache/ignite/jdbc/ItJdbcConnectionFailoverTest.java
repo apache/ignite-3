@@ -195,28 +195,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
     }
 
-    @Test
-    void testConnectionRetryLimit() throws SQLException {
-        String[] addresses = {
-                "127.0.0.1:" + (BASE_CLIENT_PORT + 2),
-                "127.0.0.1:" + (BASE_CLIENT_PORT + 1),
-                "127.0.0.1:" + BASE_CLIENT_PORT
-        };
-
-        int nodesCount = 2;
-
-        cluster.startAndInit(nodesCount, new int[]{1});
-
-        //noinspection ThrowableNotThrown
-        assertThrowsSqlException(
-                "Failed to connect to server",
-                () -> getConnection(String.join(",", addresses), "reconnectRetriesLimit=0")
-        );
-
-        getConnection(String.join(",", addresses), "reconnectRetriesLimit=1")
-                .close();
-    }
-
     /**
      * Ensures that the client receives a meaningful exception when the node holding the client transaction goes down.
      */
