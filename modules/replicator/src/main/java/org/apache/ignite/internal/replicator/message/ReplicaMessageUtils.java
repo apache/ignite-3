@@ -66,7 +66,20 @@ public class ReplicaMessageUtils {
      * @return New instance of network message.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-27174 remove this method and its usages.
-    public static ReplicationGroupIdMessage toReplicationGroupIdMessage(
+    public static ZonePartitionIdMessage toReplicationGroupIdMessage(
+            ReplicaMessagesFactory messagesFactory,
+            ReplicationGroupId replicationGroupId
+    ) {
+        assert replicationGroupId instanceof ZonePartitionId :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType = ZonePartitionId].";
+
+        return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27174 remove this method and its usages.
+    public static ReplicationGroupIdMessage toReplicationGroupIdMessage2(
             ReplicaMessagesFactory messagesFactory,
             ReplicationGroupId replicationGroupId
     ) {

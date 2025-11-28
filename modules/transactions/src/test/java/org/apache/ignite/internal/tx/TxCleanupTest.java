@@ -57,7 +57,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
@@ -83,6 +83,20 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final InternalClusterNode REMOTE_NODE =
             new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
+
+    private static final ZonePartitionId ZONE_PARTITION_ID_1 = new ZonePartitionId(1, 0);
+    private static final ZonePartitionId ZONE_PARTITION_ID_2 = new ZonePartitionId(2, 0);
+    private static final ZonePartitionId ZONE_PARTITION_ID_3 = new ZonePartitionId(3, 0);
+
+    private static final int TABLE_ID_1 = 10;
+    private static final int TABLE_ID_2 = 20;
+    private static final int TABLE_ID_3 = 30;
+
+    private static final Map<ReplicationGroupId, PartitionEnlistment> PARTITIONS = Map.of(
+            ZONE_PARTITION_ID_1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(TABLE_ID_1)),
+            ZONE_PARTITION_ID_2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(TABLE_ID_2)),
+            ZONE_PARTITION_ID_3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(TABLE_ID_3))
+    );
 
     @InjectConfiguration
     private TransactionConfiguration transactionConfiguration;
@@ -134,22 +148,12 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     @Test
     void testCleanupAllNodes() {
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
-
-        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
-                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
-                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
-                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
-        );
-
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = idGenerator.transactionIdFor(beginTimestamp);
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(tablePartitionId1, partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(ZONE_PARTITION_ID_1, PARTITIONS, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 
@@ -159,26 +163,16 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     @Test
     void testPrimaryNotFoundForSomeAfterException() {
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
-
-        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
-                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
-                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
-                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
-        );
-
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))
                 .thenReturn(failedFuture(new IOException("Test failure")), nullCompletedFuture());
 
         when(placementDriver.getPrimaryReplica(any(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.getPrimaryReplica(eq(tablePartitionId1), any()))
+        when(placementDriver.getPrimaryReplica(eq(ZONE_PARTITION_ID_1), any()))
                 .thenReturn(nullCompletedFuture());
 
-        when(placementDriver.awaitPrimaryReplica(eq(tablePartitionId1), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplica(eq(ZONE_PARTITION_ID_1), any(), anyLong(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp beginTimestamp = clock.now();
@@ -186,7 +180,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(tablePartitionId1, partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(ZONE_PARTITION_ID_1, PARTITIONS, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 
@@ -196,16 +190,6 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     @Test
     void testPrimaryNotFoundForAll() {
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
-
-        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
-                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
-                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
-                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
-        );
-
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))
                 .thenReturn(failedFuture(new IOException("Test failure")), nullCompletedFuture());
@@ -221,7 +205,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(tablePartitionId1, partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(ZONE_PARTITION_ID_1, PARTITIONS, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 

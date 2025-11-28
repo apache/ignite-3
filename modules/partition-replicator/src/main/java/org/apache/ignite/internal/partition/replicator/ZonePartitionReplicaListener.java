@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -114,7 +113,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             InternalClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
@@ -133,8 +131,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
-                schemaSyncService,
-                nodeProperties
+                schemaSyncService
         );
 
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
