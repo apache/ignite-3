@@ -135,8 +135,6 @@ public class TxFinishReplicaRequestHandler {
 
         UUID txId = request.txId();
 
-        LOG.info("DBG: finish: " + request.commit() + " id=" + request.txId());
-
         if (request.commit()) {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 

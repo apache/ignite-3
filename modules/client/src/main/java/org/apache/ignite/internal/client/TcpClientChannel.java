@@ -35,6 +35,7 @@ import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -595,9 +596,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     ClientDelayedAckException err0 = (ClientDelayedAckException) err;
 
                     inflights.removeInflight(err0.txId(), new TransactionException(err0.code(), err0.getMessage(), err0.getCause()));
-
-                    return;
                 }
+
+                // Can't do anything to remove stuck inflight.
+                return;
             }
 
             UUID txId = unpacker.unpackUuid();
@@ -921,16 +923,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     void checkTimeouts(long now) {
-//        for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
-//            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
-//
-//            if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
-//                // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
-//                // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-//                CompletableFuture<?> fut = timeoutObject.future();
-//                fut.completeExceptionally(new TimeoutException());
-//            }
-//        }
+        for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
+            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+
+            if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
+                // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
+                // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
+                CompletableFuture<?> fut = timeoutObject.future();
+                fut.completeExceptionally(new TimeoutException());
+            }
+        }
     }
 
     /**

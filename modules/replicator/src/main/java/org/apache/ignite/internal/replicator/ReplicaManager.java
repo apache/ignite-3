@@ -965,7 +965,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
-                100000000, //idleSafeTimePropagationPeriodMsSupplier.getAsLong(),
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong(),
                 TimeUnit.MILLISECONDS
         );
 
