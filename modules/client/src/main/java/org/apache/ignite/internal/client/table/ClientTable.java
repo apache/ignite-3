@@ -72,6 +72,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -166,6 +167,11 @@ public class ClientTable implements Table {
 
     @Override
     public PartitionManager partitionManager() {
+        return clientPartitionManager;
+    }
+
+    @Override
+    public PartitionDistribution partitionDistribution() {
         return clientPartitionManager;
     }
 

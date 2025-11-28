@@ -52,7 +52,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
@@ -758,7 +757,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
-        return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
+        return table.partitionManager().partitionAsync(keyTuple).get().partitionId();
     }
 
     @Test

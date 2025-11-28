@@ -29,7 +29,7 @@ import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +55,7 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     @Test
     public void testPrimaryReplicasCacheInvalidation() {
         Table table = client.tables().table(TABLE_NAME);
-        PartitionManager partMgr = table.partitionManager();
+        PartitionDistribution partMgr = table.partitionDistribution();
         HashPartition part0 = new HashPartition(0);
         HashPartition part2 = new HashPartition(2);
 

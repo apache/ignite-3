@@ -17,49 +17,12 @@
 
 package org.apache.ignite.table.partition;
 
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
-
 /**
- * The partition manager provides the ability to obtain information about table partitions.
- * This interface can be used to get all partitions of a table,
- * the location of the primary replica of a partition,
- * the partition for a specific table key.
+ * The partition manager provides the ability to obtain information about table partitions. This interface can be used to get all partitions
+ * of a table, the location of the primary replica of a partition, the partition for a specific table key.
+ *
+ * @deprecated Replaced by {@link PartitionDistribution}.
  */
-public interface PartitionManager {
-    /**
-     * Returns location of primary replica for provided partition.
-     *
-     * @param partition Partition instance.
-     * @return Cluster node where primary replica of provided partition is located.
-     */
-    CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition);
-
-    /**
-     * Returns map with all partitions and their locations.
-     *
-     * @return Map from partition to cluster node where primary replica of the partition is located.
-     */
-    CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync();
-
-    /**
-     * Returns partition instance for provided table key.
-     *
-     * @param key Table key.
-     * @param mapper Table key mapper.
-     * @param <K> Key type.
-     * @return Partition instance which contains provided key.
-     */
-    <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper);
-
-    /**
-     * Returns partition instance for provided table key.
-     *
-     * @param key Table key tuple.
-     * @return Partition instance which contains provided key.
-     */
-    CompletableFuture<Partition> partitionAsync(Tuple key);
+@Deprecated(since = "3.2")
+public interface PartitionManager extends PartitionDistribution {
 }

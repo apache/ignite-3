@@ -55,10 +55,6 @@ class ClientPartitionManager implements PartitionManager {
 
     @Override
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        if (!(partition instanceof HashPartition)) {
-            throw new IllegalArgumentException("Unsupported partition type: " + partition);
-        }
-
         ClusterNode clusterNode = getClusterNode(partition);
 
         if (clusterNode != null) {

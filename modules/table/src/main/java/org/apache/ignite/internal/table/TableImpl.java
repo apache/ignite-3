@@ -56,6 +56,7 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -174,6 +175,11 @@ public class TableImpl implements TableViewInternal {
     @Override
     public PartitionManager partitionManager() {
         return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
+    }
+
+    @Override
+    public PartitionDistribution partitionDistribution() {
+        return partitionManager();
     }
 
     @Override public QualifiedName qualifiedName() {

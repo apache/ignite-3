@@ -32,15 +32,15 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.lang.UnsupportedPartitionTypeException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Implementation of {@link PartitionManager} for tables with hash partitions.
+ * Implementation of {@link PartitionDistribution} for tables with hash partitions.
  */
 public class HashPartitionManagerImpl implements PartitionManager {
     private final InternalTable table;
@@ -68,12 +68,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
 
     @Override
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        if (!(partition instanceof HashPartition)) {
-            throw new UnsupportedPartitionTypeException("Table " + table.name()
-                    + " doesn't support any other type of partition except hash partition.");
-        }
-        HashPartition hashPartition = (HashPartition) partition;
-        return table.partitionLocation(hashPartition.partitionId())
+        return table.partitionLocation(partition.partitionId())
                 .thenApply(InternalClusterNode::toPublicNode);
     }
 

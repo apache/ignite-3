@@ -56,7 +56,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -143,14 +143,14 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     }
 
     private void insertOriginalValuesToBothNodes(int keyCount, KeyValueView<Integer, String> kvView) throws Exception {
-        PartitionManager partitionManager = node(0).tables().table(TABLE_NAME).partitionManager();
+        PartitionDistribution partitionDistribution = node(0).tables().table(TABLE_NAME).partitionDistribution();
         Set<String> primaryNames = new HashSet<>();
 
         for (int i = 0; i < keyCount; i++) {
             kvView.put(null, i, "original-" + i);
 
             if (primaryNames.size() < 2) {
-                ClusterNode primaryReplica = primaryReplicaFor(i, partitionManager);
+                ClusterNode primaryReplica = primaryReplicaFor(i, partitionDistribution);
                 primaryNames.add(primaryReplica.name());
             }
         }
@@ -158,9 +158,9 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         assertThat("Expecting both nodes to host inserted keys", primaryNames, hasSize(2));
     }
 
-    private static ClusterNode primaryReplicaFor(int key, PartitionManager partitionManager) throws Exception {
-        CompletableFuture<ClusterNode> primaryReplicaFuture = partitionManager.partitionAsync(key, Mapper.of(Integer.class))
-                .thenCompose(partitionManager::primaryReplicaAsync);
+    private static ClusterNode primaryReplicaFor(int key, PartitionDistribution partitionDistribution) throws Exception {
+        CompletableFuture<ClusterNode> primaryReplicaFuture = partitionDistribution.partitionAsync(key, Mapper.of(Integer.class))
+                .thenCompose(partitionDistribution::primaryReplicaAsync);
 
         return primaryReplicaFuture.get(10, SECONDS);
     }
