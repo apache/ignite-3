@@ -23,6 +23,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstracts out reading of {@link RowVersion}s of different formats.
+ *
+ * <p>Implementations are stateful and meant to be used for reading a single row version.
  */
 interface RowVersionReader {
     static RowVersionReader newRowVersionReader(byte dataType, long link, int partitionId) {

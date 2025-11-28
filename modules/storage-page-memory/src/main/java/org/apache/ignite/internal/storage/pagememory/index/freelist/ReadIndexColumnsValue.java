@@ -25,16 +25,15 @@ import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
 public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
     @Override
     protected int valueSizeOffsetInFirstSlot(byte dataType) {
+        assert dataType == IndexColumns.DATA_TYPE;
+
         return IndexColumns.SIZE_OFFSET;
     }
 
     @Override
     protected int valueOffsetInFirstSlot(byte dataType) {
-        return IndexColumns.VALUE_OFFSET;
-    }
+        assert dataType == IndexColumns.DATA_TYPE;
 
-    @Override
-    protected boolean supportsDataType(byte dataType) {
-        return dataType == IndexColumns.DATA_TYPE;
+        return IndexColumns.VALUE_OFFSET;
     }
 }

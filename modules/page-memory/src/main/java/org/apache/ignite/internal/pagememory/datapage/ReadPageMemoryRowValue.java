@@ -62,7 +62,6 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
 
     private long readFullyOrStartReadingFragmented(long pageAddr, DataPagePayload payload) {
         byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
-        assert supportsDataType(dataType) : "Unsupported data type: " + dataType;
 
         valueSize = readValueSize(dataType, pageAddr, payload);
 
@@ -77,8 +76,6 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
             return payload.nextLink();
         }
     }
-
-    protected abstract boolean supportsDataType(byte dataType);
 
     private int readValueSize(byte dataType, long pageAddr, DataPagePayload payload) {
         return PageUtils.getInt(pageAddr, payload.offset() + valueSizeOffsetInFirstSlot(dataType));
