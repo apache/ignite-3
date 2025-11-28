@@ -94,13 +94,6 @@ public class RowVersion implements Storable {
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp commitTimestamp, long nextLink, int valueSize) {
-        this(partitionId, link, commitTimestamp, nextLink, valueSize, null);
-    }
-
-    /**
-     * Constructor.
-     */
     public RowVersion(
             int partitionId,
             long link,
