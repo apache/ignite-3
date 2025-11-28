@@ -2531,6 +2531,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this assert.
+        assert commitPartitionId instanceof ZonePartitionId : "Commit partition id must be zone aware ["
+                + "requestType=" + request.requestType()
+                + ", commitPartitionId=" + commitPartitionId
+                + ", class=" + commitPartitionId.getClass().getSimpleName() + ']';
+
         switch (request.requestType()) {
             case RW_DELETE_EXACT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
