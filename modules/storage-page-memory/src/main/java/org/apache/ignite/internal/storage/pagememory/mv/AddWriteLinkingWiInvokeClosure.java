@@ -82,9 +82,9 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
         try {
             long newNextWiLink;
             long newPrevWiLink;
-            if (replacingExistingWriteIntent && existingWriteIntent instanceof WiLinkableRowVersion) {
-                newNextWiLink = ((WiLinkableRowVersion) existingWriteIntent).nextWriteIntentLink();
-                newPrevWiLink = ((WiLinkableRowVersion) existingWriteIntent).prevWriteIntentLink();
+            if (replacingExistingWriteIntent) {
+                newNextWiLink = existingWriteIntent.operations().nextWriteIntentLink(wiListHeadLink);
+                newPrevWiLink = existingWriteIntent.operations().prevWriteIntentLink();
             } else {
                 newNextWiLink = wiListHeadLink;
                 newPrevWiLink = NULL_LINK;

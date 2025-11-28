@@ -29,23 +29,28 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 
 class WiLinkableRowVersionOperations implements RowVersionOperations {
-    static final WiLinkableRowVersionOperations INSTANCE = new WiLinkableRowVersionOperations();
+    private final WiLinkableRowVersion rowVersion;
 
-    private WiLinkableRowVersionOperations() {
-        // No-op.
-    }
-
-    private static WiLinkableRowVersion cast(RowVersion rowVersion) {
-        return (WiLinkableRowVersion) rowVersion;
+    WiLinkableRowVersionOperations(WiLinkableRowVersion rowVersion) {
+        this.rowVersion = rowVersion;
     }
 
     @Override
     public void removeFromWriteIntentsList(
-            RowVersion rowVersionToRemove,
             AbstractPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     ) {
-        removeNodeFromWriteIntentsList(cast(rowVersionToRemove), storage, operationInfoSupplier);
+        removeNodeFromWriteIntentsList(rowVersion, storage, operationInfoSupplier);
+    }
+
+    @Override
+    public long nextWriteIntentLink(long defaultLink) {
+        return rowVersion.nextWriteIntentLink();
+    }
+
+    @Override
+    public long prevWriteIntentLink() {
+        return rowVersion.prevWriteIntentLink();
     }
 
     @Override

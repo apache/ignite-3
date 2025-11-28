@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import java.util.function.Supplier;
@@ -34,11 +35,20 @@ class PlainRowVersionOperations implements RowVersionOperations {
 
     @Override
     public void removeFromWriteIntentsList(
-            RowVersion rowVersionToRemove,
             AbstractPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     ) {
-        // No-op.
+        // No-op as plain row versions are not included in the write intents list.
+    }
+
+    @Override
+    public long nextWriteIntentLink(long defaultLink) {
+        return defaultLink;
+    }
+
+    @Override
+    public long prevWriteIntentLink() {
+        return NULL_LINK;
     }
 
     @Override

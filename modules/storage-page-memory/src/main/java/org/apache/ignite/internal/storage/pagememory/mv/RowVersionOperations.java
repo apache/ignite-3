@@ -21,12 +21,18 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 
+/**
+ * Operations that can be performed on a row version. Used to abstract different behaviors for different row version types.
+ */
 interface RowVersionOperations {
     void removeFromWriteIntentsList(
-            RowVersion rowVersionToRemove,
             AbstractPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     );
+
+    long nextWriteIntentLink(long defaultLink);
+
+    long prevWriteIntentLink();
 
     PageHandler<HybridTimestamp, Object> converterToCommittedVersion();
 }

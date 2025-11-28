@@ -113,7 +113,7 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
     @Override
     public void onUpdate() {
         if (toRemove != null) {
-            toRemove.operations().removeFromWriteIntentsList(toRemove, storage, this::abortWriteInfo);
+            toRemove.operations().removeFromWriteIntentsList(storage, this::abortWriteInfo);
         }
     }
 

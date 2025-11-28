@@ -182,7 +182,7 @@ public final class WiLinkableRowVersion extends RowVersion {
 
     @Override
     RowVersionOperations operations() {
-        return WiLinkableRowVersionOperations.INSTANCE;
+        return new WiLinkableRowVersionOperations(this);
     }
 
     @Override

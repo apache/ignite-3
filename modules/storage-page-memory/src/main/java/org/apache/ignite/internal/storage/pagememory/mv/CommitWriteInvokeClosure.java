@@ -164,9 +164,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                 commitWriteInfo() + ", link=" + linkToWriteIntentToCommit + ", op=" + operationType;
 
         if (linkToWriteIntentToCommit != NULL_LINK) {
+            assert currentRowVersion != null;
             assert !currentRowVersion.isCommitted() : commitWriteInfo() + ", currentRowVersion=" + currentRowVersion;
 
-            currentRowVersion.operations().removeFromWriteIntentsList(currentRowVersion, storage, this::commitWriteInfo);
+            currentRowVersion.operations().removeFromWriteIntentsList(storage, this::commitWriteInfo);
 
             PageHandler<HybridTimestamp, Object> updateHandler = currentRowVersion.operations().converterToCommittedVersion();
             try {
