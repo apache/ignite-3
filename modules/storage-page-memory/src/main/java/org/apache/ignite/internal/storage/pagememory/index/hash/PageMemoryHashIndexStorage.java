@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
-import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
@@ -99,19 +98,19 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
             IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
+            HashIndexRowKey bound = new HashIndexRowKey(indexColumns);
+            try {
+                Cursor<HashIndexRow> cursor = indexTree.find(bound, bound);
 
-            return new ScanCursor<RowId>(lowerBound) {
-                @Override
-                protected RowId map(HashIndexRow value) {
-                    return value.rowId();
-                }
-
-                @Override
-                protected boolean exceedsUpperBound(HashIndexRow value) {
-                    return !Objects.equals(value.indexColumns().valueBuffer(), key.byteBuffer());
-                }
-            };
+                return new ReadOnlyScanCursor<HashIndexRow, RowId>(cursor) {
+                    @Override
+                    protected RowId map(HashIndexRow value) {
+                        return value.rowId();
+                    }
+                };
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Couldn't get index tree cursor", e);
+            }
         });
     }
 
