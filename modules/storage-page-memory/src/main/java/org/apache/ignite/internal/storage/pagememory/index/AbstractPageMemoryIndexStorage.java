@@ -444,6 +444,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     /**
      * Wrapper to the cursor that's returned from B+Tree.
+     *
      * @param <E> Type of elements in the cursor.
      * @param <R> Type of result.
      */
