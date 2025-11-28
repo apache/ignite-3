@@ -101,10 +101,16 @@ public class GcUpdateHandler {
     }
 
     private VacuumResult internalVacuumBatch(HybridTimestamp lowWatermark, IntHolder countHolder) {
-        return storage.runConsistently(locker -> {
-            int count = countHolder.get();
+        int count = countHolder.get();
 
-            for (int i = 0; i < count; i++) {
+        List<GcEntry> peekEntries = storage.peek(lowWatermark, count);
+
+        if (peekEntries.isEmpty()) {
+            return VacuumResult.NO_GARBAGE_LEFT;
+        }
+
+        return storage.runConsistently(locker -> {
+            for (int i = 0; i < peekEntries.size(); i++) {
                 // Check if the storage engine needs resources before continuing.
                 if (locker.shouldRelease()) {
                     return VacuumResult.SHOULD_RELEASE;
@@ -112,9 +118,11 @@ public class GcUpdateHandler {
 
                 // It is safe for the first iteration to use a lock instead of tryLock, since there will be no deadlock for the first RowId
                 // and a deadlock may happen with subsequent ones.
-                VacuumResult vacuumResult = internalVacuum(lowWatermark, locker, i > 0);
+                VacuumResult vacuumResult = internalVacuum(peekEntries.get(i), locker, i > 0);
 
-                if (vacuumResult != VacuumResult.SUCCESS) {
+                if (vacuumResult == VacuumResult.REMOVED_BY_ANOTHER_THREAD) {
+                    continue;
+                } else if (vacuumResult != VacuumResult.SUCCESS) {
                     return vacuumResult;
                 }
 
@@ -125,48 +133,32 @@ public class GcUpdateHandler {
         });
     }
 
-    private VacuumResult internalVacuum(HybridTimestamp lowWatermark, Locker locker, boolean useTryLock) {
-        while (true) {
-            // Check if the storage engine needs resources before continuing.
-            if (locker.shouldRelease()) {
-                return VacuumResult.SHOULD_RELEASE;
+    private VacuumResult internalVacuum(GcEntry gcEntry, Locker locker, boolean useTryLock) {
+        RowId rowId = gcEntry.getRowId();
+
+        if (useTryLock) {
+            if (!locker.tryLock(rowId)) {
+                return VacuumResult.FAILED_ACQUIRE_LOCK;
             }
-
-            // TODO: IGNITE-26998 Переделать а пока заглушка
-            List<GcEntry> gcEntries = storage.peek(lowWatermark, 1);
-
-            if (gcEntries.isEmpty()) {
-                return VacuumResult.NO_GARBAGE_LEFT;
-            }
-
-            GcEntry gcEntry = gcEntries.get(0);
-            RowId rowId = gcEntry.getRowId();
-
-            if (useTryLock) {
-                if (!locker.tryLock(rowId)) {
-                    return VacuumResult.FAILED_ACQUIRE_LOCK;
-                }
-            } else {
-                locker.lock(rowId);
-            }
-
-            BinaryRow binaryRow = storage.vacuum(gcEntry);
-
-            if (binaryRow == null) {
-                // Removed by another thread, let's try to take another.
-                continue;
-            }
-
-            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                // TODO: IGNITE-21005 We need to choose only those indexes that are not available for transactions
-                indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor, null);
-            }
-
-            return VacuumResult.SUCCESS;
+        } else {
+            locker.lock(rowId);
         }
+
+        BinaryRow binaryRow = storage.vacuum(gcEntry);
+
+        if (binaryRow == null) {
+            return VacuumResult.REMOVED_BY_ANOTHER_THREAD;
+        }
+
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            // TODO: IGNITE-21005 We need to choose only those indexes that are not available for transactions
+            indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor, null);
+        }
+
+        return VacuumResult.SUCCESS;
     }
 
     private enum VacuumResult {
-        SUCCESS, NO_GARBAGE_LEFT, FAILED_ACQUIRE_LOCK, SHOULD_RELEASE
+        SUCCESS, NO_GARBAGE_LEFT, FAILED_ACQUIRE_LOCK, SHOULD_RELEASE, REMOVED_BY_ANOTHER_THREAD
     }
 }

@@ -1094,7 +1094,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (IgniteInternalCheckedException e) {
             throwStorageExceptionIfItCause(e);
 
-            throw new StorageException("Row version lookup failed: [rowId={}, {}]", e, lowWatermark, createStorageInfo());
+            throw new StorageException(
+                    "Peek GC entries failed: [lowWatermark={}, count={}, {}]",
+                    e,
+                    lowWatermark, count, createStorageInfo()
+            );
         }
 
         return res;
