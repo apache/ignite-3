@@ -52,6 +52,31 @@ public class UnsafeByteBufferAccessor implements ByteBufferAccessor {
         capacity = buff.capacity();
     }
 
+    /**
+     * Constructor that initializes the accessor with a memory address and capacity.
+     *
+     * @param addr Memory address.
+     * @param capacity Capacity in bytes.
+     */
+    public UnsafeByteBufferAccessor(long addr, int capacity) {
+        this.bytes = null;
+        this.addr = addr;
+        this.capacity = capacity;
+    }
+
+    /**
+     * Constructor that initializes the accessor with a byte array, offset, and length.
+     *
+     * @param bytes Byte array.
+     * @param from Offset in the array.
+     * @param length Length in bytes.
+     */
+    public UnsafeByteBufferAccessor(byte[] bytes, int from, int length) {
+        this.bytes = bytes;
+        this.addr = GridUnsafe.BYTE_ARR_OFF + from;
+        this.capacity = length;
+    }
+
     @Override
     public byte get(int p) {
         return GridUnsafe.getByte(bytes, addr + p);

@@ -43,7 +43,7 @@ public class JitComparatorOptions {
             List<CatalogColumnCollation> columnCollations,
             List<NativeType> columnTypes,
             List<Boolean> nullableFlags,
-            String className,
+            @Nullable String className,
             boolean supportPrefixes,
             boolean supportPartialComparison
     ) {
