@@ -48,7 +48,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.storage.Data;
+import org.apache.ignite.internal.configuration.storage.ReadEntry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -272,7 +272,7 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
      */
     @SafeVarargs
     private void validateStorageContent(Map.Entry<String, Serializable> ...values) {
-        CompletableFuture<Data> dataFuture = storage.readDataOnRecovery();
+        CompletableFuture<ReadEntry> dataFuture = storage.readDataOnRecovery();
         assertThat(dataFuture, willCompleteSuccessfully());
 
         RenamedTestNewView node = registry.getConfiguration(RenamedTestNewConfiguration.KEY).value();
@@ -318,8 +318,8 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         storage.close();
     }
 
-    private Data getData() {
-        CompletableFuture<Data> dataFuture = storage.readDataOnRecovery();
+    private ReadEntry getData() {
+        CompletableFuture<ReadEntry> dataFuture = storage.readDataOnRecovery();
 
         assertThat(dataFuture, willCompleteSuccessfully());
 
