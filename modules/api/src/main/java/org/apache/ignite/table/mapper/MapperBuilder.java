@@ -114,13 +114,7 @@ public final class MapperBuilder<T> {
             throw new IllegalArgumentException("Unsupported class. Interfaces are not supported: " + type.getName());
         }
 
-        try {
-            type.getDeclaredConstructor();
-
-            return type;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
-        }
+        return type;
     }
 
     /**
