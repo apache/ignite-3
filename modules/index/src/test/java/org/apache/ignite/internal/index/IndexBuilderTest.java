@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -76,12 +77,15 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
 
+    private final TestMetricManager metricManager = new TestMetricManager();
+
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             replicaService,
             new NoOpFailureManager(),
             new CommittedFinalTransactionStateResolver(),
-            indexMetaStorage
+            indexMetaStorage,
+            metricManager
     );
 
     @BeforeEach
