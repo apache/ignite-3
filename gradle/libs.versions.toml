@@ -108,7 +108,7 @@ spotbugsTool = "4.9.8"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:7.12.0"
-javacc = "com.intershop.gradle.javacc:4.1.3"
+javacc = "com.intershop.gradle.javacc:6.0.0"
 shadow = "com.gradleup.shadow:8.3.9"
 cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
 # NOTE: do not update nebula to 12.x.x+, because newer versions are not compatible with Java 11.
