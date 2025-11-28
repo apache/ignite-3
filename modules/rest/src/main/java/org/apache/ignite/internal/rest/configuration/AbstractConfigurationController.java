@@ -19,6 +19,8 @@ package org.apache.ignite.internal.rest.configuration;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.MediaType;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -41,8 +43,8 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      *
      * @return the presentation of configuration.
      */
-    public String getConfiguration() {
-        return cfgPresentation.represent();
+    public HttpResponse<?> getConfiguration() {
+        return plainTextResponse(cfgPresentation.represent());
     }
 
     /**
@@ -51,12 +53,16 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      * @param path to represent a configuration.
      * @return system configuration represented by given path.
      */
-    public String getConfigurationByPath(String path) {
+    public HttpResponse<?> getConfigurationByPath(String path) {
         try {
-            return cfgPresentation.representByPath(path);
+            return plainTextResponse(cfgPresentation.representByPath(path));
         } catch (IllegalArgumentException ex) {
             throw new IgniteException(INTERNAL_ERR, ex);
         }
+    }
+
+    private static HttpResponse<String> plainTextResponse(String text) {
+        return HttpResponse.ok(text).contentType(MediaType.TEXT_PLAIN);
     }
 
     /**
