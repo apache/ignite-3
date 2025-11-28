@@ -26,10 +26,10 @@ import java.util.UUID;
 @FunctionalInterface
 public interface StaleIdDetector {
     /**
-     * Returns {@code true} if the given ID is stale.
+     * Returns {@code true} iff the given ID is stale.
      *
      * @param nodeId ID to check.
-     * @return {@code true} if the given ID is stale.
+     * @return {@code true} iff the given ID is stale.
      */
     boolean isIdStale(UUID nodeId);
 }
