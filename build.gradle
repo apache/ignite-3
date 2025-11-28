@@ -60,7 +60,6 @@ ext {
     defaultJvmArgs = addOpens + [
             "-Dio.netty.tryReflectionSetAccessible=true",
             "-XX:+HeapDumpOnOutOfMemoryError",
-            "-ea",
             "-Xmx1g"
     ]
 
@@ -102,6 +101,12 @@ allprojects {
             extraJvmArgs = trimQuotes(prop)
                     .split(/\s+/)  // Split on whitespace
                     .toList()
+        }
+
+        if (project.hasProperty('enableAssertions') && project.property('enableAssertions') == 'true') {
+            extraJvmArgs += '-ea'
+        } else {
+            extraJvmArgs += '-da'
         }
 
         jvmArgs += defaultJvmArgs + extraJvmArgs
