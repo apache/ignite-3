@@ -25,10 +25,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -614,7 +616,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         Exception err = assertThrows(Exception.class, () -> table.upsertAll(tx2, rows));
 
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertTransactionLockException(err);
 
         tx1.commit();
     }
@@ -851,7 +853,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         // TODO asch IGNITE-15937 fix exception model.
         Exception err = assertThrows(Exception.class, () -> table.upsert(tx2, makeValue(1, valTx + 1)));
 
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertTransactionLockException(err);
 
         // Write in tx1
         table2.upsert(tx1, makeValue(1, valTx2 + 1));
@@ -1005,7 +1007,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         txAcc.upsert(tx2, makeValue(2, 400.));
 
         Exception err = assertThrows(Exception.class, () -> txAcc.getAll(tx2, List.of(makeKey(2), makeKey(1))));
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertTransactionLockException(err);
 
         validateBalance(txAcc2.getAll(tx1, List.of(makeKey(2), makeKey(1))), 200., 300.);
         validateBalance(txAcc2.getAll(tx1, List.of(makeKey(1), makeKey(2))), 300., 200.);
@@ -1791,7 +1793,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
                             ops.increment();
                         } catch (Exception e) {
-                            assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
+                            assertTransactionLockException(e);
 
                             tx.rollback();
 
@@ -2381,6 +2383,15 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
             assertThat(res, contains(null, null));
         }
+    }
+
+    private static void assertTransactionLockException(Exception e) {
+        assertInstanceOf(TransactionException.class, e);
+        assertThat(e.getMessage(), containsString("Lock acquiring failed during operation"));
+
+        Throwable rootCause = unwrapRootCause(e);
+        assertInstanceOf(LockException.class, rootCause);
+        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
     }
 
     private static class SingleRequestSubscriber<T> implements Flow.Subscriber<T> {
