@@ -119,27 +119,48 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
 
         BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
-        storage.runConsistently(locker -> {
-            var rowUuids = new ArrayList<>(command.rowIds());
+        boolean shouldRelease = storage.runConsistently(locker -> {
+            try {
+                var rowUuids = new ArrayList<>(command.rowIds());
 
-            // Natural UUID order matches RowId order within the same partition.
-            Collections.sort(rowUuids);
+                // Natural UUID order matches RowId order within the same partition.
+                Collections.sort(rowUuids);
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
-                    rowUuids,
-                    locker,
-                    rowVersionChooser,
-                    binaryRowUpgrader
-            );
+                // Check if the storage engine needs resources before starting.
+                if (locker.shouldRelease()) {
+                    return true;
+                }
 
-            RowId nextRowIdToBuild = command.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
+                Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
+                        rowUuids,
+                        locker,
+                        rowVersionChooser,
+                        binaryRowUpgrader
+                );
 
-            storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), buildIndexRowStream, nextRowIdToBuild);
+                RowId nextRowIdToBuild = command.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
 
-            storage.lastApplied(commandIndex, commandTerm);
+                storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), buildIndexRowStream, nextRowIdToBuild);
 
-            return null;
+                // Check if the storage engine needs resources after processing rows.
+                if (locker.shouldRelease()) {
+                    return true;
+                }
+
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return false;
+            } catch (ShouldReleaseException e) {
+                // Storage engine needs resources during row processing.
+                return true;
+            }
         });
+
+        // If storage engine needs resources, exit without marking the command as applied.
+        // The command will be retried later.
+        if (shouldRelease) {
+            return EMPTY_NOT_APPLIED_RESULT;
+        }
 
         if (command.finish()) {
             LOG.info(
@@ -177,7 +198,13 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
     ) {
         return rowUuids.stream()
                 .map(this::toRowId)
-                .peek(locker::lock)
+                .peek(rowId -> {
+                    // Check if the storage engine needs resources before locking each row.
+                    if (locker.shouldRelease()) {
+                        throw new ShouldReleaseException();
+                    }
+                    locker.lock(rowId);
+                })
                 .map(rowVersionChooser::chooseForBuildIndex)
                 .flatMap(Collection::stream)
                 .map(binaryRowAndRowId -> upgradeBinaryRow(binaryRowUpgrader, binaryRowAndRowId));
@@ -192,5 +219,13 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
 
     private RowId toRowId(UUID rowUuid) {
         return new RowId(storageUpdateHandler.partitionId(), rowUuid);
+    }
+
+    /**
+     * Exception thrown when the storage engine needs resources during index building.
+     * This is used to signal an early exit from stream processing when {@link Locker#shouldRelease()} returns {@code true}.
+     */
+    private static class ShouldReleaseException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
 }

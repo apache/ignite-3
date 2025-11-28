@@ -62,6 +62,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -801,6 +803,107 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         inOrder.verify(indexUpdateHandler, never()).buildIndex(eq(indexId), any(Stream.class), eq(row2.increment()));
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
+    }
+
+    /**
+     * Tests that {@link BuildIndexCommandHandler} exits early when storage engine needs resources.
+     *
+     * <p>This test verifies that the index building process can be interrupted when {@code shouldRelease()}
+     * returns {@code true}, allowing the storage engine to perform critical operations like checkpoints.
+     */
+    @Test
+    void testBuildIndexCommandExitsEarlyOnShouldRelease() {
+        int indexId = pkStorage.id();
+
+        // Given: A partition storage that signals shouldRelease during index building
+        AtomicBoolean shouldRelease = new AtomicBoolean(false);
+        TestMvPartitionStorage storageWithShouldRelease = new TestMvPartitionStorage(
+                PARTITION_ID,
+                new LockByRowId(),
+                shouldRelease::get
+        );
+        PartitionDataStorage partitionStorageWithShouldRelease = spy(
+                new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, storageWithShouldRelease)
+        );
+
+        // Create a new command listener with the custom storage
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(hybridClock.current());
+
+        PartitionListener customCommandListener = new PartitionListener(
+                mock(TxManager.class),
+                partitionStorageWithShouldRelease,
+                storageUpdateHandler,
+                txStatePartitionStorage,
+                safeTimeTracker,
+                new PendingComparableValuesTracker<>(0L),
+                catalogService,
+                SCHEMA_REGISTRY,
+                indexMetaStorage,
+                clusterService.topologyService().localMember().id(),
+                mock(MinimumRequiredTimeCollectorService.class),
+                mock(Executor.class),
+                placementDriver,
+                clockService,
+                new SystemPropertiesNodeProperties(),
+                new TablePartitionId(TABLE_ID, PARTITION_ID)
+        );
+
+        doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
+
+        RowId row0 = new RowId(PARTITION_ID);
+        RowId row1 = new RowId(PARTITION_ID);
+        RowId row2 = new RowId(PARTITION_ID);
+
+        // Add some rows to the storage
+        storageWithShouldRelease.runConsistently(locker -> {
+            storageWithShouldRelease.addWriteCommitted(row0, null, hybridClock.now());
+            storageWithShouldRelease.addWriteCommitted(row1, null, hybridClock.now());
+            storageWithShouldRelease.addWriteCommitted(row2, null, hybridClock.now());
+            return null;
+        });
+
+        // When: Command is processed with shouldRelease returning false
+        shouldRelease.set(false);
+        customCommandListener.processCommand(
+                createBuildIndexCommand(indexId, List.of(row0.uuid(), row1.uuid()), false),
+                10,
+                1,
+                null
+        );
+
+        // Then: Command is applied successfully
+        verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
+        verify(partitionStorageWithShouldRelease).lastApplied(10, 1);
+
+        // When: Command is processed with shouldRelease returning true before processing
+        shouldRelease.set(true);
+        customCommandListener.processCommand(
+                createBuildIndexCommand(indexId, List.of(row2.uuid()), false),
+                20,
+                2,
+                null
+        );
+
+        // Then: Command exits early without being applied
+        verify(indexUpdateHandler, times(1)).buildIndex(eq(indexId), any(Stream.class), any()); // Still only called once
+        verify(partitionStorageWithShouldRelease, never()).lastApplied(20, 2); // Not applied
+
+        // When: Command is retried with shouldRelease returning false
+        shouldRelease.set(false);
+        customCommandListener.processCommand(
+                createBuildIndexCommand(indexId, List.of(row2.uuid()), false),
+                20,
+                2,
+                null
+        );
+
+        // Then: Command is applied successfully on retry
+        verify(indexUpdateHandler, times(2)).buildIndex(eq(indexId), any(Stream.class), any());
+        verify(partitionStorageWithShouldRelease).lastApplied(20, 2);
     }
 
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
