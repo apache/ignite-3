@@ -235,7 +235,7 @@ public class TransactionInflights {
         });
     }
 
-    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
+    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new ReadWriteTxContext(placementDriver, clockService, true); // No writes enlisted, can go with unlock only.
@@ -271,7 +271,7 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups);
+        abstract void finishTx(@Nullable Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups);
 
         abstract boolean isTxFinishing();
 
@@ -298,7 +298,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
+        public void finishTx(@Nullable Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
             markedFinished = true;
         }
 
@@ -323,7 +323,7 @@ public class TransactionInflights {
         private final PlacementDriver placementDriver;
         private final boolean noWrites;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
-        private volatile Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups;
+        private volatile Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups;
         private final ClockService clockService;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
@@ -386,7 +386,7 @@ public class TransactionInflights {
 
                 int cntr = 0;
 
-                for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> e : enlistedGroups.entrySet()) {
+                for (Map.Entry<? extends ReplicationGroupId, PendingTxPartitionEnlistment> e : enlistedGroups.entrySet()) {
                     futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
                             .thenApply(replicaMeta -> {
                                 long enlistmentConsistencyToken = e.getValue().consistencyToken();
@@ -425,7 +425,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
+        public void finishTx(Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
         }

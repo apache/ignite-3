@@ -364,7 +364,8 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(row);
 
-        ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
+        // TODO cast
+        ZonePartitionId partGroupId = (ZonePartitionId) targetReplicationGroupId(partId);
 
         PendingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
@@ -474,7 +475,8 @@ public class InternalTableImpl implements InternalTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionId);
+            // TODO cast
+            ZonePartitionId replicationGroupId = (ZonePartitionId) targetReplicationGroupId(partitionId);
 
             PendingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(replicationGroupId);
 
@@ -560,7 +562,8 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        // TODO cast
+        ZonePartitionId replicationGroupId = (ZonePartitionId) targetReplicationGroupId(partId);
 
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
 
@@ -1751,7 +1754,8 @@ public class InternalTableImpl implements InternalTable {
                 if (tx.implicit()) {
                     opFut = completedOrFailedFuture(null, th);
                 } else {
-                    var replicationGrpId = targetReplicationGroupId(partId);
+                    // TODO cast
+                    ZonePartitionId replicationGrpId = (ZonePartitionId) targetReplicationGroupId(partId);
 
                     PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGrpId);
                     opFut = enlistment != null ? completeScan(
@@ -2024,13 +2028,15 @@ public class InternalTableImpl implements InternalTable {
     protected CompletableFuture<PendingTxPartitionEnlistment> enlist(int partId, InternalTransaction tx) {
         HybridTimestamp now = tx.schemaTimestamp();
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        // TODO cast
+        ZonePartitionId replicationGroupId = (ZonePartitionId) targetReplicationGroupId(partId);
         tx.assignCommitPartition(replicationGroupId);
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
 
         Function<ReplicaMeta, PendingTxPartitionEnlistment> enlistClo = replicaMeta -> {
-            ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
+            // TODO cast
+            ZonePartitionId partGroupId = (ZonePartitionId) targetReplicationGroupId(partId);
 
             String leaseHolderNodeId = replicaMeta.getLeaseholder();
 

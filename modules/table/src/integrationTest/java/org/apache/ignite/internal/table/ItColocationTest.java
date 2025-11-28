@@ -231,7 +231,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     boolean commitIntent,
                     boolean timeoutExceeded,
                     boolean recovery,
-                    Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+                    Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();

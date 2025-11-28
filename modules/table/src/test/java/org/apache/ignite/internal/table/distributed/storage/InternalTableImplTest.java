@@ -406,8 +406,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000,
-                colocationEnabled()
+                10_000
         );
     }
 

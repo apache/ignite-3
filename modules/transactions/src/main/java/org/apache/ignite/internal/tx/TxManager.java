@@ -27,7 +27,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
@@ -117,7 +117,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @return Remote transaction.
      */
-    InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);
+    InternalTransaction beginRemote(UUID txId, ZonePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);
 
     /**
      * Returns a transaction state meta.
@@ -186,7 +186,7 @@ public interface TxManager extends IgniteComponent {
             boolean commitIntent,
             boolean timeoutExceeded,
             boolean recovery,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<? extends ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
 
