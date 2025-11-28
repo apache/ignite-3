@@ -236,6 +236,14 @@ class IndexFileManager {
         }
     }
 
+    void truncatePrefix(long groupId, long firstLogIndexKept) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        if (groupIndexMeta != null) {
+            groupIndexMeta.truncatePrefix(firstLogIndexKept);
+        }
+    }
+
     /**
      * Returns the lowest log index for the given group across all index files or {@code -1} if no such index exists.
      */

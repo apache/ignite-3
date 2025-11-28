@@ -34,6 +34,8 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
         assertThat(array.size(), is(1));
         assertThat(array.get(0), is(initialMeta));
+        assertThat(array.firstLogIndexInclusive(), is(1L));
+        assertThat(array.lastLogIndexExclusive(), is(2L));
 
         var meta2 = new IndexFileMeta(2, 3, 0, 1);
 
@@ -41,6 +43,8 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
         assertThat(array.size(), is(2));
         assertThat(array.get(1), is(meta2));
+        assertThat(array.firstLogIndexInclusive(), is(1L));
+        assertThat(array.lastLogIndexExclusive(), is(3L));
 
         for (int i = 0; i < INITIAL_CAPACITY; i++) {
             long logIndex = meta2.firstLogIndexInclusive() + i + 1;
@@ -54,6 +58,8 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
         assertThat(array.size(), is(3 + INITIAL_CAPACITY));
         assertThat(array.get(array.size() - 1), is(meta3));
+        assertThat(array.firstLogIndexInclusive(), is(1L));
+        assertThat(array.lastLogIndexExclusive(), is(INITIAL_CAPACITY + 4L));
     }
 
     @Test
@@ -104,5 +110,21 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
         assertThat(array.find(9), is(meta1));
         assertThat(array.find(10), is(meta3));
+    }
+
+    @Test
+    void testTruncateIndices() {
+        var meta1 = new IndexFileMeta(1, 10, 100, 0);
+        var meta2 = new IndexFileMeta(10, 10, 200, 1);
+        var meta3 = new IndexFileMeta(10, 20, 200, 2);
+
+        IndexFileMetaArray array = new IndexFileMetaArray(meta1)
+                .add(meta2)
+                .add(meta3);
+
+        array = array.truncateIndicesSmallerThan(10);
+
+        assertThat(array.size(), is(1));
+        assertThat(array.get(0), is(meta3));
     }
 }

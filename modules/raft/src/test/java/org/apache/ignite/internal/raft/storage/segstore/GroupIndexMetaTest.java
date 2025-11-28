@@ -213,4 +213,43 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         runRace(writer, reader, reader, reader);
     }
+
+    @Test
+    void testTruncatePrefix() {
+        var meta1 = new IndexFileMeta(1, 100, 0, 0);
+        var meta2 = new IndexFileMeta(42, 100, 42, 1);
+        var meta3 = new IndexFileMeta(100, 120, 66, 2);
+        var meta4 = new IndexFileMeta(110, 200, 95, 3);
+
+        var groupMeta = new GroupIndexMeta(meta1);
+
+        groupMeta.addIndexMeta(meta2);
+        groupMeta.addIndexMeta(meta3);
+        groupMeta.addIndexMeta(meta4);
+
+        assertThat(groupMeta.firstLogIndexInclusive(), is(1L));
+        assertThat(groupMeta.lastLogIndexExclusive(), is(200L));
+
+        assertThat(groupMeta.indexMeta(10), is(meta1));
+        assertThat(groupMeta.indexMeta(43), is(meta2));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+        assertThat(groupMeta.indexMeta(110), is(meta4));
+
+        groupMeta.truncatePrefix(43);
+
+        assertThat(groupMeta.indexMeta(10), is(nullValue()));
+        assertThat(groupMeta.indexMeta(42), is(nullValue()));
+
+        var trimmedMeta = new IndexFileMeta(43, 100, 42, 1);
+
+        assertThat(groupMeta.indexMeta(43), is(trimmedMeta));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+        assertThat(groupMeta.indexMeta(110), is(meta4));
+
+        groupMeta.truncatePrefix(110);
+
+        assertThat(groupMeta.indexMeta(43), is(nullValue()));
+        assertThat(groupMeta.indexMeta(100), is(nullValue()));
+        assertThat(groupMeta.indexMeta(110), is(meta4));
+    }
 }

@@ -93,6 +93,12 @@ class IndexFileMetaArray {
      */
     @Nullable
     IndexFileMeta find(long logIndex) {
+        int arrayIndex = findArrayIndex(logIndex);
+
+        return arrayIndex == -1 ? null : array[arrayIndex];
+    }
+
+    private int findArrayIndex(long logIndex) {
         int lowArrayIndex = 0;
         int highArrayIndex = size - 1;
 
@@ -106,10 +112,40 @@ class IndexFileMetaArray {
             } else if (logIndex >= midValue.lastLogIndexExclusive()) {
                 lowArrayIndex = middleArrayIndex + 1;
             } else {
-                return midValue;
+                return middleArrayIndex;
             }
         }
 
-        return null;
+        return -1;
+    }
+
+    IndexFileMetaArray truncateIndicesSmallerThan(long firstLogIndexKept) {
+        int firstLogIndexKeptArrayIndex = findArrayIndex(firstLogIndexKept);
+
+        assert firstLogIndexKeptArrayIndex >= 0 : String.format(
+                "Missing entry for log index %d in range [%d:%d).",
+                firstLogIndexKept, firstLogIndexInclusive(), lastLogIndexExclusive()
+        );
+
+        IndexFileMeta metaToUpdate = array[firstLogIndexKeptArrayIndex];
+
+        var trimmedMeta = new IndexFileMeta(
+                firstLogIndexKept,
+                metaToUpdate.lastLogIndexExclusive(),
+                metaToUpdate.indexFilePayloadOffset(),
+                metaToUpdate.indexFileOrdinal()
+        );
+
+        IndexFileMeta[] newArray = new IndexFileMeta[array.length];
+
+        newArray[0] = trimmedMeta;
+
+        int newSize = size - firstLogIndexKeptArrayIndex;
+
+        if (newSize > 1) {
+            System.arraycopy(array, firstLogIndexKeptArrayIndex + 1, newArray, 1, newSize - 1);
+        }
+
+        return new IndexFileMetaArray(newArray, newSize);
     }
 }
