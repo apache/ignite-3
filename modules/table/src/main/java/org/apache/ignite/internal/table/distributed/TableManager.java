@@ -1944,6 +1944,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 replicationConfiguration,
                 modificationCounter
         );
+        storageUpdateHandler.start();
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }

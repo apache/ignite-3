@@ -21,6 +21,7 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
+import static java.util.Collections.emptyIterator;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.DATA_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.DATA_ID_WITH_TX_STATE_SIZE;
@@ -1316,6 +1317,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long estimatedSize() {
         return estimatedSize;
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return Cursor.fromBareIterator(emptyIterator());
     }
 
     @Override

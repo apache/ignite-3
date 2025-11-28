@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 
 /**
- * Reads {@link RowVersion#value()} from page-memory.
+ * Operations that can be performed on a row version. Used to abstract different behaviors for different row version types.
  */
-class ReadRowVersionValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueSizeOffsetInFirstSlot();
-    }
+interface RowVersionOperations {
+    void removeFromWriteIntentsList(
+            AbstractPageMemoryMvPartitionStorage storage,
+            Supplier<String> operationInfoSupplier
+    );
 
-    @Override
-    protected int valueOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueOffsetInFirstSlot();
-    }
+    long nextWriteIntentLink(long defaultLink);
+
+    long prevWriteIntentLink();
+
+    PageHandler<HybridTimestamp, Object> converterToCommittedVersion();
 }

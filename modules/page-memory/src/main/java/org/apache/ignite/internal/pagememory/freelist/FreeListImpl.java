@@ -172,7 +172,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
          * @param written Written size.
          * @param rowSize Row size.
          * @return Updated written size.
-         * @throws IgniteInternalCheckedException If failed.
          */
         protected int addRowFragment(
                 long pageId,
@@ -181,7 +180,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 Storable row,
                 int written,
                 int rowSize
-        ) throws IgniteInternalCheckedException {
+        ) {
             int payloadSize = io.addRowFragment(pageMem, pageId, pageAddr, row, written, rowSize, pageSize());
 
             assert payloadSize > 0 : payloadSize;

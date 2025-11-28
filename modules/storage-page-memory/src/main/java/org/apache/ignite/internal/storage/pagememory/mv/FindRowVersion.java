@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
@@ -45,15 +45,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    private long rowLink = NULL_LINK;
-
-    private @Nullable HybridTimestamp rowTimestamp;
-
-    private long rowNextLink = NULL_LINK;
-
-    private int rowValueSize;
-
-    private int schemaVersion;
+    private @Nullable RowVersionReader reader;
 
     private @Nullable RowVersion result;
 
@@ -68,26 +60,21 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
         }
 
-        long nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
-
         if (!filter.apply(link, pageAddr + payload.offset())) {
-            return nextLink;
+            return RowVersion.readNextLink(partitionId, pageAddr, payload.offset());
         }
 
         rowVersionFound = true;
 
-        rowLink = link;
-        rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
-        rowNextLink = nextLink;
-        schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, payload.offset() + RowVersion.SCHEMA_VERSION_OFFSET));
+        byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
+
+        reader = RowVersionReader.newRowVersionReader(dataType, link, partitionId);
 
         if (loadValueBytes) {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
+        } else {
+            return STOP_TRAVERSAL;
         }
-
-        rowValueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
-
-        return STOP_TRAVERSAL;
     }
 
     @Override
@@ -96,19 +83,26 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
             return;
         }
 
+        assert reader != null;
+
+        BinaryRow value;
+        int valueSize;
+
         if (loadValueBytes) {
             readRowVersionValue.finish();
 
             byte[] valueBytes = readRowVersionValue.result();
 
-            BinaryRow row = valueBytes.length == 0
+            value = valueBytes.length == 0
                     ? null
-                    : new BinaryRowImpl(schemaVersion, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
-
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, row);
+                    : new BinaryRowImpl(reader.schemaVersion(), ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
+            valueSize = value == null ? 0 : value.tupleSliceLength();
         } else {
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, rowValueSize);
+            value = null;
+            valueSize = reader.valueSize();
         }
+
+        result = reader.createRowVersion(valueSize, value);
     }
 
     /**

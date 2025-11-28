@@ -30,6 +30,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.Map;
 import java.util.Objects;
@@ -51,7 +52,6 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -77,8 +77,10 @@ class ItDurabilityTest extends ClusterPerTestIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {DEFAULT_AIPERSIST_PROFILE_NAME, DEFAULT_ROCKSDB_PROFILE_NAME})
     @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "100")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25665")
     void pendingRowsLossDoesNotCauseDataLoss(String storageProfile) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-27137 - remove the assumption.
+        assumeFalse(DEFAULT_ROCKSDB_PROFILE_NAME.equals(storageProfile), "Not implemented for rocksdb engine yet");
+
         IgniteImpl node = node();
         createZoneAndTableWithOnePartition(node, storageProfile);
 

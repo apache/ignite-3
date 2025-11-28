@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -41,7 +44,9 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -53,6 +58,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -80,6 +86,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * Cached lease info in order not to touch blobStorage each time.
      */
     private volatile @Nullable LeaseInfo leaseInfo;
+
+    private long wiHeadLink = NULL_LINK;
+
+    private final ReentrantLock wiHeadLock = new ReentrantLock();
 
     /**
      * Lock for updating lease info in the storage.
@@ -153,6 +163,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+    }
+
+    @Override
+    public void start() {
+        super.start();
+
+        busy(() -> {
+            wiHeadLink = meta.wiHeadLink();
+        });
     }
 
     @Override
@@ -366,6 +385,50 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
+    /**
+     * Retrieves the link to the head of the write intent list for the partition and locks the head.
+     *
+     * <p>If the list is empty, it returns a @{NULL_LINK}.
+     */
+    long lockWriteIntentListHead() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            wiHeadLock.lock();
+
+            return wiHeadLink;
+        });
+    }
+
+    /**
+     * Update a head link in partition metadata and unlocks the head.
+     *
+     * @param wiHeadLink Link to the first write intents list element, or {@code NULL_LINK} if the list is empty.
+     */
+    void updateWriteIntentListHeadAndUnlock(long wiHeadLink) {
+        try {
+            if (wiHeadLink == this.wiHeadLink) {
+                return;
+            }
+
+            busy(() -> {
+                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+                this.wiHeadLink = wiHeadLink;
+
+                updateWiHeadBusy(wiHeadLink);
+            });
+        } finally {
+            wiHeadLock.unlock();
+        }
+    }
+
+    private void updateWiHeadBusy(long link) {
+        updateMeta((lastCheckpointId, meta) -> {
+            meta.updateWiHead(link);
+        });
+    }
+
     @Override
     public @Nullable LeaseInfo leaseInfo() {
         return busy(() -> {
@@ -576,6 +639,22 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return renewableState.freeList().emptyDataPages();
     }
 
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return busy(() -> new WriteIntentsCursor(lockWriteIntentListHead()));
+    }
+
+    @Override
+    AddWriteLinkingWiInvokeClosure newAddWriteInvokeClosure(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) {
+        return new AddWriteLinkingWiInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
+    }
+
     private class PersistentPageMemoryLocker extends LocalLocker {
         private PersistentPageMemoryLocker() {
             super(lockByRowId);
@@ -584,6 +663,45 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         @Override
         public boolean shouldRelease() {
             return checkpointTimeoutLock.shouldReleaseReadLock();
+        }
+    }
+
+    private class WriteIntentsCursor implements Cursor<RowId> {
+        private final long headLink;
+        private long nextLink;
+
+        private WriteIntentsCursor(long headLink) {
+            this.headLink = headLink;
+            nextLink = headLink;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return busy(() -> nextLink != NULL_LINK);
+        }
+
+        @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
+        @Override
+        public RowId next() {
+            return busy(() -> {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                RowVersion rowVersion = runConsistently(locker -> readRowVersion(nextLink, DONT_LOAD_VALUE));
+
+                assert rowVersion instanceof WiLinkableRowVersion;
+                WiLinkableRowVersion linkableRowVersion = (WiLinkableRowVersion) rowVersion;
+
+                nextLink = linkableRowVersion.nextWriteIntentLink();
+
+                return linkableRowVersion.rowId();
+            });
+        }
+
+        @Override
+        public void close() {
+            updateWriteIntentListHeadAndUnlock(headLink);
         }
     }
 }

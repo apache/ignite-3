@@ -197,6 +197,13 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
+    public Cursor<RowId> scanWriteIntents() {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.scanWriteIntents();
+    }
+
+    @Override
     public void close() {
         partitionStorage.close();
     }
