@@ -25,6 +25,17 @@ import org.jetbrains.annotations.Nullable;
  * Abstracts out reading of {@link RowVersion}s of different formats.
  */
 interface RowVersionReader {
+    static RowVersionReader newRowVersionReader(byte dataType, long link, int partitionId) {
+        switch (dataType) {
+            case RowVersion.DATA_TYPE:
+                return new PlainRowVersionReader(link, partitionId);
+            case WiLinkableRowVersion.DATA_TYPE:
+                return new WiLinkableRowVersionReader(link, partitionId);
+            default:
+                throw new IllegalStateException("Unsupported data type: " + dataType);
+        }
+    }
+
     /**
      * Reads row version data from the given page address and offset.
      *

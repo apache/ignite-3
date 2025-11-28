@@ -68,9 +68,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
         byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
 
-        reader = dataType == WiLinkableRowVersion.DATA_TYPE
-                ? new WiLinkableRowVersionReader(link, partitionId)
-                : new PlainRowVersionReader(link, partitionId);
+        reader = RowVersionReader.newRowVersionReader(dataType, link, partitionId);
 
         if (loadValueBytes) {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);

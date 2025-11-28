@@ -61,9 +61,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
     private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload, Predicate<HybridTimestamp> loadValue) {
         byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
 
-        reader = dataType == WiLinkableRowVersion.DATA_TYPE
-                ? new WiLinkableRowVersionReader(link, partitionId)
-                : new PlainRowVersionReader(link, partitionId);
+        reader = RowVersionReader.newRowVersionReader(dataType, link, partitionId);
 
         reader.readFromPage(pageAddr, payload.offset());
 
