@@ -77,4 +77,21 @@ public class ReplicaMessageUtils {
 
         return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
     }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27174 remove this method and its usages.
+    public static ReplicationGroupIdMessage toReplicationGroupIdMessage2(
+            ReplicaMessagesFactory messagesFactory,
+            ReplicationGroupId replicationGroupId
+    ) {
+        assert replicationGroupId instanceof TablePartitionId || replicationGroupId instanceof ZonePartitionId :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType=TablePartitionId or ZonePartitionId].";
+
+        if (replicationGroupId instanceof TablePartitionId) {
+            return toTablePartitionIdMessage(messagesFactory, (TablePartitionId) replicationGroupId);
+        } else {
+            return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
+        }
+    }
 }
