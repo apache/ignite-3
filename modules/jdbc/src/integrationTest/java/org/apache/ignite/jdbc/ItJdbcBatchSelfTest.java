@@ -61,7 +61,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -296,7 +295,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27117")
     public void testBatchException() throws Exception {
         final int successUpdates = 5;
 
@@ -328,8 +326,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27117")
-    public void testBatchParseException() throws Exception {
+    public void testBatchValidateException() throws Exception {
         final int successUpdates = 5;
 
         for (int idx = 0, i = 0; i < successUpdates; ++i, idx += i) {
@@ -337,6 +334,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                     + generateValues(idx, i + 1));
         }
 
+        // Invalid statement.
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values ('fail', 1, 1, 1)");
 
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
