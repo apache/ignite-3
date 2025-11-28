@@ -35,7 +35,6 @@ import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -75,6 +74,7 @@ import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -590,6 +590,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         if (handler == null) {
             // Default notification handler. Used to deliver delayed replication acks.
+            if (err != null) {
+                if (err instanceof ClientDelayedAckException) {
+                    ClientDelayedAckException err0 = (ClientDelayedAckException) err;
+
+                    inflights.removeInflight(err0.txId(), new TransactionException(err0.code(), err0.getMessage(), err0.getCause()));
+
+                    return;
+                }
+            }
+
             UUID txId = unpacker.unpackUuid();
             inflights.removeInflight(txId, err);
 
@@ -617,6 +627,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
         int expectedSchemaVersion = -1;
         long[] sqlUpdateCounters = null;
+        UUID txId = null;
 
         for (int i = 0; i < extSize; i++) {
             String key = unpacker.unpackString();
@@ -625,10 +636,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 expectedSchemaVersion = unpacker.unpackInt();
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
                 sqlUpdateCounters = unpacker.unpackLongArray();
+            } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
+                txId = unpacker.unpackUuid();
             } else {
                 // Unknown extension - ignore.
                 unpacker.skipValues(1);
             }
+        }
+
+        if (txId != null) {
+            return new ClientDelayedAckException(traceId, code, errMsg, txId, causeWithStackTrace);
+        }
+
+        if (sqlUpdateCounters != null) {
+            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
+            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
@@ -638,11 +660,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             return new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
-        }
-
-        if (sqlUpdateCounters != null) {
-            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
-            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         try {
@@ -904,16 +921,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     void checkTimeouts(long now) {
-        for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
-            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
-
-            if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
-                // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
-                // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-                CompletableFuture<?> fut = timeoutObject.future();
-                fut.completeExceptionally(new TimeoutException());
-            }
-        }
+//        for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
+//            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+//
+//            if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
+//                // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
+//                // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
+//                CompletableFuture<?> fut = timeoutObject.future();
+//                fut.completeExceptionally(new TimeoutException());
+//            }
+//        }
     }
 
     /**
