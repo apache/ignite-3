@@ -33,4 +33,16 @@ public class LockException extends TransactionInternalCheckedException implement
     public LockException(int code, String msg) {
         super(code, msg);
     }
+
+    /**
+     * Creates a new instance of LockException with the given message.
+     *
+     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
+     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
+     * @param msg The detail message.
+     * @param cause Cause of the exception.
+     */
+    protected LockException(int code, String msg, Throwable cause) {
+        super(code, msg, cause);
+    }
 }

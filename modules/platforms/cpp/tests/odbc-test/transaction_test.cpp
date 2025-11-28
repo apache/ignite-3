@@ -591,7 +591,7 @@ TEST_F(transaction_test, transaction_error) {
             try {
                 insert_test_value(conn2.m_statement, 2, "test_2");
             } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a possible deadlock"));
+                EXPECT_THAT(err.message, testing::HasSubstr("Lock acquiring failed during operation"));
                 EXPECT_EQ(err.sql_state, "25000");
                 throw;
             }
