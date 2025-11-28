@@ -57,6 +57,7 @@ import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
@@ -368,18 +369,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         return result;
-    }
-
-    /**
-     * Create lock exception with given parameters.
-     *
-     * @param locker Locker.
-     * @param holder Lock holder.
-     * @return Lock exception.
-     */
-    private static LockException lockException(UUID locker, UUID holder) {
-        return new LockException(ACQUIRE_LOCK_ERR,
-                "Failed to acquire a lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
     }
 
     /**
@@ -868,15 +857,20 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             for (Entry<UUID, WaiterImpl> entry : waiters.tailMap(waiter.txId(), false).entrySet()) {
                 WaiterImpl tmp = entry.getValue();
-                LockMode mode = tmp.lockMode;
+                LockMode currentlyAcquiredLockMode = tmp.lockMode;
 
-                if (mode != null && !mode.isCompatible(intendedLockMode)) {
+                if (currentlyAcquiredLockMode != null && !currentlyAcquiredLockMode.isCompatible(intendedLockMode)) {
                     if (conflictFound(waiter.txId())) {
                         waiter.fail(abandonedLockException(waiter.txId, tmp.txId));
 
                         return true;
                     } else if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(lockException(waiter.txId, tmp.txId));
+                        waiter.fail(new PossibleDeadlockOnLockAcquireException(
+                                waiter.txId,
+                                tmp.txId,
+                                intendedLockMode,
+                                currentlyAcquiredLockMode
+                        ));
 
                         return true;
                     }
@@ -887,9 +881,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             for (Entry<UUID, WaiterImpl> entry : waiters.headMap(waiter.txId()).entrySet()) {
                 WaiterImpl tmp = entry.getValue();
-                LockMode mode = tmp.lockMode;
+                LockMode currentlyAcquiredLockMode = tmp.lockMode;
 
-                if (mode != null && !mode.isCompatible(intendedLockMode)) {
+                if (currentlyAcquiredLockMode != null && !currentlyAcquiredLockMode.isCompatible(intendedLockMode)) {
                     if (skipFail) {
                         return false;
                     } else if (conflictFound(waiter.txId())) {
@@ -897,7 +891,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                         return true;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(lockException(waiter.txId, tmp.txId));
+                        waiter.fail(new PossibleDeadlockOnLockAcquireException(
+                                waiter.txId,
+                                tmp.txId, intendedLockMode,
+                                currentlyAcquiredLockMode
+                        ));
 
                         return true;
                     } else {
