@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 
-class JobClassLoaderImpl extends URLClassLoader {
+class UnitsClassLoaderImpl extends URLClassLoader {
     /**
      * Pattern to match system packages.
      */
@@ -38,13 +38,13 @@ class JobClassLoaderImpl extends URLClassLoader {
     private final ClassLoader parent;
 
     /**
-     * Creates new instance of {@link JobClassLoader}.
+     * Creates new instance of {@link UnitsClassLoader}.
      *
      * @param urls URLs to load classes from.
      * @param units Units to load classes from.
      * @param parent Parent class loader.
      */
-    JobClassLoaderImpl(List<DisposableDeploymentUnit> units, URL[] urls, ClassLoader parent) {
+    public UnitsClassLoaderImpl(List<DisposableDeploymentUnit> units, URL[] urls, ClassLoader parent) {
         super("compute-job", urls, parent);
         this.units = units;
         this.parent = parent;

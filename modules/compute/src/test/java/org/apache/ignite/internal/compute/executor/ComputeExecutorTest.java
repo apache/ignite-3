@@ -48,10 +48,10 @@ import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -78,7 +78,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private ComputeExecutor computeExecutor;
 
-    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
+    private final UnitsClassLoader jobClassLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
 
     @BeforeEach
     void setUp() {

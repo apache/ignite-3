@@ -39,13 +39,13 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
-import org.apache.ignite.internal.compute.loader.JobContext;
-import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.compute.task.DelegatingTaskExecution;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.deployunit.loader.UnitsContext;
+import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -84,7 +84,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     private final LogicalTopologyService logicalTopologyService;
 
-    private final JobContextManager jobContextManager;
+    private final UnitsContextManager jobContextManager;
 
     private final ComputeExecutor executor;
 
@@ -106,7 +106,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             MessagingService messagingService,
             TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
-            JobContextManager jobContextManager,
+            UnitsContextManager jobContextManager,
             ComputeExecutor executor,
             ComputeConfiguration computeConfiguration,
             EventLog eventLog
@@ -133,7 +133,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
-            CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(executionContext.units());
+            CompletableFuture<UnitsContext> classLoaderFut = jobContextManager.acquireClassLoader(executionContext.units());
 
             CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> future =
                     mapClassLoaderExceptions(classLoaderFut, executionContext.jobClassName())
@@ -337,7 +337,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         messaging.start(executionContext -> executeLocally(executionContext, null));
     }
 
-    private JobExecutionInternal<ComputeJobDataHolder> execJob(JobContext context, ExecutionContext executionContext) {
+    private JobExecutionInternal<ComputeJobDataHolder> execJob(UnitsContext context, ExecutionContext executionContext) {
         try {
             return executor.executeJob(
                     executionContext.options(),
@@ -353,7 +353,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
     private <I, M, T, R> TaskExecutionInternal<I, M, T, R> execTask(
-            JobContext context,
+            UnitsContext context,
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
             ComputeEventMetadataBuilder metadataBuilder,
