@@ -19,6 +19,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.nio.ByteBuffer;
@@ -34,15 +36,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Represents row version inside row version chain.
  */
-public final class RowVersion implements Storable {
+public class RowVersion implements Storable {
     public static final byte DATA_TYPE = 0;
-    private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+
+    private static final int NEXT_LINK_STORE_SIZE_BYTES = PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
-    private static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;
+    protected static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;
+
     public static final int TIMESTAMP_OFFSET = DATA_TYPE_OFFSET + DATA_TYPE_SIZE_BYTES;
     public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
     public static final int SCHEMA_VERSION_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+
     public static final int VALUE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_SIZE_BYTES;
 
     private final int partitionId;
@@ -62,40 +67,55 @@ public final class RowVersion implements Storable {
      * Constructor.
      */
     public RowVersion(int partitionId, long nextLink, @Nullable BinaryRow value) {
-        this(partitionId, 0, null, nextLink, value);
+        this(
+                partitionId,
+                NULL_LINK,
+                null,
+                nextLink,
+                value == null ? 0 : value.tupleSliceLength(),
+                value
+        );
     }
 
     /**
      * Constructor.
      */
     public RowVersion(int partitionId, HybridTimestamp commitTimestamp, long nextLink, @Nullable BinaryRow value) {
-        this(partitionId, 0, commitTimestamp, nextLink, value);
+        this(
+                partitionId,
+                NULL_LINK,
+                commitTimestamp,
+                nextLink,
+                value == null ? 0 : value.tupleSliceLength(),
+                value
+        );
     }
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, @Nullable BinaryRow value) {
-        this.partitionId = partitionId;
-        link(link);
-
-        this.timestamp = timestamp;
-        this.nextLink = nextLink;
-        this.valueSize = value == null ? 0 : value.tupleSliceLength();
-        this.value = value;
+    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp commitTimestamp, long nextLink, int valueSize) {
+        this(partitionId, link, commitTimestamp, nextLink, valueSize, null);
     }
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, int valueSize) {
+    public RowVersion(
+            int partitionId,
+            long link,
+            @Nullable HybridTimestamp timestamp,
+            long nextLink,
+            int valueSize,
+            @Nullable BinaryRow value
+    ) {
         this.partitionId = partitionId;
         link(link);
 
         this.timestamp = timestamp;
         this.nextLink = nextLink;
         this.valueSize = valueSize;
-        this.value = null;
+        this.value = value;
     }
 
     public @Nullable HybridTimestamp timestamp() {
@@ -160,11 +180,11 @@ public final class RowVersion implements Storable {
     }
 
     @Override
-    public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
+    public final void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
         PageUtils.putShort(pageAddr, dataOff, (short) payloadSize);
         dataOff += Short.BYTES;
 
-        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, DATA_TYPE);
+        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, dataType());
 
         HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
 
@@ -174,15 +194,31 @@ public final class RowVersion implements Storable {
 
         if (value != null) {
             PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) value.schemaVersion());
-
-            PageUtils.putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, value.tupleSlice());
         } else {
             PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) 0);
         }
+
+        writeExtraHeaderFields(pageAddr, dataOff);
+
+        if (value != null) {
+            PageUtils.putByteBuffer(pageAddr, dataOff + valueOffset(), value.tupleSlice());
+        }
+    }
+
+    protected byte dataType() {
+        return DATA_TYPE;
+    }
+
+    protected void writeExtraHeaderFields(long pageAddr, int dataOff) {
+        // No-op.
+    }
+
+    protected int valueOffset() {
+        return VALUE_OFFSET;
     }
 
     @Override
-    public void writeFragmentData(ByteBuffer pageBuf, int rowOff, int payloadSize) {
+    public final void writeFragmentData(ByteBuffer pageBuf, int rowOff, int payloadSize) {
         int headerSize = headerSize();
 
         int bufferOffset;
@@ -193,7 +229,7 @@ public final class RowVersion implements Storable {
             assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
                     + headerSize + " and payload size is " + payloadSize;
 
-            pageBuf.put(DATA_TYPE);
+            pageBuf.put(dataType());
 
             HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
 
@@ -202,6 +238,8 @@ public final class RowVersion implements Storable {
             pageBuf.putInt(valueSize());
 
             pageBuf.putShort(value == null ? 0 : (short) value.schemaVersion());
+
+            writeExtraFirstFragmentHeaderFields(pageBuf);
 
             bufferOffset = 0;
             bufferSize = payloadSize - headerSize;
@@ -216,6 +254,14 @@ public final class RowVersion implements Storable {
         if (value != null) {
             Storable.putValueBufferIntoPage(pageBuf, value.tupleSlice(), bufferOffset, bufferSize);
         }
+    }
+
+    protected void writeExtraFirstFragmentHeaderFields(ByteBuffer pageBuf) {
+        // No-op.
+    }
+
+    static long readNextLink(int partitionId, long pageAddr, int offset) {
+        return readPartitionless(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
     }
 
     @Override

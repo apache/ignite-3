@@ -1121,7 +1121,6 @@ public class DataPageIo extends PageIo {
      * @param rowSize Row size.
      * @param pageSize Page size.
      * @return Written payload size.
-     * @throws IgniteInternalCheckedException If failed.
      */
     public int addRowFragment(
             PageMemory pageMem,
@@ -1131,7 +1130,7 @@ public class DataPageIo extends PageIo {
             int written,
             int rowSize,
             int pageSize
-    ) throws IgniteInternalCheckedException {
+    ) {
         assertPageType(pageAddr);
 
         assert row != null;
