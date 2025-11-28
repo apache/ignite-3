@@ -95,7 +95,8 @@ public class IndexBuildingManager implements IgniteComponent {
             FailureProcessor failureProcessor,
             LowWatermark lowWatermark,
             TxManager txManager,
-            MetricManager metricManager) {
+            MetricManager metricManager
+    ) {
         this.metaStorageManager = metaStorageManager;
 
         int threadCount = Runtime.getRuntime().availableProcessors();
