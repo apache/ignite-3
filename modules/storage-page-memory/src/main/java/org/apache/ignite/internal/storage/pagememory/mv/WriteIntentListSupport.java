@@ -27,7 +27,7 @@ import org.apache.ignite.internal.storage.StorageException;
 class WriteIntentListSupport {
     static void removeNodeFromWriteIntentsList(
             WiLinkableRowVersion rowVersionToRemove,
-            AbstractPageMemoryMvPartitionStorage storage,
+            PersistentPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     ) {
         FreeListImpl freeList = storage.renewableState.freeList();

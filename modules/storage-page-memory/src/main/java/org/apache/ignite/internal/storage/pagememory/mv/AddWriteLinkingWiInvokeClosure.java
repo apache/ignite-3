@@ -38,6 +38,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
 class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
+    private final PersistentPageMemoryMvPartitionStorage persistentStorage;
+
     private final FreeList freeList;
 
     AddWriteLinkingWiInvokeClosure(
@@ -46,16 +48,18 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
             UUID txId,
             int commitZoneId,
             int commitPartitionId,
-            AbstractPageMemoryMvPartitionStorage storage
+            PersistentPageMemoryMvPartitionStorage storage
     ) {
         super(rowId, row, txId, commitZoneId, commitPartitionId, storage);
+
+        persistentStorage = storage;
 
         this.freeList = storage.renewableState.freeList();
     }
 
     @Override
     protected RowVersion insertFirstRowVersion() {
-        long wiListHeadLink = storage.lockWriteIntentListHead();
+        long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
         long newWiListHeadLink = wiListHeadLink;
 
         try {
@@ -67,7 +71,7 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
             return newVersion;
         } finally {
-            storage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
+            persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
         }
     }
 
@@ -76,7 +80,7 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
         boolean replacingExistingWriteIntent = oldRow.isUncommitted();
         assert replacingExistingWriteIntent == (existingWriteIntent != null);
 
-        long wiListHeadLink = storage.lockWriteIntentListHead();
+        long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
         long newWiListHeadLink = wiListHeadLink;
 
         try {
@@ -101,7 +105,7 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
             return newVersion;
         } finally {
-            storage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
+            persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
         }
     }
 

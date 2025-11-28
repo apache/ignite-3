@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -1069,22 +1068,4 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @see MvPartitionStorage#estimatedSize
      */
     public abstract void decrementEstimatedSize();
-
-    /**
-     * Retrieves the link to the head of the write intent list for the partition and locks the head.
-     *
-     * <p>If the list is empty, it returns a @{NULL_LINK}.
-     */
-    long lockWriteIntentListHead() {
-        return NULL_LINK;
-    }
-
-    /**
-     * Update a head link in partition metadata and unlocks the head.
-     *
-     * @param wiHeadLink Link to the first write intents list element, or {@code NULL_LINK} if the list is empty.
-     */
-    void updateWriteIntentListHeadAndUnlock(long wiHeadLink) {
-        // No-op.
-    }
 }

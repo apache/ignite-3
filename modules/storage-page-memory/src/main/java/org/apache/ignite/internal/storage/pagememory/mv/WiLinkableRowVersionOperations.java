@@ -40,7 +40,9 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
             AbstractPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     ) {
-        removeNodeFromWriteIntentsList(rowVersion, storage, operationInfoSupplier);
+        assert storage instanceof PersistentPageMemoryMvPartitionStorage;
+
+        removeNodeFromWriteIntentsList(rowVersion, (PersistentPageMemoryMvPartitionStorage) storage, operationInfoSupplier);
     }
 
     @Override

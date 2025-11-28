@@ -385,7 +385,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
-    @Override
+    /**
+     * Retrieves the link to the head of the write intent list for the partition and locks the head.
+     *
+     * <p>If the list is empty, it returns a @{NULL_LINK}.
+     */
     long lockWriteIntentListHead() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
@@ -396,7 +400,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
-    @Override
+    /**
+     * Update a head link in partition metadata and unlocks the head.
+     *
+     * @param wiHeadLink Link to the first write intents list element, or {@code NULL_LINK} if the list is empty.
+     */
     void updateWriteIntentListHeadAndUnlock(long wiHeadLink) {
         try {
             if (wiHeadLink == this.wiHeadLink) {
