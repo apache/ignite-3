@@ -81,31 +81,6 @@ public final class WiLinkableRowVersion extends RowVersion {
     public WiLinkableRowVersion(
             RowId rowId,
             int partitionId,
-            HybridTimestamp commitTimestamp,
-            long nextLink,
-            long nextWriteIntentLink,
-            long prevWriteIntentLink,
-            @Nullable BinaryRow value
-    ) {
-        this(
-                rowId,
-                partitionId,
-                NULL_LINK,
-                commitTimestamp,
-                nextLink,
-                nextWriteIntentLink,
-                prevWriteIntentLink,
-                value == null ? 0 : value.tupleSliceLength(),
-                value
-        );
-    }
-
-    /**
-     * Constructor.
-     */
-    public WiLinkableRowVersion(
-            RowId rowId,
-            int partitionId,
             long link,
             @Nullable HybridTimestamp commitTimestamp,
             long nextLink,
