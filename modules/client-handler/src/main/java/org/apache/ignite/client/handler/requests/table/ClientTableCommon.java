@@ -546,7 +546,7 @@ public class ClientTableCommon {
             TxManager txManager,
             boolean readOnly
     ) {
-        return txManager.beginImplicit(tsTracker, readOnly);
+        return txManager.beginImplicit(tsTracker, readOnly, null);
     }
 
     /**

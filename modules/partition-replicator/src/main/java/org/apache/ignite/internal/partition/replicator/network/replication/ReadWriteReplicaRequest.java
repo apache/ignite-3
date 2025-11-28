@@ -67,4 +67,11 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
      * @return {@code True} to disable the delayed ack optimization.
      */
     boolean skipDelayedAck();
+
+    /**
+     * Transaction label.
+     *
+     * @return Transaction label.
+     */
+    @Nullable String txLabel();
 }
