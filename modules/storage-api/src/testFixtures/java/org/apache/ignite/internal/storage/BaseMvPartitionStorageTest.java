@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -159,11 +160,13 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         while (true) {
             BinaryRowAndRowId binaryRowAndRowId = storage.runConsistently(locker -> {
-                GcEntry gcEntry = storage.peek(lowWatermark);
+                List<GcEntry> gcEntries = storage.peek(lowWatermark, 1);
 
-                if (gcEntry == null) {
+                if (gcEntries.isEmpty()) {
                     return null;
                 }
+
+                GcEntry gcEntry = gcEntries.get(0);
 
                 locker.lock(gcEntry.getRowId());
 

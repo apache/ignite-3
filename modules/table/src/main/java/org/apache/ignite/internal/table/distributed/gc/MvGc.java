@@ -54,7 +54,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
  *
- * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int, boolean)
+ * @see GcUpdateHandler#vacuumBatch
  */
 public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
@@ -252,7 +252,7 @@ public class MvGc implements ManuallyCloseable {
                         });
 
                 currentAwaitSafeTimeFuture
-                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize(), true), executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize()), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (hasCause(throwable, TrackerClosedException.class, StorageRemovedException.class)) {

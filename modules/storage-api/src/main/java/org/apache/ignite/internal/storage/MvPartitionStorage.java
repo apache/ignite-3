@@ -302,17 +302,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException;
 
     /**
-     * Returns the head of GC queue.
+     * Returns entries from the queue starting from the head.
      *
      * @param lowWatermark Upper bound for commit timestamp of GC entry, inclusive.
-     * @return Queue head or {@code null} if there are no entries below passed low watermark.
+     * @param count Requested count of entries.
+     * @return First entries in the GC queue that are less than or equal to passed low watermark.
      */
-    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+    List<GcEntry> peek(HybridTimestamp lowWatermark, int count);
 
     /**
      * Delete GC entry from the GC queue and corresponding version chain. Row ID of the entry must be locked to call this method.
      *
-     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
+     * @param entry Entry, previously returned by {@link #peek}.
      * @return Polled binary row, or {@code null} if the entry has already been deleted by another thread.
      *
      * @see Locker#lock(RowId)
