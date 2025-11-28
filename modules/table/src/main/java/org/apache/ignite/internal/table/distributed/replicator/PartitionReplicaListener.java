@@ -195,6 +195,7 @@ import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -2591,7 +2592,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     );
                 }
 
-                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
+                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
+                    if (e != null) {
+                        throw new DelayedAckException(cmd.txId(), unwrapCause(e));
+                    }
+
+                    return cmd.txId();
+                });
 
                 return completedFuture(new CommandApplicationResult(null, repFut));
             }
@@ -2724,7 +2731,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 );
             }
 
-            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
+            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
+                if (e != null) {
+                    throw new DelayedAckException(cmd.txId(), unwrapCause(e));
+                }
+
+                return cmd.txId();
+            });
 
             return completedFuture(new CommandApplicationResult(null, repFut));
         } else {
