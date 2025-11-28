@@ -85,7 +85,7 @@ import org.jetbrains.annotations.Nullable;
  *     {@link RenewablePartitionStorageState#versionChainTree()}, for example for
  *     reading you can use {@link #findVersionChain(RowId, Function)} or
  *     {@link AbstractPartitionTimestampCursor#createVersionChainCursorIfMissing()}, and for updates you can use {@link InvokeClosure}
- *     for example {@link AddWriteLinkingWiInvokeClosure} or {@link CommitWriteInvokeClosure}.</li>
+ *     for example {@link AddWriteInvokeClosure} or {@link CommitWriteInvokeClosure}.</li>
  * </ul>
  */
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
