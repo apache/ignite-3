@@ -137,9 +137,11 @@ public class ConnectionTest extends AbstractClientTest {
         String nodeName = "server-2";
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
-        try (TestServer testServer =
-                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, false, null)) {
-
+        try (TestServer testServer = TestServer.builder()
+                .nodeName(nodeName)
+                .ignite(ignite)
+                .enableRequestHandling(false)
+                .build()) {
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(0))
@@ -165,9 +167,11 @@ public class ConnectionTest extends AbstractClientTest {
         String nodeName = "server-2";
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
-        try (TestServer testServer =
-                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, false, null)) {
-
+        try (TestServer testServer = TestServer.builder()
+                .nodeName(nodeName)
+                .ignite(ignite)
+                .enableRequestHandling(false)
+                .build()) {
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(0))

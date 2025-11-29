@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
@@ -114,6 +115,8 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         private int sqlPartitionAwarenessMetadataCacheSize = DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
 
         private @Nullable String name;
+
+        long backgroundReResolveAddressesInterval = DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -407,6 +410,28 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         }
 
         /**
+         * Sets how long the resolved addresses will be considered valid, in milliseconds. Set to {@code 0} for infinite validity.
+         *
+         * <p>Ignite client resolve the provided hostnames into multiple IP addresses, each corresponds to an active cluster node.
+         * However, additional IP addresses can be collected after updating the DNS records. This property controls how often Ignite
+         * client will try to re-resolve provided hostnames and connect to newly discovered addresses.
+         *
+         * @param backgroundReResolveAddressesInterval  Background re-resolve interval, in milliseconds.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder backgroundReResolveAddressesInterval(long backgroundReResolveAddressesInterval) {
+            if (backgroundReResolveAddressesInterval < 0) {
+                throw new IllegalArgumentException("backgroundReResolveAddressesInterval ["
+                        + backgroundReResolveAddressesInterval + "] must be a non-negative integer value.");
+            }
+
+            this.backgroundReResolveAddressesInterval = backgroundReResolveAddressesInterval;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -436,7 +461,8 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     authenticator,
                     operationTimeout,
                     sqlPartitionAwarenessMetadataCacheSize,
-                    name
+                    name,
+                    backgroundReResolveAddressesInterval
             );
 
             return TcpIgniteClient.startAsync(cfg);
