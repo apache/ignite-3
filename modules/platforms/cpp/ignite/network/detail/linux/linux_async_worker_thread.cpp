@@ -275,14 +275,14 @@ void linux_async_worker_thread::handle_connection_closed(linux_async_client *cli
 void linux_async_worker_thread::handle_connection_success(linux_async_client *client) {
     m_non_connected.erase(std::find(m_non_connected.begin(), m_non_connected.end(), client->get_range()));
 
-    m_client_pool.add_client(std::move(m_current_client));
+    if (m_client_pool.add_client(m_current_client)) {
+        m_current_client.reset();
+        m_current_connection.reset();
 
-    m_current_client.reset();
-    m_current_connection.reset();
+        m_failed_attempts = 0;
 
-    m_failed_attempts = 0;
-
-    clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
+        clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
+    }
 }
 
 int linux_async_worker_thread::calculate_connection_timeout() const {
