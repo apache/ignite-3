@@ -61,7 +61,7 @@ public:
      */
     void reserve_length_header() {
         m_length_pos = m_buffer.size();
-        m_buffer.insert(m_buffer.end(), 4, std::byte{0});
+        m_buffer.insert(m_buffer.end(), LENGTH_HEADER_SIZE, std::byte{0});
     }
 
     /**
