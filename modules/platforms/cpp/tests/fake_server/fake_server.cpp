@@ -225,7 +225,7 @@ void fake_server::handle_requests() {
         std::vector<std::byte> resp;
         switch (op) {
             case client_operation::HEARTBEAT: {
-                auto body = [](protocol::writer &wr) {};
+                auto body = [](protocol::writer&) {};
 
                 write_response(resp, req_id, body);
             } break;
