@@ -34,7 +34,7 @@ node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::asyn
     , m_timer_thread(std::move(timer_thread)){}
 
 node_connection::~node_connection() {
-    for (auto& req : m_request_handlers) {
+    for (auto &req : m_request_handlers) {
         auto handling_res = result_of_operation<void>([&]() {
             auto handler = req.second.handler;
             auto res = handler->set_error(ignite_error("Connection closed before response was received"));
@@ -216,27 +216,25 @@ void node_connection::handle_timeouts() {
     {
         std::lock_guard lock(m_request_handlers_mutex);
 
-        std::vector<int64_t> keys_for_erasure;
+        for (auto it = m_request_handlers.begin(); it != m_request_handlers.end();) {
+            auto &id = it->first;
+            auto &req = it->second;
 
-        for (auto& [id, req] : m_request_handlers) {
             if (req.timeouts_at.has_value() && req.timeouts_at < now) {
-
                 std::stringstream ss;
                 ss << "Operation timeout [req_id=" << id << "]";
-                auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT,ss.str()));
+                auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT, ss.str()));
 
                 this->m_logger->log_warning(ss.str());
-
-                keys_for_erasure.push_back(id);
 
                 if (res.has_error())
                     this->m_logger->log_error(
                         "Uncaught user callback exception while handling operation error: " + res.error().what_str());
-            }
-        }
 
-        for (int64_t key : keys_for_erasure) {
-            m_request_handlers.erase(key);
+                it = m_request_handlers.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
 

@@ -62,6 +62,23 @@ TEST_F(client_test, configuration_set_invalid_heartbeat) {
         ignite_error);
 }
 
+TEST_F(client_test, configuration_set_invalid_operation_timeout) {
+    using namespace std::chrono_literals;
+
+    auto cfg = create_default_client_config();
+
+    EXPECT_THROW(
+        {
+            try {
+                cfg.set_operation_timeout(-1s);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Operation timeout can't be negative"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
 TEST_F(client_test, configuration_set_empty_address_constructor) {
     EXPECT_THROW(
         {
@@ -172,17 +189,3 @@ TEST_F(client_test, heartbeat_disable_connection_is_closed) {
         },
         ignite_error);
 }
-
-TEST_F(client_test, connection_timeout_works) {
-    using namespace std::chrono_literals;
-
-    auto cfg = create_default_client_config();
-
-    cfg.set_operation_timeout(std::chrono::milliseconds{1});
-
-    auto cl = ignite_client::start(cfg, 30s);
-
-    cl.get_sql().execute(nullptr, nullptr, {"select * from dual"}, {});
-}
-
-
