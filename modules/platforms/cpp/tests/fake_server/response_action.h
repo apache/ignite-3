@@ -50,7 +50,7 @@ public:
     }
 
 private:
-    std::chrono::milliseconds m_delay;;
+    std::chrono::milliseconds m_delay;
 };
 
 }

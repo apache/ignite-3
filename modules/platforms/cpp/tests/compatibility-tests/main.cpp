@@ -58,7 +58,7 @@ void set_process_abort_handler(std::function<void(int)> handler) {
 
 using namespace ignite;
 
-const std::vector<std::string> DEFAULT_VERSIONS = {"3.0.0"};
+const std::vector<std::string> DEFAULT_VERSIONS = {"3.0.0", "3.1.0"};
 
 /**
  * Structure to store argument values for automatic memory management.

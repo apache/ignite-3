@@ -16,13 +16,11 @@
  */
 
 #pragma once
+
 #include <atomic>
 #include <cstddef>
 #include <ignite/common/ignite_error.h>
 #include <ignite/protocol/utils.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace ignite {
 
@@ -48,7 +46,6 @@ public:
 
 private:
     void receive_next_packet();
-
 
 };
 } // namespace ignite

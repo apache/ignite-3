@@ -114,7 +114,6 @@ private:
         int bind_res = bind(m_srv_fd, reinterpret_cast<sockaddr *>(&srv_addr), sizeof(srv_addr));
 
         if (bind_res < 0) {
-        str:
             std::stringstream ss;
             ss << "bind failed" << strerror(errno);
             throw std::runtime_error(ss.str());

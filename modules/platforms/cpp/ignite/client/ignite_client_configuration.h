@@ -208,7 +208,7 @@ public:
     void set_operation_timeout(std::chrono::milliseconds operation_timeout) {
         if (operation_timeout.count() < 0) {
             throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Operation timeout can't be negative: "
-                + std::to_string(operation_timeout.count()) + " microseconds");
+                + std::to_string(operation_timeout.count()) + " milliseconds");
         }
 
         m_operation_timeout = operation_timeout;

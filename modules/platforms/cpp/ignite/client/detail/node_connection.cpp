@@ -16,7 +16,6 @@
  */
 
 #include "ignite/client/detail/node_connection.h"
-#include "ignite/common/detail/duration_min_max.h"
 #include "ignite/protocol/heartbeat_timeout.h"
 
 #include <ignite/protocol/messages.h>
@@ -220,11 +219,13 @@ void node_connection::handle_timeouts() {
         std::vector<int64_t> keys_for_erasure;
 
         for (auto& [id, req] : m_request_handlers) {
-            if (req.timeouts_at > now) {
+            if (req.timeouts_at.has_value() && req.timeouts_at < now) {
 
                 std::stringstream ss;
                 ss << "Operation timeout [req_id=" << id << "]";
                 auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT,ss.str()));
+
+                this->m_logger->log_warning(ss.str());
 
                 keys_for_erasure.push_back(id);
 
