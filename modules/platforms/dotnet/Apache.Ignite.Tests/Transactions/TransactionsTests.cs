@@ -469,7 +469,11 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxNewClient()
         {
-            using var client = await IgniteClient.StartAsync(GetConfig());
+            using var logger = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+            var cfg = GetConfig();
+            cfg.LoggerFactory = logger;
+
+            using var client = await IgniteClient.StartAsync(cfg);
             var recordView = (await client.Tables.GetTableAsync(TableName))!.GetRecordView<Poco>();
             await using var roTx = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
             var (_, hasValue) = await recordView.GetAsync(roTx, new Poco { Key = 12345 });
