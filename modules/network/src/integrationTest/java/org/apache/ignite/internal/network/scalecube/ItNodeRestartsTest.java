@@ -17,24 +17,39 @@
 
 package org.apache.ignite.internal.network.scalecube;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.net.ConnectException;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -73,7 +88,7 @@ class ItNodeRestartsTest {
 
         services = addresses.stream()
                 .map(addr -> startNetwork(testInfo, addr, nodeFinder))
-                .collect(Collectors.toCollection(ArrayList::new)); // ensure mutability
+                .collect(toCollection(ArrayList::new)); // ensure mutability
 
         for (ClusterService service : services) {
             assertTrue(waitForTopology(service, 5, 5_000), service.topologyService().localMember().toString()
@@ -152,5 +167,70 @@ class ItNodeRestartsTest {
         }
 
         return false;
+    }
+
+    /**
+     * Tests that message sends only end with expected exceptions during recipient node restart.
+     */
+    @Test
+    public void testRestartDuringSends(TestInfo testInfo) {
+        final int initPort = 3344;
+
+        List<NetworkAddress> addresses = findLocalAddresses(initPort, initPort + 2);
+
+        var nodeFinder = new StaticNodeFinder(addresses);
+
+        services = addresses.stream()
+                .map(addr -> startNetwork(testInfo, addr, nodeFinder))
+                .collect(toCollection(ArrayList::new)); // ensure mutability
+
+        for (ClusterService service : services) {
+            assertTrue(waitForTopology(service, 2, 5_000), service.topologyService().localMember().toString()
+                    + ", topSize=" + service.topologyService().allMembers().size());
+        }
+
+        ClusterService sender = services.get(0);
+        ClusterService receiver = services.get(1);
+
+        AtomicBoolean sending = new AtomicBoolean(true);
+
+        CompletableFuture<Void> sendingFuture = runAsync(() -> {
+            InternalClusterNode receiverNode = receiver.topologyService().localMember();
+
+            while (sending.get()) {
+                TestMessage message = new TestMessagesFactory().testMessage().build();
+                CompletableFuture<Void> future = sender.messagingService().send(receiverNode, message);
+
+                try {
+                    future.get(10, SECONDS);
+                } catch (InterruptedException | TimeoutException e) {
+                    throw new RuntimeException(e);
+                } catch (ExecutionException e) {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException.
+                    if (!hasCause(e, RecipientLeftException.class, ConnectException.class, SocketException.class)) {
+                        if (!hasCause(e, "Channel has been closed before handshake has finished", HandshakeException.class)) {
+                            fail("Not an expected exception", e);
+                        }
+                    }
+                }
+
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(services.get(1).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            ClusterService restartedReceiver = startNetwork(testInfo, addresses.get(1), nodeFinder);
+            services.set(1, restartedReceiver);
+        }
+
+        sending.set(false);
+
+        assertThat(sendingFuture, willCompleteSuccessfully());
     }
 }
