@@ -24,6 +24,7 @@ import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
@@ -102,6 +103,7 @@ public class ComputeWithCustomResultMarshallerExample  extends AbstractDeploymen
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
+    private static final Path JAR_PATH = Path.of("build/libs/codeDeploymentExampleUnit-1.0.0.jar"); // Output jar
 
     /**
      * Main method of the example.
@@ -137,7 +139,7 @@ public class ComputeWithCustomResultMarshallerExample  extends AbstractDeploymen
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {
                 System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, JAR_PATH);
                 System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
             }
 

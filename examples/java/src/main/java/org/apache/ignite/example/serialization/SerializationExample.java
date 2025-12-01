@@ -28,8 +28,7 @@ import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
  *
  * <p>Find instructions on how to run the example in the <code>README.md</code>
  * file located in the "examples" directory root.</p>
@@ -94,8 +93,6 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
     private static final String DEPLOYMENT_UNIT_AUTO = "pojoAutoSerializationExampleUnit";
     private static final String DEPLOYMENT_UNIT_TUPLE = "tupleSerializationExampleUnit";
     private static final String VERSION = "1.0.0";
-    private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
-    private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
     private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
 
     public static void main(String[] args) throws Exception {
