@@ -602,6 +602,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         var preloadingForGc = new PreloadingForGcInvokeClosure(rowId, timestamp, gcRowVersion.getLink(), this);
 
+        lockByRowId.lock(rowId);
+
         try {
             renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, preloadingForGc);
         } catch (IgniteInternalCheckedException e) {
@@ -612,6 +614,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     e,
                     rowId, timestamp, createStorageInfo()
             );
+        } finally {
+            lockByRowId.unlockAll(rowId);
         }
     }
 }

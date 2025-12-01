@@ -87,6 +87,7 @@ public class GcUpdateHandler {
                 case SUCCESS:
                     return true;
                 case FAILED_ACQUIRE_LOCK:
+                case REMOVED_BY_ANOTHER_THREAD:
                     continue;
                 case SHOULD_RELEASE:
                     // Storage engine needs resources (e.g., checkpoint needs write lock).
@@ -110,6 +111,8 @@ public class GcUpdateHandler {
         }
 
         return storage.runConsistently(locker -> {
+            boolean someRowRemovedByAnotherThread = false;
+
             for (int i = 0; i < peekEntries.size(); i++) {
                 // Check if the storage engine needs resources before continuing.
                 if (locker.shouldRelease()) {
@@ -121,6 +124,8 @@ public class GcUpdateHandler {
                 VacuumResult vacuumResult = internalVacuum(peekEntries.get(i), locker, i > 0);
 
                 if (vacuumResult == VacuumResult.REMOVED_BY_ANOTHER_THREAD) {
+                    someRowRemovedByAnotherThread = true;
+
                     continue;
                 } else if (vacuumResult != VacuumResult.SUCCESS) {
                     return vacuumResult;
@@ -129,7 +134,11 @@ public class GcUpdateHandler {
                 countHolder.getAndDecrement();
             }
 
-            return VacuumResult.SUCCESS;
+            if (someRowRemovedByAnotherThread) {
+                return VacuumResult.REMOVED_BY_ANOTHER_THREAD;
+            }
+
+            return countHolder.get() == 0 ? VacuumResult.SUCCESS : VacuumResult.NO_GARBAGE_LEFT;
         });
     }
 

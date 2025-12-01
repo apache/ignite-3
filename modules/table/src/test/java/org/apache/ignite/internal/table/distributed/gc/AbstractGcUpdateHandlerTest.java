@@ -129,7 +129,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5));
 
-        verify(partitionStorage, times(3)).peek(eq(lowWatermark), eq(5));
+        verify(partitionStorage, times(1)).peek(eq(lowWatermark), eq(5));
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any(), isNull());
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any(), isNull());
     }
@@ -239,7 +239,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         }
 
         for (GcUpdateHandler gcUpdateHandler : gcUpdateHandlers) {
-            gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, Integer.MAX_VALUE);
+            gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, numRows);
         }
 
         for (int i = 0; i < numPartitions; i++) {
