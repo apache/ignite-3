@@ -1109,7 +1109,14 @@ public class DataNodesManager {
      * @return The earliest timestamp needed to keep history for.
      */
     private HybridTimestamp earliestTimestampNeededForHistory() {
-        long minTimeAvailable = lowWatermark.getLowWatermark().getPhysical();
+        HybridTimestamp lw = lowWatermark.getLowWatermark();
+
+        if (lw == null) {
+            // Low watermark is not set yet, keep the history.
+            return HybridTimestamp.MIN_VALUE;
+        }
+
+        long minTimeAvailable = lw.getPhysical();
         long minCatalogTimeAvailable = hybridTimestamp(catalogManager.earliestCatalog().time()).getPhysical();
 
         long minPhysical = max(
