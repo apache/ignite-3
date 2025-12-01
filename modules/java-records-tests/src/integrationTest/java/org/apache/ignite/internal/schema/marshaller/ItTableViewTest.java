@@ -137,14 +137,14 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
     void componentsWrongTypesThrowsException(Table t) {
         String msgSubstring = "Column's type mismatch";
 
-        assertViewThrows(Exception.class, msgSubstring, t, new ComponentsWrongTypes.Record((short) 1, 2));
-        assertViewThrows(Exception.class, msgSubstring, t, new ComponentsWrongTypes.Class((short) 1, 2));
+        assertViewThrows(ClassCastException.class, msgSubstring, t, new ComponentsWrongTypes.Record((short) 1, 2));
+        assertViewThrows(ClassCastException.class, msgSubstring, t, new ComponentsWrongTypes.Class((short) 1, 2));
 
-        assertViewThrows(Exception.class, msgSubstring, t,
+        assertViewThrows(ClassCastException.class, msgSubstring, t,
                 new ComponentsWrongTypes.RecordK((short) 1),
                 new ComponentsWrongTypes.RecordV(2)
         );
-        assertViewThrows(Exception.class, msgSubstring, t,
+        assertViewThrows(ClassCastException.class, msgSubstring, t,
                 new ComponentsWrongTypes.ClassK((short) 1),
                 new ComponentsWrongTypes.ClassV(2)
         );
@@ -155,14 +155,14 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
     void componentsEmptyThrowsException(Table t) {
         String msgSubstring = "Empty mapping isn't allowed";
 
-        assertViewThrows(Exception.class, msgSubstring, t, new ComponentsEmpty.Record());
-        assertViewThrows(Exception.class, msgSubstring, t, new ComponentsEmpty.Class());
+        assertViewThrows(IllegalArgumentException.class, msgSubstring, t, new ComponentsEmpty.Record());
+        assertViewThrows(IllegalArgumentException.class, msgSubstring, t, new ComponentsEmpty.Class());
 
-        assertViewThrows(Exception.class, msgSubstring, t,
+        assertViewThrows(IllegalArgumentException.class, msgSubstring, t,
                 new ComponentsExact.RecordK(1),
                 new ComponentsEmpty.Record()
         );
-        assertViewThrows(Exception.class, msgSubstring, t,
+        assertViewThrows(IllegalArgumentException.class, msgSubstring, t,
                 new ComponentsExact.ClassK(1),
                 new ComponentsEmpty.Class()
         );

@@ -91,7 +91,7 @@ class AssertMarshaller {
     }
 
     static <T, E extends Throwable> void assertViewThrows(Class<E> expectedType, String msgSubstring, Table table, T expected) {
-        IgniteTestUtils.assertThrows(expectedType, () -> assertView(table, expected), msgSubstring);
+        IgniteTestUtils.assertThrowsWithCause(() -> assertView(table, expected), expectedType, msgSubstring);
     }
 
     static <K, V, E extends Throwable> void assertViewThrows(
@@ -101,6 +101,6 @@ class AssertMarshaller {
             K expectedKey,
             V expectedVal
     ) {
-        IgniteTestUtils.assertThrows(expectedType, () -> assertView(table, expectedKey, expectedVal), msgSubstring);
+        IgniteTestUtils.assertThrowsWithCause(() -> assertView(table, expectedKey, expectedVal), expectedType, msgSubstring);
     }
 }
