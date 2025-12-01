@@ -184,21 +184,7 @@ public class RowVersion implements Storable {
         PageUtils.putShort(pageAddr, dataOff, (short) payloadSize);
         dataOff += Short.BYTES;
 
-        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, dataType());
-
-        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
-
-        writePartitionless(pageAddr + dataOff + NEXT_LINK_OFFSET, nextLink());
-
-        PageUtils.putInt(pageAddr, dataOff + VALUE_SIZE_OFFSET, valueSize());
-
-        if (value != null) {
-            PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) value.schemaVersion());
-        } else {
-            PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) 0);
-        }
-
-        writeExtraHeaderFields(pageAddr, dataOff);
+        writeHeader(pageAddr, dataOff);
 
         if (value != null) {
             PageUtils.putByteBuffer(pageAddr, dataOff + valueOffset(), value.tupleSlice());
@@ -207,10 +193,6 @@ public class RowVersion implements Storable {
 
     protected byte dataType() {
         return DATA_TYPE;
-    }
-
-    protected void writeExtraHeaderFields(long pageAddr, int dataOff) {
-        // No-op.
     }
 
     protected int valueOffset() {
@@ -229,17 +211,7 @@ public class RowVersion implements Storable {
             assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
                     + headerSize + " and payload size is " + payloadSize;
 
-            pageBuf.put(dataType());
-
-            HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
-
-            PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
-
-            pageBuf.putInt(valueSize());
-
-            pageBuf.putShort(value == null ? 0 : (short) value.schemaVersion());
-
-            writeExtraFirstFragmentHeaderFields(pageBuf);
+            writeHeader(pageBuf);
 
             bufferOffset = 0;
             bufferSize = payloadSize - headerSize;
@@ -256,8 +228,25 @@ public class RowVersion implements Storable {
         }
     }
 
-    protected void writeExtraFirstFragmentHeaderFields(ByteBuffer pageBuf) {
-        // No-op.
+    protected void writeHeader(long pageAddr, int dataOff) {
+        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, dataType());
+        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
+        writePartitionless(pageAddr + dataOff + NEXT_LINK_OFFSET, nextLink());
+        PageUtils.putInt(pageAddr, dataOff + VALUE_SIZE_OFFSET, valueSize());
+        PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, schemaVersionOrZero());
+    }
+
+    protected void writeHeader(ByteBuffer pageBuf) {
+        pageBuf.put(dataType());
+        HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
+        PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
+        pageBuf.putInt(valueSize());
+        pageBuf.putShort(schemaVersionOrZero());
+    }
+
+    private short schemaVersionOrZero() {
+        //noinspection NumericCastThatLosesPrecision
+        return value == null ? 0 : (short) value.schemaVersion();
     }
 
     static long readNextLink(int partitionId, long pageAddr, int offset) {
