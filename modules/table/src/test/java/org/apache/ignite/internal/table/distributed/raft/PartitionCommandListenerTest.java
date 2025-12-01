@@ -122,9 +122,9 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
-import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -809,7 +809,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     /**
      * Tests that {@link BuildIndexCommandHandler} exits early when storage engine needs resources.
      *
-     * This test verifies that the index building process can be interrupted when {@code shouldRelease()}
+     * <p>This test verifies that the index building process can be interrupted when {@code shouldRelease()}
      * returns {@code true}, allowing the storage engine to perform critical operations like checkpoints.
      */
     @Test
