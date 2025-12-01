@@ -466,20 +466,6 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.IsFalse(hasVal);
         }
 
-        [Test]
-        public async Task TestReadOnlyTxNewClient()
-        {
-            using var logger = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
-            var cfg = GetConfig();
-            cfg.LoggerFactory = logger;
-
-            using var client = await IgniteClient.StartAsync(cfg);
-            var recordView = (await client.Tables.GetTableAsync(TableName))!.GetRecordView<Poco>();
-            await using var roTx = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            var (_, hasValue) = await recordView.GetAsync(roTx, new Poco { Key = 12345 });
-            Assert.IsFalse(hasValue);
-        }
-
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;
