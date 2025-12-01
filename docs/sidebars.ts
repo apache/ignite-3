@@ -147,7 +147,7 @@ const sidebars: SidebarsConfig = {
               label: "SQL Conformance",
               link: { type: "doc", id: "sql/reference/sql-conformance/index" },
               items: [
-                "sql/reference/sql-conformance/sql-conformance",
+                "sql/reference/sql-conformance/overview",
                 "sql/reference/sql-conformance/keywords",
               ],
             },
