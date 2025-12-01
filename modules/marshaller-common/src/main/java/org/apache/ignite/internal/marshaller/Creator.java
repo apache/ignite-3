@@ -24,13 +24,11 @@ import org.jetbrains.annotations.Nullable;
 
 class Creator<T> {
     final Class<T> clazz;
-    private final FieldAccessor[] accessors;
     private @Nullable Annotated defaultConstructor;
     private @Nullable Annotated creatorConstructor;
 
-    Creator(Class<T> clazz, FieldAccessor[] accessors) {
+    Creator(Class<T> clazz) {
         this.clazz = clazz;
-        this.accessors = accessors;
         findCreators(clazz);
     }
 
@@ -39,7 +37,7 @@ class Creator<T> {
         Object createFrom(FieldAccessor[] accessors, MarshallerReader reader);
     }
 
-    Object createFrom(MarshallerReader reader) {
+    Object createFrom(FieldAccessor[] accessors, MarshallerReader reader) {
         if (creatorConstructor != null) {
             return creatorConstructor.createFrom(accessors, reader);
         }
