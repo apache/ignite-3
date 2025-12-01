@@ -18,7 +18,8 @@
 def getCommitHash(File workingDir) {
     try {
         def process = 'git rev-parse HEAD'.execute(null, workingDir)
-        if (process.exitValue() == 0) {
+        int exitValue = process.waitFor()
+        if (exitValue == 0) {
             return process.text.trim()
         }
     } catch (Exception e) {
