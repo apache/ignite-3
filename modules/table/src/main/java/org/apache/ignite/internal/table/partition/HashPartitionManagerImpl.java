@@ -30,11 +30,14 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -148,9 +151,14 @@ public class HashPartitionManagerImpl implements PartitionManager {
         Objects.requireNonNull(key);
         Objects.requireNonNull(mapper);
 
-        var marshaller = new RecordMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, mapper);
+        SchemaDescriptor schema = schemaReg.lastKnownSchema();
 
-        BinaryRowEx keyRow = marshaller.marshalKey(key);
+        Column valCol = CollectionUtils.first(schema.valueColumns());
+        assert valCol != null;
+
+        var marshaller = new KvMarshallerImpl<>(schema, marshallers, mapper, Mapper.of(Void.class, valCol.name()));
+
+        BinaryRowEx keyRow = marshaller.marshal(key);
 
         return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }
