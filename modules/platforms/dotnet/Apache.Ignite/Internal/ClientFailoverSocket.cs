@@ -124,11 +124,6 @@ namespace Apache.Ignite.Internal
         public bool IsDisposed => _disposed;
 
         /// <summary>
-        /// Gets the logger.
-        /// </summary>
-        public ILogger Logger => _logger;
-
-        /// <summary>
         /// Connects the socket.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
@@ -365,8 +360,7 @@ namespace Apache.Ignite.Internal
 
                 if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
                 {
-                    // TODO: Remove
-                    _logger.LogObservableTsUpdatedTrace(current);
+                    _logger.LogObservableTsUpdatedTrace(timestamp);
                     return;
                 }
             }

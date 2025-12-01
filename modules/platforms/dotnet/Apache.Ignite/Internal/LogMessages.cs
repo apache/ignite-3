@@ -235,13 +235,6 @@ internal static partial class LogMessages
         this ILogger logger, Exception e);
 
     [LoggerMessage(
-        Message = "Transaction started [txId={TxId}, observableTs={ObservableTs}, remoteAddress={RemoteAddress}]",
-        Level = LogLevel.Trace,
-        EventId = 1032)]
-    internal static partial void LogTxBeginTrace(
-        this ILogger logger, long txId, long observableTs, EndPoint remoteAddress);
-
-    [LoggerMessage(
         Message = "ObservableTs updated [observableTs={ObservableTs}]",
         Level = LogLevel.Trace,
         EventId = 1033)]
