@@ -235,9 +235,9 @@ internal static partial class LogMessages
         this ILogger logger, Exception e);
 
     [LoggerMessage(
-        Message = "ObservableTs updated [observableTs={ObservableTs}]",
+        Message = "ObservableTs updated [prev={Prev}, current={Current}]",
         Level = LogLevel.Trace,
-        EventId = 1033)]
+        EventId = 1032)]
     internal static partial void LogObservableTsUpdatedTrace(
-        this ILogger logger, long observableTs);
+        this ILogger logger, long prev, long current);
 }
