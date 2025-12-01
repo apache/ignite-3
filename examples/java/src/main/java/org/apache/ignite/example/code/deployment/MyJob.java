@@ -33,7 +33,6 @@ public class MyJob implements ComputeJob<String, String> {
 
         /** Full path to the script we want to run */
         final String resPath = "/org/apache/ignite/example/code/deployment/resources/script.sh";
-
         try (InputStream in = MyJob.class.getResourceAsStream(resPath)) {
             if (in == null) {
                 throw new IllegalStateException("Resource not found: " + resPath);
