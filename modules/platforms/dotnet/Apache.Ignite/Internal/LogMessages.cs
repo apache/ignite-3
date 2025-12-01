@@ -137,7 +137,7 @@ internal static partial class LogMessages
     internal static partial void LogUnexpectedResponseIdError(this ILogger logger, Exception? ex, string message);
 
     [LoggerMessage(
-        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}",
+        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}]",
         Level = LogLevel.Information,
         EventId = 1017)]
     internal static partial void LogPartitionAssignmentChangeNotificationInfo(
