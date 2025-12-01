@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTA
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -746,6 +747,16 @@ public class ClientInboundMessageHandler
         try {
             opCode = in.unpackInt();
             requestId = in.unpackLong();
+            if (opCode == ClientOp.TUPLE_UPSERT_ALL) {
+                long reqStartTs = in.unpackLong();
+
+                long duration = coarseCurrentTimeMillis() - reqStartTs;
+
+                if (duration > 100) {
+                    LOG.warn("PVD:: Client request processing is delayed [id=" + requestId + ", op=" + opCode
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + ", delayMs=" + duration + "]");
+                }
+            }
 
             if (LOG.isTraceEnabled()) {
                 LOG.trace("Client request started [id=" + requestId + ", op=" + opCode

@@ -380,6 +380,9 @@ public class LeaseUpdater {
         private int activeLeaseCount;
         private int leaseWithoutCandidateCount;
 
+        /** Previous meta storage update future. */
+        private CompletableFuture<Void> previousMsUpdate =  completedFuture(null);
+
         @Override
         public void run() {
             while (active() && !Thread.interrupted()) {
@@ -413,6 +416,12 @@ public class LeaseUpdater {
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
             HybridTimestamp currentTime = clockService.current();
+
+            if (!previousMsUpdate.isDone()) {
+                LOG.warn("Previous lease update is still in progress, skipping this round.");
+
+                return;
+            }
 
             long leaseExpirationInterval = replicationConfiguration.leaseExpirationIntervalMillis().value();
 
@@ -562,7 +571,7 @@ public class LeaseUpdater {
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
-            msManager.invoke(
+            previousMsUpdate = msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
@@ -591,7 +600,7 @@ public class LeaseUpdater {
                 for (Map.Entry<ReplicationGroupId, LeaseAgreement> entry : toBeNegotiated.entrySet()) {
                     leaseNegotiator.negotiate(entry.getValue());
                 }
-            });
+            }).thenApply(unused -> null);
         }
 
         private void chooseCandidateAndCreateNewLease(

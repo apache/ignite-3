@@ -1338,6 +1338,7 @@ public class InternalTableImpl implements InternalTable {
         assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
 
         return TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                .startTs(coarseCurrentTimeMillis())
                 .groupId(serializeReplicationGroupId(groupId))
                 .tableId(tableId)
                 .commitPartitionId(serializeReplicationGroupId(tx.commitPartition()))
