@@ -1081,7 +1081,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 TransactionException.class,
                 Transactions.ACQUIRE_LOCK_ERR,
                 operation,
-                "Lock acquiring failed during operation [operationType=" + ReadWriteSingleRowReplicaRequestImpl.class.getSimpleName() + "]."
+                "Lock acquiring failed during request handling"
         );
 
         Throwable rootCause = unwrapRootCause(transactionException);
