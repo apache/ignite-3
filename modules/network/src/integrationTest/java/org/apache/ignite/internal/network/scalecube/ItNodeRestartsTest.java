@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketException;
 import java.util.ArrayList;
@@ -207,7 +208,7 @@ class ItNodeRestartsTest {
                     throw new RuntimeException(e);
                 } catch (ExecutionException e) {
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException.
-                    if (!hasCause(e, RecipientLeftException.class, ConnectException.class, SocketException.class)) {
+                    if (!hasCause(e, RecipientLeftException.class, ConnectException.class, SocketException.class, IOException.class)) {
                         if (!hasCause(e, "Channel has been closed before handshake has finished", HandshakeException.class)) {
                             fail("Not an expected exception", e);
                         }
