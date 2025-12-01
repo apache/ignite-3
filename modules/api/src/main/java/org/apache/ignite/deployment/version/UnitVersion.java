@@ -51,7 +51,6 @@ class UnitVersion implements Version {
     @Nullable
     private final String preRelease;
 
-
     /**
      * Constructor.
      *
