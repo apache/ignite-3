@@ -73,11 +73,13 @@ To configure client logging, add `loggerFactory`:
 ```java
 IgniteClient client = IgniteClient.builder()
     .addresses("127.0.0.1")
-    .loggerFactory(System::getLogger)
+    .loggerFactory(System::getLogger)  // Optional: this is the default
     .build();
 ```
 
-The client logs connection errors, reconnects, and retries.
+The client logs connection errors, reconnects, and retries. By default, logging routes to `java.util.logging` (JUL) at INFO level.
+
+For detailed configuration with Logback, Log4j2, or JUL, see [Java Client Logging](../work-with-data/java-client-logging).
 
 ## Client Metrics
 

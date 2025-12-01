@@ -79,6 +79,7 @@ const sidebars: SidebarsConfig = {
             "develop/work-with-data/events",
             "develop/work-with-data/events-list",
             "develop/work-with-data/java-to-tables",
+            "develop/work-with-data/java-client-logging",
           ],
         },
         {
