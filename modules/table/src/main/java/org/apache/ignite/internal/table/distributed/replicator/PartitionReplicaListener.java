@@ -3811,7 +3811,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 request.getClass().getSimpleName()
         );
 
-        assert requestOperationType.isWrite() : format(
+        assert !requestOperationType.isReadOnly() : format(
                 "Unexpected replica request with read-only operation type [requestType={}, requestOperationType={}].",
                 request.getClass().getSimpleName(),
                 requestOperationType
