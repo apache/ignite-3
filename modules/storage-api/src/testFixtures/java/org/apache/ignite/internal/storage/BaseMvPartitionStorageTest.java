@@ -30,11 +30,10 @@ import org.junit.jupiter.api.AfterEach;
 /**
  * Base test for MV partition storages.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
-    protected static final int COMMIT_TABLE_ID = 999;
+    protected static final int COMMIT_ZONE_ID = 999;
 
     protected static final RowId ROW_ID = new RowId(PARTITION_ID);
 
@@ -102,7 +101,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            return storage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, PARTITION_ID);
+            return storage.addWrite(rowId, binaryRow, txId, COMMIT_ZONE_ID, PARTITION_ID);
         });
     }
 

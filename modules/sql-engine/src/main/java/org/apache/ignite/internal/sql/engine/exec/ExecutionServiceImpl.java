@@ -63,7 +63,6 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.Debuggable;
@@ -74,8 +73,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
@@ -186,8 +183,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
     private final ClockService clockService;
 
-    private final NodeProperties nodeProperties;
-
     private final KillCommandHandler killCommandHandler;
 
     private final ExpressionFactory<RowT> expressionFactory;
@@ -219,7 +214,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
-            NodeProperties nodeProperties,
             KillCommandHandler killCommandHandler,
             ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
@@ -235,7 +229,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
-        this.nodeProperties = nodeProperties;
         this.killCommandHandler = killCommandHandler;
         this.expressionFactory = expressionFactory;
         this.shutdownTimeout = shutdownTimeout;
@@ -276,7 +269,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ExecutionDependencyResolver dependencyResolver,
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
-            NodeProperties nodeProperties,
             KillCommandHandler killCommandHandler,
             ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
@@ -299,7 +291,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                         tableFunctionRegistry
                 ),
                 clockService,
-                nodeProperties,
                 killCommandHandler,
                 expressionFactory,
                 shutdownTimeout
@@ -1299,10 +1290,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
                     int partsCnt = assignments.size();
 
-                    tx.assignCommitPartition(targetReplicationGroupId(tableId, zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
+                    tx.assignCommitPartition(new ZonePartitionId(zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getIntKey());
+                        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
@@ -1324,14 +1315,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                     enlist(igniteTable.id(), igniteTable.zoneId(), assignments);
                 }
             }.visit(mappedFragment.fragment().root());
-        }
-
-        private ReplicationGroupId targetReplicationGroupId(int tableId, int zoneId, int partitionId) {
-            if (nodeProperties.colocationEnabled()) {
-                return new ZonePartitionId(zoneId, partitionId);
-            } else {
-                return new TablePartitionId(tableId, partitionId);
-            }
         }
 
         private CompletableFuture<Void> close(CancellationReason reason) {

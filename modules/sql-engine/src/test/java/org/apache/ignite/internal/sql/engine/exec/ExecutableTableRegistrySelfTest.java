@@ -25,7 +25,6 @@ import static org.mockito.Mockito.when;
 import java.util.Map;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -136,7 +135,6 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
                     sqlSchemaManager,
                     replicaService,
                     new TestClockService(clock),
-                    new SystemPropertiesNodeProperties(),
                     cacheSize,
                     CaffeineCacheFactory.INSTANCE
             );

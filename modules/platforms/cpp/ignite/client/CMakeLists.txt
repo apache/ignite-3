@@ -93,6 +93,8 @@ target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(${TARGET} SHARED ${SOURCES})
 
+add_library(${TARGET}-static STATIC ${SOURCES})
+
 set(LIBRARIES
     ignite-common
     ignite-tuple
@@ -101,7 +103,7 @@ set(LIBRARIES
     uni-algo::uni-algo
 )
 
-set(_target_libs ${TARGET} ${TARGET}-obj)
+set(_target_libs ${TARGET} ${TARGET}-obj ${TARGET}-static)
 
 foreach(_target_lib IN LISTS _target_libs)
     set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
