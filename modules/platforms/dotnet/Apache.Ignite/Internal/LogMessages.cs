@@ -233,4 +233,11 @@ internal static partial class LogMessages
         EventId = 1031)]
     internal static partial void LogFailedSocketDispose(
         this ILogger logger, Exception e);
+
+    [LoggerMessage(
+        Message = "Transaction started [txId={TxId}, observableTs={ObservableTs}, remoteAddress={RemoteAddress}]",
+        Level = LogLevel.Trace,
+        EventId = 1032)]
+    internal static partial void LogTxBeginTrace(
+        this ILogger logger, long txId, long observableTs, EndPoint remoteAddress);
 }

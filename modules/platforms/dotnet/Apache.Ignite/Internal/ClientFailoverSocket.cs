@@ -124,6 +124,11 @@ namespace Apache.Ignite.Internal
         public bool IsDisposed => _disposed;
 
         /// <summary>
+        /// Gets the logger.
+        /// </summary>
+        public ILogger Logger => _logger;
+
+        /// <summary>
         /// Connects the socket.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>

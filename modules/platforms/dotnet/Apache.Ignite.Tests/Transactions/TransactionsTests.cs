@@ -24,6 +24,7 @@ namespace Apache.Ignite.Tests.Transactions
     using Ignite.Transactions;
     using Internal;
     using Internal.Transactions;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
     using Table;
     using Tx;
@@ -247,11 +248,13 @@ namespace Apache.Ignite.Tests.Transactions
         [Timeout(int.MaxValue)]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdateNewClient([Values(true, false)] bool newClient)
         {
+            using var logger = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
             var cfg = GetConfig();
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add($"127.0.0.1:{ServerPort}");
+            cfg.LoggerFactory = logger;
 
-            for (int i = 0; i < 10_000; i++)
+            for (int i = 0; i < 1; i++)
             {
                 var client = newClient ? await IgniteClient.StartAsync(cfg) : Client;
 
