@@ -32,7 +32,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.network.ClusterNode;
@@ -148,9 +148,9 @@ public class HashPartitionManagerImpl implements PartitionManager {
         Objects.requireNonNull(key);
         Objects.requireNonNull(mapper);
 
-        var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, mapper, mapper);
+        var marshaller = new RecordMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, mapper);
 
-        BinaryRowEx keyRow = marshaller.marshal(key);
+        BinaryRowEx keyRow = marshaller.marshalKey(key);
 
         return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }

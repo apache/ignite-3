@@ -162,6 +162,7 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
             Publisher<BinaryRow> scan = internalTable.scan(i, null);
 
             Partition value = new HashPartition(i);
+            Mapper<TestObject> keyMapper = Mapper.of(TestObject.class);
 
             scan.subscribe(new Subscriber<>() {
                 @Override
@@ -173,9 +174,10 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
                 public void onNext(BinaryRow item) {
                     SchemaRegistry registry = tableViewInternal.schemaView();
                     Tuple tuple = tuple(registry.resolve(item, registry.lastKnownSchemaVersion()));
+                    var keyObj = new TestObject(tuple.intValue("key"));
 
-                    assertThat(partitionDistribution().partitionAsync(tuple.intValue("key"), Mapper.of(Integer.class)), willBe(value));
-                    assertThat(partitionDistribution().partition(tuple.intValue("key"), Mapper.of(Integer.class)), equalTo(value));
+                    assertThat(partitionDistribution().partitionAsync(keyObj, keyMapper), willBe(value));
+                    assertThat(partitionDistribution().partition(keyObj, keyMapper), equalTo(value));
 
                     Tuple key = Tuple.create().set("key", tuple.intValue("key"));
                     assertThat(partitionDistribution().partitionAsync(key), willBe(value));
@@ -195,5 +197,20 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
         }
 
         assertThat(allOf(futures), willCompleteSuccessfully());
+    }
+
+    /**
+     * Test object.
+     */
+    public static class TestObject {
+        private int key;
+
+        /** Constructor. */
+        TestObject() {
+        }
+
+        TestObject(int key) {
+            this.key = key;
+        }
     }
 }
