@@ -211,6 +211,7 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
+            // TODO: This fails even with the workaround (readBeforeUpdate=false), so the problem is somewhere else, not with RO TX propagation.
             // TODO IGNITE-26619 Implicit client ro tx does not include observableTimestamp - remove workaround below.
             // Use single-node connection to work around causality issues due to round-robin in GetNextSocketWithoutReconnect.
             var cfg = GetConfig();

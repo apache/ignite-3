@@ -17,22 +17,33 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.client.table.ClientTable;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * This test is checking correctness of observation timestamp calculation.
  */
+@SuppressWarnings({"resource", "DataFlowIssue", "RedundantMethodOverride"})
 public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
-
     @Override
-    protected long idleSafeTimePropagationDuration() {
-        return 10_000L;
+    protected int nodes() {
+        return 2;
     }
 
     @Test
@@ -64,5 +75,76 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
 
         assertEquals("client value", directClientValue, directClientValue);
         assertEquals("client value", directSrvValue, directSrvValue);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testImplicitTxOnDifferentConnections(boolean roTx) {
+        // - Implicit transactions propagate the update timestamp to the client side (readOrStartImplicitTx).
+        // - Implicit read transactions use null read timestamp, why?
+        // TODO: Should we still send the observableTimestamp with every operation to optimize implicit read tx performance?
+        //       This test is 2x faster with RO TX.
+        Table table = client().tables().table(TABLE_NAME);
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        Tuple key = Tuple.create().set(COLUMN_KEY, 69);
+        kvView.put(null, key, Tuple.create().set(COLUMN_VAL, "initial"));
+
+        waitNonEmptyPartitionAssignment(table);
+        List<String> uniqueNodeIds = getPartitionAssignment(table).stream().distinct().collect(Collectors.toList());
+        assertEquals(2, uniqueNodeIds.size(), "Unexpected number of unique node ids");
+
+        for (int i = 0; i < 1000; i++) {
+            String valStr = "value " + i;
+
+            kvView.put(null, key, Tuple.create().set(COLUMN_VAL, valStr));
+
+            // Switch partition assignment to a different node.
+            setPartitionAssignment(table, uniqueNodeIds.get(i % uniqueNodeIds.size()));
+
+            String val;
+
+            if (roTx) {
+                var tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+                val = kvView.get(tx, key).value(COLUMN_VAL);
+                tx.rollback();
+            } else {
+                val = kvView.get(null, key).value(COLUMN_VAL);
+            }
+
+            assertEquals(valStr, val);
+        }
+    }
+
+    private static void setPartitionAssignment(Table table, String nodeId) {
+        List<String> partitions = getPartitionAssignment(table);
+        Collections.fill(partitions, nodeId);
+    }
+
+    private static void waitNonEmptyPartitionAssignment(Table table) {
+        await().until(() -> {
+            // Perform table op to trigger assignment change notification.
+            table.recordView().contains(null, Tuple.create().set(COLUMN_KEY, 0));
+            return !isPartitionAssignmentEmpty(getPartitionAssignment(table));
+        });
+    }
+
+    private static List<String> getPartitionAssignment(Table table) {
+        assertInstanceOf(ClientTable.class, table);
+
+        Object partitionAssignment = IgniteTestUtils.getFieldValue(table, "partitionAssignment");
+        CompletableFuture<List<String>> partitionsFut = IgniteTestUtils.getFieldValue(partitionAssignment, "partitionsFut");
+
+        return partitionsFut.join();
+    }
+
+    private static boolean isPartitionAssignmentEmpty(List<String> partitionAssignment) {
+        for (String nodeId : partitionAssignment) {
+            if (nodeId != null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
