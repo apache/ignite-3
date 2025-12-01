@@ -81,8 +81,8 @@ class ClientTuplesRequestBase {
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx =
-                readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
+        CompletableFuture<InternalTransaction> txFut =
+                readOrStartImplicitTx(in, tsTracker, resources, txManager, tables, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
@@ -96,7 +96,7 @@ class ClientTuplesRequestBase {
             tupleBytes[i] = in.readBinary();
         }
 
-        return readTableAsync(tableId, tables)
+        return txFut.thenCompose(tx -> readTableAsync(tableId, tables)
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
                             var tuples = new ArrayList<Tuple>(count);
@@ -106,6 +106,6 @@ class ClientTuplesRequestBase {
                             }
 
                             return new ClientTuplesRequestBase(tx, table, tuples, resIdHolder[0]);
-                        }));
+                        })));
     }
 }
