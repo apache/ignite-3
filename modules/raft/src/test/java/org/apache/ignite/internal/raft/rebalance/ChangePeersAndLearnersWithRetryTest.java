@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.raft.rebalance;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -36,7 +36,6 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
@@ -50,10 +49,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for the {@link PartitionMover} class.
+ * Tests for the {@link ChangePeersAndLearnersWithRetry} class.
  */
 @ExtendWith(ExecutorServiceExtension.class)
-class PartitionMoverTest extends BaseIgniteAbstractTest {
+class ChangePeersAndLearnersWithRetryTest extends BaseIgniteAbstractTest {
     private static final long TERM = 123;
 
     private static final PeersAndLearners PEERS_AND_LEARNERS = PeersAndLearners.fromConsistentIds(
@@ -76,9 +75,14 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
                 .thenReturn(failedFuture(new IOException()))
                 .thenReturn(nullCompletedFuture());
 
-        var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
+        var changePeersAndLearnersWithRetry =
+                new ChangePeersAndLearnersWithRetry(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
+        assertThat(changePeersAndLearnersWithRetry.executeOnLeader(
+                PEERS_AND_LEARNERS,
+                TERM,
+                Configuration.NO_SEQUENCE_TOKEN
+        ), willCompleteSuccessfully());
 
         verify(raftService, times(3))
                 .changePeersAndLearnersAsync(eq(PEERS_AND_LEARNERS), eq(TERM), eq(Configuration.NO_SEQUENCE_TOKEN));
@@ -90,11 +94,17 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
 
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
+        var changePeersAndLearnersWithRetry =
+                new ChangePeersAndLearnersWithRetry(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
         lock.block();
 
-        assertThrowsWithCause(() -> partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN),
+        assertThrowsWithCause(() ->
+                        changePeersAndLearnersWithRetry.executeOnLeader(
+                                PEERS_AND_LEARNERS,
+                                TERM,
+                                Configuration.NO_SEQUENCE_TOKEN
+                        ),
                 NodeStoppingException.class);
     }
 
@@ -107,9 +117,14 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
         when(raftService.changePeersAndLearnersAsync(any(), anyLong(), anyLong()))
                 .then(invocation -> CompletableFuture.runAsync(lock::block));
 
-        var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
+        var changePeersAndLearnersWithRetry =
+                new ChangePeersAndLearnersWithRetry(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN),
+        assertThat(changePeersAndLearnersWithRetry.executeOnLeader(
+                        PEERS_AND_LEARNERS,
+                        TERM,
+                        Configuration.NO_SEQUENCE_TOKEN
+                ),
                 willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 }

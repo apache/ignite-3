@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -30,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * Client SQL request for the parameter metadata.
@@ -51,15 +51,15 @@ public class ClientSqlQueryMetadataRequest {
             ClientResourceRegistry resources,
             HybridTimestampTracker tsTracker
     ) {
-        var tx = readTx(in, tsTracker, resources, null, null, null);
+        CompletableFuture<InternalTransaction> txFut = readTx(in, tsTracker, resources, null, null, null, null);
 
         String schema = in.unpackString();
         String query = in.unpackString();
 
         SqlProperties properties = new SqlProperties().defaultSchema(schema);
 
-        return nullCompletedFuture()
-                .thenComposeAsync(none -> processor.prepareSingleAsync(properties, tx, query)
+        return txFut
+                .thenComposeAsync(tx -> processor.prepareSingleAsync(properties, tx, query)
                 .thenApply(meta -> out -> writeMeta(out, meta)), operationExecutor);
     }
 

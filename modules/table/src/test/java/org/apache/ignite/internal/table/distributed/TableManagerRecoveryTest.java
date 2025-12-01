@@ -76,6 +76,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -175,6 +176,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -368,19 +370,33 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         doReturn(true).when(replicaMgr).isReplicaStarted(any());
         doReturn(completedFuture(mock(Replica.class, RETURNS_DEEP_STUBS))).when(replicaMgr).replica(any());
 
+        AtomicLong resetPeersCallCount = new AtomicLong(-1);
         doAnswer(invocation -> {
+            captureSequenceToken(invocation, resetPeersCallCount);
+
             throw new IllegalStateException("Test exception");
         })
                 .doAnswer(invocation -> {
+                    captureSequenceToken(invocation, resetPeersCallCount);
+
                     throw new IgniteException(0);
                 })
-                .doAnswer(invocation -> null)
+                .doAnswer(invocation -> {
+                    captureSequenceToken(invocation, resetPeersCallCount);
+
+                    return null;
+                })
                 .when(replicaMgr).resetPeers(any(), any(), anyLong());
 
         // This is to wait until handleChangePendingAssignments is finished.
         CompletableFuture<Void> assignmentsHandled = new CompletableFuture<>();
         metaStorageManager.setOnRevisionAppliedInterceptor(rev -> {
-            assignmentsHandled.complete(null);
+            long resetToken = resetPeersCallCount.get();
+            // Complete the future only when after reset' revision is applied.
+            // Otherwise we might trigger on past MS updates and finish too early.
+            if (resetToken > 0 && rev >= resetToken) {
+                assignmentsHandled.complete(null);
+            }
         });
 
         if (colocationEnabled()) {
@@ -400,6 +416,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(assignmentsHandled, willCompleteSuccessfully());
 
         verify(replicaMgr, times(3)).resetPeers(any(), any(), anyLong());
+    }
+
+    private static void captureSequenceToken(InvocationOnMock invocation, AtomicLong resetPeersCallCount) {
+        long resetSequenceToken = ((Long) invocation.getArgument(2)).longValue();
+
+        resetPeersCallCount.updateAndGet(existing -> Math.max(existing, resetSequenceToken));
     }
 
     /**
@@ -452,7 +474,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 rm,
                 RaftGroupOptionsConfigurer.EMPTY,
                 new VolatileLogStorageFactoryCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
-                Executors.newSingleThreadScheduledExecutor(),
+                Executors.newScheduledThreadPool(4),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()
         ));

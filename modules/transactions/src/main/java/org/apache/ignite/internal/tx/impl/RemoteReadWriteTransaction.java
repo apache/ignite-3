@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -42,7 +42,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     private static final String EXCEPTION_MSG = "Remote transaction should never be finished directly";
 
     private final UUID txId;
-    private final TablePartitionId commitGroupId;
+    private final ZonePartitionId commitGroupId;
     private final long timeout;
     private final UUID coord;
     private final String localNodeConsistentId;
@@ -59,7 +59,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
      * @param localNode Local node.
      * @param timeout The timeout.
      */
-    RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token, InternalClusterNode localNode,
+    RemoteReadWriteTransaction(UUID txId, ZonePartitionId commitGroupId, UUID coord, long token, InternalClusterNode localNode,
             long timeout) {
         this.txId = txId;
         this.commitGroupId = commitGroupId;
@@ -110,7 +110,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ZonePartitionId commitPartition() {
         return commitGroupId;
     }
 

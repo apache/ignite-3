@@ -97,7 +97,16 @@ class ClientTupleRequestBase {
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
+        CompletableFuture<InternalTransaction> txFut = readOrStartImplicitTx(
+                in,
+                tsTracker,
+                resources,
+                txManager,
+                tables,
+                options,
+                notificationSender,
+                resIdHolder
+        );
 
         int schemaId = in.unpackInt();
 
@@ -107,7 +116,7 @@ class ClientTupleRequestBase {
         BitSet noValueSet2 = options.contains(READ_SECOND_TUPLE) ? in.unpackBitSet() : null;
         byte[] tupleBytes2 = options.contains(READ_SECOND_TUPLE) ? in.readBinary() : null;
 
-        return readTableAsync(tableId, tables)
+        return txFut.thenCompose(tx -> readTableAsync(tableId, tables)
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
                             var tuple = readTuple(noValueSet, tupleBytes, options.contains(KEY_ONLY), schema);
@@ -115,7 +124,6 @@ class ClientTupleRequestBase {
                                     ? readTuple(noValueSet2, tupleBytes2, options.contains(KEY_ONLY), schema) : null;
 
                             return new ClientTupleRequestBase(tx, table, tuple, tuple2, resIdHolder[0]);
-                        }));
-
+                        })));
     }
 }

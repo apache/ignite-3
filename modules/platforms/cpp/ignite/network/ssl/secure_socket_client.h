@@ -145,8 +145,8 @@ private:
     /** SSL context. */
     void* m_context{nullptr};
 
-    /** OpenSSL instance */
-    void* m_ssl{nullptr};
+    /** OpenSSL BIO interface */
+    void* m_bio{nullptr};
 
     /** Blocking flag. */
     bool m_blocking{true};

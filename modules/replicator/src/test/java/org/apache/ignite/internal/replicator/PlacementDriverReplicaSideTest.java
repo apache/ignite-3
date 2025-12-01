@@ -56,6 +56,7 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -153,7 +154,9 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 groupId -> null,
                 null,
-                placementDriverMessageProcessor
+                placementDriverMessageProcessor,
+                new IgniteStripedBusyLock(),
+                Executors.newSingleThreadScheduledExecutor()
         );
     }
 

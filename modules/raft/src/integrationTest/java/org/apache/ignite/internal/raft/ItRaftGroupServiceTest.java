@@ -183,17 +183,19 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(newFollowersConfig, newLearnersConfig);
 
-        // Start Raft groups on the new nodes with the new configuration.
-        Stream.concat(newFollowers.stream(), newLearners.stream()).forEach(node -> node.startRaftGroup(configuration));
-
-        // Change Raft configuration and wait until it's applied.
+        // Set up the stubbing before starting Raft groups to avoid race condition
+        // where background Raft threads call the mock while stubbing is in progress.
         var configurationComplete = new CountDownLatch(1);
 
+        // Change Raft configuration and wait until it's applied.
         doAnswer(invocation -> {
             configurationComplete.countDown();
 
             return null;
         }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong(), anyLong(), anyLong());
+
+        // Start Raft groups on the new nodes with the new configuration.
+        Stream.concat(newFollowers.stream(), newLearners.stream()).forEach(node -> node.startRaftGroup(configuration));
 
         RaftGroupService service0 = nodes.get(0).raftGroupService;
 

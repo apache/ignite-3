@@ -656,6 +656,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             peersAndLearners
                     );
 
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-27174
+                    //  Intentionally did not change as colocation disabled mode is officially not supported.
                     return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term(), request.sequenceToken());
                 });
     }
@@ -2823,6 +2825,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         ReplicationGroupId commitPartitionId = request.commitPartitionId().asReplicationGroupId();
 
         assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this assert.
+        assert commitPartitionId instanceof ZonePartitionId : "Commit partition id must be zone aware ["
+                + "requestType=" + request.requestType()
+                + ", commitPartitionId=" + commitPartitionId
+                + ", class=" + commitPartitionId.getClass().getSimpleName() + ']';
 
         switch (request.requestType()) {
             case RW_DELETE_EXACT: {
