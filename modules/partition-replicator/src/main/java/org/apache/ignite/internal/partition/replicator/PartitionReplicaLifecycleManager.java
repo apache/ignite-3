@@ -125,6 +125,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
@@ -167,6 +168,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -1696,8 +1698,21 @@ public class PartitionReplicaLifecycleManager extends
 
             fut.get();
         } catch (Throwable e) {
-            failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
+            if (!isExpectedThrowableDuringResourcesStop(e)) {
+                failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
+            }
         }
+    }
+
+    private static boolean isExpectedThrowableDuringResourcesStop(Throwable throwable) {
+        return hasCause(
+                throwable,
+                NodeStoppingException.class,
+                ComponentStoppingException.class,
+                TrackerClosedException.class,
+                // Is possible during cluster stop due to "stale" nodes (nodes that already left the cluster).
+                HandshakeException.class
+        );
     }
 
     private void printPartitionState(Stream<ZonePartitionId> partitionIds) {
