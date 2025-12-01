@@ -210,35 +210,44 @@ namespace Apache.Ignite.Tests.Transactions
 
         [Test]
         [Timeout(int.MaxValue)]
-        public async Task TestReadOnlyTxSeesOldDataAfterUpdate1()
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate1([Values(true, false)] bool newClient)
         {
-            while (true)
+            var cfg = GetConfig();
+            cfg.Endpoints.Clear();
+            cfg.Endpoints.Add($"127.0.0.1:{ServerPort}");
+
+            for (int i = 0; i < 10_000; i++)
             {
-                // TODO IGNITE-26619 Implicit client ro tx does not include observableTimestamp - remove workaround below.
-                // Use single-node connection to work around causality issues due to round-robin in GetNextSocketWithoutReconnect.
-                var cfg = GetConfig();
-                cfg.Endpoints.Clear();
-                cfg.Endpoints.Add($"127.0.0.1:{ServerPort}");
+                var client = newClient ? await IgniteClient.StartAsync(cfg) : Client;
 
-                using var client = await IgniteClient.StartAsync(cfg);
-                var recordView = (await client.Tables.GetTableAsync(TableName))!.GetRecordView<Poco>();
+                try
+                {
+                    var recordView = (await client.Tables.GetTableAsync(TableName))!.GetRecordView<Poco>();
 
-                var key = Random.Shared.NextInt64(1000, long.MaxValue);
-                var keyPoco = new Poco { Key = key };
+                    var key = Random.Shared.NextInt64(1000, long.MaxValue);
+                    var keyPoco = new Poco { Key = key };
 
-                await recordView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
+                    await recordView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
-                await using var roTx = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+                    await using var roTx = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
-                // Update data in a different (implicit) tx.
-                await recordView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
+                    // Update data in a different (implicit) tx.
+                    await recordView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
-                // Old read-only tx sees old data.
-                Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
+                    // Old read-only tx sees old data.
+                    Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
 
-                // New tx sees new data
-                await using var tx3 = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-                Assert.AreEqual("22", (await recordView.GetAsync(tx3, keyPoco)).Value.Val);
+                    // New tx sees new data
+                    await using var tx3 = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+                    Assert.AreEqual("22", (await recordView.GetAsync(tx3, keyPoco)).Value.Val);
+                }
+                finally
+                {
+                    if (newClient)
+                    {
+                        client.Dispose();
+                    }
+                }
             }
         }
 
