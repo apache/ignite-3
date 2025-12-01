@@ -19,8 +19,11 @@ package org.apache.ignite.internal.table.partition;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -67,9 +70,20 @@ public class HashPartitionManagerImpl implements PartitionManager {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        return table.partitionLocation(partition.partitionId())
-                .thenApply(InternalClusterNode::toPublicNode);
+    public CompletableFuture<List<Partition>> partitionsAsync() {
+        return completedFuture(partitions());
+    }
+
+    @Override
+    public List<Partition> partitions() {
+        int partitions = table.partitions();
+        var list = new ArrayList<Partition>(partitions);
+
+        for (int i = 0; i < partitions; i++) {
+            list.add(new HashPartition(i));
+        }
+
+        return list;
     }
 
     @Override
@@ -93,6 +107,43 @@ public class HashPartitionManagerImpl implements PartitionManager {
     }
 
     @Override
+    public CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node) {
+        return primaryReplicasAsync()
+                .thenApply(map -> {
+                    List<Partition> parts = new ArrayList<>(map.size());
+
+                    for (Map.Entry<Partition, ClusterNode> entry : map.entrySet()) {
+                        if (entry.getValue().equals(node)) {
+                            parts.add(entry.getKey());
+                        }
+                    }
+
+                    return parts;
+                });
+    }
+
+    @Override
+    public Map<Partition, ClusterNode> primaryReplicas() {
+        return sync(primaryReplicasAsync());
+    }
+
+    @Override
+    public List<Partition> primaryReplicas(ClusterNode node) {
+        return sync(primaryReplicasAsync(node));
+    }
+
+    @Override
+    public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
+        return table.partitionLocation(partition.id())
+                .thenApply(InternalClusterNode::toPublicNode);
+    }
+
+    @Override
+    public ClusterNode primaryReplica(Partition partition) {
+        return sync(primaryReplicaAsync(partition));
+    }
+
+    @Override
     public <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(mapper);
@@ -113,5 +164,15 @@ public class HashPartitionManagerImpl implements PartitionManager {
         Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
         return completedFuture(new HashPartition(table.partitionId(keyRow)));
+    }
+
+    @Override
+    public <K> Partition partition(K key, Mapper<K> mapper) {
+        return sync(partitionAsync(key, mapper));
+    }
+
+    @Override
+    public Partition partition(Tuple key) {
+        return sync(partitionAsync(key));
     }
 }

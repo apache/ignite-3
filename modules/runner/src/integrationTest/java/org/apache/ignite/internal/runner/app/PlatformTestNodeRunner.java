@@ -899,7 +899,7 @@ public class PlatformTestNodeRunner {
             Tuple key = Tuple.create().set("key", id);
             Partition partition = table.partitionManager().partitionAsync(key).join();
 
-            return completedFuture(partition.partitionId());
+            return completedFuture(partition.id());
         }
     }
 

@@ -40,7 +40,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-class ItPartitionManagerApiThreadingTest extends ClusterPerClassIntegrationTest {
+class ItPartitionDistributionApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     private static final int KEY = 1;
@@ -102,8 +102,10 @@ class ItPartitionManagerApiThreadingTest extends ClusterPerClassIntegrationTest 
     }
 
     private enum PartitionDistributionAsyncOperation {
+        PARTITIONS_ASYNC(PartitionDistribution::partitionsAsync),
         PRIMARY_REPLICA_ASYNC(distribution -> distribution.primaryReplicaAsync(new HashPartition(0))),
         PRIMARY_REPLICAS_ASYNC(PartitionDistribution::primaryReplicasAsync),
+        PRIMARY_REPLICAS_BY_NODE_ASYNC(distribution -> distribution.primaryReplicasAsync(CLUSTER.aliveNode().cluster().localNode())),
         PARTITION_BY_TUPLE_ASYNC(distribution -> distribution.partitionAsync(KEY_TUPLE)),
         PARTITION_BY_KEY_ASYNC(distribution -> distribution.partitionAsync(KEY, Mapper.of(Integer.class)));
 

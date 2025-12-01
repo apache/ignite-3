@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.table.partition;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -27,10 +30,14 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -39,6 +46,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionDistribution;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,6 +90,8 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
         verifyPrimaryPartition(tableViewInternal, PARTITIONS);
 
         executeSql("ALTER TABLE " + TABLE_NAME + " ADD COLUMN val1 VARCHAR DEFAULT 'newDefault'");
+        verifyPartitions();
+        verifyPrimaryPartitions(tableViewInternal);
         verifyPrimaryPartition(tableViewInternal, PARTITIONS);
         verifyAllKeys(tableViewInternal, PARTITIONS);
     }
@@ -90,7 +100,39 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
     public void partitionsForAllKeys() {
         TableViewInternal tableViewInternal = unwrapTableViewInternal(cluster.aliveNode().tables().table(TABLE_NAME));
 
+        verifyPartitions();
         verifyAllKeys(tableViewInternal, PARTITIONS);
+    }
+
+    private void verifyPartitions() {
+        List<HashPartition> partitions = IntStream.range(0, PARTITIONS).mapToObj(HashPartition::new).collect(toList());
+
+        assertThat(partitionDistribution().partitionsAsync(), willBe(partitions));
+        assertThat(partitionDistribution().partitions(), equalTo(partitions));
+    }
+
+    private void verifyPrimaryPartitions(TableViewInternal tableViewInternal) {
+        InternalTable internalTable = tableViewInternal.internalTable();
+
+        Map<Partition, ClusterNode> partitions = partitionDistribution().primaryReplicas();
+        assertThat(partitionDistribution().primaryReplicasAsync(), willBe(partitions));
+
+        for (Entry<Partition, ClusterNode> entry : partitions.entrySet()) {
+            int partitionId = entry.getKey().id();
+            CompletableFuture<InternalClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(partitionId);
+
+            assertThat(entry.getValue().id(), equalTo(clusterNodeCompletableFuture.join().id()));
+        }
+
+        Map<ClusterNode, List<Partition>> partitionsByNode = partitions.entrySet().stream()
+                .collect(groupingBy(Entry::getValue, mapping(Entry::getKey, toList())));
+
+        for (Entry<ClusterNode, List<Partition>> entry : partitionsByNode.entrySet()) {
+            var node = entry.getKey();
+
+            assertThat(partitionDistribution().primaryReplicasAsync(node), willBe(entry.getValue()));
+            assertThat(partitionDistribution().primaryReplicas(node), equalTo(entry.getValue()));
+        }
     }
 
     private void verifyPrimaryPartition(TableViewInternal tableViewInternal, int partitions) {
@@ -98,11 +140,13 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
 
         for (int i = 0; i < partitions; i++) {
             CompletableFuture<InternalClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(i);
+            var partition = new HashPartition(i);
 
             CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionDistribution()
-                    .primaryReplicaAsync(new HashPartition(i));
+                    .primaryReplicaAsync(partition);
 
             assertThat(clusterNodeCompletableFuture.join().id(), equalTo(clusterNodeCompletableFuture1.join().id()));
+            assertThat(clusterNodeCompletableFuture.join().id(), equalTo(partitionDistribution().primaryReplica(partition).id()));
         }
     }
 
@@ -130,8 +174,12 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
                     SchemaRegistry registry = tableViewInternal.schemaView();
                     Tuple tuple = tuple(registry.resolve(item, registry.lastKnownSchemaVersion()));
 
+                    assertThat(partitionDistribution().partitionAsync(tuple.intValue("key"), Mapper.of(Integer.class)), willBe(value));
+                    assertThat(partitionDistribution().partition(tuple.intValue("key"), Mapper.of(Integer.class)), equalTo(value));
+
                     Tuple key = Tuple.create().set("key", tuple.intValue("key"));
                     assertThat(partitionDistribution().partitionAsync(key), willBe(value));
+                    assertThat(partitionDistribution().partition(key), equalTo(value));
                 }
 
                 @Override

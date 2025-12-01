@@ -34,9 +34,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for client partition manager.
+ * Tests for client partition distribution.
  */
-public class ClientPartitionManagerTest extends AbstractClientTest {
+public class ClientPartitionDistributionTest extends AbstractClientTest {
     private static final String TABLE_NAME = "tbl1";
 
     private static int tableId;
@@ -55,25 +55,25 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     @Test
     public void testPrimaryReplicasCacheInvalidation() {
         Table table = client.tables().table(TABLE_NAME);
-        PartitionDistribution partMgr = table.partitionDistribution();
+        PartitionDistribution partDistribution = table.partitionDistribution();
         HashPartition part0 = new HashPartition(0);
         HashPartition part2 = new HashPartition(2);
 
         // Before update.
-        Map<Partition, ClusterNode> map = partMgr.primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = partDistribution.primaryReplicasAsync().join();
         assertEquals(4, map.size());
         assertEquals("s", map.get(part0).name());
-        assertEquals("s", partMgr.primaryReplicaAsync(part2).join().name());
+        assertEquals("s", partDistribution.primaryReplicaAsync(part2).join().name());
 
         // Update.
         updateServerReplicas(List.of("foo", "bar", "baz", "qux"));
         client.tables().tables(); // Perform a request to trigger cache invalidation.
 
         // After update.
-        Map<Partition, ClusterNode> map2 = partMgr.primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map2 = partDistribution.primaryReplicasAsync().join();
         assertEquals(4, map2.size());
         assertEquals("foo", map2.get(part0).name());
-        assertEquals("baz", partMgr.primaryReplicaAsync(part2).join().name());
+        assertEquals("baz", partDistribution.primaryReplicaAsync(part2).join().name());
     }
 
     private static void updateServerReplicas(List<String> replicas) {

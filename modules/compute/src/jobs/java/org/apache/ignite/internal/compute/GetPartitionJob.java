@@ -27,6 +27,6 @@ import org.apache.ignite.compute.JobExecutionContext;
 public class GetPartitionJob implements ComputeJob<Void, Integer> {
     @Override
     public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Void arg) {
-        return completedFuture(context.partition().partitionId());
+        return completedFuture(context.partition().id());
     }
 }

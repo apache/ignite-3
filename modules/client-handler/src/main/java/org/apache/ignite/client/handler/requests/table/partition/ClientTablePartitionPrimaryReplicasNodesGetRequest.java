@@ -53,7 +53,7 @@ public class ClientTablePartitionPrimaryReplicasNodesGetRequest {
                 .thenApply(partitions -> out -> {
                     out.packInt(partitions.size());
                     for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
-                        out.packInt(e.getKey().partitionId());
+                        out.packInt(e.getKey().id());
 
                         packClusterNode(e.getValue(), out);
                     }

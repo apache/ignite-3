@@ -60,7 +60,7 @@ public interface Table {
      *
      * @return Partition manager.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "3.2")
     PartitionManager partitionManager();
 
     /**

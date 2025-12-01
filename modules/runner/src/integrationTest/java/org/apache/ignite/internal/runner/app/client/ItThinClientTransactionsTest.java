@@ -512,14 +512,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         }
 
         List<Tuple> keys = new ArrayList<>();
-        PartitionDistribution partitionManager = table.partitionDistribution();
+        PartitionDistribution partDistribution = table.partitionDistribution();
 
         int k = start;
         while (keys.size() != count) {
             k++;
             Tuple t = key(k);
 
-            Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
+            Partition part = partDistribution.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
             ClusterNode node = map.get(part);
 
             if (node.name().equals(clusterNodeName)) {
@@ -548,7 +548,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
 
-            if (part.partitionId() == partId) {
+            if (part.id() == partId) {
                 keys.add(t);
             }
         }
@@ -606,7 +606,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
 
         List<String> origPartMap = map.entrySet().stream()
-                .sorted(comparing(e -> e.getKey().partitionId()))
+                .sorted(comparing(e -> e.getKey().id()))
                 .map(e -> e.getValue().name())
                 .collect(Collectors.toList());
 

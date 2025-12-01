@@ -806,7 +806,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         Map<Partition, ClusterNode> replicas = node(0).tables().table("test").partitionManager().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
-                .collect(toMap(entry -> entry.getKey().partitionId(), Entry::getValue));
+                .collect(toMap(entry -> entry.getKey().id(), Entry::getValue));
 
         // When run job that will return its partition id
         JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();

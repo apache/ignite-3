@@ -143,14 +143,14 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     }
 
     private void insertOriginalValuesToBothNodes(int keyCount, KeyValueView<Integer, String> kvView) throws Exception {
-        PartitionDistribution partitionDistribution = node(0).tables().table(TABLE_NAME).partitionDistribution();
+        PartitionDistribution partDistribution = node(0).tables().table(TABLE_NAME).partitionDistribution();
         Set<String> primaryNames = new HashSet<>();
 
         for (int i = 0; i < keyCount; i++) {
             kvView.put(null, i, "original-" + i);
 
             if (primaryNames.size() < 2) {
-                ClusterNode primaryReplica = primaryReplicaFor(i, partitionDistribution);
+                ClusterNode primaryReplica = primaryReplicaFor(i, partDistribution);
                 primaryNames.add(primaryReplica.name());
             }
         }

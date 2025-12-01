@@ -444,7 +444,7 @@ public class ClientCompute implements IgniteCompute {
             UUID taskId,
             @Nullable T arg
     ) {
-        int partitionId = partition.partitionId();
+        int partitionId = partition.id();
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_PARTITIONED,
                 (schema, outputChannel, unused) -> {

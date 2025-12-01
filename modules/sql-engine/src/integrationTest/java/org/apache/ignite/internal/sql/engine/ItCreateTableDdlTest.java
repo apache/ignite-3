@@ -757,7 +757,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
-        return table.partitionManager().partitionAsync(keyTuple).get().partitionId();
+        return table.partitionManager().partitionAsync(keyTuple).get().id();
     }
 
     @Test

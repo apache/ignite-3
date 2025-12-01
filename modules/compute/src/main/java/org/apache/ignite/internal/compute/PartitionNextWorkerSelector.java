@@ -39,7 +39,7 @@ class PartitionNextWorkerSelector extends PrimaryReplicaNextWorkerSelector {
     ) {
         super(placementDriver, topologyService, clock);
 
-        this.partitionGroupId = new ZonePartitionId(zoneId, partition.partitionId());
+        this.partitionGroupId = new ZonePartitionId(zoneId, partition.id());
     }
 
     @Override

@@ -23,6 +23,10 @@ import java.io.Serializable;
  * Interface which represents a partition reference.
  */
 public interface Partition extends Serializable {
-    /** ID of the partition. */
-    int partitionId();
+    /**
+     * Retrieves the identifier of the partition. The identifier is only guaranteed to be unique in the context of a table.
+     *
+     * @return Identifier of the partition.
+     */
+    int id();
 }

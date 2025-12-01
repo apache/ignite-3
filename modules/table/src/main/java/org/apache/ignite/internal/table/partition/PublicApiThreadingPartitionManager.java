@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.partition;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -44,13 +45,43 @@ public class PublicApiThreadingPartitionManager implements PartitionManager {
     }
 
     @Override
+    public CompletableFuture<List<Partition>> partitionsAsync() {
+        return preventThreadHijack(partitionDistribution.partitionsAsync());
+    }
+
+    @Override
+    public List<Partition> partitions() {
+        return partitionDistribution.partitions();
+    }
+
+    @Override
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
         return preventThreadHijack(partitionDistribution.primaryReplicaAsync(partition));
     }
 
     @Override
+    public ClusterNode primaryReplica(Partition partition) {
+        return partitionDistribution.primaryReplica(partition);
+    }
+
+    @Override
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
         return preventThreadHijack(partitionDistribution.primaryReplicasAsync());
+    }
+
+    @Override
+    public CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node) {
+        return preventThreadHijack(partitionDistribution.primaryReplicasAsync(node));
+    }
+
+    @Override
+    public Map<Partition, ClusterNode> primaryReplicas() {
+        return partitionDistribution.primaryReplicas();
+    }
+
+    @Override
+    public List<Partition> primaryReplicas(ClusterNode node) {
+        return partitionDistribution.primaryReplicas(node);
     }
 
     @Override
@@ -61,6 +92,16 @@ public class PublicApiThreadingPartitionManager implements PartitionManager {
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
         return preventThreadHijack(partitionDistribution.partitionAsync(key));
+    }
+
+    @Override
+    public <K> Partition partition(K key, Mapper<K> mapper) {
+        return partitionDistribution.partition(key, mapper);
+    }
+
+    @Override
+    public Partition partition(Tuple key) {
+        return partitionDistribution.partition(key);
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {

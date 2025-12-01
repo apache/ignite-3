@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.restart;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -45,13 +46,43 @@ class RestartProofPartitionManager extends RestartProofApiObject<PartitionDistri
     }
 
     @Override
+    public CompletableFuture<List<Partition>> partitionsAsync() {
+        return attachedAsync(PartitionDistribution::partitionsAsync);
+    }
+
+    @Override
+    public List<Partition> partitions() {
+        return attached(PartitionDistribution::partitions);
+    }
+
+    @Override
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
         return attachedAsync(view -> view.primaryReplicaAsync(partition));
     }
 
     @Override
+    public ClusterNode primaryReplica(Partition partition) {
+        return attached(view -> view.primaryReplica(partition));
+    }
+
+    @Override
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
         return attachedAsync(PartitionDistribution::primaryReplicasAsync);
+    }
+
+    @Override
+    public CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node) {
+        return attachedAsync(view -> view.primaryReplicasAsync(node));
+    }
+
+    @Override
+    public Map<Partition, ClusterNode> primaryReplicas() {
+        return attached(PartitionDistribution::primaryReplicas);
+    }
+
+    @Override
+    public List<Partition> primaryReplicas(ClusterNode node) {
+        return attached(view -> view.primaryReplicas(node));
     }
 
     @Override
@@ -62,5 +93,15 @@ class RestartProofPartitionManager extends RestartProofApiObject<PartitionDistri
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
         return attachedAsync(view -> view.partitionAsync(key));
+    }
+
+    @Override
+    public <K> Partition partition(K key, Mapper<K> mapper) {
+        return attached(view -> view.partition(key, mapper));
+    }
+
+    @Override
+    public Partition partition(Tuple key) {
+        return attached(view -> view.partition(key));
     }
 }
