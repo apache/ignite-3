@@ -137,7 +137,7 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         cluster.startAndInit(nodesCount, new int[]{2});
         int backgroundReconnectInterval = 300;
 
-        try (Connection connection = getConnection(nodesCount, "backgroundReconnectInterval=" + backgroundReconnectInterval)) {
+        try (Connection connection = getConnection(nodesCount, "backgroundReconnectIntervalMs=" + backgroundReconnectInterval)) {
             Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
 
             cluster.stopNode(0);
@@ -151,7 +151,7 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
 
         // No background reconnection is expected.
-        try (Connection connection = getConnection(nodesCount, "backgroundReconnectInterval=0")) {
+        try (Connection connection = getConnection(nodesCount, "backgroundReconnectIntervalMs=0")) {
             Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
 
             cluster.stopNode(0);

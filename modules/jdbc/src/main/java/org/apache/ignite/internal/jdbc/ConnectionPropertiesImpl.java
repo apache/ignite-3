@@ -71,7 +71,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             0L, false, 0, Integer.MAX_VALUE);
 
     /** JDBC background reconnect interval. */
-    private final LongProperty backgroundReconnectInterval = new LongProperty("backgroundReconnectInterval",
+    private final LongProperty backgroundReconnectInterval = new LongProperty("backgroundReconnectIntervalMs",
             "Sets the background reconnect interval."
                     + " Zero means that background reconnect is disabled.",
             IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL, false, 0, Long.MAX_VALUE);

@@ -115,7 +115,7 @@ import org.jetbrains.annotations.Nullable;
  *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
- *      <td>backgroundReconnectInterval</td>
+ *      <td>backgroundReconnectIntervalMs</td>
  *      <td>Background reconnect interval, in milliseconds.
  *          <br>The value {@code 0} can be used to disable background reconnection.
  *          <br>The default value is {@code 30 000}.</td>
