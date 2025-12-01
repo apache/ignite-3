@@ -870,8 +870,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Marshaller valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, false, true);
 
         return (row) -> new IgniteBiTuple<>(
-                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(keyCols))), null),
-                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(valCols))), null)
+                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(keyCols)))),
+                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(valCols))))
         );
     }
 }

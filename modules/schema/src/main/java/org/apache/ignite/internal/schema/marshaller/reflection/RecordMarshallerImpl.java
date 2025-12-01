@@ -112,7 +112,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public R unmarshal(Row row) throws MarshallerException {
         Marshaller marsh = row.keyOnly() ? keyMarsh : recMarsh;
         RowReader reader = row.keyOnly() ? new RowReader(row, keyPositions) : new RowReader(row);
-        final Object o = marsh.readObject(reader, null);
+        final Object o = marsh.readObject(reader);
 
         assert recClass.isInstance(o);
 

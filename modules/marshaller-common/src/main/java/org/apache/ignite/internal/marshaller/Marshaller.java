@@ -183,11 +183,10 @@ public abstract class Marshaller {
      * Reads object from a row.
      *
      * @param reader Row reader.
-     * @param target Optional target object. When not specified, a new object will be created.
      * @return Object.
      * @throws MarshallerException If failed.
      */
-    public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
+    public abstract Object readObject(MarshallerReader reader) throws MarshallerException;
 
     /**
      * Write an object to a row.
@@ -235,7 +234,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(MarshallerReader reader, Object target) {
+        public Object readObject(MarshallerReader reader) {
             return fieldAccessor.read(reader);
         }
 
@@ -283,14 +282,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(MarshallerReader reader, Object target) throws MarshallerException {
-            if (target != null) {
-                for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                    fieldAccessors[fldIdx].read(reader, target);
-                }
-                return target;
-            }
-
+        public Object readObject(MarshallerReader reader) throws MarshallerException {
             return creator.createFrom(reader);
         }
 
@@ -316,7 +308,7 @@ public abstract class Marshaller {
         }
 
         @Override
-        public Object readObject(MarshallerReader reader, @Nullable Object target) {
+        public Object readObject(MarshallerReader reader) {
             return null;
         }
 
