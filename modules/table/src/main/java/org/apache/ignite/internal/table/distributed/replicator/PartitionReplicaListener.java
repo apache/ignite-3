@@ -46,6 +46,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
@@ -67,6 +69,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -106,6 +109,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
+import org.apache.ignite.internal.partition.replicator.exception.OperationRequestLockException;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
@@ -196,6 +200,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -219,7 +224,6 @@ import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -1747,7 +1751,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
                     }
 
-                    ExceptionUtils.sneakyThrow(e);
+                    sneakyThrow(e);
 
                     return null;
                 });
@@ -2209,7 +2213,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
                     int idx = 0;
 
-                    for (Map.Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
+                    for (Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
                         insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId);
                     }
 
@@ -3748,9 +3752,21 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         try {
             return processOperationRequest(senderId, request, replicaPrimacy, opStartTsIfDirectRo)
-                    .whenComplete((unused, throwable) -> {
+                    .handle((res, ex) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
+
+                        if (ex != null) {
+                            if (hasCause(ex, LockException.class)) {
+                                RequestType failedRequestType = getOperationRequestType(request);
+
+                                sneakyThrow(new OperationRequestLockException(failedRequestType, (LockException) unwrapCause(ex)));
+                            }
+
+                            sneakyThrow(ex);
+                        }
+
+                        return res;
                     });
         } catch (Throwable e) {
             try {
@@ -3766,6 +3782,42 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             }
             throw e;
         }
+    }
+
+    private static RequestType getOperationRequestType(ReplicaRequest request) {
+        RequestType requestType = null;
+
+        if (request instanceof ReadWriteSingleRowReplicaRequest) {
+            requestType = ((ReadWriteSingleRowReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
+            requestType = ((ReadWriteSingleRowPkReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+            requestType = ((ReadWriteMultiRowReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
+            requestType = ((ReadWriteMultiRowPkReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+            requestType = ((ReadWriteSwapRowReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+            requestType = RW_SCAN;
+        }
+
+        assert requestType != null : format(
+                "Unexpected replica request without transaction operation type [replicaRequest={}].",
+                request.getClass().getSimpleName()
+        );
+
+        assert requestType.isWrite() : format(
+                "Unexpected replica request with read-only operation type [replicaRequest={}, requestType={}].",
+                request.getClass().getSimpleName(),
+                requestType
+        );
+
+        return requestType;
     }
 
     /**

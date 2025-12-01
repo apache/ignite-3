@@ -19,9 +19,6 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.UUID;
@@ -58,8 +55,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.tx.LockException;
-import org.apache.ignite.internal.tx.OperationLockException;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
@@ -212,15 +207,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
         return replicaPrimacyEngine.validatePrimacy(request)
                 .thenCompose(replicaPrimacy -> processRequest(request, replicaPrimacy, senderId))
-                .handle((res, ex) -> {
-                    if (ex != null) {
-                        if (hasCause(ex, LockException.class)) {
-                            sneakyThrow(new OperationLockException(request.getClass(), (LockException) unwrapCause(ex)));
-                        }
-
-                        sneakyThrow(ex);
-                    }
-
+                .thenApply(res -> {
                     if (res instanceof ReplicaResult) {
                         return (ReplicaResult) res;
                     } else {

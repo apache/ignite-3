@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.partition.replicator.exception;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
+import org.apache.ignite.internal.tx.LockException;
 
 /**
  * Exception that wraps one of root cause {@link LockException} but provides an operation type that failed to acquire, release or downgrade
  * a lock.
  */
-public class OperationLockException extends LockException {
+public class OperationRequestLockException extends LockException {
     /**
      * Constructor.
      *
-     * @param operationType Operation type that faced with failure to acquire, release or downgrade a lock.
+     * @param requestType Request type that faced with failure to acquire, release or downgrade a lock.
      * @param cause Detail cause of the failure.
      */
-    public OperationLockException(Class<? extends ReplicaRequest> operationType, LockException cause) {
+    public OperationRequestLockException(RequestType requestType, LockException cause) {
         super(
                 cause.code(),
-                format("Lock acquiring failed during operation [operationType={}].", operationType.getSimpleName()),
+                format("Lock acquiring failed during request handling [requestType={}].", requestType),
                 cause
         );
     }
