@@ -59,6 +59,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -244,7 +245,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             } catch (CancellationException ignored) {
                 // Ignored.
             } catch (ExecutionException e) {
-                if (!hasCause(e, CancellationException.class, NodeStoppingException.class)) {
+                if (!hasCause(e, CancellationException.class, NodeStoppingException.class, RecipientLeftException.class)) {
                     partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
 
                     if (isOk()) {
