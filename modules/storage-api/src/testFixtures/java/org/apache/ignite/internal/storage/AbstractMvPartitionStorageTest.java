@@ -1162,7 +1162,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertNull(res.transactionId());
-        assertNull(res.commitTableOrZoneId());
+        assertNull(res.commitZoneId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow));
 
@@ -1171,7 +1171,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertEquals(txId2, res.transactionId());
-        assertEquals(COMMIT_TABLE_ID, res.commitTableOrZoneId());
+        assertEquals(COMMIT_ZONE_ID, res.commitZoneId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow2));
     }
@@ -1605,8 +1605,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
 
-        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_TABLE_ID, PARTITION_ID);
-        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_ZONE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_ZONE_ID, PARTITION_ID);
 
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow2, txId);
@@ -1648,7 +1648,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void testClosestRowReconstruction() {
         RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
 
-        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_ZONE_ID, PARTITION_ID);
 
         addWrite(rowId, binaryRow, txId);
 
@@ -1696,7 +1696,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertTrue(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(not(ReadResult.UNDEFINED_COMMIT_PARTITION_ID)));
-                assertThat(result.commitTableOrZoneId(), is(notNullValue()));
+                assertThat(result.commitZoneId(), is(notNullValue()));
                 assertThat(result.transactionId(), is(notNullValue()));
                 assertThat(result.commitTimestamp(), is(nullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -1720,7 +1720,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertFalse(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(ReadResult.UNDEFINED_COMMIT_PARTITION_ID));
-                assertThat(result.commitTableOrZoneId(), is(nullValue()));
+                assertThat(result.commitZoneId(), is(nullValue()));
                 assertThat(result.transactionId(), is(nullValue()));
                 assertThat(result.commitTimestamp(), is(notNullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));

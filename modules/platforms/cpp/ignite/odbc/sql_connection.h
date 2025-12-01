@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "detail/thread_timer.h"
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/connection_info.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
@@ -30,6 +31,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <shared_mutex>
 #include <vector>
 
 namespace ignite {
@@ -40,7 +42,7 @@ class sql_statement;
 /**
  * ODBC node connection.
  */
-class sql_connection : public diagnosable_adapter {
+class sql_connection : public diagnosable_adapter, public std::enable_shared_from_this<sql_connection> {
     friend class sql_environment;
 
 public:
@@ -57,6 +59,8 @@ public:
     sql_connection(const sql_connection &) = delete;
     sql_connection &operator=(sql_connection &&) = delete;
     sql_connection &operator=(const sql_connection &) = delete;
+
+    ~sql_connection() override;
 
     /**
      * Get connection info.
@@ -108,6 +112,136 @@ public:
      * @return Pointer to valid instance on success and NULL on failure.
      */
     sql_statement *create_statement();
+
+    /**
+     * Get configuration.
+     *
+     * @return Connection configuration.
+     */
+    [[nodiscard]] const configuration &get_configuration() const;
+
+    /**
+     * Is auto commit.
+     *
+     * @return @c true if the auto commit is enabled.
+     */
+    [[nodiscard]] bool is_auto_commit() const;
+
+    /**
+     * Perform transaction commit.
+     */
+    void transaction_commit();
+
+    /**
+     * Perform transaction rollback.
+     */
+    void transaction_rollback();
+
+    /**
+     * Start transaction.
+     *
+     * @return Operation result.
+     */
+    void transaction_start();
+
+    /**
+     * Get connection attribute.
+     *
+     * @param attr Attribute type.
+     * @param buf Buffer for value.
+     * @param buf_len Buffer length.
+     * @param value_len Resulting value length.
+     */
+    void get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
+
+    /**
+     * Set connection attribute.
+     *
+     * @param attr Attribute type.
+     * @param value Value pointer.
+     * @param value_len Value length.
+     */
+    void set_attribute(int attr, void *value, SQLINTEGER value_len);
+
+    /**
+     * Get connection schema.
+     *
+     * @return Schema.
+     */
+    const std::string &get_schema() const { return m_config.get_schema().get_value(); }
+
+    /**
+     * Get timeout.
+     *
+     * @return Timeout.
+     */
+    std::int32_t get_timeout() const { return m_timeout; }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response.
+     */
+    network::data_buffer_owning sync_request(
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        std::unique_lock lock(m_socket_mutex);
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request);
+        return receive_message(req_id);
+    }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response and error.
+     */
+    std::pair<network::data_buffer_owning, std::optional<odbc_error>> sync_request_nothrow(
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        std::unique_lock lock(m_socket_mutex);
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request);
+        return receive_message_nothrow(req_id);
+    }
+
+    /**
+     * Get transaction ID.
+     *
+     * @return Transaction ID.
+     */
+    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
+
+    /**
+     * Mark transaction non-empty.
+     *
+     * After this call connection assumes there is at least one operation performed with this transaction.
+     */
+    void mark_transaction_non_empty() { m_transaction_empty = false; }
+
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
+private:
+    /**
+     * Make new request.
+     *
+     * @param id Request ID.
+     * @param op Operation.
+     * @param func Function.
+     */
+    [[nodiscard]] static std::vector<std::byte> make_request(
+        std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func);
 
     /**
      * Send data by established connection.
@@ -205,134 +339,6 @@ public:
         return receive_message_nothrow(id, m_timeout);
     }
 
-    /**
-     * Get configuration.
-     *
-     * @return Connection configuration.
-     */
-    [[nodiscard]] const configuration &get_configuration() const;
-
-    /**
-     * Is auto commit.
-     *
-     * @return @c true if the auto commit is enabled.
-     */
-    [[nodiscard]] bool is_auto_commit() const;
-
-    /**
-     * Perform transaction commit.
-     */
-    void transaction_commit();
-
-    /**
-     * Perform transaction rollback.
-     */
-    void transaction_rollback();
-
-    /**
-     * Start transaction.
-     *
-     * @return Operation result.
-     */
-    void transaction_start();
-
-    /**
-     * Get connection attribute.
-     *
-     * @param attr Attribute type.
-     * @param buf Buffer for value.
-     * @param buf_len Buffer length.
-     * @param value_len Resulting value length.
-     */
-    void get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
-
-    /**
-     * Set connection attribute.
-     *
-     * @param attr Attribute type.
-     * @param value Value pointer.
-     * @param value_len Value length.
-     */
-    void set_attribute(int attr, void *value, SQLINTEGER value_len);
-
-    /**
-     * Make new request.
-     *
-     * @param id Request ID.
-     * @param op Operation.
-     * @param func Function.
-     */
-    [[nodiscard]] static std::vector<std::byte> make_request(
-        std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func);
-
-    /**
-     * Get connection schema.
-     *
-     * @return Schema.
-     */
-    const std::string &get_schema() const { return m_config.get_schema().get_value(); }
-
-    /**
-     * Get timeout.
-     *
-     * @return Timeout.
-     */
-    std::int32_t get_timeout() const { return m_timeout; }
-
-    /**
-     * Make a synchronous request and get a response.
-     *
-     * @param op Operation.
-     * @param wr Payload writing function.
-     * @return Response.
-     */
-    network::data_buffer_owning sync_request(
-        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
-        auto req_id = generate_next_req_id();
-        auto request = make_request(req_id, op, wr);
-
-        send_message(request);
-        return receive_message(req_id);
-    }
-
-    /**
-     * Make a synchronous request and get a response.
-     *
-     * @param op Operation.
-     * @param wr Payload writing function.
-     * @return Response and error.
-     */
-    std::pair<network::data_buffer_owning, std::optional<odbc_error>> sync_request_nothrow(
-        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
-        auto req_id = generate_next_req_id();
-        auto request = make_request(req_id, op, wr);
-
-        send_message(request);
-        return receive_message_nothrow(req_id);
-    }
-
-    /**
-     * Get transaction ID.
-     *
-     * @return Transaction ID.
-     */
-    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
-
-    /**
-     * Mark transaction non-empty.
-     *
-     * After this call connection assumes there is at least one operation performed with this transaction.
-     */
-    void mark_transaction_non_empty() { m_transaction_empty = false; }
-
-    /**
-     * Get observable timestamp.
-     *
-     * @return Observable timestamp.
-     */
-    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
-
-private:
     /**
      * Generate and get next request ID.
      *
@@ -521,10 +527,28 @@ private:
     /**
      * Constructor.
      */
-    explicit sql_connection(sql_environment *env)
+    explicit sql_connection(sql_environment *env, std::weak_ptr<detail::thread_timer> timer_thread)
         : m_env(env)
         , m_config()
-        , m_info(m_config) {}
+        , m_info(m_config)
+        , m_timer_thread(std::move(timer_thread)) {
+    }
+
+    /**
+     * Send a heartbeat message.
+     */
+    void send_heartbeat();
+
+    /**
+     * Heartbeat timeout event handler.
+     */
+    void on_heartbeat_timeout();
+
+    /**
+     * Plan the next heartbeat message within the specified timeout.
+     * @param timeout Timeout.
+     */
+    void plan_heartbeat(std::chrono::milliseconds timeout);
 
     /** Parent. */
     sql_environment *m_env;
@@ -561,6 +585,21 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Heartbeat interval. */
+    std::chrono::milliseconds m_heartbeat_interval{0};
+
+    /** Last message timestamp. */
+    std::chrono::steady_clock::time_point m_last_message_ts{};
+
+    /** Timer thread. */
+    std::weak_ptr<detail::thread_timer> m_timer_thread;
+
+    /** Socket mutex used to protect heartbeat from call to the freed socket.*/
+    std::recursive_mutex m_socket_mutex;
+
+    /** Flag which indices that the connection was manually closed. */
+    std::atomic_bool m_connection_closed{false};
 };
 
 } // namespace ignite

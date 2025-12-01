@@ -48,7 +48,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final UUID txId;
 
-    private final int commitTableOrZoneId;
+    private final int commitZoneId;
 
     private final int commitPartitionId;
 
@@ -66,14 +66,14 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
         this.row = row;
         this.txId = txId;
-        this.commitTableOrZoneId = commitTableOrZoneId;
+        this.commitZoneId = commitZoneId;
         this.commitPartitionId = commitPartitionId;
         this.storage = storage;
     }
@@ -83,7 +83,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (oldRow == null) {
             RowVersion newVersion = insertRowVersion(row, NULL_LINK);
 
-            newRow = VersionChain.createUncommitted(rowId, txId, commitTableOrZoneId, commitPartitionId, newVersion.link(), NULL_LINK);
+            newRow = VersionChain.createUncommitted(rowId, txId, commitZoneId, commitPartitionId, newVersion.link(), NULL_LINK);
 
             operationType = OperationType.PUT;
 
@@ -119,7 +119,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         newRow = VersionChain.createUncommitted(
                 rowId,
                 txId,
-                commitTableOrZoneId,
+                commitZoneId,
                 commitPartitionId,
                 newVersion.link(),
                 newVersion.nextLink()
@@ -181,6 +181,6 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     private String addWriteInfo() {
-        return storage.addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return storage.addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 }

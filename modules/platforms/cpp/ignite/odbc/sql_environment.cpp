@@ -20,8 +20,14 @@
 
 namespace ignite {
 
-sql_connection *sql_environment::create_connection() {
-    sql_connection *connection;
+sql_environment::sql_environment()
+    : m_timer_thread(detail::thread_timer::start([&] (auto&& err) {
+        add_status_record(sql_state::SHYT00_TIMEOUT_EXPIRED, "Unhandled timer error: " + err.what_str());
+    })) {
+}
+
+sql_environment::sql_connection_ptr *sql_environment::create_connection() {
+    sql_connection_ptr *connection;
 
     IGNITE_ODBC_API_CALL(internal_create_connection(connection));
 
@@ -32,16 +38,24 @@ void sql_environment::deregister_connection(sql_connection *conn) {
     m_connections.erase(conn);
 }
 
-sql_result sql_environment::internal_create_connection(sql_connection *&conn) {
-    conn = new sql_connection(this);
-
-    if (!conn) {
+sql_result sql_environment::internal_create_connection(sql_connection_ptr *&conn) {
+    auto conn_raw = new(std::nothrow) sql_connection(this, m_timer_thread);
+    if (!conn_raw) {
         add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 
         return sql_result::AI_ERROR;
     }
 
-    m_connections.insert(conn);
+    conn = new(std::nothrow) sql_connection_ptr(conn_raw);
+    if (!conn) {
+        delete conn_raw;
+
+        add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    m_connections.insert(conn_raw);
 
     return sql_result::AI_SUCCESS;
 }

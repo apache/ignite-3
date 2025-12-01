@@ -20,11 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
 /** Handler that acquires data cursor and saves it to {@link Query query state}. */
@@ -41,28 +38,18 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
         assert plan != null;
         assert context != null;
 
-        SqlQueryType queryType = plan.type();
-
         query.cancel.throwIfCancelled();
 
         CompletableFuture<Void> awaitFuture = query.executor.executePlan(context, plan)
                 .thenCompose(dataCursor -> {
-                    AsyncSqlCursor<InternalSqlRow> cursor;
                     try {
-                        cursor = query.executor.createAndSaveSqlCursor(query, dataCursor);
+                        query.executor.createAndSaveSqlCursor(query, dataCursor);
+
+                        return nullCompletedFuture();
                     } catch (QueryCancelledException ignored) {
                         // Cancellation should be triggered inside of `createAndSaveSqlCursor`.
                         return dataCursor.onClose();
                     }
-
-                    if (queryType == SqlQueryType.QUERY) {
-                        // preserve lazy execution for statements that only reads
-                        return nullCompletedFuture();
-                    }
-
-                    // for other types let's wait for the first page to make sure premature
-                    // close of the cursor won't cancel an entire operation
-                    return cursor.onFirstPageReady();
                 });
 
         return Result.proceedAfter(awaitFuture);

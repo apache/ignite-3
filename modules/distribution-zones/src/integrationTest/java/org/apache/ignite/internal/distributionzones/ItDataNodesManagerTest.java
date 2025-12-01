@@ -18,23 +18,17 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.createZoneWithInfiniteTimers;
+import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.recalculateZoneDataNodesManuallyAndWaitForDataNodes;
+import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.waitForDataNodes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
@@ -46,10 +40,10 @@ class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void manualDataNodeRecalculationIdempotencyTest() throws InterruptedException {
+    public void manualDataNodeRecalculationIdempotencyTest() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
-        createZoneWithInfiniteTimers(node);
+        createZoneWithInfiniteTimers(node, ZONE_NAME);
 
         waitForDataNodes(node, ZONE_NAME, Set.of(node.name()));
 
@@ -57,75 +51,22 @@ class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void manualDataNodeRecalculationAfterNewNodeAddedTest() throws InterruptedException {
+    public void manualDataNodeRecalculationAfterNewNodeAddedTest() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
-        createZoneWithInfiniteTimers(node);
+        createZoneWithInfiniteTimers(node, ZONE_NAME);
 
         waitForDataNodes(node, ZONE_NAME, Set.of(node.name()));
 
         startNode(1);
 
-        assertTrue(waitForCondition(() -> node.logicalTopologyService().localLogicalTopology().nodes().size() == 2, 1000));
+        LogicalTopologyService logicalTopologyService = node.logicalTopologyService();
+
+        Awaitility.waitAtMost(2, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertEquals(2, logicalTopologyService.localLogicalTopology().nodes().size()));
 
         waitForDataNodes(node, ZONE_NAME, Set.of(node.name()));
 
         recalculateZoneDataNodesManuallyAndWaitForDataNodes(node, ZONE_NAME, Set.of(node.name(), node(1).name()));
-    }
-
-    private static void createZoneWithInfiniteTimers(IgniteImpl node) {
-        DistributionZonesTestUtil.createZone(node.catalogManager(), ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
-
-        CatalogManager catalogManager = node.catalogManager();
-
-        CatalogZoneDescriptor zoneDesc = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(ZONE_NAME);
-
-        assertNotNull(zoneDesc);
-    }
-
-    private static void waitForDataNodes(
-            IgniteImpl node,
-            String zoneName,
-            Set<String> expectedNodes
-    ) throws InterruptedException {
-        CatalogManager catalogManager = node.catalogManager();
-
-        ClockService clock = node.clockService();
-
-        CatalogZoneDescriptor zone = catalogManager.activeCatalog(clock.now().longValue()).zone(zoneName);
-        int zoneId = zone.id();
-
-        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
-
-        boolean success = waitForCondition(() -> {
-            CompletableFuture<Set<String>> dataNodesFuture = dataNodesManager.dataNodes(zoneId, clock.now());
-            assertThat(dataNodesFuture, willSucceedFast());
-            return dataNodesFuture.join().equals(expectedNodes);
-        }, 10_000);
-
-        assertTrue(
-                success,
-                format(
-                        "Expected {}, but actual {}.",
-                        expectedNodes,
-                        dataNodesManager.dataNodes(zoneId, clock.now()).join()
-                )
-        );
-    }
-
-    private static void recalculateZoneDataNodesManuallyAndWaitForDataNodes(
-            IgniteImpl node,
-            String zoneName,
-            Set<String> expectedDataNodes
-    ) throws InterruptedException {
-        CompletableFuture<Set<String>> futureRecalculationResult = node.distributionZoneManager()
-                .dataNodesManager()
-                .recalculateDataNodes(zoneName);
-
-        assertThat(futureRecalculationResult, willCompleteSuccessfully());
-
-        assertEquals(expectedDataNodes, futureRecalculationResult.join());
-
-        waitForDataNodes(node, zoneName, expectedDataNodes);
     }
 }

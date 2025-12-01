@@ -131,6 +131,11 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
+    public Catalog latestCatalog() {
+        return catalog;
+    }
+
+    @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
         return nullCompletedFuture();
     }

@@ -964,7 +964,7 @@ public class ClientInboundMessageHandler
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        clockService, notificationSender(requestId), resolveCurrentUsername(),
+                        igniteTables, clockService, notificationSender(requestId), resolveCurrentUsername(),
                         clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT)
                 );
 

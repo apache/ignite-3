@@ -962,9 +962,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
-            Consumer<Throwable> cb) {
-        assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
+    public InternalTransaction beginRemote(
+            UUID txId,
+            ZonePartitionId commitPartId,
+            UUID coord,
+            long token,
+            long timeout,
+            Consumer<Throwable> cb
+    ) {
+        assert commitPartId.zoneId() >= 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
 
         // Switch to default timeout if needed.
         timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
