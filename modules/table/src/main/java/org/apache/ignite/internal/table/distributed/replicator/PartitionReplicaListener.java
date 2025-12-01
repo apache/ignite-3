@@ -3758,7 +3758,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
                         if (ex != null) {
                             if (hasCause(ex, LockException.class)) {
-                                RequestType failedRequestType = getOperationRequestType(request);
+                                RequestType failedRequestType = getRequestOperationType(request);
 
                                 sneakyThrow(new OperationLockException(failedRequestType, (LockException) unwrapCause(ex)));
                             }
@@ -3784,40 +3784,40 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
     }
 
-    private static RequestType getOperationRequestType(ReplicaRequest request) {
-        RequestType requestType = null;
+    private static RequestType getRequestOperationType(ReplicaRequest request) {
+        RequestType requestOperationType = null;
 
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            requestType = ((ReadWriteSingleRowReplicaRequest) request).requestType();
+            requestOperationType = ((ReadWriteSingleRowReplicaRequest) request).requestType();
 
         } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
-            requestType = ((ReadWriteSingleRowPkReplicaRequest) request).requestType();
+            requestOperationType = ((ReadWriteSingleRowPkReplicaRequest) request).requestType();
 
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            requestType = ((ReadWriteMultiRowReplicaRequest) request).requestType();
+            requestOperationType = ((ReadWriteMultiRowReplicaRequest) request).requestType();
 
         } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
-            requestType = ((ReadWriteMultiRowPkReplicaRequest) request).requestType();
+            requestOperationType = ((ReadWriteMultiRowPkReplicaRequest) request).requestType();
 
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-            requestType = ((ReadWriteSwapRowReplicaRequest) request).requestType();
+            requestOperationType = ((ReadWriteSwapRowReplicaRequest) request).requestType();
 
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-            requestType = RW_SCAN;
+            requestOperationType = RW_SCAN;
         }
 
-        assert requestType != null : format(
-                "Unexpected replica request without transaction operation type [replicaRequest={}].",
+        assert requestOperationType != null : format(
+                "Unexpected replica request without transaction operation type [requestType={}].",
                 request.getClass().getSimpleName()
         );
 
-        assert requestType.isWrite() : format(
-                "Unexpected replica request with read-only operation type [replicaRequest={}, requestType={}].",
+        assert requestOperationType.isWrite() : format(
+                "Unexpected replica request with read-only operation type [requestType={}, requestOperationType={}].",
                 request.getClass().getSimpleName(),
-                requestType
+                requestOperationType
         );
 
-        return requestType;
+        return requestOperationType;
     }
 
     /**
