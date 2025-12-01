@@ -200,11 +200,11 @@ internal static partial class LogMessages
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 
     [LoggerMessage(
-        Message = "Received response [requestId={RequestId}, op={Op}, flags={Flags}, remoteAddress={RemoteAddress}, duration={Duration}]",
+        Message = "Received response [requestId={RequestId}, op={Op}, flags={Flags}, remoteAddress={RemoteAddress}, duration={Duration}, observableTs={ObservableTs}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
-        this ILogger logger, long requestId, ClientOp op, ResponseFlags flags, EndPoint remoteAddress, TimeSpan? duration);
+        this ILogger logger, long requestId, ClientOp op, ResponseFlags flags, EndPoint remoteAddress, TimeSpan? duration, long observableTs);
 
     [LoggerMessage(
         Message = "Failed to send server op response [requestId={RequestId}, message={Message}]",

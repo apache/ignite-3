@@ -907,13 +907,13 @@ namespace Apache.Ignite.Internal
             var isError = (flags & ResponseFlags.Error) != 0;
             var isNotification = (flags & ResponseFlags.Notification) != 0;
 
+            HandlePartitionAssignmentChange(flags, ref reader);
+            long observableTs = HandleObservableTimestamp(ref reader);
+
             if (isServerOp || isNotification)
             {
-                _logger.LogReceivedResponseTrace(requestId, ClientOp.None, flags,  ConnectionContext.ClusterNode.Address, null);
+                _logger.LogReceivedResponseTrace(requestId, ClientOp.None, flags,  ConnectionContext.ClusterNode.Address, null, observableTs);
             }
-
-            HandlePartitionAssignmentChange(flags, ref reader);
-            HandleObservableTimestamp(ref reader);
 
             if (isServerOp)
             {
@@ -942,7 +942,7 @@ namespace Apache.Ignite.Internal
             }
 
             _logger.LogReceivedResponseTrace(
-                requestId, pendingReq.Op, flags,  ConnectionContext.ClusterNode.Address, Stopwatch.GetElapsedTime(pendingReq.StartTs));
+                requestId, pendingReq.Op, flags,  ConnectionContext.ClusterNode.Address, Stopwatch.GetElapsedTime(pendingReq.StartTs), observableTs);
 
             Metrics.RequestsActiveDecrement();
 
@@ -988,10 +988,11 @@ namespace Apache.Ignite.Internal
             return notificationHandler.TrySetResult(response);
         }
 
-        private void HandleObservableTimestamp(ref MsgPackReader reader)
+        private long HandleObservableTimestamp(ref MsgPackReader reader)
         {
             var observableTimestamp = reader.ReadInt64();
             _listener.OnObservableTimestampChanged(observableTimestamp);
+            return observableTimestamp;
         }
 
         private void HandlePartitionAssignmentChange(ResponseFlags flags, ref MsgPackReader reader)
