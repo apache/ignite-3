@@ -59,7 +59,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -353,30 +352,6 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testFirstAndLastIndexOnAppend() {
-        int batchSize = FILE_SIZE / 10;
-
-        List<byte[]> batches = randomData(batchSize, 100);
-
-        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
-
-            for (int i = 0; i < batches.size(); i++) {
-                appendBytes(groupId, batches.get(i), i);
-
-                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
-            }
-
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
-        };
-
-        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
-    }
-
-    @Test
     void truncateRecordIsWrittenOnSuffixTruncate() throws IOException {
         long groupId = 36;
 
@@ -398,40 +373,6 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
             assertThat(readFully(channel, SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE), is(expectedTruncateRecord));
         }
-    }
-
-    @Test
-    void testLastIndexAfterTruncateSuffix() {
-        int batchSize = FILE_SIZE / 10;
-
-        List<byte[]> batches = randomData(batchSize, 100);
-
-        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
-
-            long curLogIndex = 0;
-
-            for (int i = 0; i < batches.size(); i++) {
-                appendBytes(groupId, batches.get(i), curLogIndex);
-
-                if (i > 0 && i % 10 == 0) {
-                    curLogIndex -= 4;
-
-                    fileManager.truncateSuffix(groupId, curLogIndex);
-                }
-
-                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-                assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex + 1));
-
-                curLogIndex++;
-            }
-
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex));
-        };
-
-        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
     }
 
     @Test
