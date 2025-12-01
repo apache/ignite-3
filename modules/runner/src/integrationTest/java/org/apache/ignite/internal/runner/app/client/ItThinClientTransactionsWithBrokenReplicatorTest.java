@@ -75,7 +75,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstractThinClientTest {
     @Override
     protected long raftTimeoutMillis() {
-        return TimeUnit.SECONDS.toMillis(2);
+        return TimeUnit.SECONDS.toMillis(2); // Set small retry timeout to reduce the test execution time.
     }
 
     @Test
@@ -164,7 +164,7 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
     public void testErrorDuringDirectMappingTwoPartitionTransaction() {
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> mapPartById = map.entrySet().stream().collect(Collectors.toMap(
-                entry -> ((HashPartition)entry.getKey()).partitionId(),
+                entry -> ((HashPartition) entry.getKey()).partitionId(),
                 Entry::getValue
         ));
 
@@ -189,7 +189,6 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
             }
         }
 
-        // TODO handle bad assignment ?
         assertNotNull(part1);
 
         List<Tuple> tuples0 = generateKeysForPartition(300, 1, map, part0.partitionId(), table);
@@ -241,7 +240,7 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
     public void testErrorDuringDirectMappingTwoPartitionTransactionColocated() {
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> mapPartById = map.entrySet().stream().collect(Collectors.toMap(
-                entry -> ((HashPartition)entry.getKey()).partitionId(),
+                entry -> ((HashPartition) entry.getKey()).partitionId(),
                 Entry::getValue
         ));
 
@@ -266,7 +265,6 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
             }
         }
 
-        // TODO handle bad assignment ?
         assertNotNull(part1);
 
         List<Tuple> tuples0 = generateKeysForPartition(400, 1, map, part0.partitionId(), table);
@@ -307,87 +305,6 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
         } catch (TransactionException exception) {
             assertEquals(Transactions.TX_DELAYED_ACK_ERR, exception.code());
         }
-
-        proc0.setFaultyGroup(null);
-        proc1.setFaultyGroup(null);
-
-        assertTrue(tupleView.getAll(null, batch.keySet()).isEmpty());
-    }
-
-    @Test
-    public void zzz1() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
-        Map<Integer, ClusterNode> mapPartById = map.entrySet().stream().collect(Collectors.toMap(
-                entry -> ((HashPartition)entry.getKey()).partitionId(),
-                Entry::getValue
-        ));
-
-        ClientTable table = (ClientTable) table();
-
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = unwrapIgniteImpl(server(1));
-
-        List<ZonePartitionId> replicationGroupIds = getPartitions(server0);
-        ZonePartitionId part0 = replicationGroupIds.get(0);
-        ClusterNode firstNode = mapPartById.get(part0.partitionId());
-
-        ZonePartitionId part1 = null;
-
-        // We need to find a partition on the same node.
-        for (int i = 1; i < replicationGroupIds.size(); i++) {
-            ZonePartitionId tmp = replicationGroupIds.get(i);
-            ClusterNode otherNode = mapPartById.get(tmp.partitionId());
-            if (otherNode.equals(firstNode)) {
-                part1 = tmp;
-                break;
-            }
-        }
-
-        // TODO handle bad assignment ?
-        assertNotNull(part1);
-
-        List<Tuple> tuples0 = generateKeysForPartition(400, 1, map, part0.partitionId(), table);
-        List<Tuple> tuples1 = generateKeysForPartition(410, 1, map, part1.partitionId(), table);
-
-        FaultyAppendEntriesRequestProcessor proc0 = installFaultyAppendEntriesProcessor(server0);
-        // proc0.setFaultyGroup(part0);
-        proc0.setFaultyGroup(part1);
-
-        FaultyAppendEntriesRequestProcessor proc1 = installFaultyAppendEntriesProcessor(server1);
-        // proc1.setFaultyGroup(part0);
-        proc1.setFaultyGroup(part1);
-
-        KeyValueView<Tuple, Tuple> tupleView = table.keyValueView();
-
-        Transaction tx = client().transactions().begin();
-
-        Map<Tuple, Tuple> batch = new LinkedHashMap<>();
-
-        for (Tuple tup : tuples0) {
-            batch.put(tup, val(tup.intValue(0) + ""));
-        }
-
-        for (Tuple tup : tuples1) {
-            batch.put(tup, val(tup.intValue(0) + ""));
-        }
-
-        Iterator<Entry<Tuple, Tuple>> iter = batch.entrySet().iterator();
-        Entry<Tuple, Tuple> first = iter.next();
-
-        tupleView.put(tx, first.getKey(), first.getValue());
-
-        // Colocated request, will cause server inflight failure.
-        Entry<Tuple, Tuple> second = iter.next();
-        tupleView.put(tx, second.getKey(), second.getValue());
-
-        // Wait for inflight condition.
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        tx.rollback();
 
         proc0.setFaultyGroup(null);
         proc1.setFaultyGroup(null);

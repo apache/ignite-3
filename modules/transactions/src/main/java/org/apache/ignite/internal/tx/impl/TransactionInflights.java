@@ -174,7 +174,7 @@ public class TransactionInflights {
         }
     }
 
-    public void removeInflight(UUID txId, Throwable cause) {
+    void removeInflight(UUID txId, Throwable cause) {
         // Can be null if tx was aborted and inflights were removed from the collection.
         TxContext tuple = txCtxMap.computeIfPresent(txId, (uuid, ctx) -> {
             ctx.removeInflight(txId);
@@ -201,6 +201,22 @@ public class TransactionInflights {
     public boolean hasActiveInflights() {
         for (TxContext value : txCtxMap.values()) {
             if (!value.isTxFinishing()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Return true if at least on inflight is failed.
+     *
+     * @return {@code True} if has failed inflights.
+     */
+    @TestOnly
+    public boolean hasFailedInflight() {
+        for (TxContext value : txCtxMap.values()) {
+            if (value.err != null) {
                 return true;
             }
         }
@@ -358,21 +374,19 @@ public class TransactionInflights {
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
             waitReadyToFinish(commit).whenComplete((ignored, readyException) -> {
                 try {
-                    if (commit && readyException == null) {
-                        CompletableFuture<Void> actionFut = finishAction.apply(true);
+                    if (commit) {
+                        if (readyException == null) {
+                            CompletableFuture<Void> actionFut = finishAction.apply(true);
 
-                        actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
-                                completeFinishInProgressFuture(true, null, finishException));
+                            actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
+                                    completeFinishInProgressFuture(true, null, finishException));
+                        } else {
+                            // If we got ready exception, that means some of enlisted partitions could be broken/unavailable.
+                            // Respond to caller with the commit failure immediately to reduce potential unavailability window.
+                            completeFinishInProgressFuture(true, readyException, null);
 
-                        return;
-                    }
-
-                    if (commit && readyException != null) {
-                        // Optimistic rollback async on error to prevent unnecessary blocking of user flow.
-                        // TODO optimistic rollback on error in other places.
-                        completeFinishInProgressFuture(true, readyException, null);
-
-                        finishAction.apply(false); // Try to rollback asynchronously to avoid caller blocking.
+                            finishAction.apply(false);
+                        }
 
                         return;
                     }

@@ -21,6 +21,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Holds the transaction id and the cause for delayed replication ack failure.
+ */
 public class ClientDelayedAckException extends IgniteInternalException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;

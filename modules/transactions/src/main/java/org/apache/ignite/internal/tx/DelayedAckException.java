@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Wrap an exception to pass across delayed ack.
+ * Holds the transaction id and the cause for delayed replication ack failure.
  */
 public class DelayedAckException extends IgniteInternalException {
     private static final long serialVersionUID = 0L;
@@ -37,13 +37,14 @@ public class DelayedAckException extends IgniteInternalException {
      * @param cause The cause.
      */
     public DelayedAckException(UUID txId, Throwable cause) {
-        super(TX_DELAYED_ACK_ERR, "Failed to commit transaction due to failed replication acknowledgement [txId=" + txId + ']', cause);
+        super(TX_DELAYED_ACK_ERR, "Failed to commit the transaction due to failed replication acknowledgement [txId=" + txId + ']', cause);
         this.txId = txId;
     }
 
     /**
-     * Get the id.
-     * @return id.
+     * Get the transaction id.
+     *
+     * @return The id.
      */
     public UUID txId() {
         return txId;
