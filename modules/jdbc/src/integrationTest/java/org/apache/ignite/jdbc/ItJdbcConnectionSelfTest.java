@@ -1026,7 +1026,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testChangeBackgroundReconnectInterval() throws SQLException {
-        String propertyName = "backgroundReconnectIntervalMs";
+        String propertyName = "backgroundReconnectIntervalMillis";
         String urlPrefix = URL + "?" + propertyName;
 
         SqlThrowingFunction<String, Number> valueGetter = url -> {
