@@ -52,7 +52,10 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 
-
+/**
+ * Zone rebalance manager. It listens to the changes in the distribution zones data nodes and replicas and triggers rebalance
+ * for the corresponding partitions. By triggering rebalance, it updates the pending assignments in the metastore.
+ */
 public class DistributionZoneRebalanceEngine {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
 
