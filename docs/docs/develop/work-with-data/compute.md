@@ -651,7 +651,7 @@ cts.Cancel();
 </TabItem>
 </Tabs>
 
-Another way to cancel jobs is by using the SQL [KILL COMPUTE](/docs/3.1.0/sql/reference/operational-commands#kill-compute) command. The job id can be retrieved via the `COMPUTE_JOBS` [system view](/docs/3.1.0/configure-and-operate/monitoring/metrics-system-views).
+Another way to cancel jobs is by using the SQL [KILL COMPUTE](/docs/3.1.0/sql/reference/data-types-and-functions/operational-commands#kill-compute) command. The job id can be retrieved via the `COMPUTE_JOBS` [system view](/docs/3.1.0/configure-and-operate/monitoring/metrics-system-views).
 
 ### Job Priority
 

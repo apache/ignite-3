@@ -38,7 +38,7 @@ In Ignite 3, you can create and maintain the configuration in either JSON or HOC
 
 To change the type of storage used for new distribution zones, change the `zone.defaultDataStorage` value to `aimem` or `rocksDb`. You can also change the default data region used for new distribution zones by setting the `zone.defaultDistributionZone.dataStorage.dataRegion` parameter. You will need to restart the cluster after changing the data region parameters.
 
-You can also change these properties for [distribution zones](/docs/3.1.0/sql/reference/distribution-zones) you have created for yourself.
+You can also change these properties for [distribution zones](/docs/3.1.0/sql/reference/language-definition/distribution-zones) you have created for yourself.
 
 You can get information about the data region by using the `cluster config show ignite.aipersist` CLI command. Here is how the default data region may look like:
 

@@ -60,7 +60,7 @@ After updating the configuration, restart the node for changes to take effect.
 
 ## What is a Storage Profile?
 
-A storage profile is the Apache Ignite node entity that defines the configuration parameters for a Storage Engine. A [Distribution Zone](/docs/3.1.0/sql/reference/distribution-zones) must be configured to use a set of Storage Profiles declared in the node configuration. A table can only have a single primary storage profile defined.
+A storage profile is the Apache Ignite node entity that defines the configuration parameters for a Storage Engine. A [Distribution Zone](/docs/3.1.0/sql/reference/language-definition/distribution-zones) must be configured to use a set of Storage Profiles declared in the node configuration. A table can only have a single primary storage profile defined.
 
 Storage profiles define:
 
@@ -89,7 +89,7 @@ After configuration is updated and the node restarted, the new storage profile b
 
 ## Defining Tables With Storage Profiles
 
-After defining storage profiles and [distribution zones](/docs/3.1.0/sql/reference/distribution-zones), you can create tables using SQL or [from code](/docs/3.1.0/develop/work-with-data/java-to-tables). Both zone and storage profile cannot be changed after table creation.
+After defining storage profiles and [distribution zones](/docs/3.1.0/sql/reference/language-definition/distribution-zones), you can create tables using SQL or [from code](/docs/3.1.0/develop/work-with-data/java-to-tables). Both zone and storage profile cannot be changed after table creation.
 
 To create a table with a specific storage profile:
 

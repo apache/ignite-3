@@ -32,7 +32,7 @@ Support for transactions in Ignite 2 required changing the atomicity of the cach
 
 Ignite 2 had multiple ways to handle data distribution in the cluster (data affinity, backup configuration, baseline topology, etc). The configuration you need may be difficult to find, and it was hard to understand how configurations were interacting with each other. Ignite 3 combines all properties related to data distribution into the distribution zones. In distribution zone configuration, you set up how you want to store data and where. Data collocation is also tied to distribution zones, all you need to specify is the key you want to collocate data by.
 
-Ignite 3 removes custom affinity functions and instead uses the rendezvous hashing algorithm to reliably deliver consistent data distribution. Unlike in Ignite 2, you cannot create custom affinity function. This was a powerful functionality, but slight issues with custom implementation could cause security and stability risks. Instead, most cases that previously required custom affinity can now be handled safely and securely by [distribution zones](/docs/3.1.0/sql/reference/distribution-zones).
+Ignite 3 removes custom affinity functions and instead uses the rendezvous hashing algorithm to reliably deliver consistent data distribution. Unlike in Ignite 2, you cannot create custom affinity function. This was a powerful functionality, but slight issues with custom implementation could cause security and stability risks. Instead, most cases that previously required custom affinity can now be handled safely and securely by [distribution zones](/docs/3.1.0/sql/reference/language-definition/distribution-zones).
 
 ## Better Clients
 

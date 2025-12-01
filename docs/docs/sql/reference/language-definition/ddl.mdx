@@ -29,7 +29,7 @@ This section walks you through all data definition language (DDL) commands suppo
 Creates a new table.
 
 :::note
-This can also be done via the [Java API](../../develop/work-with-data/java-to-tables).
+This can also be done via the [Java API](../../../develop/work-with-data/java-to-tables).
 :::
 
 <RailroadDiagram>{`
@@ -80,7 +80,7 @@ Keywords and parameters:
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
 * `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key.
 * `ZONE` - sets the [Distribution Zone](/docs/3.1.0/sql/reference/language-definition/distribution-zones). Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exist at the moment of table creation, and can be created before writing data.
-* `STORAGE PROFILE` - sets the [storage profile](../../configure-and-operate/reference/node-configuration) that will be used to store the table. Must be specified as a case-sensitive string.
+* `STORAGE PROFILE` - sets the [storage profile](../../../configure-and-operate/reference/node-configuration) that will be used to store the table. Must be specified as a case-sensitive string.
 
 Examples:
 
@@ -420,10 +420,10 @@ Keywords and parameters:
 
 ## DROP TABLE
 
-The `DROP TABLE` command drops an existing table. The table will be marked for deletion and will be removed by garbage collection after the [low watermark](../../understand/architecture/data-partitioning#version-storage) point is reached. Until the data is removed, it will be available to [read-only transactions](../../develop/work-with-data/transactions#read-only-transactions) that check the time before the table was marked for deletion.
+The `DROP TABLE` command drops an existing table. The table will be marked for deletion and will be removed by garbage collection after the [low watermark](../../../understand/architecture/data-partitioning#version-storage) point is reached. Until the data is removed, it will be available to [read-only transactions](../../../develop/work-with-data/transactions#read-only-transactions) that check the time before the table was marked for deletion.
 
 :::note
-This can also be done via the [Java API](../../develop/work-with-data/java-to-tables).
+This can also be done via the [Java API](../../../develop/work-with-data/java-to-tables).
 :::
 
 <RailroadDiagram>{`
@@ -451,7 +451,7 @@ DROP TABLE IF EXISTS "Person";
 Creates a new index.
 
 :::note
-This can also be done via the [Java API](../../develop/work-with-data/java-to-tables).
+This can also be done via the [Java API](../../../develop/work-with-data/java-to-tables).
 :::
 
 When you create a new index, it will start building only after all transactions started before the index creation had been completed. Index build will not start if there are any "hung" transactions in the logical topology of the cluster.
@@ -524,7 +524,7 @@ CREATE INDEX department_city_idx ON Person USING TREE (department_id ASC, city_i
 Drops an index.
 
 :::note
-This can also be done via the [Java API](../../develop/work-with-data/java-to-tables).
+This can also be done via the [Java API](../../../develop/work-with-data/java-to-tables).
 :::
 
 When you drop an index, it stays in the STOPPING status until all transactions started before the DROP INDEX command had been completed (even those that do not affect any of the tables for which the index is being dropped).

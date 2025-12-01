@@ -124,7 +124,7 @@ public async Task<IActionResult> Index([FromServices] IgniteClientGroup igniteGr
 
 ## SQL API
 
-Ignite 3 is focused on SQL, and SQL API is the primary way to work with the data. You can read more about supported SQL statements in the [SQL Reference](/docs/3.1.0/sql/reference/ddl) section. Here is how you can send SQL requests:
+Ignite 3 is focused on SQL, and SQL API is the primary way to work with the data. You can read more about supported SQL statements in the [SQL Reference](/docs/3.1.0/sql/reference/language-definition/ddl) section. Here is how you can send SQL requests:
 
 <Tabs groupId="languages">
 <TabItem value="dotnet" label=".NET">

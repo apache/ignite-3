@@ -10,4 +10,4 @@ Data is distributed across cluster nodes using partitioning. Colocation ensures 
 
 Distribution is controlled through distribution zones, which define how data is partitioned and replicated across the cluster.
 
-For details on configuring distribution, see the [Distribution Zones documentation](/docs/3.1.0/sql/reference/distribution-zones).
+For details on configuring distribution, see the [Distribution Zones documentation](/docs/3.1.0/sql/reference/language-definition/distribution-zones).

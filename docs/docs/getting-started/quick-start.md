@@ -257,7 +257,7 @@ SELECT * FROM Person
 5. If needed, exit the REPL mode with the `exit` command.
 
 :::note
-For more information about available SQL statements, see the [SQL Reference](/docs/3.1.0/sql/reference/ddl) section.
+For more information about available SQL statements, see the [SQL Reference](/docs/3.1.0/sql/reference/language-definition/ddl) section.
 :::
 
 ## Stop the Node

@@ -119,7 +119,7 @@ Describes available system view columns.
 |---|---|---|
 | VIEW_ID | INT32 | System view ID. |
 | NAME | STRING | Column name. |
-| TYPE | STRING | Column type. Can by any of the [supported types](/docs/3.1.0/sql/reference/data-types). |
+| TYPE | STRING | Column type. Can by any of the [supported types](/docs/3.1.0/sql/reference/data-types-and-functions/data-types). |
 | NULLABLE | BOOLEAN | Defines if the column can be empty. |
 | PRECISION | INT32 | Maximum number of digits. |
 | SCALE | INT32 | Maximum number of decimal places. |
