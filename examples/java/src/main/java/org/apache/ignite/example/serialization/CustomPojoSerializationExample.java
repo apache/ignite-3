@@ -54,7 +54,7 @@ public class CustomPojoSerializationExample {
         );
 
         System.out.printf("[POJO custom] original=%s, result=%s, length=%d%n",
-                res.originalWord, res.resultWord, res.length);
+                res.getOriginalWord(), res.getResultWord(), res.getLength());
     }
 
 

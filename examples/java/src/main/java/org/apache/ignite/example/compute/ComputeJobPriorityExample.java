@@ -17,8 +17,15 @@
 
 package org.apache.ignite.example.compute;
 
+import static java.sql.DriverManager.getConnection;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -30,28 +37,68 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
  * This example demonstrates the usage of the
  * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with different job priorities.
  *
- * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
+ * <p>Find instructions on how to run the example in the <code>README.md</code>
+ * file located in the "examples" directory root.</p>
  *
- * <p>The following steps related to code deployment should be additionally executed before running the current example:
+ * <h2>Execution Modes</h2>
+ *
+ * <p>There are two modes of execution:</p>
+ *
+ * <h3>1. Automated : The JAR Deployment for  deployment unit is automated </h3>
+ *
+ * <h4>1.1 With IDE</h4>
+ * <ul>
+ *     <li>
+ *         <b>Run from an IDE</b><br>
+ *         Launch the example directly from the IDE. If the required deployment
+ *         unit is not present, the example automatically builds and deploys the
+ *         necessary JAR.
+ *     </li>
+ * </ul>
+ *
+ * <h4>1.2 Without IDE</h4>
+ * <ul>
+ *     <li>
+ *         <b>Run from the command line</b><br>
+ *         Start the example using a Java command where the classpath includes all required
+ *         dependencies:<br>
+ *         {@code
+ *         java -cp "{user.home}\.m2\repository\org\apache\ignite\ignite-core\3.1.0-SNAPSHOT\
+ *         ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
+ *         <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"}
+ *         <br>
+ *         In this mode, {@code runFromIDE=false} indicates command-line execution, and
+ *         {@code jarPath} must reference the examples JAR used as the deployment unit.
+ *     </li>
+ * </ul>
+ *
+ * <h3>2. Manual (with IDE) :  The JAR Deployment for  deployment unit is manual</h3>
+ *
+ * <p>Before running this example, complete the following steps related to
+ * code deployment:</p>
+ *
  * <ol>
  *     <li>
- *         Build "ignite-examples-x.y.z.jar" using the next command:<br>
+ *         Build the <code>ignite-examples-x.y.z.jar</code> file:<br>
  *         {@code ./gradlew :ignite-examples:jar}
  *     </li>
  *     <li>
- *         Create a new deployment unit using the CLI tool:<br>
- *         {@code cluster unit deploy receiverExampleUnit \
- *          --version 1.0.0 \
- *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
+ *         Deploy the generated JAR as a deployment unit using the CLI:<br>
+ *         {@code
+ *         cluster unit deploy computeExampleUnit \
+ *         --version 1.0.0 \
+ *         --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
  */
-public class ComputeJobPriorityExample {
+
+public class ComputeJobPriorityExample extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -63,7 +110,10 @@ public class ComputeJobPriorityExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -80,6 +130,15 @@ public class ComputeJobPriorityExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
+
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             JobDescriptor<Integer, String> lowPriorityJob = JobDescriptor.builder(LowPriorityJob.class)
                     .options(JobExecutionOptions.builder().priority(0).maxRetries(5).build())
@@ -122,13 +181,19 @@ public class ComputeJobPriorityExample {
             //--------------------------------------------------------------------------------------
 
             CompletableFuture.allOf(jobFutures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
         }
     }
 
     /**
      * High-priority job.
      */
-    private static class HighPriorityJob implements ComputeJob<Integer, String> {
+    public static class HighPriorityJob implements ComputeJob<Integer, String> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
@@ -151,7 +216,7 @@ public class ComputeJobPriorityExample {
     /**
      * Low-priority job.
      */
-    private static class LowPriorityJob implements ComputeJob<Integer, String> {
+    public static class LowPriorityJob implements ComputeJob<Integer, String> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
