@@ -64,7 +64,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.catalog.annotations.Zone;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -98,6 +97,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -462,11 +462,13 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         int tableId = 2;
 
+        int zoneId = 20;
+
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
             List<EnlistedPartitionGroup> enlistedPartitions = List.of(
-                    new EnlistedPartitionGroup(new TablePartitionId(tableId, PARTITION_ID), Set.of(tableId))
+                    new EnlistedPartitionGroup(new ZonePartitionId(zoneId, PARTITION_ID), Set.of(tableId))
             );
             storage.putForRebalance(txIds.get(i), new TxMeta(txState, enlistedPartitions, CLOCK.now()));
         }

@@ -70,6 +70,9 @@ public class ReplicaMessageUtils {
             ReplicaMessagesFactory messagesFactory,
             ReplicationGroupId replicationGroupId
     ) {
+        if (replicationGroupId instanceof TablePartitionId) {
+            System.out.println("!!!");
+        }
         assert replicationGroupId instanceof ZonePartitionId :
                 "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
                         + ", value=" + replicationGroupId
