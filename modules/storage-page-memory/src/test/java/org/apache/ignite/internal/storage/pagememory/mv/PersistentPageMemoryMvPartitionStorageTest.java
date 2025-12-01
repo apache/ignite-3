@@ -210,7 +210,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testShouldReleaseReturnsFalseWhenNoCheckpointWaiting() throws Exception {
+    void testShouldReleaseReturnsFalseWhenNoCheckpointWaiting() {
         AtomicBoolean shouldReleaseValue = new AtomicBoolean(false);
 
         storage.runConsistently(locker -> {
@@ -223,7 +223,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testNestedRunConsistentlyInheritsLocker() throws Exception {
+    void testNestedRunConsistentlyInheritsLocker() {
         AtomicBoolean outerShouldRelease = new AtomicBoolean(false);
         AtomicBoolean innerShouldRelease = new AtomicBoolean(false);
 
@@ -248,7 +248,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testShouldReleaseReturnsTrueWhenWriterIsWaiting() throws Exception {
+    void testShouldReleaseReturnsTrueWhenWriterIsWaiting() {
         AtomicBoolean shouldReleaseValue = new AtomicBoolean(false);
 
         storage.runConsistently(locker -> {

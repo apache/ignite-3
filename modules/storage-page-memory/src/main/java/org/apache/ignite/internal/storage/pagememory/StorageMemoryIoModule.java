@@ -30,6 +30,6 @@ import org.apache.ignite.internal.pagememory.io.PageIoModule;
 public class StorageMemoryIoModule implements PageIoModule {
     @Override
     public Collection<IoVersions<?>> ioVersions() {
-        return List.of(StoragePartitionMetaIo.VERSIONS);
+        return List.of(StoragePartitionMetaIoVersions.VERSIONS);
     }
 }

@@ -449,7 +449,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 addWrite.afterCompletion();
 
-                AddWriteResult addWriteResult = addWrite.addWriteResult();
+                AddWriteResult addWriteResult = addWrite.result();
 
                 assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 

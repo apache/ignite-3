@@ -140,7 +140,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Aborts write-intent inside of consistency closure.
      */
-    AbortResult abortWrite(RowId rowId, UUID txId) {
+    protected AbortResult abortWrite(RowId rowId, UUID txId) {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
