@@ -102,6 +102,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -116,7 +117,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -209,7 +209,7 @@ public class DistributionZoneManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
             MetricManager metricManager,
-            GcConfiguration gcConfiguration
+            LowWatermark lowWatermark
     ) {
         this(
                 nodeName,
@@ -223,7 +223,7 @@ public class DistributionZoneManager extends
                 clockService,
                 new SystemPropertiesNodeProperties(),
                 metricManager,
-                gcConfiguration
+                lowWatermark
         );
     }
 
@@ -241,7 +241,7 @@ public class DistributionZoneManager extends
      * @param clockService Clock service.
      * @param nodeProperties Node properties.
      * @param metricManager Metric manager.
-     * @param gcConfiguration Garbage collector configuration.
+     * @param lowWatermark Low watermark manager.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -255,7 +255,7 @@ public class DistributionZoneManager extends
             ClockService clockService,
             NodeProperties nodeProperties,
             MetricManager metricManager,
-            GcConfiguration gcConfiguration
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -295,7 +295,7 @@ public class DistributionZoneManager extends
                 partitionResetClosure,
                 partitionDistributionResetTimeoutConfiguration::currentValue,
                 this::logicalTopology,
-                gcConfiguration
+                lowWatermark
         );
 
         this.metricManager = metricManager;
@@ -428,10 +428,6 @@ public class DistributionZoneManager extends
      */
     public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
         return dataNodes(INITIAL_TIMESTAMP, catalogVersion, zoneId);
-    }
-
-    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }
 
     /**

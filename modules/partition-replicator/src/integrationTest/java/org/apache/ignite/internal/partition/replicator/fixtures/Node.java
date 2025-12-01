@@ -711,7 +711,7 @@ public class Node {
                 systemDistributedConfiguration,
                 clockService,
                 metricManager,
-                gcConfiguration
+                lowWatermark
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

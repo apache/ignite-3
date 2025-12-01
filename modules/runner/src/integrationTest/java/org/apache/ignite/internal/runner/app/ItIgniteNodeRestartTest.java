@@ -712,7 +712,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 systemDistributedConfiguration,
                 clockService,
                 metricManager,
-                gcConfig
+                lowWatermark
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {

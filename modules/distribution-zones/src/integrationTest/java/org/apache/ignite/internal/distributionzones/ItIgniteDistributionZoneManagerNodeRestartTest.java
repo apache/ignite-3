@@ -105,8 +105,10 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -180,9 +182,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @InjectExecutorService
     private ScheduledExecutorService commonScheduledExecutorService;
-
-    @InjectConfiguration("mock.lowWatermark: { dataAvailabilityTimeMillis: 600000}")
-    private GcConfiguration gcConfiguration;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -310,6 +309,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 () -> TEST_DELAY_DURATION
         );
 
+        LowWatermark lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(System.currentTimeMillis() - 600_000, 0));
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterSvc.topologyService().localMember().id(),
@@ -320,7 +322,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
                 clockService,
                 new NoOpMetricManager(),
-                gcConfiguration
+                lowWatermark
         );
 
         // Preparing the result map.

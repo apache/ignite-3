@@ -68,7 +68,7 @@ public class DataNodesHistory {
      * @param toTimestamp Minimal timestamp to leave in the history.
      * @return New data nodes history.
      */
-    public DataNodesHistory compactIfNeeded(HybridTimestamp toTimestamp) {
+    DataNodesHistory compactIfNeeded(HybridTimestamp toTimestamp) {
         DataNodesHistory compacted = new DataNodesHistory(new TreeMap<>(this.history.tailMap(toTimestamp, true)));
 
         if (compacted.isEmpty()) {

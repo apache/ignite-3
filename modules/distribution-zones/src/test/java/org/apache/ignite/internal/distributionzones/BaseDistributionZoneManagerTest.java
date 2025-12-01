@@ -52,7 +52,9 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
@@ -99,9 +100,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     @InjectConfiguration("mock.properties." + PARTITION_DISTRIBUTION_RESET_TIMEOUT + " = \"" + IMMEDIATE_TIMER_VALUE + "\"")
     SystemDistributedConfiguration systemDistributedConfiguration;
 
-    @InjectConfiguration("mock.lowWatermark: { dataAvailabilityTimeMillis: 600000}")
-    GcConfiguration gcConfiguration;
-
     @BeforeEach
     void setUp() throws Exception {
         String nodeName = "test";
@@ -134,6 +132,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 IgniteThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
         );
 
+        LowWatermark lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(System.currentTimeMillis() - 600_000, 0));
+
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 () -> nodeId,
@@ -144,7 +145,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 systemDistributedConfiguration,
                 new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService)),
                 new NoOpMetricManager(),
-                gcConfiguration
+                lowWatermark
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

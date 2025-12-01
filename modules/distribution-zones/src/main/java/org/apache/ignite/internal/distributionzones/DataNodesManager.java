@@ -102,6 +102,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -114,7 +115,6 @@ import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -176,7 +176,7 @@ public class DataNodesManager {
 
     private final Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider;
 
-    private final GcConfiguration gcConfiguration;
+    private final LowWatermark lowWatermark;
 
     /**
      * Constructor.
@@ -191,6 +191,7 @@ public class DataNodesManager {
      * @param partitionResetClosure Closure to reset partitions.
      * @param partitionDistributionResetTimeoutSupplier Supplier for partition distribution reset timeout.
      * @param latestLogicalTopologyProvider Provider of the latest logical topology.
+     * @param lowWatermark Low watermark manager.
      */
     public DataNodesManager(
             String nodeName,
@@ -203,7 +204,7 @@ public class DataNodesManager {
             PartitionResetClosure partitionResetClosure,
             IntSupplier partitionDistributionResetTimeoutSupplier,
             Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider,
-            GcConfiguration gcConfiguration
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
         this.catalogManager = catalogManager;
@@ -214,7 +215,7 @@ public class DataNodesManager {
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
         this.latestLogicalTopologyProvider = latestLogicalTopologyProvider;
         this.busyLock = busyLock;
-        this.gcConfiguration = gcConfiguration;
+        this.lowWatermark = lowWatermark;
 
         executor = createZoneManagerExecutor(
                 min(Runtime.getRuntime().availableProcessors() * 3, 20),
@@ -1077,7 +1078,7 @@ public class DataNodesManager {
             return null;
         } else {
             HybridTimestamp now = clockService.current();
-            HybridTimestamp earliestTimestampNeededForHistory = earliestTimestampNeededForHistory(now);
+            HybridTimestamp earliestTimestampNeededForHistory = earliestTimestampNeededForHistory();
             DataNodesHistory newHistory = history
                     .addHistoryEntry(timestamp, nodes)
                     .compactIfNeeded(earliestTimestampNeededForHistory);
@@ -1093,7 +1094,7 @@ public class DataNodesManager {
         }
     }
 
-    private Operation addNewEntryOperation(int zoneId, @Nullable DataNodesHistory history) {
+    private static Operation addNewEntryOperation(int zoneId, @Nullable DataNodesHistory history) {
         if (history == null) {
             return noop();
         } else {
@@ -1101,13 +1102,20 @@ public class DataNodesManager {
         }
     }
 
-    private HybridTimestamp earliestTimestampNeededForHistory(HybridTimestamp timestamp) {
-        long minTimeAvailable = timestamp.getPhysical()
-                - gcConfiguration.lowWatermark().dataAvailabilityTimeMillis().value()
-                - clockService.maxClockSkewMillis();
+    /**
+     * Calculates the earliest timestamp needed to keep history for. Takes the minimum of low watermark and catalog earliest timestamp,
+     * subtracts max clock skew and ensures that it is at least minimum hybrid timestamp.
+     *
+     * @return The earliest timestamp needed to keep history for.
+     */
+    private HybridTimestamp earliestTimestampNeededForHistory() {
+        long minTimeAvailable = lowWatermark.getLowWatermark().getPhysical();
         long minCatalogTimeAvailable = hybridTimestamp(catalogManager.earliestCatalog().time()).getPhysical();
 
-        long minPhysical = max(min(minTimeAvailable, minCatalogTimeAvailable), 1);
+        long minPhysical = max(
+                min(minTimeAvailable, minCatalogTimeAvailable) - clockService.maxClockSkewMillis(),
+                1
+        );
         return new HybridTimestamp(minPhysical, 0);
     }
 

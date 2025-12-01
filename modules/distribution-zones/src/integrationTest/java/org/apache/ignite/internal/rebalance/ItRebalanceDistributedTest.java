@@ -1538,7 +1538,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     systemDistributedConfiguration,
                     clockService,
                     metricManager,
-                    gcConfig
+                    lowWatermark
             );
 
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
