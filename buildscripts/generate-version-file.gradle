@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
+def getCommitHash(File workingDir) {
+    try {
+        def process = 'git rev-parse HEAD'.execute(null, workingDir)
+        if (process.exitValue() == 0) {
+            return process.text.trim()
+        }
+    } catch (Exception e) {
+        // Git command not found or failed
+    }
+    return "unknown"
+}
+
 def createVersionFile = tasks.register('createVersionFile') {
     def commitHash = project.hasProperty("lastCommitHash")
             ? project.property("lastCommitHash")
-            : {
-                try {
-                    def process = 'git rev-parse HEAD'.execute()
-                    process.waitFor()
-                    if (process.exitValue() == 0) {
-                        return process.text.trim()
-                    }
-                } catch (Exception e) {
-                    // Git command not found or failed
-                }
-                return "unknown"
-            }()
+            : getCommitHash(project.rootDir)
 
     def versionFileName = "ignite.version.full"
     def versionFile = file("$buildDir/$versionFileName")
