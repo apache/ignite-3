@@ -240,4 +240,11 @@ internal static partial class LogMessages
         EventId = 1032)]
     internal static partial void LogTxBeginTrace(
         this ILogger logger, long txId, long observableTs, EndPoint remoteAddress);
+
+    [LoggerMessage(
+        Message = "ObservableTs updated [observableTs={ObservableTs}]",
+        Level = LogLevel.Trace,
+        EventId = 1033)]
+    internal static partial void LogObservableTsUpdatedTrace(
+        this ILogger logger, long observableTs);
 }

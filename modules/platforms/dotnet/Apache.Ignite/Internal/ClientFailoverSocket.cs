@@ -365,6 +365,8 @@ namespace Apache.Ignite.Internal
 
                 if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
                 {
+                    // TODO: Remove
+                    _logger.LogObservableTsUpdatedTrace(current);
                     return;
                 }
             }
