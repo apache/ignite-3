@@ -969,6 +969,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             if (count <= 0) {
                 return List.of();
             } else if (count == 1) {
+                // Use a more optimal implementation to avoid creating a cursor that can load multiple elements from the page at once.
                 return peekSingleGcEntryBusy(lowWatermark);
             }
 
@@ -1075,6 +1076,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             return List.of();
         }
 
+        preloadingForGcIfNeededBusy(head);
+
         return List.of(head);
     }
 
@@ -1090,6 +1093,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 }
 
                 res.add(next);
+
+                preloadingForGcIfNeededBusy(next);
             }
         } catch (IgniteInternalCheckedException e) {
             throwStorageExceptionIfItCause(e);
@@ -1102,5 +1107,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         return res;
+    }
+
+    protected void preloadingForGcIfNeededBusy(GcRowVersion gcRowVersion) {
+        // No-op.
     }
 }

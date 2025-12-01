@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
 import java.util.List;
@@ -30,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -51,6 +54,7 @@ import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -584,6 +588,30 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         @Override
         public boolean shouldRelease() {
             return checkpointTimeoutLock.shouldReleaseReadLock();
+        }
+    }
+
+    /**
+     * This optimization reduces the IO operations performed when executing {@link #vacuum} inside {@link #runConsistently}, which is
+     * currently executed in a loop. This will allow the checkpoint to acquire a write lock more quickly.
+     */
+    @Override
+    protected void preloadingForGcIfNeededBusy(GcRowVersion gcRowVersion) {
+        RowId rowId = gcRowVersion.getRowId();
+        HybridTimestamp timestamp = gcRowVersion.getTimestamp();
+
+        var preloadingForGc = new PreloadingForGcInvokeClosure(rowId, timestamp, gcRowVersion.getLink(), this);
+
+        try {
+            renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, preloadingForGc);
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException(
+                    "Error preloading row versions for garbage collection: [rowId={}, rowTimestamp={}, {}]",
+                    e,
+                    rowId, timestamp, createStorageInfo()
+            );
         }
     }
 }
