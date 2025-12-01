@@ -32,3 +32,7 @@ out/
 
 # OpenAPI spec file
 modules/rest-api/openapi/openapi.*
+
+# Ignore any locally generated static or html docs
+html/
+static/
