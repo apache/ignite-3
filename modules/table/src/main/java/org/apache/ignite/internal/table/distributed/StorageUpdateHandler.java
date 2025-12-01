@@ -242,18 +242,10 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         return storage.runConsistently(locker -> {
-            if (locker.shouldRelease()) {
-                return lastUnprocessedEntry;
-            }
-
             List<RowId> processedRowIds = new ArrayList<>();
             int batchLength = 0;
             Entry<UUID, TimedBinaryRow> entryToProcess = lastUnprocessedEntry;
             while (entryToProcess != null) {
-                if (!processedRowIds.isEmpty() && locker.shouldRelease()) {
-                    break;
-                }
-
                 RowId rowId = new RowId(partitionId, entryToProcess.getKey());
                 BinaryRow row = entryToProcess.getValue() == null ? null : entryToProcess.getValue().binaryRow();
 
@@ -261,7 +253,7 @@ public class StorageUpdateHandler {
                     batchLength += row.tupleSliceLength();
                 }
 
-                if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
+                if (!processedRowIds.isEmpty() && (locker.shouldRelease() || batchLength > maxBatchLength)) {
                     break;
                 }
 
