@@ -1102,8 +1102,8 @@ public class ClientInboundMessageHandler
         boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
                 && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
-            LOG.info("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
+        if (primaryReplicasUpdated && LOG.isTraceEnabled()) {
+            LOG.trace("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 

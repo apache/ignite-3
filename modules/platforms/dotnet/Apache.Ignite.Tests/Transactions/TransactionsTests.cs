@@ -209,8 +209,8 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        [Timeout(-1)]
-        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
+        [Timeout(int.MaxValue)]
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate1()
         {
             while (true)
             {
