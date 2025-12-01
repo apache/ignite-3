@@ -53,6 +53,8 @@ public class TxStateMeta implements TransactionMeta {
 
     private final @Nullable Boolean isFinishedDueToTimeout;
 
+    private final @Nullable String txLabel;
+
     /**
      * The ignite transaction object is associated with this state.
      * This field can be initialized only on the transaction coordinator, {@code null} on the other nodes.
@@ -79,39 +81,7 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable InternalTransaction tx,
             @Nullable Boolean isFinishedDueToTimeout
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, null, isFinishedDueToTimeout);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txState Transaction state.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group id.
-     * @param commitTimestamp Commit timestamp.
-     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
-     * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
-     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
-     */
-    public TxStateMeta(
-            TxState txState,
-            @Nullable UUID txCoordinatorId,
-            @Nullable ReplicationGroupId commitPartitionId,
-            @Nullable HybridTimestamp commitTimestamp,
-            @Nullable InternalTransaction tx,
-            @Nullable Long initialVacuumObservationTimestamp,
-            @Nullable Boolean isFinishedDueToTimeout
-    ) {
-        this(
-                txState,
-                txCoordinatorId,
-                commitPartitionId,
-                commitTimestamp,
-                tx,
-                initialVacuumObservationTimestamp,
-                null,
-                isFinishedDueToTimeout
-        );
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, null, null, isFinishedDueToTimeout, null);
     }
 
     /**
@@ -125,6 +95,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      * @param cleanupCompletionTimestamp Cleanup completion timestamp.
      * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
+     * @param txLabel Transaction label.
      */
     public TxStateMeta(
             TxState txState,
@@ -134,7 +105,8 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp,
             @Nullable Long cleanupCompletionTimestamp,
-            @Nullable Boolean isFinishedDueToTimeout
+            @Nullable Boolean isFinishedDueToTimeout,
+            @Nullable String txLabel
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
@@ -143,6 +115,7 @@ public class TxStateMeta implements TransactionMeta {
         this.tx = tx;
         this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
         this.isFinishedDueToTimeout = isFinishedDueToTimeout;
+        this.txLabel = txLabel;
 
         if (initialVacuumObservationTimestamp != null) {
             this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
@@ -168,7 +141,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMetaAbandoned abandoned() {
         assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
-        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId);
+        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
     }
 
     /**
@@ -177,7 +150,7 @@ public class TxStateMeta implements TransactionMeta {
      * @return Transaction state meta.
      */
     public TxStateMetaFinishing finishing(boolean isFinishedDueToTimeoutFlag) {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag);
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag, txLabel);
     }
 
     @Override
@@ -208,6 +181,10 @@ public class TxStateMeta implements TransactionMeta {
 
     public @Nullable Boolean isFinishedDueToTimeout() {
         return isFinishedDueToTimeout;
+    }
+
+    public @Nullable String txLabel() {
+        return txLabel;
     }
 
     @Override
