@@ -209,6 +209,7 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        [Repeat(10)]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
             var recordView = PocoView;
