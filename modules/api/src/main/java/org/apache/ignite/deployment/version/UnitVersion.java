@@ -18,9 +18,9 @@
 package org.apache.ignite.deployment.version;
 
 import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.ignite.lang.SemanticVersion;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,7 +34,23 @@ class UnitVersion implements Version {
             "(?<major>\\d+)(?:\\.(?<minor>\\d+))?(?:\\.(?<maintenance>\\d+))?(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
     );
 
-    private final SemanticVersion version;
+    /** Major version number. */
+    private final byte major;
+
+    /** Minor version number. */
+    private final byte minor;
+
+    /** Maintenance version number. */
+    private final byte maintenance;
+
+    /** Patch version number. */
+    @Nullable
+    private final Byte patch;
+
+    /** Pre-release version. */
+    @Nullable
+    private final String preRelease;
+
 
     /**
      * Constructor.
@@ -44,12 +60,16 @@ class UnitVersion implements Version {
      * @param maintenance Maintenance part of version.
      */
     UnitVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
-        this.version = new SemanticVersion(major, minor, maintenance, patch, preRelease);
+        this.major = major;
+        this.minor = minor;
+        this.maintenance = maintenance;
+        this.patch = patch;
+        this.preRelease = preRelease;
     }
 
     @Override
     public String render() {
-        return version.toString();
+        return toString();
     }
 
     /**
@@ -95,8 +115,65 @@ class UnitVersion implements Version {
             return -1;
         }
 
-        UnitVersion unitVersion = (UnitVersion) o;
-        return version.compareTo(unitVersion.version);
+        UnitVersion other = (UnitVersion) o;
+        int res;
+
+        // Compare major, minor, maintenance
+        res = Byte.compare(major, other.major);
+        if (res != 0) {
+            return res;
+        }
+
+        res = Byte.compare(minor, other.minor);
+        if (res != 0) {
+            return res;
+        }
+
+        res = Byte.compare(maintenance, other.maintenance);
+        if (res != 0) {
+            return res;
+        }
+
+        // Compare patch (nullable)
+        res = compareNullable(patch, other.patch);
+        if (res != 0) {
+            return res;
+        }
+
+        // Compare pre-release order (nullable)
+        res = compareNullable(preReleaseOrder(preRelease), preReleaseOrder(other.preRelease));
+        return res;
+    }
+
+    private static int compareNullable(@Nullable Byte a, @Nullable Byte b) {
+        if (a != null && b != null) {
+            return Byte.compare(a, b);
+        } else if (a != null) {
+            return 1;
+        } else if (b != null) {
+            return -1;
+        }
+        return 0;
+    }
+
+    @Nullable
+    private static Byte preReleaseOrder(@Nullable String preRelease) {
+        if (preRelease == null) {
+            return null;
+        }
+        switch (preRelease.toLowerCase()) {
+            case "alpha":
+                return 0;
+            case "beta":
+                return 1;
+            case "rc":
+                return 2;
+            case "final":
+            case "":
+                return 3;
+            default:
+                return 4; // Unknown or custom stages
+        }
     }
 
     @Override
@@ -108,17 +185,25 @@ class UnitVersion implements Version {
             return false;
         }
 
-        UnitVersion unitVersion = (UnitVersion) o;
-        return version.equals(unitVersion.version);
+        UnitVersion that = (UnitVersion) o;
+
+        return major == that.major && minor == that.minor && maintenance == that.maintenance
+                && Objects.equals(patch, that.patch) && Objects.equals(preRelease, that.preRelease);
     }
 
     @Override
     public int hashCode() {
-        return version.hashCode();
+        return Objects.hash(major, minor, maintenance, patch, preRelease);
     }
 
     @Override
     public String toString() {
-        return render();
+        StringJoiner joiner = new StringJoiner(".").add(String.valueOf(major)).add(String.valueOf(minor)).add(String.valueOf(maintenance));
+
+        if (patch != null) {
+            joiner.add(patch.toString());
+        }
+
+        return joiner + (preRelease == null ? "" : "-" + preRelease);
     }
 }
