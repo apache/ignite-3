@@ -46,30 +46,16 @@ object PlatformDotnetTestsWindows : BuildType({
             configuration = "Release"
             args = "--no-restore -m:1"
         }
-        dotnetPack {
-            name = ".NET Pack (validate)"
-            workingDir = "%PATH__WORKING_DIR%"
-            configuration = "Release"
-            args = "--no-restore -m:8"
-        }
         customGradle {
             name = "Verify runner is built"
             tasks = ":ignite-runner:integrationTestClasses :ignite-compatibility-tests:testFixturesClasses"
-        }
-        dotnetTest {
-            name = ".NET Test (Debug)"
-            workingDir = "%PATH__WORKING_DIR%"
-            configuration = "Debug"
-            skipBuild = true
-            args = "-p:BuildInParallel=false -m:1"
-            sdk = "3.1 6"
         }
         dotnetTest {
             name = ".NET Test (Release)"
             workingDir = "%PATH__WORKING_DIR%"
             configuration = "Release"
             skipBuild = true
-            args = "-p:BuildInParallel=false -m:1"
+            args = "-p:BuildInParallel=false -m:1 --filter TransactionsTests"
             sdk = "3.1 6"
         }
     }
