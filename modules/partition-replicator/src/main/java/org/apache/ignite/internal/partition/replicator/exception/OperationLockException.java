@@ -26,17 +26,17 @@ import org.apache.ignite.internal.tx.LockException;
  * Exception that wraps one of root cause {@link LockException} but provides an operation type that failed to acquire, release or downgrade
  * a lock.
  */
-public class OperationRequestLockException extends LockException {
+public class OperationLockException extends LockException {
     /**
      * Constructor.
      *
-     * @param requestType Request type that faced with failure to acquire, release or downgrade a lock.
+     * @param requestOperationType Request's operation type that faced with failure to acquire, release or downgrade a lock.
      * @param cause Detail cause of the failure.
      */
-    public OperationRequestLockException(RequestType requestType, LockException cause) {
+    public OperationLockException(RequestType requestOperationType, LockException cause) {
         super(
                 cause.code(),
-                format("Lock acquiring failed during request handling [requestType={}].", requestType),
+                format("Lock acquiring failed during request handling [requestOperationType={}].", requestOperationType),
                 cause
         );
     }

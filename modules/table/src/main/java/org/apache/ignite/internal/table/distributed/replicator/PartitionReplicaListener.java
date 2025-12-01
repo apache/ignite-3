@@ -109,7 +109,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
-import org.apache.ignite.internal.partition.replicator.exception.OperationRequestLockException;
+import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
@@ -3760,7 +3760,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             if (hasCause(ex, LockException.class)) {
                                 RequestType failedRequestType = getOperationRequestType(request);
 
-                                sneakyThrow(new OperationRequestLockException(failedRequestType, (LockException) unwrapCause(ex)));
+                                sneakyThrow(new OperationLockException(failedRequestType, (LockException) unwrapCause(ex)));
                             }
 
                             sneakyThrow(ex);
