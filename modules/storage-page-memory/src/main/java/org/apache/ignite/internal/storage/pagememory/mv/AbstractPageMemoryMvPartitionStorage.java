@@ -504,8 +504,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             assert rowIsLocked(rowId) : commitWriteInfo(rowId, timestamp, txId);
 
-            CommitResult commitResult;
-
             try {
                 var commitWrite = new CommitWriteInvokeClosure(
                         rowId,
@@ -518,7 +516,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 commitWrite.afterCompletion();
 
-                commitResult = commitWrite.commitResult();
+                CommitResult commitResult = commitWrite.commitResult();
 
                 assert commitResult != null : commitWriteInfo(rowId, timestamp, txId);
 
