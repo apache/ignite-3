@@ -2,9 +2,7 @@ package build.distributions
 
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.ExecBuildStep
 import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
-import jetbrains.buildServer.configs.kotlin.buildSteps.exec
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
@@ -33,7 +31,7 @@ object OdbcRpm : BuildType({
         customGradle {
             name = "Build ODBC RPM (Under Rocky Linux 8 container)"
             tasks = ":packaging-odbc:buildRpm"
-            workingDir = "%VCSROOT__GRIDGAIN9%"
+            workingDir = "%VCSROOT__IGNITE3%"
             gradleParams = "-i -Pplatforms.enable"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
             dockerPull = true

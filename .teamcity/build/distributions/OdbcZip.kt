@@ -33,7 +33,7 @@ object OdbcZip : BuildType({
         customGradle {
             name = "Build ODBC Zip (Under Rocky Linux 8 container)"
             tasks = ":packaging-odbc:distZip"
-            workingDir = "%VCSROOT__GRIDGAIN9%"
+            workingDir = "%VCSROOT__IGNITE3%"
             gradleParams = "-i -Pplatforms.enable"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
             dockerPull = true
@@ -43,7 +43,7 @@ object OdbcZip : BuildType({
         customGradle {
             name = "Build ODBC Tar (Under Rocky Linux 8 container)"
             tasks = ":packaging-odbc:distTar"
-            workingDir = "%VCSROOT__GRIDGAIN9%"
+            workingDir = "%VCSROOT__IGNITE3%"
             gradleParams = "-i -Pplatforms.enable"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
             dockerPull = true
