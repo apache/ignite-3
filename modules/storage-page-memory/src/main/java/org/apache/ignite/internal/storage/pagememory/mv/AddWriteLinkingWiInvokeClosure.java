@@ -42,6 +42,9 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
     private final FreeList freeList;
 
+    private long wiListHeadLink;
+    private long newWiListHeadLink;
+
     AddWriteLinkingWiInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
@@ -54,59 +57,65 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
         persistentStorage = storage;
 
-        this.freeList = storage.renewableState.freeList();
+        freeList = storage.renewableState.freeList();
+    }
+
+    @Override
+    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+        wiListHeadLink = persistentStorage.lockWriteIntentListHead();
+        newWiListHeadLink = wiListHeadLink;
+
+        try {
+            super.call(oldRow);
+        } finally {
+            persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
+        }
     }
 
     @Override
     protected RowVersion insertFirstRowVersion() {
-        long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
-        long newWiListHeadLink = wiListHeadLink;
+        assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
+        assert persistentStorage.writeIntentListHead() == wiListHeadLink
+                : "Expected WI list head link " + wiListHeadLink + " but was " + persistentStorage.writeIntentListHead();
 
-        try {
-            WiLinkableRowVersion newVersion = insertRowVersion(NULL_LINK, wiListHeadLink, NULL_LINK);
+        WiLinkableRowVersion newVersion = insertRowVersion(NULL_LINK, wiListHeadLink, NULL_LINK);
 
-            newWiListHeadLink = newVersion.link();
+        newWiListHeadLink = newVersion.link();
 
-            updateWiListLinks(newVersion);
+        updateWiListLinks(newVersion);
 
-            return newVersion;
-        } finally {
-            persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
-        }
+        return newVersion;
     }
 
     @Override
     protected RowVersion insertAnotherRowVersion(VersionChain oldRow, @Nullable RowVersion existingWriteIntent) {
+        assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
+        assert persistentStorage.writeIntentListHead() == wiListHeadLink
+                : "Expected WI list head link " + wiListHeadLink + " but was " + persistentStorage.writeIntentListHead();
+
         boolean replacingExistingWriteIntent = oldRow.isUncommitted();
         assert replacingExistingWriteIntent == (existingWriteIntent != null);
 
-        long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
-        long newWiListHeadLink = wiListHeadLink;
-
-        try {
-            long newNextWiLink;
-            long newPrevWiLink;
-            if (replacingExistingWriteIntent) {
-                newNextWiLink = existingWriteIntent.operations().nextWriteIntentLink(wiListHeadLink);
-                newPrevWiLink = existingWriteIntent.operations().prevWriteIntentLink();
-            } else {
-                newNextWiLink = wiListHeadLink;
-                newPrevWiLink = NULL_LINK;
-            }
-
-            WiLinkableRowVersion newVersion = insertRowVersion(oldRow.newestCommittedLink(), newNextWiLink, newPrevWiLink);
-
-            if (!replacingExistingWriteIntent) {
-                // Add our new version to the head of the WI list.
-                newWiListHeadLink = newVersion.link();
-            }
-
-            updateWiListLinks(newVersion);
-
-            return newVersion;
-        } finally {
-            persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
+        long newNextWiLink;
+        long newPrevWiLink;
+        if (replacingExistingWriteIntent) {
+            newNextWiLink = existingWriteIntent.operations().nextWriteIntentLink(wiListHeadLink);
+            newPrevWiLink = existingWriteIntent.operations().prevWriteIntentLink();
+        } else {
+            newNextWiLink = wiListHeadLink;
+            newPrevWiLink = NULL_LINK;
         }
+
+        WiLinkableRowVersion newVersion = insertRowVersion(oldRow.newestCommittedLink(), newNextWiLink, newPrevWiLink);
+
+        if (!replacingExistingWriteIntent) {
+            // Add our new version to the head of the WI list.
+            newWiListHeadLink = newVersion.link();
+        }
+
+        updateWiListLinks(newVersion);
+
+        return newVersion;
     }
 
     private WiLinkableRowVersion insertRowVersion(long nextLink, long nextWiLink, long prevWiLink) {

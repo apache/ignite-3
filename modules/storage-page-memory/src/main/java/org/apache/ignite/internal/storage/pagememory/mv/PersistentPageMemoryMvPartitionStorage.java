@@ -429,6 +429,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
+    boolean writeIntentHeadIsLockedByCurrentThread() {
+        return wiHeadLock.isHeldByCurrentThread();
+    }
+
+    long writeIntentListHead() {
+        return wiHeadLink;
+    }
+
     @Override
     public @Nullable LeaseInfo leaseInfo() {
         return busy(() -> {
