@@ -32,9 +32,9 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -88,7 +88,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> finalise(Throwable error) {
-        Collection<CompletableFuture<? extends AsyncCursor<?>>> cursorsToClose;
+        Collection<CompletableFuture<? extends AsyncDataCursor<?>>> cursorsToClose;
         assert error != null;
 
         synchronized (mux) {
@@ -103,10 +103,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         }
 
         // Close all associated cursors on error.
-        for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToClose) {
+        for (CompletableFuture<? extends AsyncDataCursor<?>> fut : cursorsToClose) {
             fut.whenComplete((cursor, ex) -> {
                 if (cursor != null) {
-                    cursor.closeAsync();
+                    cursor.cancelAsync(CancellationReason.CANCEL);
                 }
             });
         }
