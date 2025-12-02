@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage.BYTE_ORDER;
-import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_OR_ZONE_PREFIX_SIZE_BYTES;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.ZONE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
@@ -65,7 +65,7 @@ import org.rocksdb.WriteBatch;
  */
 public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     /** Prefix length for the payload. Consists of tableId/zoneId (4 bytes) and partitionId (2 bytes), both in Big Endian. */
-    public static final int PREFIX_SIZE_BYTES = TABLE_OR_ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
+    public static final int PREFIX_SIZE_BYTES = ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
 
     /** Size of the key in the storage. Consists of {@link #PREFIX_SIZE_BYTES} and a UUID (2x {@link Long#BYTES}. */
     private static final int FULL_KEY_SIZE_BYES = PREFIX_SIZE_BYTES + 2 * Long.BYTES;

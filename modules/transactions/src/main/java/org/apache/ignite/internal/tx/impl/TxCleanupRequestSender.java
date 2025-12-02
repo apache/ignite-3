@@ -38,8 +38,8 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -120,8 +120,7 @@ public class TxCleanupRequestSender {
         }
     }
 
-    // TODO
-    private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
+    private void markTxnCleanupReplicated(UUID txId, TxState state, ZonePartitionId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
         TxStateMeta txStateMeta = txStateVolatileStorage.state(txId);
@@ -166,7 +165,7 @@ public class TxCleanupRequestSender {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
         return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null);
     }
 
@@ -181,8 +180,8 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            @Nullable ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            @Nullable ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -218,13 +217,13 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             Collection<EnlistedPartitionGroup> partitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        Map<ReplicationGroupId, EnlistedPartitionGroup> partitionIds = partitions.stream()
+        Map<ZonePartitionId, EnlistedPartitionGroup> partitionIds = partitions.stream()
                 .collect(toMap(EnlistedPartitionGroup::groupId, identity()));
 
         if (commitPartitionId != null) {
@@ -255,16 +254,16 @@ public class TxCleanupRequestSender {
     }
 
     private static Map<String, List<EnlistedPartitionGroup>> toPartitionInfosByPrimaryName(
-            Map<String, Set<ReplicationGroupId>> partitionsByNode,
-            Map<ReplicationGroupId, EnlistedPartitionGroup> partitionIds
+            Map<String, Set<ZonePartitionId>> partitionsByNode,
+            Map<ZonePartitionId, EnlistedPartitionGroup> partitionIds
     ) {
         return partitionsByNode.entrySet().stream()
                 .collect(toMap(Entry::getKey, entry -> toPartitionInfos(entry.getValue(), partitionIds)));
     }
 
     private static List<EnlistedPartitionGroup> toPartitionInfos(
-            Set<ReplicationGroupId> groupIds,
-            Map<ReplicationGroupId, EnlistedPartitionGroup> partitionIds
+            Set<ZonePartitionId> groupIds,
+            Map<ZonePartitionId, EnlistedPartitionGroup> partitionIds
     ) {
         return groupIds.stream()
                 .map(partitionIds::get)
@@ -272,13 +271,13 @@ public class TxCleanupRequestSender {
     }
 
     private void cleanupPartitionsWithoutPrimary(
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             List<EnlistedPartitionGroup> partitionsWithoutPrimary
     ) {
-        Map<ReplicationGroupId, EnlistedPartitionGroup> partitionIds = partitionsWithoutPrimary.stream()
+        Map<ZonePartitionId, EnlistedPartitionGroup> partitionIds = partitionsWithoutPrimary.stream()
                 .collect(toMap(EnlistedPartitionGroup::groupId, identity()));
 
         // For the partitions without primary, we need to wait until a new primary is found.
@@ -294,7 +293,7 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> cleanupPartitions(
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             Map<String, List<EnlistedPartitionGroup>> partitionsByNode,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -314,7 +313,7 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> sendCleanupMessageWithRetries(
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -364,19 +363,19 @@ public class TxCleanupRequestSender {
     }
 
     private static class CleanupContext {
-        private final ReplicationGroupId commitPartitionId;
+        private final ZonePartitionId commitPartitionId;
 
         /**
          * The partitions the we have not received write intent replication confirmation for.
          */
-        private final Set<ReplicationGroupId> partitions;
+        private final Set<ZonePartitionId> partitions;
 
         /**
          * The state of the transaction.
          */
         private final TxState txState;
 
-        private CleanupContext(ReplicationGroupId commitPartitionId, Set<ReplicationGroupId> partitions, TxState txState) {
+        private CleanupContext(ZonePartitionId commitPartitionId, Set<ZonePartitionId> partitions, TxState txState) {
             this.commitPartitionId = commitPartitionId;
             this.partitions = partitions;
             this.txState = txState;

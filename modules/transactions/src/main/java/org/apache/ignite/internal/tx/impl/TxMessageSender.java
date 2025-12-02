@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,9 +34,10 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -156,14 +158,14 @@ public class TxMessageSender {
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
-            ReplicationGroupId commitPartition,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            ZonePartitionId commitPartition,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             Long consistencyToken,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        ReplicationGroupIdMessage commitPartitionIdMessage = toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition);
+        ZonePartitionIdMessage commitPartitionIdMessage = toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition);
 
         return replicaService.invoke(
                 primaryConsistentId,
@@ -171,7 +173,7 @@ public class TxMessageSender {
                         .txId(txId)
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toEnlistedPartitionMessagesByGroupId(enlistedPartitions))
                         .commit(commit)
                         .commitTimestamp(commitTimestamp)
@@ -273,12 +275,12 @@ public class TxMessageSender {
         return messages;
     }
 
-    private static Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> toEnlistedPartitionMessagesByGroupId(
-            Map<ReplicationGroupId, PartitionEnlistment> idEnlistedPartitions
+    private static Map<ZonePartitionIdMessage, PartitionEnlistmentMessage> toEnlistedPartitionMessagesByGroupId(
+            Map<ZonePartitionId, PartitionEnlistment> idEnlistedPartitions
     ) {
-        var messages = new HashMap<ReplicationGroupIdMessage, PartitionEnlistmentMessage>(idEnlistedPartitions.size());
+        var messages = new HashMap<ZonePartitionIdMessage, PartitionEnlistmentMessage>(idEnlistedPartitions.size());
 
-        for (Map.Entry<ReplicationGroupId, PartitionEnlistment> e : idEnlistedPartitions.entrySet()) {
+        for (Map.Entry<ZonePartitionId, PartitionEnlistment> e : idEnlistedPartitions.entrySet()) {
             PartitionEnlistment enlistedPartition = e.getValue();
 
             messages.put(

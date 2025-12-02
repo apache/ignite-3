@@ -20,7 +20,7 @@ package org.apache.ignite.internal.partition.replicator.handlers;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -50,10 +50,9 @@ import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasS
 import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
@@ -156,14 +155,12 @@ public class TxFinishReplicaRequestHandler {
     }
 
     private static Map<ZonePartitionId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
-            Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> messages
+            Map<ZonePartitionIdMessage, PartitionEnlistmentMessage> messages
     ) {
         var result = new HashMap<ZonePartitionId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
 
-        for (Entry<ReplicationGroupIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
-            // TODO remove cast
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-            result.put((ZonePartitionId) e.getKey().asReplicationGroupId(), e.getValue().asPartition());
+        for (Entry<ZonePartitionIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
+            result.put(e.getKey().asReplicationGroupId(), e.getValue().asPartition());
         }
 
         return result;
@@ -343,18 +340,8 @@ public class TxFinishReplicaRequestHandler {
 
     private static EnlistedPartitionGroupMessage enlistedPartitionGroupMessage(EnlistedPartitionGroup enlistedPartitionGroup) {
         return TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
-                .groupId(replicationGroupId(enlistedPartitionGroup.groupId()))
+                .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, enlistedPartitionGroup.groupId()))
                 .tableIds(enlistedPartitionGroup.tableIds())
                 .build();
-    }
-
-    /**
-     * Method to convert from {@link ReplicationGroupId} object to command-based {@link ReplicationGroupIdMessage} object.
-     *
-     * @param replicationGroupId {@link ReplicationGroupId} object to convert to {@link ReplicationGroupIdMessage}.
-     * @return {@link ReplicationGroupIdMessage} object converted from argument.
-     */
-    private static ReplicationGroupIdMessage replicationGroupId(ReplicationGroupId replicationGroupId) {
-        return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
     }
 }

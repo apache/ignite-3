@@ -34,6 +34,7 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link TxMeta} instances.
  */
+// TODO remove support of v1
 public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     /** Serializer instance. */
     public static final TxMetaSerializer INSTANCE = new TxMetaSerializer();
@@ -72,8 +73,10 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     }
 
     private static boolean hasNoTablePartitionIds(TxMeta meta) {
-        return meta.enlistedPartitions().stream()
-                .noneMatch(partition -> partition.groupId() instanceof TablePartitionId);
+        // TODO
+        return true;
+//        return meta.enlistedPartitions().stream()
+//                .noneMatch(partition -> partition.groupId() instanceof TablePartitionId);
     }
 
     @Override
@@ -109,7 +112,11 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
                 tableIds = Set.of(objectId);
             }
 
-            enlistedPartitions.add(new EnlistedPartitionGroup(replicationGroupId(objectId, partitionId, usesZonePartitionIds), tableIds));
+            enlistedPartitions.add(
+                    new EnlistedPartitionGroup(
+                            (ZonePartitionId) replicationGroupId(objectId, partitionId, usesZonePartitionIds),
+                            tableIds
+                    ));
         }
 
         return enlistedPartitions;

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -30,13 +29,11 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -148,17 +145,8 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
     private static List<EnlistedPartitionGroup> enlistedPartitions(FinishTxCommand command) {
         if (command instanceof FinishTxCommandV2) {
             return fromPartitionMessages(((FinishTxCommandV2) command).partitions());
-        } else if (command instanceof FinishTxCommandV1) {
-            return enlistedPartitions((FinishTxCommandV1) command);
         }
 
         throw new IllegalArgumentException("Unknown command: " + command);
-    }
-
-    private static List<EnlistedPartitionGroup> enlistedPartitions(FinishTxCommandV1 command) {
-        return command.partitionIds().stream()
-                .map(TablePartitionIdMessage::asTablePartitionId)
-                .map(EnlistedPartitionGroup::new)
-                .collect(toList());
     }
 }

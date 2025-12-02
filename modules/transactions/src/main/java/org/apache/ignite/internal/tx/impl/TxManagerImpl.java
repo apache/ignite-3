@@ -722,7 +722,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            Map<ReplicationGroupId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
+                            Map<ZonePartitionId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
 
                             if (unlock) {
@@ -778,9 +778,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            ReplicationGroupId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -852,11 +852,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> sendFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
-            ReplicationGroupId commitPartition,
+            ZonePartitionId commitPartition,
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -1106,9 +1106,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        // TODO
-        Map<ReplicationGroupId, PartitionEnlistment> tmp = (Map) enlistedPartitions;
-        return txCleanupRequestSender.cleanup(commitPartitionId, tmp, commit, commitTimestamp, txId);
+        return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override

@@ -298,7 +298,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
      * @param tableOrZoneId ID of the table or zone.
      */
     public void destroyStorage(int tableOrZoneId) {
-        byte[] dataStart = ByteBuffer.allocate(TxStateRocksDbStorage.TABLE_OR_ZONE_PREFIX_SIZE_BYTES)
+        byte[] dataStart = ByteBuffer.allocate(TxStateRocksDbStorage.ZONE_PREFIX_SIZE_BYTES)
                 .order(BYTE_ORDER)
                 .putInt(tableOrZoneId)
                 .array();
