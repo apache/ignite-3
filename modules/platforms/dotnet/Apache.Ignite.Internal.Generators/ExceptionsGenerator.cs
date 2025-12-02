@@ -135,10 +135,10 @@ namespace Apache.Ignite.Internal.Generators
 
             foreach (var (javaClass, dotNetClass) in classMap)
             {
-                sb.AppendLine($"                \"{javaClass}\" => new {dotNetClass}(traceId, code, message, new IgniteServerException(traceId, code, javaStackTrace ?? javaClass)),");
+                sb.AppendLine($"                \"{javaClass}\" => new {dotNetClass}(traceId, code, message, new IgniteServerException(traceId, code, javaClass, javaStackTrace)),");
             }
 
-            sb.AppendLine("                _ => new IgniteException(traceId, code, message, new IgniteServerException(traceId, code, javaStackTrace ?? javaClass))");
+            sb.AppendLine("                _ => new IgniteException(traceId, code, message, new IgniteServerException(traceId, code, javaClass, javaStackTrace))");
             sb.AppendLine("            };");
             sb.AppendLine("    }");
             sb.AppendLine("}");

@@ -422,6 +422,13 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotNull(ex.InnerException);
             Assert.IsInstanceOf<IgniteServerException>(ex.InnerException);
 
+            var innerEx = (IgniteServerException)ex.InnerException!;
+            Assert.AreEqual("org.apache.ignite.compute.ComputeException", innerEx.ServerExceptionClass);
+            StringAssert.StartsWith(
+                "org.apache.ignite.compute.ComputeException: IGN-COMPUTE-9 Job execution failed: " +
+                "java.lang.RuntimeException: Test exception: foo-bar",
+                innerEx.ServerStackTrace);
+
             var str = ex.ToString();
 
             StringAssert.Contains(

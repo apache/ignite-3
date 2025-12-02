@@ -35,11 +35,24 @@ public sealed class IgniteServerException : IgniteException
     /// </summary>
     /// <param name="traceId">Trace id.</param>
     /// <param name="code">Code.</param>
-    /// <param name="message">Message.</param>
-    /// <param name="innerException">Inner exception.</param>
-    public IgniteServerException(Guid traceId, int code, string? message, Exception? innerException = null)
-        : base(traceId, code, message, innerException)
+    /// <param name="serverExceptionClass">Server exception class.</param>
+    /// <param name="serverStackTrace">Server stack trace.</param>
+    public IgniteServerException(Guid traceId, int code, string serverExceptionClass, string? serverStackTrace)
+        : base(traceId, code, serverStackTrace ?? serverExceptionClass)
     {
-        // No-op.
+        ServerExceptionClass = serverExceptionClass;
+        ServerStackTrace = serverStackTrace;
     }
+
+    /// <summary>
+    /// Gets the server exception class name.
+    /// </summary>
+    public string ServerExceptionClass { get; }
+
+    /// <summary>
+    /// Gets the server stack trace.
+    /// <para />
+    /// Requires <c>sendServerExceptionStackTraceToClient</c> to be enabled on the server, otherwise will be <c>null</c>.
+    /// </summary>
+    public string? ServerStackTrace { get; }
 }
