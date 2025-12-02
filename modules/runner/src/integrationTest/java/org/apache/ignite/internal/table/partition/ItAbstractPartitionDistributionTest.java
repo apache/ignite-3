@@ -118,7 +118,7 @@ public abstract class ItAbstractPartitionDistributionTest extends ClusterPerTest
         assertThat(partitionDistribution().primaryReplicasAsync(), willBe(partitions));
 
         for (Entry<Partition, ClusterNode> entry : partitions.entrySet()) {
-            int partitionId = entry.getKey().id();
+            int partitionId = (int) entry.getKey().id();
             CompletableFuture<InternalClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(partitionId);
 
             assertThat(entry.getValue().id(), equalTo(clusterNodeCompletableFuture.join().id()));

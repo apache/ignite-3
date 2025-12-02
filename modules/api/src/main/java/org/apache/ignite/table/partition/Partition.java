@@ -28,5 +28,5 @@ public interface Partition extends Serializable {
      *
      * @return Identifier of the partition.
      */
-    int id();
+    long id();
 }

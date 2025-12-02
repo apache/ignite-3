@@ -33,13 +33,13 @@ public class HashPartition implements Partition {
     }
 
     @Override
-    public int id() {
+    public long id() {
         return partitionId;
     }
 
     @Deprecated(since = "3.2", forRemoval = true)
     public int partitionId() {
-        return id();
+        return Math.toIntExact(id());
     }
 
     @Override

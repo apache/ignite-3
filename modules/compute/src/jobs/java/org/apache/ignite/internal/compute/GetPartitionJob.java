@@ -24,9 +24,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that returns a partition id for the specified partition passed in the context. */
-public class GetPartitionJob implements ComputeJob<Void, Integer> {
+public class GetPartitionJob implements ComputeJob<Void, Long> {
     @Override
-    public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Void arg) {
+    public CompletableFuture<Long> executeAsync(JobExecutionContext context, Void arg) {
         return completedFuture(context.partition().id());
     }
 }

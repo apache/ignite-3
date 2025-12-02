@@ -137,7 +137,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
 
     @Override
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        return table.partitionLocation(partition.id())
+        return table.partitionLocation(Math.toIntExact(partition.id()))
                 .thenApply(InternalClusterNode::toPublicNode);
     }
 

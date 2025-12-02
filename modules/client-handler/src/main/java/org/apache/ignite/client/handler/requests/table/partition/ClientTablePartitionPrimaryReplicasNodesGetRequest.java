@@ -48,12 +48,12 @@ public class ClientTablePartitionPrimaryReplicasNodesGetRequest {
     ) {
         int tableId = in.unpackInt();
 
-        return readTableAsync(tableId, tables).thenCompose(table -> table.partitionManager()
+        return readTableAsync(tableId, tables).thenCompose(table -> table.partitionDistribution()
                 .primaryReplicasAsync()
                 .thenApply(partitions -> out -> {
                     out.packInt(partitions.size());
                     for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
-                        out.packInt(e.getKey().id());
+                        out.packLong(e.getKey().id());
 
                         packClusterNode(e.getValue(), out);
                     }

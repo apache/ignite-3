@@ -260,7 +260,7 @@ public final class InteractiveJobs {
                         case RETURN_WORKER_NAME:
                             return completedFuture(workerNodeName);
                         case RETURN_PARTITION_ID:
-                            return completedFuture(Integer.toString(context.partition().id()));
+                            return completedFuture(Long.toString(context.partition().id()));
                         case GET_WORKER_NAME:
                             NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;

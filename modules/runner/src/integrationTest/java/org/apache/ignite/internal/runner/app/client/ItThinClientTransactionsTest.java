@@ -419,7 +419,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin(new TransactionOptions().timeoutMillis(450));
 
         // Load partition map to ensure all entries are directly mapped.
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         assertEquals(PARTITIONS, map.size());
 
@@ -428,7 +428,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Map<Tuple, Tuple> txMap = new HashMap<>();
 
         Tuple k1 = key(k);
-        Partition p1 = table().partitionManager().partitionAsync(k1).join();
+        Partition p1 = table().partitionDistribution().partitionAsync(k1).join();
         Tuple v1 = val(String.valueOf(k));
         kvView.put(tx, k1, v1);
         txMap.put(k1, v1);
@@ -576,7 +576,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Partition part0 = null;
 
         for (Tuple t : list) {
-            Partition part = table().partitionManager().partitionAsync(t).join();
+            Partition part = table().partitionDistribution().partitionAsync(t).join();
 
             if (part0 == null) {
                 part0 = part;
@@ -597,13 +597,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testAssignmentLoadedDuringTransaction() {
         // Wait for assignments.
-        table().partitionManager().primaryReplicasAsync().join();
+        table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
         ClientTable spyTable = Mockito.spy(table);
 
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         List<String> origPartMap = map.entrySet().stream()
                 .sorted(comparing(e -> e.getKey().id()))
@@ -644,7 +644,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testMixedMappingScenario1() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -676,7 +676,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testMixedMappingScenario2() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -725,7 +725,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             f.set(channel, spyed);
         }
 
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -852,7 +852,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testBatchScenarioWithNoopEnlistmentImplicit() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -883,7 +883,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testImplicitDirectMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -948,7 +948,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testImplicitRecordDirectMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -1013,7 +1013,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testBatchScenarioWithNoopEnlistmentExplicit() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -1093,7 +1093,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         // Load partition map to ensure all entries are directly mapped.
-        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
 
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
@@ -1131,7 +1131,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         // Load partition map to ensure all entries are directly mapped.
-        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
 
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));

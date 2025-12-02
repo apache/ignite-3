@@ -293,13 +293,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("SELECT __partition_id FROM t0")
-                .returns((long) partitionForKey(table, key1))
-                .returns((long) partitionForKey(table, key2))
+                .returns(partitionForKey(table, key1))
+                .returns(partitionForKey(table, key2))
                 .check();
 
         assertQuery("SELECT __partition_id, id FROM t0")
-                .returns((long) partitionForKey(table, key1), 101L)
-                .returns((long) partitionForKey(table, key2), 102L)
+                .returns(partitionForKey(table, key1), 101L)
+                .returns(partitionForKey(table, key2), 102L)
                 .check();
 
         assertQuery("SELECT \"__part\" FROM t0")
@@ -778,8 +778,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         return Objects.requireNonNull(catalog.defaultZone());
     }
 
-    private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
-        return table.partitionManager().partitionAsync(keyTuple).get().id();
+    private static long partitionForKey(Table table, Tuple keyTuple) throws Exception {
+        return table.partitionDistribution().partitionAsync(keyTuple).get().id();
     }
 
     @Test

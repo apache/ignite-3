@@ -513,7 +513,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         // Await primary replicas before streaming.
         Table table = defaultTable();
         RecordView<Tuple> view = table.recordView();
-        Map<Partition, ClusterNode> primaryReplicas = table.partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> primaryReplicas = table.partitionDistribution().primaryReplicasAsync().join();
 
         CompletableFuture<Void> streamerFut;
         int count = 10;
@@ -537,7 +537,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         for (int i = 0; i < count; i++) {
-            ClusterNode expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            ClusterNode expectedNode = table.partitionDistribution().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
             String actualNode = view.get(null, tupleKey(i)).stringValue("name");
 
             assertEquals(expectedNode.name(), actualNode);

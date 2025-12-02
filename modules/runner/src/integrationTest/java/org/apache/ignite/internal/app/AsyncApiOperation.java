@@ -127,7 +127,8 @@ enum AsyncApiOperation {
     PARTITION_DISTRIBUTION_PARTITIONS(refs -> refs.partitionDistribution.partitionsAsync()),
     PARTITION_DISTRIBUTION_PRIMARY_REPLICA(refs -> refs.partitionDistribution.primaryReplicaAsync(new HashPartition(0))),
     PARTITION_DISTRIBUTION_PRIMARY_REPLICAS(refs -> refs.partitionDistribution.primaryReplicasAsync()),
-    PARTITION_DISTRIBUTION_PRIMARY_REPLICAS_BY_NODE(refs -> refs.partitionManager.primaryReplicasAsync(refs.clusterNodes.iterator().next())),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICAS_BY_NODE(refs ->
+            refs.partitionManager.primaryReplicasAsync(refs.clusterNodes.iterator().next())),
     PARTITION_DISTRIBUTION_PARTITION_BY_KEY(refs -> refs.partitionDistribution.partitionAsync(1, Mapper.of(Integer.class))),
     PARTITION_DISTRIBUTION_PARTITION_BY_TUPLE(refs -> refs.partitionDistribution.partitionAsync(KEY_TUPLE)),
 
