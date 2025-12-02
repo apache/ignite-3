@@ -1214,7 +1214,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return;
         }
 
-        // Ignore error responses here. A transaction will be rolled back in other place.
+        // Only removing the failed inflight here. A transaction will be rolled back in other place.
         if (message instanceof ErrorReplicaResponse) {
             ErrorReplicaResponse response = (ErrorReplicaResponse) message;
 

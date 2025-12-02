@@ -170,25 +170,26 @@ public class TransactionInflights {
 
         // Avoid completion under lock.
         if (tuple != null) {
-            tuple.onInflightsRemoved(tuple.err);
+            tuple.onInflightRemoved(tuple.err);
         }
     }
 
     void removeInflight(UUID txId, Throwable cause) {
         // Can be null if tx was aborted and inflights were removed from the collection.
         TxContext tuple = txCtxMap.computeIfPresent(txId, (uuid, ctx) -> {
-            ctx.removeInflight(txId);
-
             if (cause != null && ctx.err == null) {
                 ctx.err = cause; // Retain only first exception.
             }
+
+            // Update inflight counter after assigning error value to avoid issues with visibility.
+            ctx.removeInflight(txId);
 
             return ctx;
         });
 
         // Avoid completion under lock.
         if (tuple != null) {
-            tuple.onInflightsRemoved(cause);
+            tuple.onInflightRemoved(tuple.err);
         }
     }
 
@@ -201,22 +202,6 @@ public class TransactionInflights {
     public boolean hasActiveInflights() {
         for (TxContext value : txCtxMap.values()) {
             if (!value.isTxFinishing()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Return true if at least on inflight is failed.
-     *
-     * @return {@code True} if has failed inflights.
-     */
-    @TestOnly
-    public boolean hasFailedInflight() {
-        for (TxContext value : txCtxMap.values()) {
-            if (value.err != null) {
                 return true;
             }
         }
@@ -304,7 +289,7 @@ public class TransactionInflights {
             inflights--;
         }
 
-        abstract void onInflightsRemoved(@Nullable Throwable t);
+        abstract void onInflightRemoved(@Nullable Throwable t);
 
         abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups);
 
@@ -328,7 +313,7 @@ public class TransactionInflights {
         }
 
         @Override
-        void onInflightsRemoved(Throwable t) {
+        void onInflightRemoved(Throwable t) {
             // No-op.
         }
 
@@ -475,7 +460,7 @@ public class TransactionInflights {
         }
 
         @Override
-        void onInflightsRemoved(@Nullable Throwable t) {
+        void onInflightRemoved(@Nullable Throwable t) {
             if (inflights == 0 && finishInProgressFuture != null) {
                 if (t == null) {
                     waitRepFut.complete(null);

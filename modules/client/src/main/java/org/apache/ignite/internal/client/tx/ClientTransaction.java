@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -241,7 +242,7 @@ public class ClientTransaction implements Transaction {
                     packEnlisted(w);
                 }
             }, r -> (Void) null);
-        }).thenCompose(x -> x);
+        }).thenCompose(identity());
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
