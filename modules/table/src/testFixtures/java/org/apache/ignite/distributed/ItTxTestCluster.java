@@ -624,7 +624,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
     }
@@ -1339,7 +1338,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
 

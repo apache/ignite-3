@@ -642,7 +642,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureProcessor,
-                nodeProperties,
                 metricManager
         );
 

@@ -1068,7 +1068,6 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureManager,
-                nodeProperties,
                 metricManager
         );
 

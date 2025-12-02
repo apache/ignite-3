@@ -59,8 +59,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.EventListener;
@@ -223,8 +221,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
@@ -298,7 +294,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                new SystemPropertiesNodeProperties(),
                 metricManager
         );
     }
@@ -342,7 +337,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             MetricManager metricManager
     ) {
         this.txConfig = txConfig;
@@ -363,7 +357,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.replicaService = replicaService;
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.metricsManager = metricManager;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
@@ -469,8 +462,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker timestampTracker,
             HybridTimestamp beginTimestamp,
             boolean implicit,
-            InternalTxOptions options) {
-
+            InternalTxOptions options
+    ) {
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
         long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
@@ -481,8 +474,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txId,
                 localNodeId,
                 implicit,
-                timeout,
-                nodeProperties.colocationEnabled()
+                timeout
         );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
@@ -711,10 +703,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         });
     }
 
+    // TODO remove
     private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert (nodeProperties.colocationEnabled() ? replicationGroupId instanceof ZonePartitionId
-                : replicationGroupId instanceof TablePartitionId)
-                : "Invalid replication group type: " + replicationGroupId.getClass();
+        assert replicationGroupId instanceof ZonePartitionId : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
