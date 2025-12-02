@@ -420,12 +420,15 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual("Job execution failed: java.lang.RuntimeException: Test exception: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
+            Assert.IsInstanceOf<IgniteServerException>(ex.InnerException);
 
             var str = ex.ToString();
 
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.executeAsync(PlatformTestNodeRunner.java:",
                 str);
+
+            StringAssert.Contains("---- End of server-side stack trace ----", str);
         }
 
         [Test]
