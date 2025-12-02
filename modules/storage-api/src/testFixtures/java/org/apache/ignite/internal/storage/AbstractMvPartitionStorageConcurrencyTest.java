@@ -109,6 +109,49 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     }
 
     @Test
+    void testMixedAddCommitAborts() {
+        runRace(
+                this::makeManyCommittedTransactions,
+                this::makeManyCommittedTransactions,
+                this::makeManyAbortedTransactions,
+                this::makeManyAbortedTransactions
+        );
+    }
+
+    private void makeManyCommittedTransactions() {
+        makeManyTransactions(true);
+    }
+
+    private void makeManyAbortedTransactions() {
+        makeManyTransactions(false);
+    }
+
+    private void makeManyTransactions(boolean commit) {
+        for (int i = 0; i < 1000; i++) {
+            addTwoWritesAndFinish(commit);
+        }
+    }
+
+    private void addTwoWritesAndFinish(boolean commit) {
+        RowId rowId = new RowId(PARTITION_ID);
+        RowId rowId2 = new RowId(PARTITION_ID);
+        UUID txId = newTransactionId();
+
+        addWrite(rowId, TABLE_ROW, txId);
+        addWrite(rowId2, TABLE_ROW, txId);
+
+        if (commit) {
+            HybridTimestamp commitTs = clock.now();
+
+            commitWrite(rowId, commitTs, txId);
+            commitWrite(rowId2, commitTs, txId);
+        } else {
+            abortWrite(rowId, txId);
+            abortWrite(rowId2, txId);
+        }
+    }
+
+    @Test
     void testAbortAndRead() {
         for (int i = 0; i < REPEATS; i++) {
             addWrite(ROW_ID, TABLE_ROW, txId);

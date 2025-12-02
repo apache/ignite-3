@@ -42,7 +42,9 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
     ) {
         assert storage instanceof PersistentPageMemoryMvPartitionStorage;
 
-        removeNodeFromWriteIntentsList(rowVersion, (PersistentPageMemoryMvPartitionStorage) storage, operationInfoSupplier);
+        // We don't use rowVersion as WI links stored inside it might be stale. Instead, we pass its link
+        // so that removeNodeFromWriteIntentsList() can read the latest WI links from the page.
+        removeNodeFromWriteIntentsList(rowVersion.link(), (PersistentPageMemoryMvPartitionStorage) storage, operationInfoSupplier);
     }
 
     @Override

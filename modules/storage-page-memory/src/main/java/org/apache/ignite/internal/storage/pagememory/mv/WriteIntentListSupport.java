@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -26,7 +27,7 @@ import org.apache.ignite.internal.storage.StorageException;
 
 class WriteIntentListSupport {
     static void removeNodeFromWriteIntentsList(
-            WiLinkableRowVersion rowVersionToRemove,
+            long linkToRowVersionToRemove,
             PersistentPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     ) {
@@ -35,6 +36,8 @@ class WriteIntentListSupport {
         long wiListHeadLink = storage.lockWriteIntentListHead();
 
         try {
+            var rowVersionToRemove = (WiLinkableRowVersion) storage.readRowVersion(linkToRowVersionToRemove, DONT_LOAD_VALUE);
+
             if (rowVersionToRemove.nextWriteIntentLink() != NULL_LINK) {
                 freeList.updateDataRow(
                         rowVersionToRemove.nextWriteIntentLink(),
@@ -58,7 +61,7 @@ class WriteIntentListSupport {
             throw new StorageException(
                     "Error while updating WI links: [link={}, {}]",
                     e,
-                    rowVersionToRemove.link(),
+                    linkToRowVersionToRemove,
                     operationInfoSupplier.get()
             );
         } finally {
