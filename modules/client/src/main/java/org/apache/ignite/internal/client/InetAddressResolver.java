@@ -18,21 +18,38 @@
 package org.apache.ignite.internal.client;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.Collection;
+import java.util.HashSet;
 
 /**
  * DNS resolver.
  */
 @FunctionalInterface
 public interface InetAddressResolver {
-    InetAddressResolver DEFAULT = InetAddress::getAllByName;
+    InetAddressResolver DEFAULT = (host, port) -> {
+        var res = new HashSet<InetSocketAddress>();
+
+        for (InetAddress inetAddr : InetAddress.getAllByName(host)) {
+            // Preserves unresolved address for loopback, since it can be multiple interfaces
+            if (inetAddr.isLoopbackAddress()) {
+                res.add(InetSocketAddress.createUnresolved(host, port));
+            } else {
+                res.add(new InetSocketAddress(inetAddr, port));
+            }
+        }
+
+        return res;
+    };
 
     /**
      * Resolves the given host name to its IP addresses.
      *
      * @param host the host name to be resolved
-     * @return an array of {@code InetAddress} objects representing the IP addresses of the host
+     * @param port the port to be resolved
+     * @return an collection of {@code InetSocketAddress} objects representing the IP addresses of the host
      * @throws UnknownHostException if the host name could not be resolved
      */
-    InetAddress[] getAllByName(String host) throws UnknownHostException;
+    Collection<InetSocketAddress> getAllByName(String host, int port) throws UnknownHostException;
 }

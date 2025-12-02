@@ -17,13 +17,17 @@
 
 package org.apache.ignite.client;
 
+import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -235,19 +239,14 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
             long backgroundReResolveAddressesInterval,
             AtomicReference<String[]> resolvedAddressesRef
     ) {
-        InetAddressResolver addressResolver = (addr) -> {
-            if ("my-cluster".equals(addr)) {
-                String[] resolved = resolvedAddressesRef.get();
-                InetAddress[] result = new InetAddress[resolved.length];
-
-                for (int i = 0; i < resolved.length; i++) {
-                    result[i] = InetAddress.getByName(resolved[i]);
-                }
-
-                return result;
-            } else {
-                return InetAddress.getAllByName(addr);
+        InetAddressResolver addressResolver = (host, port) -> {
+            if ("my-cluster".equals(host)) {
+                return Arrays.stream(resolvedAddressesRef.get())
+                        .map(s -> InetSocketAddress.createUnresolved(s, port))
+                        .collect(toList());
             }
+
+            return singletonList(InetSocketAddress.createUnresolved(host, port));
         };
 
         return new IgniteClientConfigurationImpl(

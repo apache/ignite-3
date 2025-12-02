@@ -31,7 +31,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.net.ConnectException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -438,22 +437,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         for (HostAndPort addr : parsedAddrs) {
             try {
-                // Special handling for "localhost" to avoid unnecessary DNS resolution.
-                if ("localhost".equalsIgnoreCase(addr.host())) {
-                    map.merge(InetSocketAddress.createUnresolved(addr.host(), addr.port()), 1, Integer::sum);
-
-                    continue;
-                }
-
-                for (InetAddress inetAddr : addressResolver.getAllByName(addr.host())) {
-                    // Preserve unresolved address if the resolved address equals to the original host string.
-                    if (Objects.equals(addr.host(), inetAddr.getHostAddress())) {
-                        map.merge(InetSocketAddress.createUnresolved(addr.host(), addr.port()), 1, Integer::sum);
-
-                        continue;
-                    }
-
-                    var sockAddr = new InetSocketAddress(inetAddr, addr.port());
+                for (InetSocketAddress sockAddr : addressResolver.getAllByName(addr.host(), addr.port())) {
                     map.merge(sockAddr, 1, Integer::sum);
                 }
             } catch (UnknownHostException e) {
