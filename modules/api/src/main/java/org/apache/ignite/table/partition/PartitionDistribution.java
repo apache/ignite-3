@@ -54,9 +54,9 @@ public interface PartitionDistribution {
     CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync();
 
     /**
-     * Asynchronously gets all partitions hosted by the current node as a primary replica.
+     * Asynchronously gets all partitions hosted by the specified node as a primary replica.
      *
-     * @return Future with list with all partitions hosted by the current node as a primary replica.
+     * @return Future with list with all partitions hosted by the specified node as a primary replica.
      */
     CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node);
 
@@ -70,9 +70,9 @@ public interface PartitionDistribution {
     Map<Partition, ClusterNode> primaryReplicas();
 
     /**
-     * Gets all partitions hosted by the current node as a primary replica.
+     * Gets all partitions hosted by the specified node as a primary replica.
      *
-     * @return List with all partitions hosted by the current node as a primary replica.
+     * @return List with all partitions hosted by the specified node as a primary replica.
      */
     List<Partition> primaryReplicas(ClusterNode node);
 

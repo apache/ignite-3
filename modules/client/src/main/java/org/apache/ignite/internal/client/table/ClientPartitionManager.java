@@ -65,7 +65,7 @@ class ClientPartitionManager implements PartitionManager {
         }
 
         return tbl.getPartitionAssignment()
-                .thenApply(ignored -> getPartitions(tbl.tryGetPartitionCount()));
+                .thenApply(pa -> getPartitions(pa.size()));
     }
 
     @Override

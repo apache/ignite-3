@@ -37,6 +37,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionDistribution;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -66,6 +67,7 @@ class References {
     final RecordView<Record> typedRecordView;
     final RecordView<Record> mappedRecordView;
 
+    final PartitionManager partitionManager;
     final PartitionDistribution partitionDistribution;
 
     final Statement selectIdsStatement;
@@ -95,6 +97,7 @@ class References {
         typedRecordView = table.recordView(Record.class);
         mappedRecordView = table.recordView(Mapper.of(Record.class));
 
+        partitionManager = table.partitionManager();
         partitionDistribution = table.partitionDistribution();
 
         selectIdsStatement = sql.createStatement(SELECT_IDS_QUERY);
