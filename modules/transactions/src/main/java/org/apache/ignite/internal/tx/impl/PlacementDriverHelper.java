@@ -145,7 +145,7 @@ public class PlacementDriverHelper {
      * @return A future that completes with a map of node to the partitions the node is primary for.
      */
     public CompletableFuture<Map<String, Set<ZonePartitionId>>> awaitPrimaryReplicas(Collection<ZonePartitionId> partitions) {
-        BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> action = (groupId, timestamp)
+        BiFunction<ZonePartitionId, HybridTimestamp, CompletableFuture<ReplicaMeta>> action = (groupId, timestamp)
                 -> awaitPrimaryReplicaWithExceptionHandling(groupId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         return computePrimaryReplicas(partitions, action)
                 .thenApply(partitionData -> partitionData.partitionsByNode);
@@ -160,7 +160,7 @@ public class PlacementDriverHelper {
      */
     private CompletableFuture<PartitionData> computePrimaryReplicas(
             Collection<ZonePartitionId> partitions,
-            BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
+            BiFunction<ZonePartitionId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
     ) {
         if (partitions == null || partitions.isEmpty()) {
             return completedFuture(new PartitionData(emptyMap(), emptySet()));
