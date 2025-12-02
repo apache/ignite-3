@@ -105,6 +105,7 @@ public class ComputeExample extends AbstractDeploymentUnitExample {
      * Main method of the example.
      *
      * @param args The command line arguments.
+     * @throws Exception if any error occurs.
      */
     public static void main(String[] args) throws Exception {
 
