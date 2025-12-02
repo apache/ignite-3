@@ -605,11 +605,19 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void installSnapshot() {
-        installSnapshotIfNeeded(-1, null);
+        boolean installed = installSnapshotIfNeeded(null);
+
+        assert installed;
     }
 
-    /** Returns true if skipped snapshot and didn't unlock ID. */
-    boolean installSnapshotIfNeeded(long nextSendIndex, @Nullable AppendEntriesRequestBuilder rb) {
+    /** 
+    * Tries to install snapshot. If append entries request is provided, will skip snapshot if it doesn't contain required send index and
+    * append entries should be sent instead.
+    *
+    * @param rb Append entries request builder, must contain prevLogIndex.
+    * @return true If snapshot installed or failed, false if append entries request should be sent instead.
+    */
+    private boolean installSnapshotIfNeeded(@Nullable AppendEntriesRequestBuilder rb) {
         if (getState() == State.Snapshot) {
             LOG.warn("Replicator is installing snapshot, ignoring the new request [node={}].", this.options.getNode().getNodeId());
             unlockId();
@@ -660,11 +668,13 @@ public class Replicator implements ThreadId.OnError {
                 return true;
             }
 
-            if (meta.lastIncludedIndex() < nextSendIndex) {
+            // If the snapshot doesn't have new entries, ignore it.
+            if (rb != null && meta.lastIncludedIndex() <= rb.prevLogIndex()) {
                 LOG.info("Snapshot doesn't have new entries, ignoring [node={}", this.options.getPeerId());
 
                 releaseReader();
 
+                // Will be unlocked when sending append entries request.
                 doUnlock = false;
 
                 rb.prevLogTerm(meta.lastIncludedTerm());
@@ -780,8 +790,11 @@ public class Replicator implements ThreadId.OnError {
         final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
-            // id is unlock in installSnapshot
-            installSnapshot();
+            // If snapshot was not skipped, unlocked id in installSnapshot
+            if (installSnapshotIfNeeded(rb)) {
+                return;
+            }
+
             if (isHeartbeat && heartBeatClosure != null) {
                 Utils.runClosureInThread(options.getCommonExecutor(), heartBeatClosure, new Status(RaftError.EAGAIN,
                     "Fail to send heartbeat to peer %s", this.options.getPeerId()));
@@ -1607,6 +1620,7 @@ public class Replicator implements ThreadId.OnError {
         return true;
     }
 
+    /** Tries to fill the common fields of AppendEntriesRequest, returns false if log was compacted and couldn't get prevLogTerm. */
     private boolean fillCommonFields(final AppendEntriesRequestBuilder rb, long prevLogIndex,
         final boolean isHeartbeat) {
         rb.term(this.options.getTerm());
@@ -1695,8 +1709,8 @@ public class Replicator implements ThreadId.OnError {
     private boolean sendEntries(final long nextSendingIndex) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
-            // If true, unlocked id in installSnapshot
-            if (installSnapshotIfNeeded(nextSendingIndex, rb)) {
+            // If snapshot was not skipped, unlocked id in installSnapshot
+            if (installSnapshotIfNeeded(rb)) {
                 return false;
             }
         }
