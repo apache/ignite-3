@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
-
 /**
- * Reads {@link RowVersion#value()} from page-memory.
+ * Provides offsets of value bytes of {@link RowVersion}s of different versions.
+ *
+ * <p>Implementations are stateless and can be reused.
  */
-class ReadRowVersionValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueSizeOffsetInFirstSlot();
+interface RowVersionValueOffsets {
+    static RowVersionValueOffsets offsetsFor(byte dataType) {
+        switch (dataType) {
+            case RowVersion.DATA_TYPE:
+                return PlainRowVersionValueOffsets.INSTANCE;
+            default:
+                throw new IllegalStateException("Unsupported data type: " + dataType);
+        }
     }
 
-    @Override
-    protected int valueOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueOffsetInFirstSlot();
-    }
+    int valueSizeOffsetInFirstSlot();
+
+    int valueOffsetInFirstSlot();
 }

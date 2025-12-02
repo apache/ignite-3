@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
+class PlainRowVersionValueOffsets implements RowVersionValueOffsets {
+    static final PlainRowVersionValueOffsets INSTANCE = new PlainRowVersionValueOffsets();
 
-/**
- * Reads {@link RowVersion#value()} from page-memory.
- */
-class ReadRowVersionValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueSizeOffsetInFirstSlot();
+    private PlainRowVersionValueOffsets() {
+        // No-op.
     }
 
     @Override
-    protected int valueOffsetInFirstSlot(byte dataType) {
-        return RowVersionValueOffsets.offsetsFor(dataType).valueOffsetInFirstSlot();
+    public int valueSizeOffsetInFirstSlot() {
+        return RowVersion.VALUE_SIZE_OFFSET;
+    }
+
+    @Override
+    public int valueOffsetInFirstSlot() {
+        return RowVersion.VALUE_OFFSET;
     }
 }

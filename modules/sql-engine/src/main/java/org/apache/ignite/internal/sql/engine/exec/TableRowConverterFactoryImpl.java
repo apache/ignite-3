@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,7 +65,8 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
         tableColumnSet = IntStream.range(0, tableDescriptor.columnsCount()).toArray();
 
         addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME));
-        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY));
+        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY1));
+        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY2));
     }
 
     private void addVirtualColumn(@Nullable ColumnDescriptor columnDescriptor) {
@@ -77,7 +78,15 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
 
         int columnIndex = columnDescriptor.logicalIndex();
 
-        virtualColumnsFactory.put(columnIndex, (partId) -> new VirtualColumn(columnIndex, NativeTypes.INT32, false, partId));
+        ColumnType type = columnDescriptor.physicalType().spec();
+
+        assert type == ColumnType.INT64 || type == ColumnType.INT32 : "Unsupported type " + type;
+
+        IntFunction<VirtualColumn> columnFactory = type == ColumnType.INT64
+                ? partId -> new VirtualColumn(columnIndex, columnDescriptor.physicalType(), false, (long) partId)
+                : partId -> new VirtualColumn(columnIndex, columnDescriptor.physicalType(), false, partId);
+
+        virtualColumnsFactory.put(columnIndex, columnFactory);
     }
 
     @Override
