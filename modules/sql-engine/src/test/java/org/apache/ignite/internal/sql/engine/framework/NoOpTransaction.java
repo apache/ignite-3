@@ -168,7 +168,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
         return true;
     }
 

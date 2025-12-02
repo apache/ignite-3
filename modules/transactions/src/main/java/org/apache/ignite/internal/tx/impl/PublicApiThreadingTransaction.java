@@ -96,7 +96,7 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+    public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
         return transaction.assignCommitPartition(commitPartitionId);
     }
 

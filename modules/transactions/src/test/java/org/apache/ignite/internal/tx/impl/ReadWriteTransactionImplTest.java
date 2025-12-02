@@ -37,7 +37,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -64,7 +63,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final int ZONE_ID = 2;
 
     /** Transaction commit partition id. */
-    private final ReplicationGroupId txCommitPart = new ZonePartitionId(ZONE_ID, 0);
+    private final ZonePartitionId txCommitPart = new ZonePartitionId(ZONE_ID, 0);
 
     @Mock
     private TxManager txManager;

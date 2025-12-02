@@ -98,7 +98,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+            public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
                 return false;
             }
 

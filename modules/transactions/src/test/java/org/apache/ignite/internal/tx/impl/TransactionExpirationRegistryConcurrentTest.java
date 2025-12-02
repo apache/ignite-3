@@ -196,7 +196,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
             return false;
         }
 

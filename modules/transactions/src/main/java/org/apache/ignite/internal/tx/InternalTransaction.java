@@ -60,7 +60,7 @@ public interface InternalTransaction extends Transaction {
      * @param commitPartitionId Commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(ReplicationGroupId commitPartitionId);
+    boolean assignCommitPartition(ZonePartitionId commitPartitionId);
 
     /**
      * Gets a partition id that stores the transaction state.

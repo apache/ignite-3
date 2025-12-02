@@ -124,7 +124,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+    public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
         return true;
     }
 

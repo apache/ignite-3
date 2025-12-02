@@ -2024,7 +2024,7 @@ public class InternalTableImpl implements InternalTable {
     protected CompletableFuture<PendingTxPartitionEnlistment> enlist(int partId, InternalTransaction tx) {
         HybridTimestamp now = tx.schemaTimestamp();
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
         tx.assignCommitPartition(replicationGroupId);
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);

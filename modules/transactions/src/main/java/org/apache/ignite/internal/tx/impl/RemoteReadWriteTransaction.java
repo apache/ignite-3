@@ -105,7 +105,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
         return false;
     }
 

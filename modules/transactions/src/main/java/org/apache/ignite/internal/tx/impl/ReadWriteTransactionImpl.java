@@ -44,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+    // TODO ZonePartitionId
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ReplicationGroupId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ReplicationGroupId.class, "commitPart");
@@ -52,6 +53,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Enlisted partitions: partition id -> partition info. */
     private final Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
 
+    // TODO ZonePartitionId
     /** A partition which stores the transaction state. {@code null} before first enlistment. */
     private volatile @Nullable ReplicationGroupId commitPart;
 
@@ -89,9 +91,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
-        assertReplicationGroupType(commitPartitionId);
-
+    public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
         return COMMIT_PART_UPDATER.compareAndSet(this, null, commitPartitionId);
     }
 
