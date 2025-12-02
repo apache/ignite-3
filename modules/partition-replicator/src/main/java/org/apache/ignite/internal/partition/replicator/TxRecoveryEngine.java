@@ -26,7 +26,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
@@ -84,11 +83,10 @@ public class TxRecoveryEngine {
      * @param txId Transaction id.
      * @param nodeId Node id (inconsistent).
      */
-    // TODO
-    public CompletableFuture<Void> runCleanupOnNode(ReplicationGroupId commitPartitionId, UUID txId, UUID nodeId) {
+    public CompletableFuture<Void> runCleanupOnNode(ZonePartitionId commitPartitionId, UUID txId, UUID nodeId) {
         // Get node id of the sender to send back cleanup requests.
         String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
 
-        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup((ZonePartitionId) commitPartitionId, nodeConsistentId, txId);
+        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(commitPartitionId, nodeConsistentId, txId);
     }
 }
