@@ -131,8 +131,8 @@ public class TcpIgniteClient implements IgniteClient {
 
         metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker, channelValidator);
-        tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         transactions = new ClientTransactions(ch);
+        tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         metricManager = initMetricManager(cfg);
