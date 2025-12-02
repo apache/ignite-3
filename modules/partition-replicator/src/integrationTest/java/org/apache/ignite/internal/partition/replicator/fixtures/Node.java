@@ -855,7 +855,8 @@ public class Node {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);

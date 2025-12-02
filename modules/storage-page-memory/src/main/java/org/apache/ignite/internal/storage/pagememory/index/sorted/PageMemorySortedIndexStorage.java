@@ -170,7 +170,12 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             try {
                 Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
 
-                return new ReadOnlyScanCursor(cursor);
+                return new ReadOnlyScanCursor<SortedIndexRow, IndexRow>(cursor) {
+                    @Override
+                    protected IndexRow map(SortedIndexRow value) {
+                        return toIndexRowImpl(value);
+                    }
+                };
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Couldn't get index tree cursor", e);
             }
@@ -267,38 +272,5 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 }
             };
         });
-    }
-
-    private class ReadOnlyScanCursor implements Cursor<IndexRow> {
-        private final Cursor<SortedIndexRow> treeCursor;
-
-        private ReadOnlyScanCursor(Cursor<SortedIndexRow> treeCursor) {
-            this.treeCursor = treeCursor;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return busyDataRead(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
-                return treeCursor.hasNext();
-            });
-        }
-
-        @Override
-        public IndexRow next() {
-            return busyDataRead(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
-                SortedIndexRow next = treeCursor.next();
-
-                return toIndexRowImpl(next);
-            });
-        }
-
-        @Override
-        public void close() {
-            treeCursor.close();
-        }
     }
 }
