@@ -167,6 +167,9 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             assert currentRowVersion != null;
             assert !currentRowVersion.isCommitted() : commitWriteInfo() + ", currentRowVersion=" + currentRowVersion;
 
+            // We update WI list links to this row version separately from zeroing out the WI list links in this row version, so, formally,
+            // we break the WI list consistency here. However, since we hold the page write lock during both operations, no other thread
+            // can see this.
             currentRowVersion.operations().removeFromWriteIntentsList(storage, this::commitWriteInfo);
 
             PageHandler<HybridTimestamp, Object> updateHandler = currentRowVersion.operations().converterToCommittedVersion();

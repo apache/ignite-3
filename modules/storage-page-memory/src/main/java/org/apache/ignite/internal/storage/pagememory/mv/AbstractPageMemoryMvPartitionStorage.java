@@ -113,7 +113,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     volatile RenewablePartitionStorageState renewableState;
 
-    private final DataPageReader rowVersionDataPageReader;
+    protected final DataPageReader rowVersionDataPageReader;
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();

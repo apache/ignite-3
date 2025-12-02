@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -36,26 +35,26 @@ class WriteIntentListSupport {
         long wiListHeadLink = storage.lockWriteIntentListHead();
 
         try {
-            var rowVersionToRemove = (WiLinkableRowVersion) storage.readRowVersion(linkToRowVersionToRemove, DONT_LOAD_VALUE);
+            WriteIntentLinks links = storage.readWriteIntentLinks(linkToRowVersionToRemove);
 
-            if (rowVersionToRemove.nextWriteIntentLink() != NULL_LINK) {
+            if (links.nextWriteIntentLink() != NULL_LINK) {
                 freeList.updateDataRow(
-                        rowVersionToRemove.nextWriteIntentLink(),
+                        links.nextWriteIntentLink(),
                         UpdatePrevWiLinkHandler.INSTANCE,
-                        rowVersionToRemove.prevWriteIntentLink()
+                        links.prevWriteIntentLink()
                 );
             }
 
-            if (rowVersionToRemove.prevWriteIntentLink() != NULL_LINK) {
+            if (links.prevWriteIntentLink() != NULL_LINK) {
                 freeList.updateDataRow(
-                        rowVersionToRemove.prevWriteIntentLink(),
+                        links.prevWriteIntentLink(),
                         UpdateNextWiLinkHandler.INSTANCE,
-                        rowVersionToRemove.nextWriteIntentLink()
+                        links.nextWriteIntentLink()
                 );
             }
 
-            if (rowVersionToRemove.prevWriteIntentLink() == NULL_LINK) {
-                wiListHeadLink = rowVersionToRemove.nextWriteIntentLink();
+            if (links.prevWriteIntentLink() == NULL_LINK) {
+                wiListHeadLink = links.nextWriteIntentLink();
             }
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

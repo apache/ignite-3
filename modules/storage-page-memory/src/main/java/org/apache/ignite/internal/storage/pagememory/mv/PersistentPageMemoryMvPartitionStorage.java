@@ -663,6 +663,18 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return new AddWriteLinkingWiInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
     }
 
+    WriteIntentLinks readWriteIntentLinks(long rowVersionLink) {
+        var read = new ReadWriteIntentLinks(partitionId);
+
+        try {
+            rowVersionDataPageReader.traverse(rowVersionLink, read, null);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Write intent links lookup failed: [link={}, {}]", e, rowVersionLink, createStorageInfo());
+        }
+
+        return read.result();
+    }
+
     private class PersistentPageMemoryLocker extends LocalLocker {
         private PersistentPageMemoryLocker() {
             super(lockByRowId);
