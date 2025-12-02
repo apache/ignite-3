@@ -111,6 +111,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -2232,7 +2233,7 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    private static ReplicationGroupIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
+    private static ZonePartitionIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
         return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
     }
 

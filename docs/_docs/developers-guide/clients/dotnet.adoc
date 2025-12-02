@@ -101,25 +101,29 @@ public class Account
 
 == Using Dependency Injection
 
-Ignite client provides support for using link:https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection[Dependency Injection] when initializing a client instance.
+Ignite client provides `IServiceCollection` extensions for using link:https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection[Dependency Injection].
 
 This approach can be used to simplify initializing the client in DI containers:
 
 - Register the `IgniteClientGroup` in your DI container:
 +
-[source, cpp]
+[source, csharp]
 ----
-builder.Services.AddSingleton<IgniteClientGroup>(_ => new IgniteClientGroup(
-    new IgniteClientGroupConfiguration
+IServiceCollection services = builder.Services;
+
+services.AddIgniteClientGroup(new IgniteClientGroupConfiguration
+{
+    ClientConfiguration = new IgniteClientConfiguration
     {
-        Size = 3,
-        ClientConfiguration = new("localhost"),
-    }));
+        Endpoints = { "localhost" }
+    },
+    Size = 2
+});
 ----
 +
 - Use an instance of the group you created in your methods:
 +
-[source, cpp]
+[source, csharp]
 ----
 public async Task<IActionResult> Index([FromServices] IgniteClientGroup igniteGroup)
 {
@@ -128,6 +132,11 @@ public async Task<IActionResult> Index([FromServices] IgniteClientGroup igniteGr
     return Ok(tables);
 }
 ----
+
+`IgniteClientGroup` is registered as a singleton by default and provides a pool of cached Ignite client instances:
+
+* Ignite clients are thread-safe and can be shared between multiple consumers.
+* Client instances cache table and query metadata, which improves performance for subsequent operations.
 
 == SQL API
 

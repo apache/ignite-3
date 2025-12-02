@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -369,7 +370,11 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 msg.serverNode().name(), msg.serverNode().id()
         );
 
-        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
+        sendRejectionMessageAndFailHandshake(
+                message,
+                HandshakeRejectionReason.STALE_LAUNCH_ID,
+                unused -> new RecipientLeftException("Recipient is stale: " + msg.serverNode().id())
+        );
     }
 
     private void handleClusterIdMismatch(HandshakeStartMessage msg) {

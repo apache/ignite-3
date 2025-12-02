@@ -207,6 +207,42 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         }
     }
 
+    /**
+     * Test verifies that if an error occurs within the script,
+     * previous statements will not be forcibly cancelled.
+     *
+     * <p>Note: this behavior is important for {@code JdbcStatement.executeBatch} method,
+     *          because it executes a batch of statements as a script, and if an error
+     *          occurs somewhere, it is impossible to correctly count the number of
+     *          updates (for a batch update exception).
+     */
+    @Test
+    void precedingStatementsAreNotAbortedOnError() throws InterruptedException {
+        String script = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
+                + "INSERT INTO test VALUES (0, 0), (1, 1), (2, 2);"
+                + "UPDATE test SET val = val + 1;"
+                + "INSERT INTO test VALUES (3, 3/0);";
+
+        AsyncSqlCursor<InternalSqlRow> ddlCursor = runScript(script);
+        AsyncSqlCursor<InternalSqlRow> dmlCursor1 = await(ddlCursor.nextResult());
+        AsyncSqlCursor<InternalSqlRow> dmlCursor2 = await(dmlCursor1.nextResult());
+
+        assertThrowsSqlException(
+                RUNTIME_ERR,
+                "Division by zero",
+                () -> await(dmlCursor2.nextResult())
+        );
+
+        // Put some delay to ensure no one tries to close the cursors in the background.
+        Thread.sleep(100);
+
+        validateSingleResult(ddlCursor, true);
+        validateSingleResult(dmlCursor1, 3L);
+        validateSingleResult(dmlCursor2, 3L);
+
+        // Cursors are already closed by validateSingleResult above.
+    }
+
     @Test
     void concurrentExecutionDoesntAffectSelectWithImplicitTx() {
         long tableSize = 1_000;

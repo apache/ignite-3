@@ -215,6 +215,21 @@ Table metrics.
 | Writes | The total number of write operations for this table.
 |=======================================================================
 
+== index.builder
+
+Index builder metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| TotalIndexesBuilding | Total number of indexes that node builds at the moment.
+| IndexesReadingStorage | Number of indexes that are currently reading data from storage.
+| IndexesWaitingForTransactions | Number of indexes that are currently waiting for transactions to complete.
+| TransactionsWaitingFor | Number of transactions that indexes are currently waiting for.
+| IndexesWaitingForReplica | Number of indexes that are currently waiting for replica response.
+|=======================================================================
+
 == thread.pools.{thread-pool-executor-name}
 
 [width="100%",cols="20%,80%",opts="header"]

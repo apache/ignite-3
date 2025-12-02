@@ -56,9 +56,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Zone rebalance manager. It listens to the changes in the distribution zones data nodes and replicas and triggers rebalance
  * for the corresponding partitions. By triggering rebalance, it updates the pending assignments in the metastore.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Rename to DistributionZoneRebalanceEngine.
-public class DistributionZoneRebalanceEngineV2 {
-    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
+public class DistributionZoneRebalanceEngine {
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
 
     /** Special flag to skip rebalance on node recovery for tests. */
     // TODO: IGNITE-24607 Remove it
@@ -90,7 +89,7 @@ public class DistributionZoneRebalanceEngineV2 {
      * @param distributionZoneManager Distribution zones manager.
      * @param catalogService Catalog service.
      */
-    public DistributionZoneRebalanceEngineV2(
+    public DistributionZoneRebalanceEngine(
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             DistributionZoneManager distributionZoneManager,
