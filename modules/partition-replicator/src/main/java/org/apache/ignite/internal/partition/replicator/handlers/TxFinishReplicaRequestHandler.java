@@ -51,6 +51,7 @@ import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValida
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -88,7 +89,7 @@ public class TxFinishReplicaRequestHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final ClockService clockService;
     private final TxManager txManager;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
 
     private final SchemaCompatibilityValidator schemaCompatValidator;
     private final ReliableCatalogVersions reliableCatalogVersions;
@@ -104,7 +105,7 @@ public class TxFinishReplicaRequestHandler {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             RaftCommandRunner raftCommandRunner,
-            ReplicationGroupId replicationGroupId
+            ZonePartitionId replicationGroupId
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.clockService = clockService;
@@ -130,8 +131,7 @@ public class TxFinishReplicaRequestHandler {
      * @return future result of the operation.
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<ReplicationGroupId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
+        Map<ZonePartitionId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
 
         UUID txId = request.txId();
 
@@ -155,20 +155,22 @@ public class TxFinishReplicaRequestHandler {
         }
     }
 
-    private static Map<ReplicationGroupId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
+    private static Map<ZonePartitionId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
             Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> messages
     ) {
-        var result = new HashMap<ReplicationGroupId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
+        var result = new HashMap<ZonePartitionId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
 
         for (Entry<ReplicationGroupIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
-            result.put(e.getKey().asReplicationGroupId(), e.getValue().asPartition());
+            // TODO remove cast
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
+            result.put((ZonePartitionId) e.getKey().asReplicationGroupId(), e.getValue().asPartition());
         }
 
         return result;
     }
 
     private CompletableFuture<TransactionResult> finishAndCleanup(
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

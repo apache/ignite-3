@@ -1118,8 +1118,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            @Nullable ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            @Nullable ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -1128,7 +1128,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             assertReplicationGroupType(replicationGroupId);
         }
 
-        return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
+        // TODO
+        Map<ReplicationGroupId, PartitionEnlistment> tmp = (Map) enlistedPartitions;
+        return txCleanupRequestSender.cleanup(commitPartitionId, tmp, commit, commitTimestamp, txId);
     }
 
     @Override
