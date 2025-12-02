@@ -35,17 +35,12 @@ class WriteIntentListSupport {
         long wiListHeadLink = storage.lockWriteIntentListHead();
 
         try {
-            long nextWiNodeLink;
-            if (rowVersionToRemove.nextWriteIntentLink() == NULL_LINK) {
-                nextWiNodeLink = NULL_LINK;
-            } else {
+            if (rowVersionToRemove.nextWriteIntentLink() != NULL_LINK) {
                 freeList.updateDataRow(
                         rowVersionToRemove.nextWriteIntentLink(),
                         UpdatePrevWiLinkHandler.INSTANCE,
                         rowVersionToRemove.prevWriteIntentLink()
                 );
-
-                nextWiNodeLink = rowVersionToRemove.nextWriteIntentLink();
             }
 
             if (rowVersionToRemove.prevWriteIntentLink() != NULL_LINK) {
@@ -57,7 +52,7 @@ class WriteIntentListSupport {
             }
 
             if (rowVersionToRemove.prevWriteIntentLink() == NULL_LINK) {
-                wiListHeadLink = nextWiNodeLink;
+                wiListHeadLink = rowVersionToRemove.nextWriteIntentLink();
             }
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
