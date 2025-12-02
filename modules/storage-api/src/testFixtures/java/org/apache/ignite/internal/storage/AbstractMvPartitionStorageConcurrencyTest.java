@@ -51,6 +51,58 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     private final UUID txId = newTransactionId();
 
     @Test
+    void testAddAndAbortSameRow() {
+        for (int i = 0; i < REPEATS; i++) {
+            addWrite(ROW_ID, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(ROW_ID, TABLE_ROW, newTransactionId()),
+                    () -> abortWrite(ROW_ID, txId)
+            );
+        }
+    }
+
+    @Test
+    void testAddAndAbortAnotherRow() {
+        RowId anotherRowId = new RowId(PARTITION_ID);
+
+        for (int i = 0; i < REPEATS; i++) {
+            addWrite(ROW_ID, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(anotherRowId, TABLE_ROW, newTransactionId()),
+                    () -> abortWrite(ROW_ID, txId)
+            );
+        }
+    }
+
+    @Test
+    void testAddAndCommitSameRow() {
+        for (int i = 0; i < REPEATS; i++) {
+            addWrite(ROW_ID, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(ROW_ID, TABLE_ROW, newTransactionId()),
+                    () -> commitWrite(ROW_ID, clock.now(), txId)
+            );
+        }
+    }
+
+    @Test
+    void testAddAndCommitAnotherRow() {
+        RowId anotherRowId = new RowId(PARTITION_ID);
+
+        for (int i = 0; i < REPEATS; i++) {
+            addWrite(ROW_ID, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(anotherRowId, TABLE_ROW, newTransactionId()),
+                    () -> commitWrite(ROW_ID, clock.now(), txId)
+            );
+        }
+    }
+
+    @Test
     void testAbortAndRead() {
         for (int i = 0; i < REPEATS; i++) {
             addWrite(ROW_ID, TABLE_ROW, txId);
