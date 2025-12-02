@@ -26,7 +26,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
@@ -238,7 +237,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId);
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.

@@ -87,7 +87,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
@@ -397,16 +396,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<ReplicationGroupId> action
+            Consumer<ZonePartitionId> action
     ) {
-        assertReplicationGroupType(eventParameters.groupId());
+        assert eventParameters.groupId() instanceof ZonePartitionId :
+                "Invalid replication group type: " + eventParameters.groupId().getClass();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
-        if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
-            return falseCompletedFuture();
-        }
-
-        action.accept(eventParameters.groupId());
+        action.accept((ZonePartitionId) eventParameters.groupId());
 
         return falseCompletedFuture();
     }
@@ -623,14 +618,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commitIntent, txId, enlistedGroups, commitPartition);
 
-        if (commitPartition != null) {
-            assertReplicationGroupType(commitPartition);
-        }
-        // TODO remove
-        for (ZonePartitionId replicationGroupId : enlistedGroups.keySet()) {
-            assertReplicationGroupType(replicationGroupId);
-        }
-
         assert enlistedGroups != null;
 
         if (enlistedGroups.isEmpty()) {
@@ -702,11 +689,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             transactionInflights.removeTxContext(txId);
         });
-    }
-
-    // TODO remove
-    private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert replicationGroupId instanceof ZonePartitionId : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -1124,10 +1106,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        for (ReplicationGroupId replicationGroupId : enlistedPartitions.keySet()) {
-            assertReplicationGroupType(replicationGroupId);
-        }
-
         // TODO
         Map<ReplicationGroupId, PartitionEnlistment> tmp = (Map) enlistedPartitions;
         return txCleanupRequestSender.cleanup(commitPartitionId, tmp, commit, commitTimestamp, txId);
@@ -1145,9 +1123,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
-        assertReplicationGroupType(commitPartitionId);
-
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
         return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
     }
 

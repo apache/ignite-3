@@ -89,6 +89,6 @@ public class TxRecoveryEngine {
         // Get node id of the sender to send back cleanup requests.
         String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
 
-        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(commitPartitionId, nodeConsistentId, txId);
+        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup((ZonePartitionId) commitPartitionId, nodeConsistentId, txId);
     }
 }
