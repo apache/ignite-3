@@ -28,7 +28,7 @@ using System.Diagnostics.CodeAnalysis;
     "Microsoft.Design",
     "CA1032:ImplementStandardExceptionConstructors",
     Justification="Ignite exceptions use a special constructor.")]
-public class IgniteServerException : IgniteException
+public sealed class IgniteServerException : IgniteException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteServerException"/> class.
