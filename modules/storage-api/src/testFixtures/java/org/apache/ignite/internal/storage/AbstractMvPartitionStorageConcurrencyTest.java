@@ -53,25 +53,28 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @Test
     void testAddAndAbortSameRow() {
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, txId);
+            RowId rowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
 
             runRace(
-                    () -> addWrite(ROW_ID, TABLE_ROW, newTransactionId()),
-                    () -> abortWrite(ROW_ID, txId)
+                    () -> addWrite(rowId, TABLE_ROW, newTransactionId()),
+                    () -> abortWrite(rowId, txId)
             );
         }
     }
 
     @Test
     void testAddAndAbortAnotherRow() {
-        RowId anotherRowId = new RowId(PARTITION_ID);
-
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, txId);
+            RowId rowId = new RowId(PARTITION_ID);
+            RowId anotherRowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
 
             runRace(
                     () -> addWrite(anotherRowId, TABLE_ROW, newTransactionId()),
-                    () -> abortWrite(ROW_ID, txId)
+                    () -> abortWrite(rowId, txId)
             );
         }
     }
@@ -79,25 +82,28 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @Test
     void testAddAndCommitSameRow() {
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, txId);
+            RowId rowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
 
             runRace(
-                    () -> addWrite(ROW_ID, TABLE_ROW, newTransactionId()),
-                    () -> commitWrite(ROW_ID, clock.now(), txId)
+                    () -> addWrite(rowId, TABLE_ROW, newTransactionId()),
+                    () -> commitWrite(rowId, clock.now(), txId)
             );
         }
     }
 
     @Test
     void testAddAndCommitAnotherRow() {
-        RowId anotherRowId = new RowId(PARTITION_ID);
-
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, txId);
+            RowId rowId = new RowId(PARTITION_ID);
+            RowId anotherRowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
 
             runRace(
                     () -> addWrite(anotherRowId, TABLE_ROW, newTransactionId()),
-                    () -> commitWrite(ROW_ID, clock.now(), txId)
+                    () -> commitWrite(rowId, clock.now(), txId)
             );
         }
     }
