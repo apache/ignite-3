@@ -63,9 +63,9 @@ class SegstoreLogStorage implements LogStorage {
 
         logEntryDecoder = opts.getLogEntryCodecFactory().decoder();
 
-        firstLogIndexInclusive = segmentFileManager.firstLogIndexInclusiveFromStorage(groupId);
+        firstLogIndexInclusive = segmentFileManager.firstLogIndexInclusiveOnRecovery(groupId);
 
-        lastLogIndexInclusive = Math.max(-1, segmentFileManager.lastLogIndexExclusiveFromStorage(groupId) - 1);
+        lastLogIndexInclusive = Math.max(-1, segmentFileManager.lastLogIndexExclusiveOnRecovery(groupId) - 1);
 
         return true;
     }

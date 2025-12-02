@@ -167,16 +167,16 @@ class IndexFileManager {
      * <p>Must only be called by the checkpoint thread.
      */
     Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        return saveIndexMemtable(indexMemTable, ++curFileOrdinal);
+        return saveIndexMemtable(indexMemTable, ++curFileOrdinal, false);
     }
 
-    Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
+    private Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) throws IOException {
         String fileName = indexFileName(fileOrdinal, 0);
 
         Path tmpFilePath = indexFilesDir.resolve(fileName + TMP_FILE_SUFFIX);
 
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
-            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal);
+            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal, onRecovery);
 
             os.write(headerBytes);
 
@@ -188,6 +188,14 @@ class IndexFileManager {
         }
 
         return syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
+    }
+
+    /**
+     * This method is intended to be called during {@link SegmentFileManager} recovery in order to create index files that may have been
+     * lost due to a component stop before a checkpoint was able to complete.
+     */
+    void recoverIndexFile(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
+        saveIndexMemtable(indexMemTable, fileOrdinal, true);
     }
 
     /**
@@ -258,7 +266,7 @@ class IndexFileManager {
         return Files.exists(indexFilesDir.resolve(indexFileName(fileOrdinal, 0)));
     }
 
-    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal) {
+    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -285,9 +293,12 @@ class IndexFileManager {
 
             long lastLogIndexExclusive = segmentInfo.lastLogIndexExclusive();
 
-            var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
+            // On recovery we are only creating missing index files, in-memory meta will be created on Index File Manager start.
+            if (!onRecovery) {
+                var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
 
-            putIndexFileMeta(groupId, indexFileMeta);
+                putIndexFileMeta(groupId, indexFileMeta);
+            }
 
             headerBuffer
                     .putLong(groupId)

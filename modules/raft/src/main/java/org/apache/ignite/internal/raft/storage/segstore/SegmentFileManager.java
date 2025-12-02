@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -189,7 +190,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
                         WriteModeIndexMemTable memTable = recoverMemtable(segmentFile, segmentFilePath);
 
-                        indexFileManager.saveIndexMemtable(memTable.transitionToReadMode(), segmentFileOrdinal);
+                        indexFileManager.recoverIndexFile(memTable.transitionToReadMode(), segmentFileOrdinal);
                     }
                 }
             }
@@ -335,8 +336,18 @@ class SegmentFileManager implements ManuallyCloseable {
      * <p>This method is expected to be called without any ongoing load (e.g. on recovery), because it only reflects the state of the
      * storage, not taking pending in-memory state into account.
      */
-    long firstLogIndexInclusiveFromStorage(long groupId) {
-        return indexFileManager.firstLogIndexInclusive(groupId);
+    long firstLogIndexInclusiveOnRecovery(long groupId) {
+        long firstLogIndexFromIndexStorage = indexFileManager.firstLogIndexInclusive(groupId);
+
+        if (firstLogIndexFromIndexStorage != -1) {
+            return firstLogIndexFromIndexStorage;
+        }
+
+        SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
+
+        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
+
+        return segmentInfo != null ? segmentInfo.firstLogIndexInclusive() : -1;
     }
 
     /**
@@ -347,7 +358,15 @@ class SegmentFileManager implements ManuallyCloseable {
      * <p>This method is expected to be called without any ongoing load (e.g. on recovery), because it only reflects the state of the
      * storage, not taking pending in-memory state into account.
      */
-    long lastLogIndexExclusiveFromStorage(long groupId) {
+    long lastLogIndexExclusiveOnRecovery(long groupId) {
+        SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
+
+        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
+
+        if (segmentInfo != null) {
+            return segmentInfo.lastLogIndexExclusive();
+        }
+
         return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
@@ -465,7 +484,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         var memtable = new IndexMemTable(stripes);
 
-        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+        while (!endOfSegmentReached(buffer)) {
             int segmentFilePayloadOffset = buffer.position();
 
             long groupId = buffer.getLong();
@@ -490,6 +509,22 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         return memtable;
+    }
+
+    private static boolean endOfSegmentReached(ByteBuffer buffer) {
+        if (buffer.remaining() < SWITCH_SEGMENT_RECORD.length) {
+            return true;
+        }
+
+        var switchSegmentRecordBytes = new byte[SWITCH_SEGMENT_RECORD.length];
+
+        int originalPos = buffer.position();
+
+        buffer.get(switchSegmentRecordBytes);
+
+        buffer.position(originalPos);
+
+        return Arrays.equals(switchSegmentRecordBytes, SWITCH_SEGMENT_RECORD);
     }
 
     /**

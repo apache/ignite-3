@@ -431,13 +431,13 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         // Create two tmp index files: one for the complete segment file and one the incomplete segment file.
         try {
-            fileManager.indexFileManager().saveIndexMemtable(mockMemTable, 0);
+            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 0);
         } catch (RuntimeException ignored) {
             // Ignore.
         }
 
         try {
-            fileManager.indexFileManager().saveIndexMemtable(mockMemTable, 1);
+            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 1);
         } catch (RuntimeException ignored) {
             // Ignore.
         }
