@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -78,7 +77,7 @@ public interface InternalTransaction extends Transaction {
      * @param consistencyToken Consistency token to enlist for given replication group.
      */
     void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken

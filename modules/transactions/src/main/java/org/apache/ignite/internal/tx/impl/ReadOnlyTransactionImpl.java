@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 
@@ -85,7 +84,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken

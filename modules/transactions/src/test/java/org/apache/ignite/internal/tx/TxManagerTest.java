@@ -84,7 +84,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -666,7 +665,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.enlist(partitionIdForEnlistment1, 10, nodeName, 1L);
         tx.assignCommitPartition(partitionIdForEnlistment1);
 
-        ReplicationGroupId partitionIdForEnlistment2 = new ZonePartitionId(2, 0);
+        ZonePartitionId partitionIdForEnlistment2 = new ZonePartitionId(2, 0);
         tx.enlist(partitionIdForEnlistment2, 20, nodeName, 1L);
 
         when(placementDriver.getPrimaryReplica(eq(partitionIdForEnlistment1), any()))

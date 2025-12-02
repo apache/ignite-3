@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
@@ -109,7 +108,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     @Override
     public void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken

@@ -109,7 +109,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public void enlist(
-                    ReplicationGroupId replicationGroupId,
+                    ZonePartitionId replicationGroupId,
                     int tableId,
                     String primaryNodeConsistentId,
                     long consistencyToken

@@ -180,6 +180,7 @@ public interface TxManager extends IgniteComponent {
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
+    // TODO
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             @Nullable ReplicationGroupId commitPartition,

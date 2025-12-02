@@ -28,7 +28,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -205,8 +204,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
-
+        public void enlist(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
         }
 
         @Override
