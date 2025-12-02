@@ -26,7 +26,10 @@ public class AbstractDeploymentUnitExample {
     // ---------------------------------------------------
 
     /**
-     * Thread-safe version. Only one thread can modify the shared static fields at a time.
+     * Processes the deployment unit.
+     *
+     * @param args Arguments passed to the deployment process.
+     * @throws IOException if any error occurs.
      */
     protected static synchronized void processDeploymentUnit(String[] args)
             throws IOException {
