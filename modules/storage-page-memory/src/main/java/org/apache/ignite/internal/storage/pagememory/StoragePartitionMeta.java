@@ -323,24 +323,6 @@ public class StoragePartitionMeta extends PartitionMeta {
     }
 
     /**
-     * Updates the link to the head of the write intent list.
-     *
-     * @param link Link to the head of the write intent list.
-     */
-    public void updateWiHead(long link) {
-        this.wiHeadLink = link;
-    }
-
-    /**
-     * Returns the link to the head of the write intent list.
-     *
-     * @return Link to the head of the write intent list.
-     */
-    public long wiHeadLink() {
-        return wiHeadLink;
-    }
-
-    /**
      * Returns primary replica node id (might be {@code null} if not saved yet).
      */
     public @Nullable UUID primaryReplicaNodeId() {
@@ -376,6 +358,27 @@ public class StoragePartitionMeta extends PartitionMeta {
         updateSnapshot(checkpointId);
 
         this.primaryReplicaNodeNameFirstPageId = pageId;
+    }
+
+    /**
+     * Returns the link to the head of the write intent list.
+     *
+     * @return Link to the head of the write intent list.
+     */
+    public long wiHeadLink() {
+        return wiHeadLink;
+    }
+
+    /**
+     * Updates the link to the head of the write intent list.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param link Link to the head of the write intent list.
+     */
+    public void updateWiHead(@Nullable UUID checkpointId, long link) {
+        updateSnapshot(checkpointId);
+
+        this.wiHeadLink = link;
     }
 
     /**

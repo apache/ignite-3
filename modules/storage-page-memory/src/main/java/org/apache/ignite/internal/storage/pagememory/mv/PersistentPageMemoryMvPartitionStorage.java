@@ -278,7 +278,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     @FunctionalInterface
     private interface MetaUpdateClosure {
-        void update(UUID lastCheckpointId, StoragePartitionMeta meta);
+        void update(@Nullable UUID lastCheckpointId, StoragePartitionMeta meta);
     }
 
     /**
@@ -425,7 +425,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     private void updateWiHeadBusy(long link) {
         updateMeta((lastCheckpointId, meta) -> {
-            meta.updateWiHead(link);
+            meta.updateWiHead(lastCheckpointId, link);
         });
     }
 
