@@ -43,6 +43,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.ProtocolContext;
@@ -207,7 +208,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                new RetryLimitPolicy(),
+                new RetryReadPolicy(),
                 null,
                 null,
                 false,

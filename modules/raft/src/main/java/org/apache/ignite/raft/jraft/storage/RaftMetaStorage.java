@@ -24,7 +24,6 @@ import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
  * Raft metadata storage service.
  */
 public interface RaftMetaStorage extends Lifecycle<RaftMetaStorageOptions>, Storage {
-
     /**
      * Set current term.
      */
@@ -49,4 +48,7 @@ public interface RaftMetaStorage extends Lifecycle<RaftMetaStorageOptions>, Stor
      * Set term and voted for information.
      */
     boolean setTermAndVotedFor(final long term, final PeerId peerId);
+
+    /** Creates a meta storage after it is destroyed. */
+    void createAfterDestroy();
 }

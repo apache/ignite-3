@@ -98,6 +98,8 @@ public class PartitionSnapshotStorage {
 
     private final long waitForMetadataCatchupMs;
 
+    private final LogStorageAccess logStorage;
+
     /** Constructor. */
     public PartitionSnapshotStorage(
             PartitionKey partitionKey,
@@ -106,7 +108,8 @@ public class PartitionSnapshotStorage {
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
-            Executor incomingSnapshotsExecutor
+            Executor incomingSnapshotsExecutor,
+            LogStorageAccess logStorage
     ) {
         this(
                 partitionKey,
@@ -116,7 +119,8 @@ public class PartitionSnapshotStorage {
                 catalogService,
                 failureProcessor,
                 incomingSnapshotsExecutor,
-                DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS
+                DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS,
+                logStorage
         );
     }
 
@@ -129,7 +133,8 @@ public class PartitionSnapshotStorage {
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
-            long waitForMetadataCatchupMs
+            long waitForMetadataCatchupMs,
+            LogStorageAccess logStorage
     ) {
         this.partitionKey = partitionKey;
         this.topologyService = topologyService;
@@ -139,6 +144,7 @@ public class PartitionSnapshotStorage {
         this.failureProcessor = failureProcessor;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
+        this.logStorage = logStorage;
     }
 
     public PartitionKey partitionKey() {
@@ -355,5 +361,10 @@ public class PartitionSnapshotStorage {
                 .learnersList(configuration.learners())
                 .oldLearnersList(configuration.oldLearners())
                 .build();
+    }
+
+    /** Returns the replication log storage. */
+    public LogStorageAccess logStorage() {
+        return logStorage;
     }
 }

@@ -65,6 +65,7 @@ public class ReplicaMessageUtils {
      * @param replicationGroupId Replication group ID for a given partition.
      * @return New instance of network message.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27174 remove this method and its usages.
     public static ReplicationGroupIdMessage toReplicationGroupIdMessage(
             ReplicaMessagesFactory messagesFactory,
             ReplicationGroupId replicationGroupId

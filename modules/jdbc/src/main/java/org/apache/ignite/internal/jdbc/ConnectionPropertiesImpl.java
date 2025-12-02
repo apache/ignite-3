@@ -70,6 +70,12 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
 
+    /** JDBC background reconnect interval. */
+    private final LongProperty backgroundReconnectInterval = new LongProperty("backgroundReconnectIntervalMillis",
+            "Sets the background reconnect interval."
+                    + " Zero means that background reconnect is disabled.",
+            IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL, false, 0, Long.MAX_VALUE);
+
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
             "Path to trust store", null, null, false, null);
@@ -115,7 +121,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, ciphers, keyStorePath, keyStorePassword,
-            username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize
+            username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize,
+            backgroundReconnectInterval
     };
 
     /** {@inheritDoc} */
@@ -202,6 +209,12 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setConnectionTimeout(@Nullable Integer timeout) throws SQLException {
         connTimeout.setValue(timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getBackgroundReconnectInterval() {
+        return backgroundReconnectInterval.value();
     }
 
     /** {@inheritDoc} */

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -25,10 +26,12 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -43,8 +46,11 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.util.IgniteBusyLock;
 
 /**
  * Replica server.
@@ -58,6 +64,10 @@ public class ReplicaImpl implements Replica {
 
     /** Replica listener. */
     private final ReplicaListener listener;
+
+    private final IgniteBusyLock busyLock;
+
+    private final ScheduledExecutorService rebalanceScheduler;
 
     /** Topology aware Raft client. */
     private final TopologyAwareRaftGroupService raftClient;
@@ -79,6 +89,8 @@ public class ReplicaImpl implements Replica {
 
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpired = this::unregisterFailoverCallback;
 
+    private final ChangePeersAndLearnersWithRetry changePeersAndLearnersWithRetry;
+
     /**
      * The constructor of a replica server.
      *
@@ -97,16 +109,25 @@ public class ReplicaImpl implements Replica {
             PlacementDriver placementDriver,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             FailureProcessor failureProcessor,
-            PlacementDriverMessageProcessor placementDriverMessageProcessor
+            PlacementDriverMessageProcessor placementDriverMessageProcessor,
+            IgniteBusyLock busyLock,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
+        this.busyLock = busyLock;
+        this.rebalanceScheduler = rebalanceScheduler;
         this.raftClient = raftClient();
         this.localNode = localNode;
         this.placementDriver = placementDriver;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
         this.failureProcessor = failureProcessor;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
+        this.changePeersAndLearnersWithRetry = new ChangePeersAndLearnersWithRetry(
+                this.busyLock,
+                this.rebalanceScheduler,
+                () -> completedFuture(raftClient)
+        );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpired);
@@ -189,11 +210,7 @@ public class ReplicaImpl implements Replica {
         return raftClient
                 .subscribeLeader(onLeaderElectedFailoverCallback)
                 .exceptionally(e -> {
-                    if (!hasCause(e, NodeStoppingException.class)) {
-                        String errorMessage = "Rebalance failover subscription on elected primary replica failed [groupId="
-                                + replicaGrpId + "].";
-                        failureProcessor.process(new FailureContext(e, errorMessage));
-                    }
+                    maybeRunFailHandler(e);
 
                     return null;
                 })
@@ -220,13 +237,16 @@ public class ReplicaImpl implements Replica {
                     newConfiguration.learners()
             );
 
-            // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
-            return raftClient.changePeersAndLearnersAsync(newConfiguration, term, versionedAssignments.revision());
-        }).exceptionally(e -> {
-            LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
-
-            return null;
+            return changePeersAndLearnersWithRetry.executeOnLeader(newConfiguration, term, versionedAssignments.revision());
         });
+    }
+
+    private void maybeRunFailHandler(Throwable ex) {
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            String errorMessage = "Rebalance failover subscription on elected primary replica failed [groupId="
+                    + replicaGrpId + "].";
+            failureProcessor.process(new FailureContext(ex, errorMessage));
+        }
     }
 
     private CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
