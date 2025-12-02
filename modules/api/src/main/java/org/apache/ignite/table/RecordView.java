@@ -35,6 +35,15 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
 
     /**
      * Gets a record with the same key column values as the given one from a table.
+     *
+     * @param tx     Transaction or {@code null} for implicit transaction.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Record with all columns filled from the table.
+     */
+    R get(@Nullable Transaction tx, R keyRec);
+
+    /**
+     * Gets a record with the same key column values as the given one from a table.
      * Opens implicit transaction.
      *
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
@@ -45,13 +54,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Gets a record with the same key column values as the given one from a table.
+     * Asynchronously gets a record with the same key column values as the given one from a table.
      *
      * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Record with all columns filled from the table.
+     * @return Future that represents the pending completion of the operation.
      */
-    R get(@Nullable Transaction tx, R keyRec);
+    CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Asynchronously gets a record with the same key column values as the given one from a table.
@@ -65,13 +74,15 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously gets a record with the same key column values as the given one from a table.
+     * Gets records from a table.
      *
-     * @param tx     Transaction or {@code null} for implicit transaction.
-     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx      Transaction or {@code null} for implicit transaction.
+     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
+     * @return Records with all columns filled from the table. The order of collection elements is
+     *     guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
+     *     element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec);
+    List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Gets records from a table.
@@ -87,15 +98,15 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Gets records from a table.
+     * Asynchronously gets records from a table.
      *
      * @param tx      Transaction or {@code null} for implicit transaction.
-     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
-     * @return Records with all columns filled from the table. The order of collection elements is
-     *     guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
-     *     element at the corresponding index of the resulting collection is {@code null}.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
+     * @return Future that will return records with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs);
+    CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Asynchronously gets records from a table.
@@ -111,15 +122,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously gets records from a table.
+     * Determines whether a table contains an entry for the specified key.
      *
-     * @param tx      Transaction or {@code null} for implicit transaction.
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future that will return records with all columns filled from the table. The order of collection elements is
-     *      guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
-     *      element at the corresponding index of the resulting collection is {@code null}.
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param keyRec A record with key columns set. The key cannot be {@code null}.
+     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
      */
-    CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
+    boolean contains(@Nullable Transaction tx, R keyRec);
 
     /**
      * Determines whether a table contains an entry for the specified key.
@@ -138,10 +148,10 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRec A record with key columns set. The key cannot be {@code null}.
-     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
+     * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    boolean contains(@Nullable Transaction tx, R keyRec);
+    CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Determines whether a table contains an entry for the specified key.
@@ -156,14 +166,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Determines whether a table contains an entry for the specified key.
+     * Determines whether a table contains entries for all given keys.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
-     * @param keyRec A record with key columns set. The key cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec);
+    boolean containsAll(@Nullable Transaction tx, Collection<R> keys);
 
     /**
      * Determines whether a table contains entries for all given keys.
@@ -182,10 +192,11 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
-     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
+     * @return Future that represents the pending completion of the operation. The result of the future will be {@code true} if a value
+     *      exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    boolean containsAll(@Nullable Transaction tx, Collection<R> keys);
+    CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys);
 
     /**
      * Determines whether a table contains entries for all given keys.
@@ -201,15 +212,12 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Determines whether a table contains entries for all given keys.
+     * Inserts a record into a table, if it does not exist, or replaces an existing one.
      *
-     * @param tx Transaction or {@code null} for implicit transaction.
-     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation. The result of the future will be {@code true} if a value
-     *      exists for every specified key, {@code false} otherwise.
-     * @throws MarshallerException if the key doesn't match the schema.
+     * @param tx  Transaction or {@code null} for implicit transaction.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
      */
-    CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys);
+    void upsert(@Nullable Transaction tx, R rec);
 
     /**
      * Inserts a record into a table, if it does not exist, or replaces an existing one.
@@ -222,12 +230,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Inserts a record into a table, if it does not exist, or replaces an existing one.
+     * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
-    void upsert(@Nullable Transaction tx, R rec);
+    CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
@@ -241,13 +250,12 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
+     * Inserts records into a table, if they do not exist, or replaces the existing ones.
      *
-     * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec Record to insert into the table. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx   Transaction or {@code null} for implicit transaction.
+     * @param recs Records to insert into the table. The records cannot be {@code null}.
      */
-    CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec);
+    void upsertAll(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Inserts records into a table, if they do not exist, or replaces the existing ones.
@@ -260,12 +268,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Inserts records into a table, if they do not exist, or replaces the existing ones.
+     * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
      *
      * @param tx   Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
-    void upsertAll(@Nullable Transaction tx, Collection<R> recs);
+    CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
@@ -279,13 +288,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
+     * Inserts a record into a table, or replaces an existing record and returns the replaced record.
      *
-     * @param tx   Transaction or {@code null} for implicit transaction.
-     * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx  Transaction or {@code null} for implicit transaction.
+     * @param rec A record to insert into the table. The record cannot be {@code null}.
+     * @return Replaced record or {@code null} if it did not exist.
      */
-    CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs);
+    R getAndUpsert(@Nullable Transaction tx, R rec);
 
     /**
      * Inserts a record into a table, or replaces an existing record and returns the replaced record.
@@ -299,13 +308,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Inserts a record into a table, or replaces an existing record and returns the replaced record.
+     * Asynchronously inserts a record into a table, or replaces an existing record and returns the replaced record.
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec A record to insert into the table. The record cannot be {@code null}.
-     * @return Replaced record or {@code null} if it did not exist.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
-    R getAndUpsert(@Nullable Transaction tx, R rec);
+    CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously inserts a record into a table, or replaces an existing record and returns the replaced record.
@@ -319,13 +328,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously inserts a record into a table, or replaces an existing record and returns the replaced record.
+     * Inserts a record into a table if it does not exists.
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return {@code True} if successful, {@code false} otherwise.
      */
-    CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec);
+    boolean insert(@Nullable Transaction tx, R rec);
 
     /**
      * Inserts a record into a table if it does not exists.
@@ -339,13 +348,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Inserts a record into a table if it does not exists.
+     * Asynchronously inserts a record into a table if it does not exists.
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
-     * @return {@code True} if successful, {@code false} otherwise.
+     * @return Future that represents the pending completion of the operation.
      */
-    boolean insert(@Nullable Transaction tx, R rec);
+    CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously inserts a record into a table if it does not exists.
@@ -359,13 +368,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously inserts a record into a table if it does not exists.
+     * Inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec Record to insert into the table. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param recs Records to insert into the table. The records cannot be {@code null}.
+     * @return Skipped records. If a record is inserted, the element will be excluded from the collection result.
      */
-    CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec);
+    List<R> insertAll(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Inserts into a table records that do not exist, skips those that exist.
@@ -380,13 +389,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Inserts into a table records that do not exist, skips those that exist.
+     * Asynchronously inserts into a table records that do not exist, skips those that exist.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Skipped records. If a record is inserted, the element will be excluded from the collection result.
+     * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. If a record is
+     *         inserted, the element will be excluded from the collection result.
      */
-    List<R> insertAll(@Nullable Transaction tx, Collection<R> recs);
+    CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously inserts into a table records that do not exist, skips those that exist.
@@ -402,14 +412,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously inserts into a table records that do not exist, skips those that exist.
+     * Replaces an existing record associated with the same key column values as the given record.
      *
-     * @param tx Transaction or {@code null} for implicit transaction.
-     * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. If a record is
-     *         inserted, the element will be excluded from the collection result.
+     * @param tx  Transaction or {@code null} for implicit transaction.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return {@code True} if a record was found and replaced successfully, {@code false} otherwise.
      */
-    CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs);
+    boolean replace(@Nullable Transaction tx, R rec);
 
     /**
      * Replaces an existing record associated with the same key column values as the given record.
@@ -423,13 +432,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Replaces an existing record associated with the same key column values as the given record.
+     * Replaces an expected record in the table with the given new one.
      *
-     * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec Record to replace with. The record cannot be {@code null}.
-     * @return {@code True} if a record was found and replaced successfully, {@code false} otherwise.
+     * @param tx     Transaction or {@code null} for implicit transaction.
+     * @param oldRec Record to replace. The record cannot be {@code null}.
+     * @param newRec Record to replace with. The record cannot be {@code null}.
+     * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
-    boolean replace(@Nullable Transaction tx, R rec);
+    boolean replace(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
      * Replaces an expected record in the table with the given new one.
@@ -444,14 +454,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Replaces an expected record in the table with the given new one.
+     * Asynchronously replaces an existing record associated with the same key columns values as the given record.
      *
-     * @param tx     Transaction or {@code null} for implicit transaction.
-     * @param oldRec Record to replace. The record cannot be {@code null}.
-     * @param newRec Record to replace with. The record cannot be {@code null}.
-     * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
+     * @param tx  Transaction or {@code null} for implicit transaction.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
-    boolean replace(@Nullable Transaction tx, R oldRec, R newRec);
+    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously replaces an existing record associated with the same key columns values as the given record.
@@ -465,13 +474,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously replaces an existing record associated with the same key columns values as the given record.
+     * Asynchronously replaces an existing record in the table with the given new one.
      *
-     * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @param tx     Transaction or {@code null} for implicit transaction.
+     * @param oldRec Record to replace. The record cannot be {@code null}.
+     * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec);
+    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
      * Asynchronously replaces an existing record in the table with the given new one.
@@ -486,14 +496,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously replaces an existing record in the table with the given new one.
+     * Gets an existing record associated with the same key columns values as the given one, then replaces it with the given one.
      *
-     * @param tx     Transaction or {@code null} for implicit transaction.
-     * @param oldRec Record to replace. The record cannot be {@code null}.
-     * @param newRec Record to replace with. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx  Transaction or {@code null} for implicit transaction.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return Replaced record or {@code null} if it did not exist.
      */
-    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec);
+    R getAndReplace(@Nullable Transaction tx, R rec);
 
     /**
      * Gets an existing record associated with the same key columns values as the given one, then replaces it with the given one.
@@ -507,13 +516,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Gets an existing record associated with the same key columns values as the given one, then replaces it with the given one.
+     * Asynchronously gets an existing record associated with the same key column values as the given one,
+     * then replaces it with the given one.
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to replace with. The record cannot be {@code null}.
-     * @return Replaced record or {@code null} if it did not exist.
+     * @return Future that represents the pending completion of the operation.
      */
-    R getAndReplace(@Nullable Transaction tx, R rec);
+    CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously gets an existing record associated with the same key column values as the given one,
@@ -528,14 +538,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously gets an existing record associated with the same key column values as the given one,
-     * then replaces it with the given one.
+     * Deletes a record with the same key column values as the given one from a table.
      *
-     * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec Record to replace with. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx     Transaction or {@code null} for implicit transaction.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return {@code True} if removed successfully, {@code false} otherwise.
      */
-    CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec);
+    boolean delete(@Nullable Transaction tx, R keyRec);
 
     /**
      * Deletes a record with the same key column values as the given one from a table.
@@ -549,13 +558,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Deletes a record with the same key column values as the given one from a table.
+     * Asynchronously deletes a record with the same key column values as the given one from a table.
      *
      * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return {@code True} if removed successfully, {@code false} otherwise.
+     * @return Future that represents the pending completion of the operation.
      */
-    boolean delete(@Nullable Transaction tx, R keyRec);
+    CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Asynchronously deletes a record with the same key column values as the given one from a table.
@@ -569,13 +578,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously deletes a record with the same key column values as the given one from a table.
+     * Deletes the given record from a table.
      *
-     * @param tx     Transaction or {@code null} for implicit transaction.
-     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx  Transaction or {@code null} for implicit transaction.
+     * @param rec Record to delete. The record cannot be {@code null}.
+     * @return {@code True} if removed successfully, {@code false} otherwise.
      */
-    CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec);
+    boolean deleteExact(@Nullable Transaction tx, R rec);
 
     /**
      * Deletes the given record from a table.
@@ -589,13 +598,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Deletes the given record from a table.
+     * Asynchronously deletes the given record from a table.
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to delete. The record cannot be {@code null}.
-     * @return {@code True} if removed successfully, {@code false} otherwise.
+     * @return Future tha represents the pending completion of the operation.
      */
-    boolean deleteExact(@Nullable Transaction tx, R rec);
+    CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously deletes the given record from a table.
@@ -609,13 +618,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously deletes the given record from a table.
+     * Gets and deletes from a table a record with the same key column values as the given one.
      *
-     * @param tx  Transaction or {@code null} for implicit transaction.
-     * @param rec Record to delete. The record cannot be {@code null}.
-     * @return Future tha represents the pending completion of the operation.
+     * @param tx     Transaction or {@code null} for implicit transaction.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Removed record or {@code null} if it did not exist.
      */
-    CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R rec);
+    R getAndDelete(@Nullable Transaction tx, R keyRec);
 
     /**
      * Gets and deletes from a table a record with the same key column values as the given one.
@@ -629,13 +638,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Gets and deletes from a table a record with the same key column values as the given one.
+     * Asynchronously gets and deletes from a table a record with the same key columns values as the given one.
      *
      * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Removed record or {@code null} if it did not exist.
+     * @return Future that represents the pending completion of the operation.
      */
-    R getAndDelete(@Nullable Transaction tx, R keyRec);
+    CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Asynchronously gets and deletes from a table a record with the same key columns values as the given one.
@@ -649,13 +658,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously gets and deletes from a table a record with the same key columns values as the given one.
+     * Removes from a table records with the same key column values as the given one.
      *
-     * @param tx     Transaction or {@code null} for implicit transaction.
-     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
+     * @return Records with the key columns set that did not exist.
+     *         If a record is removed, the element will be excluded from the collection result.
      */
-    CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec);
+    List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Removes from a table records with the same key column values as the given one.
@@ -670,21 +680,29 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Removes from a table records with the same key column values as the given one.
-     *
-     * @param tx Transaction or {@code null} for implicit transaction.
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Records with the key columns set that did not exist.
-     *         If a record is removed, the element will be excluded from the collection result.
-     */
-    List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
-
-    /**
      * Removes all entries from a table records.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      */
     void deleteAll(@Nullable Transaction tx);
+
+    /**
+     * Removes all entries from a table records.
+     * Opens implicit transaction.
+     */
+    default void deleteAll() {
+        deleteAll((Transaction) null);
+    }
+
+    /**
+     * Asynchronously removes from a table records with the same key column values as the given one.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is removed, the element will be excluded from the collection result.
+     */
+    CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Asynchronously removes from a table records with the same key column values as the given one.
@@ -700,22 +718,31 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Asynchronously removes from a table records with the same key column values as the given one.
-     *
-     * @param tx Transaction or {@code null} for implicit transaction.
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
-     *         If a record is removed, the element will be excluded from the collection result.
-     */
-    CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
-
-    /**
      * Asynchronously removes all entries from a table records.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @return Future represents the pending completion of the operation.
      */
     CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx);
+
+    /**
+     * Asynchronously removes all entries from a table records.
+     * Opens implicit transaction.
+     *
+     * @return Future represents the pending completion of the operation.
+     */
+    default CompletableFuture<Void> deleteAllAsync() {
+        return deleteAllAsync((Transaction) null);
+    }
+
+    /**
+     * Remove the given records from a table.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param recs Records to delete. The records cannot be {@code null}.
+     * @return Records that were not deleted. If a record is removed, the element will be excluded from the collection result.
+     */
+    List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Remove the given records from a table.
@@ -730,13 +757,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     }
 
     /**
-     * Remove the given records from a table.
+     * Asynchronously removes the given records from a table.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Records that were not deleted. If a record is removed, the element will be excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is removed, the element will be excluded from the collection result.
      */
-    List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs);
+    CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously removes the given records from a table.
@@ -750,14 +778,4 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     default CompletableFuture<List<R>> deleteAllExactAsync(Collection<R> recs) {
         return deleteAllExactAsync(null, recs);
     }
-
-    /**
-     * Asynchronously removes the given records from a table.
-     *
-     * @param tx Transaction or {@code null} for implicit transaction.
-     * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
-     *         If a record is removed, the element will be excluded from the collection result.
-     */
-    CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
 }
