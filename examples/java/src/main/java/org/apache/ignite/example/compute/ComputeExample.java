@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -35,8 +36,8 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
+ *
  * <p>Find instructions on how to run the example in the <code>README.md</code>
  * file located in the "examples" directory root.</p>
  *

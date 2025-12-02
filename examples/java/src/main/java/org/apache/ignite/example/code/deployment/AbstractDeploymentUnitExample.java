@@ -8,29 +8,47 @@ import org.apache.ignite.example.util.DeployComputeUnit;
 
 public class AbstractDeploymentUnitExample {
 
-    private static final Path PROJECT_ROOT =
+    // Root path of ignite-examples/
+    protected static final Path projectRoot =
             Paths.get("").toAbsolutePath();
 
-    private static final Path DEFAULT_CLASSES_DIR =
-            PROJECT_ROOT.resolve("examples/java/build/classes/java/main");
+    // Compiled class output when running from IDE/CLI
+    protected static final Path DEFAULT_CLASSES_DIR =
+            projectRoot.resolve("examples/java/build/classes/java/main");
 
-    private static final Path DEFAULT_JAR_PATH =
+    // Default JAR output
+    protected static final Path DEFAULT_JAR_PATH =
             Path.of("build/libs/deploymentunit-example-1.0.0.jar");
 
-    protected static void processDeploymentUnit(String[] arg) throws IOException {
-        Map<String, Object> processedArguments = DeployComputeUnit.processArguments(arg);
+    protected static volatile String jarPathAsString = "";
+    protected static volatile Path jarPath = DEFAULT_JAR_PATH;
+    protected static volatile boolean runFromIDE = true;
+    // ---------------------------------------------------
 
-        boolean runFromIDE = (boolean) processedArguments.get("runFromIDE");
+    /**
+     * Thread-safe version. Only one thread can modify the shared static fields at a time.
+     */
+    protected static synchronized void processDeploymentUnit(String[] args)
+            throws IOException {
 
-        Path jarPath = DEFAULT_JAR_PATH;
-        String jarPathStr = (String) processedArguments.get("jarPath");
+        Map<String, Object> p = DeployComputeUnit.processArguments(args);
 
-        if (jarPathStr != null && !jarPathStr.isBlank()) {
-            jarPath = Path.of(jarPathStr);
+        boolean newRunFromIDE = (boolean) p.get("runFromIDE");
+        String newJarPathStr = (String) p.get("jarPath");
+
+        runFromIDE = newRunFromIDE;
+
+        // Use isBlank() instead of trim().isEmpty() to avoid creating a new String
+        if (newJarPathStr != null && !newJarPathStr.isBlank()) {
+            jarPathAsString = newJarPathStr;
+            jarPath = Path.of(newJarPathStr);
         }
 
         if (runFromIDE) {
-            DeployComputeUnit.buildJar(DEFAULT_CLASSES_DIR, jarPath);
+            DeployComputeUnit.buildJar(
+                    DEFAULT_CLASSES_DIR,
+                    DEFAULT_JAR_PATH
+            );
         }
     }
 }
