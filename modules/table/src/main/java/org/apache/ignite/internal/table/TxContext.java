@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -136,6 +137,7 @@ public abstract class TxContext {
 
     /** Read-write transaction context. */
     public static class ReadWrite extends TxContext {
+        // TODO ZonePartitionId
         private final ReplicationGroupId commitPartition;
         private final long enlistmentConsistencyToken;
 
@@ -170,8 +172,9 @@ public abstract class TxContext {
         }
 
         /** Returns transaction commit partition. */
-        public ReplicationGroupId commitPartition() {
-            return commitPartition;
+        public ZonePartitionId commitPartition() {
+            // TODO
+            return (ZonePartitionId) commitPartition;
         }
 
         /** Returns transaction begin timestamp. */

@@ -67,7 +67,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return Partition id.
      */
-    ReplicationGroupId commitPartition();
+    ZonePartitionId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.

@@ -41,7 +41,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
@@ -101,7 +101,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -325,7 +324,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
-            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
+            IgniteTriFunction<InternalTransaction, ZonePartitionId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
         return enlistInTx(row, tx, fac, noWriteChecker, null);
@@ -344,7 +343,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
-            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
+            IgniteTriFunction<InternalTransaction, ZonePartitionId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker,
             @Nullable Long txStartTs
     ) {
@@ -812,13 +811,13 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
             @Nullable InternalTransaction tx,
             BinaryRowEx row,
-            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
+            BiFunction<ZonePartitionId, Long, ReplicaRequest> op
     ) {
         InternalTransaction actualTx = startImplicitRoTxIfNeeded(tx);
 
         int partId = partitionId(row);
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         return sendReadOnlyToPrimaryReplica(actualTx, replicationGroupId, op);
     }
@@ -833,13 +832,13 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
             Collection<BinaryRowEx> rows,
-            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
+            BiFunction<ZonePartitionId, Long, ReplicaRequest> op
     ) {
         InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
         int partId = partitionId(rows.iterator().next());
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         return sendReadOnlyToPrimaryReplica(actualTx, replicationGroupId, op);
     }
@@ -855,8 +854,8 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> sendReadOnlyToPrimaryReplica(
             InternalTransaction tx,
-            ReplicationGroupId replicationGroupId,
-            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
+            ZonePartitionId replicationGroupId,
+            BiFunction<ZonePartitionId, Long, ReplicaRequest> op
     ) {
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, tx.schemaTimestamp());
 
@@ -972,7 +971,7 @@ public class InternalTableImpl implements InternalTable {
             InternalClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         return replicaSvc.invoke(recipientNode, TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
                 .groupId(serializeReplicationGroupId(replicationGroupId))
@@ -1062,7 +1061,7 @@ public class InternalTableImpl implements InternalTable {
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
             int partitionId = partitionRowBatch.getIntKey();
 
-            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionId);
+            ZonePartitionId replicationGroupId = targetReplicationGroupId(partitionId);
 
             ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
                     .groupId(serializeReplicationGroupId(replicationGroupId))
@@ -1088,7 +1087,7 @@ public class InternalTableImpl implements InternalTable {
             RequestType requestType,
             Collection<? extends BinaryRow> rows,
             InternalTransaction tx,
-            ReplicationGroupId groupId,
+            ZonePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
@@ -1212,7 +1211,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable Long txStartTs
     ) {
         InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partition);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
 
@@ -1331,7 +1330,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<? extends BinaryRow> rows,
             @Nullable BitSet deleted,
             InternalTransaction tx,
-            ReplicationGroupId groupId,
+            ZonePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
@@ -1667,7 +1666,7 @@ public class InternalTableImpl implements InternalTable {
 
         TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         return new PartitionScanPublisher<>(new ReadOnlyInflightBatchRequestTracker(transactionInflights, txContext.txId())) {
             @Override
@@ -1794,7 +1793,7 @@ public class InternalTableImpl implements InternalTable {
 
         TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
 
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         return new PartitionScanPublisher<>(READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER) {
             @Override
@@ -1840,7 +1839,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private CompletableFuture<Void> completeScan(
             UUID txId,
-            ReplicationGroupId replicaGrpId,
+            ZonePartitionId replicaGrpId,
             long scanId,
             Throwable th,
             String recipientConsistentId,
@@ -2057,7 +2056,7 @@ public class InternalTableImpl implements InternalTable {
         return partitionMeta(targetReplicationGroupId(partitionIndex), clockService.current()).thenApply(this::getClusterNode);
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId replicationGroupId, HybridTimestamp at) {
+    private CompletableFuture<ReplicaMeta> partitionMeta(ZonePartitionId replicationGroupId, HybridTimestamp at) {
         return awaitPrimaryReplica(replicationGroupId, at)
                 .exceptionally(e -> {
                     throw withCause(
@@ -2154,7 +2153,7 @@ public class InternalTableImpl implements InternalTable {
      * @return Cluster node to evaluate read-only request.
      */
     protected CompletableFuture<InternalClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         return awaitPrimaryReplica(replicationGroupId, readTimestamp)
                 .handle((res, e) -> {
@@ -2171,7 +2170,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private static TransactionException createFailedGetPrimaryReplicaTransactionException(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             HybridTimestamp readTimestamp
     ) {
         String errorMessage = format(
@@ -2205,7 +2204,7 @@ public class InternalTableImpl implements InternalTable {
         var invokeFutures = new CompletableFuture<?>[partitions];
 
         for (int partId = 0; partId < partitions; partId++) {
-            ReplicationGroupId replicaGroupId = targetReplicationGroupId(partId);
+            ZonePartitionId replicaGroupId = targetReplicationGroupId(partId);
             ReplicationGroupIdMessage partitionIdMessage = serializeReplicationGroupId(replicaGroupId);
 
             Function<ReplicaMeta, ReplicaRequest> requestFactory = replicaMeta ->
@@ -2228,8 +2227,8 @@ public class InternalTableImpl implements InternalTable {
         return new ZonePartitionId(zoneId, partitionIndex);
     }
 
-    private static ZonePartitionIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
+    private static ZonePartitionIdMessage serializeReplicationGroupId(ZonePartitionId replicationGroupId) {
+        return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
     }
 
     @Override
@@ -2238,7 +2237,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             HybridTimestamp hybridTimestamp,
             int numRetries,
             Function<ReplicaMeta, ReplicaRequest> requestFactory
@@ -2329,7 +2328,7 @@ public class InternalTableImpl implements InternalTable {
     private ReplicaRequest upsertAllInternal(
             Collection<? extends BinaryRow> keyRows0,
             InternalTransaction txo,
-            ReplicationGroupId groupId,
+            ZonePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
@@ -2340,7 +2339,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<? extends BinaryRow> keyRows0,
             @Nullable BitSet deleted,
             InternalTransaction txo,
-            ReplicationGroupId groupId,
+            ZonePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
@@ -2358,7 +2357,7 @@ public class InternalTableImpl implements InternalTable {
         return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR);
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicationGroupId, HybridTimestamp timestamp) {
         return placementDriver.awaitPrimaryReplica(
                 replicationGroupId,
                 timestamp,
@@ -2388,7 +2387,7 @@ public class InternalTableImpl implements InternalTable {
         ReplicaRequest create(
                 Collection<? extends BinaryRow> keyRows,
                 InternalTransaction tx,
-                ReplicationGroupId groupId,
+                ZonePartitionId groupId,
                 Long enlistmentConsistencyToken,
                 Boolean full
         );

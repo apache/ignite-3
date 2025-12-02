@@ -103,7 +103,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public ReplicationGroupId commitPartition() {
+            public ZonePartitionId commitPartition() {
                 return null;
             }
 

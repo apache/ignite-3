@@ -97,8 +97,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public ReplicationGroupId commitPartition() {
-        return commitPart;
+    public ZonePartitionId commitPartition() {
+        // TODO
+        return (ZonePartitionId) commitPart;
     }
 
     /** {@inheritDoc} */
