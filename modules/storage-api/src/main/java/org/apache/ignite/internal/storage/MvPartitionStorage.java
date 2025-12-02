@@ -345,7 +345,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long estimatedSize();
 
     /**
-     * Returns a cursor that traverses all rod IDs of write intents registered with the write intents' list.
+     * Returns a cursor that traverses all row IDs of write intents registered with the write intents' list.
      *
      * <p>Volatile storages will always return an empty cursor.
      *
