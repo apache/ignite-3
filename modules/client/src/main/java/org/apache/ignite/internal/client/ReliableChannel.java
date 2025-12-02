@@ -434,7 +434,7 @@ public final class ReliableChannel implements AutoCloseable {
             parsedAddrs.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
-        var map = new HashMap<InetSocketAddress, Integer>(parsedAddrs.size());
+        Map<InetSocketAddress, Integer> map = IgniteUtils.newHashMap(parsedAddrs.size());
 
         for (HostAndPort addr : parsedAddrs) {
             try {
