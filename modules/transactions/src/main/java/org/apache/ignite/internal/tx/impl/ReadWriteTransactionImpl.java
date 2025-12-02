@@ -48,6 +48,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ReplicationGroupId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ReplicationGroupId.class, "commitPart");
 
+    // TODO ZonePartitionId
     /** Enlisted partitions: partition id -> partition info. */
     private final Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
 
@@ -102,9 +103,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId partGroupId) {
-        assertReplicationGroupType(partGroupId);
-
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId partGroupId) {
         return enlisted.get(partGroupId);
     }
 

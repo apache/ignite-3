@@ -100,7 +100,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return enlistment;
     }
 

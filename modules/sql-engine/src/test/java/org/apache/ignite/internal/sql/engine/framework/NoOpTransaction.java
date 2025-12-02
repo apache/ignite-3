@@ -158,7 +158,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId tablePartitionId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return enlistment;
     }
 

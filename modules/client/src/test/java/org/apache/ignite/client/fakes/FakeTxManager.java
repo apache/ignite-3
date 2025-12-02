@@ -88,7 +88,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+            public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
                 return null;
             }
 

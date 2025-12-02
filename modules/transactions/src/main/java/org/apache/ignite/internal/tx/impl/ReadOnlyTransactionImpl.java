@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 
 /**
@@ -94,7 +95,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return null;
     }
 

@@ -102,7 +102,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -365,7 +364,7 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(row);
 
-        ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId partGroupId = targetReplicationGroupId(partId);
 
         PendingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
@@ -475,7 +474,7 @@ public class InternalTableImpl implements InternalTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionId);
+            ZonePartitionId replicationGroupId = targetReplicationGroupId(partitionId);
 
             PendingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(replicationGroupId);
 
@@ -561,7 +560,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
-        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
 
@@ -1752,7 +1751,7 @@ public class InternalTableImpl implements InternalTable {
                 if (tx.implicit()) {
                     opFut = completedOrFailedFuture(null, th);
                 } else {
-                    var replicationGrpId = targetReplicationGroupId(partId);
+                    ZonePartitionId replicationGrpId = targetReplicationGroupId(partId);
 
                     PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGrpId);
                     opFut = enlistment != null ? completeScan(
@@ -2031,7 +2030,7 @@ public class InternalTableImpl implements InternalTable {
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
 
         Function<ReplicaMeta, PendingTxPartitionEnlistment> enlistClo = replicaMeta -> {
-            ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
+            ZonePartitionId partGroupId = targetReplicationGroupId(partId);
 
             String leaseHolderNodeId = replicaMeta.getLeaseholder();
 
@@ -2225,12 +2224,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
-        if (colocationEnabled) {
-            return new ZonePartitionId(zoneId, partitionIndex);
-        } else {
-            return new TablePartitionId(tableId, partitionIndex);
-        }
+    public final ZonePartitionId targetReplicationGroupId(int partitionIndex) {
+        return new ZonePartitionId(zoneId, partitionIndex);
     }
 
     private static ZonePartitionIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
