@@ -56,6 +56,6 @@ public class StoragePartitionMetaFactory implements PartitionMetaFactory {
 
     @Override
     public StoragePartitionMetaIo partitionMetaIo() {
-        return StoragePartitionMetaIo.VERSIONS.latest();
+        return StoragePartitionMetaIoVersions.VERSIONS.latest();
     }
 }

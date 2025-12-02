@@ -21,8 +21,8 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.jetbrains.annotations.Nullable;
 
 /** Read-write replica request. */
@@ -42,7 +42,7 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     boolean full();
 
     /** Commit partition ID. */
-    ReplicationGroupIdMessage commitPartitionId();
+    ZonePartitionIdMessage commitPartitionId();
 
     /**
      * Get write request flag.

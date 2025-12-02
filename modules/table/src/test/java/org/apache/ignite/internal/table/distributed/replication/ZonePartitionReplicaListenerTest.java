@@ -99,7 +99,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -633,7 +632,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clusterNodeResolver,
                 mockRaftClient,
                 failureManager,
-                new SystemPropertiesNodeProperties(),
                 localNode,
                 zonePartitionId
         );
@@ -671,7 +669,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 lowWatermark,
                 failureManager,
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 

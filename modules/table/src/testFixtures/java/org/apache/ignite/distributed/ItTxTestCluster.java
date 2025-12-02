@@ -126,7 +126,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -990,7 +989,6 @@ public class ItTxTestCluster {
                             clusterNodeResolver,
                             raftClient,
                             new NoOpFailureManager(),
-                            new SystemPropertiesNodeProperties(),
                             localNode,
                             partitionId
                     )
@@ -1001,8 +999,7 @@ public class ItTxTestCluster {
                     (RaftGroupService) raftGroupService,
                     txManager,
                     Runnable::run,
-                    // It's correct to have TablePartitionId here because it's table processor.
-                    new TablePartitionId(tableId, zonePartitionId.partitionId()),
+                    zonePartitionId,
                     tableId,
                     indexesLockers,
                     pkIndexStorage,
@@ -1031,7 +1028,7 @@ public class ItTxTestCluster {
                     raftClient,
                     txManagers.get(assignment),
                     Runnable::run,
-                    colocationEnabled() ? zonePartitionId : new TablePartitionId(tableId, zonePartitionId.partitionId()),
+                    zonePartitionId,
                     tableId,
                     indexesLockers,
                     pkIndexStorage,
@@ -1086,7 +1083,7 @@ public class ItTxTestCluster {
             RaftGroupService raftClient,
             TxManager txManager,
             Executor scanRequestExecutor,
-            PartitionGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
@@ -1132,7 +1129,6 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 lowWatermark,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
     }

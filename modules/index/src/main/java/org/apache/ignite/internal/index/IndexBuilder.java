@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -81,7 +82,9 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<IndexBuildCompletionListener> buildCompletionListeners = new CopyOnWriteArrayList<>();
+
+    private final IndexBuilderMetricSource indexBuilderMetricSource;
 
     /** Constructor. */
     IndexBuilder(
@@ -89,8 +92,13 @@ class IndexBuilder implements ManuallyCloseable {
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
             FinalTransactionStateResolver finalTransactionStateResolver,
-            IndexMetaStorage indexMetaStorage
+            IndexMetaStorage indexMetaStorage,
+            MetricManager metricManager
     ) {
+        this.indexBuilderMetricSource = new IndexBuilderMetricSource();
+        metricManager.registerSource(indexBuilderMetricSource);
+        metricManager.enable(indexBuilderMetricSource);
+
         this.executor = executor;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
@@ -133,7 +141,7 @@ class IndexBuilder implements ManuallyCloseable {
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
-                for (IndexBuildCompletionListener listener : listeners) {
+                for (IndexBuildCompletionListener listener : buildCompletionListeners) {
                     listener.onBuildCompletion(indexId, tableId, partitionId);
                 }
 
@@ -154,10 +162,11 @@ class IndexBuilder implements ManuallyCloseable {
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners,
+                    buildCompletionListeners,
                     enlistmentConsistencyToken,
                     false,
-                    initialOperationTimestamp
+                    initialOperationTimestamp,
+                    indexBuilderMetricSource
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
@@ -218,10 +227,11 @@ class IndexBuilder implements ManuallyCloseable {
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners,
+                    buildCompletionListeners,
                     enlistmentConsistencyToken,
                     true,
-                    initialOperationTimestamp
+                    initialOperationTimestamp,
+                    indexBuilderMetricSource
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
@@ -280,12 +290,12 @@ class IndexBuilder implements ManuallyCloseable {
 
     /** Adds a listener. */
     public void listen(IndexBuildCompletionListener listener) {
-        listeners.add(listener);
+        buildCompletionListeners.add(listener);
     }
 
     /** Removes a listener. */
     public void stopListen(IndexBuildCompletionListener listener) {
-        listeners.remove(listener);
+        buildCompletionListeners.remove(listener);
     }
 
     private void putAndStartTaskIfAbsent(IndexBuildTaskId taskId, IndexBuildTask task) {
