@@ -384,15 +384,15 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     }
 
     private PendingTxPartitionEnlistment extractSingleEnlistmentForZone() {
-        Map<ReplicationGroupId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
+        Map<ZonePartitionId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
         assertThat(capturedEnlistments, is(aMapWithSize(1)));
         PendingTxPartitionEnlistment enlistment = capturedEnlistments.get(new ZonePartitionId(ZONE_ID, 0));
         assertThat(enlistment, is(notNullValue()));
         return enlistment;
     }
 
-    private Map<ReplicationGroupId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
-        ArgumentCaptor<Map<ReplicationGroupId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
+    private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
+        ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
         verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 

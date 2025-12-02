@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -44,18 +43,15 @@ import org.jetbrains.annotations.Nullable;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
-    // TODO ZonePartitionId
     /** Commit partition updater. */
-    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ReplicationGroupId> COMMIT_PART_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ReplicationGroupId.class, "commitPart");
+    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ZonePartitionId> COMMIT_PART_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ZonePartitionId.class, "commitPart");
 
-    // TODO ZonePartitionId
     /** Enlisted partitions: partition id -> partition info. */
-    private final Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
+    private final Map<ZonePartitionId, PendingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
 
-    // TODO ZonePartitionId
     /** A partition which stores the transaction state. {@code null} before first enlistment. */
-    private volatile @Nullable ReplicationGroupId commitPart;
+    private volatile @Nullable ZonePartitionId commitPart;
 
     /** The lock protects the transaction topology from concurrent modification during finishing. */
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
@@ -98,8 +94,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     public ZonePartitionId commitPartition() {
-        // TODO
-        return (ZonePartitionId) commitPart;
+        return commitPart;
     }
 
     /** {@inheritDoc} */
@@ -116,8 +111,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             String primaryNodeConsistentId,
             long consistencyToken
     ) {
-        assertReplicationGroupType(replicationGroupId);
-
         // No need to wait for lock if commit is in progress.
         if (!enlistPartitionLock.readLock().tryLock()) {
             failEnlist();
@@ -136,11 +129,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         } finally {
             enlistPartitionLock.readLock().unlock();
         }
-    }
-
-    // TODO remove
-    private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert replicationGroupId instanceof ZonePartitionId : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 
     /**

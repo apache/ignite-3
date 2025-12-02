@@ -614,11 +614,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
-            @Nullable ReplicationGroupId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commitIntent,
             boolean timeout,
             boolean recovery,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commitIntent, txId, enlistedGroups, commitPartition);
@@ -626,7 +626,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (commitPartition != null) {
             assertReplicationGroupType(commitPartition);
         }
-        for (ReplicationGroupId replicationGroupId : enlistedGroups.keySet()) {
+        // TODO remove
+        for (ZonePartitionId replicationGroupId : enlistedGroups.keySet()) {
             assertReplicationGroupType(replicationGroupId);
         }
 
@@ -721,9 +722,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
-            @Nullable ReplicationGroupId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture,
             boolean unlock
@@ -1232,13 +1233,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @return Verification future.
      */
     private CompletableFuture<Void> verifyCommitTimestamp(
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             HybridTimestamp commitTimestamp
     ) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;
 
-        for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
+        for (Map.Entry<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
             ReplicationGroupId groupId = enlistedGroup.getKey();
             long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().consistencyToken();
 
