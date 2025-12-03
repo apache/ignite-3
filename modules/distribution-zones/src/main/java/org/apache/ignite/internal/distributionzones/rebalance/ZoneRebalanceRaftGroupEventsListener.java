@@ -197,7 +197,6 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633
                     // First of all, it's required to reread pending assignments and recheck whether it's still needed to perform the
                     // rebalance. Worth mentioning that one of legitimate cases of metaStorageMgr.get() timeout is MG unavailability
                     // in that cases it's required to retry the request. However it's important to handle local node stopping intent,
@@ -274,7 +273,9 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     }
 
     private void maybeRunFailHandler(Throwable ex, long term) {
-        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26085
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)
+                && !hasCause(ex, TimeoutException.class)) {
             String errorMessage = String.format(
                     "Unable to start rebalance [zonePartitionId=%s, term=%s]",
                     zonePartitionId,
