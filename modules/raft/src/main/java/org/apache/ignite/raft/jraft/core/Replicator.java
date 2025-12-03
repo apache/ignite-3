@@ -790,10 +790,8 @@ public class Replicator implements ThreadId.OnError {
         final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
-            // If snapshot was not skipped, unlocked id in installSnapshot
-            if (installSnapshotIfNeeded(rb)) {
-                return;
-            }
+            // id is unlock in installSnapshot
+            installSnapshot();
 
             if (isHeartbeat && heartBeatClosure != null) {
                 Utils.runClosureInThread(options.getCommonExecutor(), heartBeatClosure, new Status(RaftError.EAGAIN,
@@ -1627,7 +1625,6 @@ public class Replicator implements ThreadId.OnError {
         rb.groupId(this.options.getGroupId());
         rb.serverId(this.options.getServerId().toString());
         rb.peerId(this.options.getPeerId().toString());
-        rb.prevLogIndex(prevLogIndex);
         rb.committedIndex(this.options.getBallotBox().getLastCommittedIndex());
 
         final long prevLogTerm = this.options.getLogManager().getTerm(prevLogIndex);
@@ -1635,7 +1632,7 @@ public class Replicator implements ThreadId.OnError {
             if (!isHeartbeat) {
                 Requires.requireTrue(prevLogIndex < this.options.getLogManager().getFirstLogIndex());
                 LOG.debug("Log was compacted [node={}, logIndex={}].", this.options.getNode().getNodeId(), prevLogIndex);
-
+                rb.prevLogIndex(prevLogIndex);
                 return false;
             }
             else {
@@ -1648,6 +1645,7 @@ public class Replicator implements ThreadId.OnError {
             }
         }
 
+        rb.prevLogIndex(prevLogIndex);
         rb.prevLogTerm(prevLogTerm);
 
         return true;
