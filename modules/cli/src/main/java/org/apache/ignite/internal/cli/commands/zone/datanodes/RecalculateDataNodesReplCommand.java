@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.management.zone.datanodes;
+package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.management.zone.RecalculateDataNodesCall;

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.call.management.zone;
 
 import java.util.List;
-import org.apache.ignite.internal.cli.commands.management.zone.datanodes.RecalculateDataNodesMixin;
+import org.apache.ignite.internal.cli.commands.zone.datanodes.RecalculateDataNodesMixin;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 /**

@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.management.zone.datanodes;
+package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECALCULATE_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECALCULATE_ZONE_NAMES_OPTION_DESC;
-
-import java.util.List;
-import picocli.CommandLine.Option;
-
-/** Arguments for recalculate data nodes command. */
-public class RecalculateDataNodesMixin {
-    @Option(
-            names = RECALCULATE_ZONE_NAMES_OPTION,
-            description = RECALCULATE_ZONE_NAMES_OPTION_DESC,
-            split = ","
-    )
-    private List<String> zoneNames;
-
-    /** Returns names of zones to recalculate data nodes for. */
-    public List<String> zoneNames() {
-        return zoneNames;
+/** Test class for {@link RecalculateDataNodesReplCommand}. */
+public class ItRecalculateDataNodesReplCommandTest extends ItRecalculateDataNodesTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return RecalculateDataNodesReplCommand.class;
     }
 }

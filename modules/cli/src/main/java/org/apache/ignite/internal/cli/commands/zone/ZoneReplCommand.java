@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.management;
+package org.apache.ignite.internal.cli.commands.zone;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.management.zone.ZoneReplCommand;
+import org.apache.ignite.internal.cli.commands.zone.datanodes.DataNodesReplCommand;
 import picocli.CommandLine.Command;
 
 /**
- * Management REPL command.
+ * Zone management REPL command.
  */
-@Command(name = "management",
+@Command(name = "zone",
         subcommands = {
-                ZoneReplCommand.class
+                DataNodesReplCommand.class
         },
         description = "Manages distribution zones")
-public class ManagementReplCommand extends BaseCommand {
+public class ZoneReplCommand extends BaseCommand {
 }
