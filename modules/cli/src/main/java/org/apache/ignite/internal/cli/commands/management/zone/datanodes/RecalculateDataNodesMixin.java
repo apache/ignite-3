@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands.management.zone.datanodes;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECALCULATE_ZONE_NAMES_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECALCULATE_ZONE_NAMES_OPTION_DESC;
+
 import java.util.List;
 import picocli.CommandLine.Option;
 
 /** Arguments for recalculate data nodes command. */
 public class RecalculateDataNodesMixin {
     @Option(
-            names = {"--zone-names"},
-            description = "Comma-separated list of zone names to recalculate data nodes for. If not specified, recalculates for all zones.",
+            names = RECALCULATE_ZONE_NAMES_OPTION,
+            description = RECALCULATE_ZONE_NAMES_OPTION_DESC,
             split = ","
     )
     private List<String> zoneNames;
