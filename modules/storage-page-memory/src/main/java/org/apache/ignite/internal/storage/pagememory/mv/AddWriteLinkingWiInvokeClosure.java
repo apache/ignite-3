@@ -18,12 +18,19 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.storage.pagememory.mv.WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET;
+import static org.apache.ignite.internal.storage.pagememory.mv.WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET;
+import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -42,9 +49,6 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
     private final FreeList freeList;
 
-    private long wiListHeadLink;
-    private long newWiListHeadLink;
-
     AddWriteLinkingWiInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
@@ -61,39 +65,54 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
     }
 
     @Override
-    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
-        wiListHeadLink = persistentStorage.lockWriteIntentListHead();
-        newWiListHeadLink = wiListHeadLink;
+    protected RowVersion insertFirstRowVersion() {
+        WiLinkableRowVersion newVersion = insertRowVersion(NULL_LINK);
+
+        long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
+        long newWiListHeadLink = wiListHeadLink;
 
         try {
-            super.call(oldRow);
+            updateWiListLinks(newVersion.link(), new WriteIntentLinks(wiListHeadLink, NULL_LINK));
+
+            newWiListHeadLink = newVersion.link();
         } finally {
             persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
         }
-    }
-
-    @Override
-    protected RowVersion insertFirstRowVersion() {
-        assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
-        assert persistentStorage.writeIntentListHead() == wiListHeadLink
-                : "Expected WI list head link " + wiListHeadLink + " but was " + persistentStorage.writeIntentListHead();
-
-        WiLinkableRowVersion newVersion = insertRowVersion(NULL_LINK, wiListHeadLink, NULL_LINK);
-
-        newWiListHeadLink = newVersion.link();
-
-        updateWiListLinks(newVersion);
 
         return newVersion;
     }
 
     @Override
     protected RowVersion insertAnotherRowVersion(VersionChain oldRow, @Nullable RowVersion existingWriteIntent) {
-        assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
-        assert persistentStorage.writeIntentListHead() == wiListHeadLink
-                : "Expected WI list head link " + wiListHeadLink + " but was " + persistentStorage.writeIntentListHead();
-
         boolean replacingExistingWriteIntent = oldRow.isUncommitted();
+        assert replacingExistingWriteIntent == (existingWriteIntent != null);
+
+        WiLinkableRowVersion newVersion = insertRowVersion(oldRow.newestCommittedLink());
+
+        long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
+        long newWiListHeadLink = wiListHeadLink;
+
+        try {
+            WriteIntentLinks newWiLinks = newWiLinksForReplacement(existingWriteIntent, replacingExistingWriteIntent, wiListHeadLink);
+
+            updateWiListLinks(newVersion.link(), newWiLinks);
+
+            if (!replacingExistingWriteIntent) {
+                // Add our new version to the head of the WI list.
+                newWiListHeadLink = newVersion.link();
+            }
+        } finally {
+            persistentStorage.updateWriteIntentListHeadAndUnlock(newWiListHeadLink);
+        }
+
+        return newVersion;
+    }
+
+    private static WriteIntentLinks newWiLinksForReplacement(
+            @Nullable RowVersion existingWriteIntent,
+            boolean replacingExistingWriteIntent,
+            long wiListHeadLink
+    ) {
         assert replacingExistingWriteIntent == (existingWriteIntent != null);
 
         long newNextWiLink;
@@ -106,54 +125,73 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
             newPrevWiLink = NULL_LINK;
         }
 
-        WiLinkableRowVersion newVersion = insertRowVersion(oldRow.newestCommittedLink(), newNextWiLink, newPrevWiLink);
-
-        if (!replacingExistingWriteIntent) {
-            // Add our new version to the head of the WI list.
-            newWiListHeadLink = newVersion.link();
-        }
-
-        updateWiListLinks(newVersion);
-
-        return newVersion;
+        return new WriteIntentLinks(newNextWiLink, newPrevWiLink);
     }
 
-    private WiLinkableRowVersion insertRowVersion(long nextLink, long nextWiLink, long prevWiLink) {
-        var rowVersion = new WiLinkableRowVersion(rowId, storage.partitionId, nextLink, nextWiLink, prevWiLink, row);
+    private WiLinkableRowVersion insertRowVersion(long nextLink) {
+        var rowVersion = new WiLinkableRowVersion(rowId, storage.partitionId, nextLink, NULL_LINK, NULL_LINK, row);
 
         storage.insertRowVersion(rowVersion);
 
         return rowVersion;
     }
 
-    private void updateWiListLinks(WiLinkableRowVersion newRowVersion) {
-        if (newRowVersion != null) {
-            if (newRowVersion.prevWriteIntentLink() != NULL_LINK) {
-                try {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-27235 - move updateDataRow() from FreeList.
-                    freeList.updateDataRow(newRowVersion.prevWriteIntentLink(), UpdateNextWiLinkHandler.INSTANCE, newRowVersion.link());
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException(
-                            "Error while updating WI next link: [link={}, {}]",
-                            e,
-                            newRowVersion.prevWriteIntentLink(),
-                            addWriteInfo()
-                    );
-                }
-            }
+    private void updateWiListLinks(long newRowVersionLink, WriteIntentLinks newWiLinks) {
+        try {
+            freeList.updateDataRow(newRowVersionLink, UpdateWiLinksHandler.INSTANCE, newWiLinks);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error while updating WI links: [link={}, {}]", e, newRowVersionLink, addWriteInfo());
+        }
 
-            if (newRowVersion.nextWriteIntentLink() != NULL_LINK) {
-                try {
-                    freeList.updateDataRow(newRowVersion.nextWriteIntentLink(), UpdatePrevWiLinkHandler.INSTANCE, newRowVersion.link());
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException(
-                            "Error while updating WI prev link: [link={}, {}]",
-                            e,
-                            newRowVersion.nextWriteIntentLink(),
-                            addWriteInfo()
-                    );
-                }
+        if (newWiLinks.prevWriteIntentLink() != NULL_LINK) {
+            try {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-27235 - move updateDataRow() from FreeList.
+                freeList.updateDataRow(newWiLinks.prevWriteIntentLink(), UpdateNextWiLinkHandler.INSTANCE, newRowVersionLink);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException(
+                        "Error while updating WI next link of prev WI: [link={}, {}]",
+                        e,
+                        newWiLinks.prevWriteIntentLink(),
+                        addWriteInfo()
+                );
             }
+        }
+
+        if (newWiLinks.nextWriteIntentLink() != NULL_LINK) {
+            try {
+                freeList.updateDataRow(newWiLinks.nextWriteIntentLink(), UpdatePrevWiLinkHandler.INSTANCE, newRowVersionLink);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException(
+                        "Error while updating WI prev link of next WI: [link={}, {}]",
+                        e,
+                        newWiLinks.nextWriteIntentLink(),
+                        addWriteInfo()
+                );
+            }
+        }
+    }
+
+    private static class UpdateWiLinksHandler implements PageHandler<WriteIntentLinks, Object> {
+        private static final UpdateWiLinksHandler INSTANCE = new UpdateWiLinksHandler();
+
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                WriteIntentLinks wiLinks,
+                int itemId
+        ) {
+            DataPageIo dataIo = (DataPageIo) io;
+
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            writePartitionless(pageAddr + payloadOffset + NEXT_WRITE_INTENT_LINK_OFFSET, wiLinks.nextWriteIntentLink());
+            writePartitionless(pageAddr + payloadOffset + PREV_WRITE_INTENT_LINK_OFFSET, wiLinks.prevWriteIntentLink());
+
+            return true;
         }
     }
 }

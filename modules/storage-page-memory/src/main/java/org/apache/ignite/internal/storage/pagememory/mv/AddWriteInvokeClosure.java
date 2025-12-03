@@ -80,7 +80,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     @Override
-    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+    public final void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
         if (oldRow == null) {
             operationType = OperationType.PUT;
             addWriteResult = AddWriteResult.success(null);
