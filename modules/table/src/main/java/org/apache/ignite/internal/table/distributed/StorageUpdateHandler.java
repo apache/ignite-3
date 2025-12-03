@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -114,6 +115,8 @@ public class StorageUpdateHandler {
     private void recoverPendingRows() {
         LOG.info("Recovering pending rows [tableId={}, partitionIndex={}]", storage.tableId(), storage.partitionId());
 
+        long startNanos = System.nanoTime();
+
         int count = 0;
         try (Cursor<RowId> writeIntentRowIds = storage.getStorage().scanWriteIntents()) {
             for (RowId rowId : writeIntentRowIds) {
@@ -131,7 +134,13 @@ public class StorageUpdateHandler {
             }
         }
 
-        LOG.info("Recovered pending rows [tableId={}, partitionIndex={}, count={}]", storage.tableId(), storage.partitionId(), count);
+        LOG.info(
+                "Recovered pending rows [tableId={}, partitionIndex={}, count={}, duration={}ms]",
+                storage.tableId(),
+                storage.partitionId(),
+                count,
+                NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+        );
     }
 
     /**
