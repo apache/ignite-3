@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.tostring.S;
@@ -154,14 +156,19 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                 ? Arrays.stream(AssignmentUtil.partitionIds(zoneDescriptor.partitions())).boxed().collect(Collectors.toSet())
                 : partitionIds;
 
-        assert replicationGroupId instanceof ZonePartitionId :
+        assert !(replicationGroupId instanceof TablePartitionId) :
                 "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
                         + ", value=" + replicationGroupId
                         + ", requiredType = ZonePartitionId].";
 
-        ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
+        // Besides ZonePartitionId we may also retrieve CmgGroupId or MetastorageGroupId
+        if (replicationGroupId instanceof ZonePartitionId) {
+            ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
 
-        return groupId.zoneId() == zoneId && partitionIdsToCheck.contains(groupId.partitionId());
+            return groupId.zoneId() == zoneId && partitionIdsToCheck.contains(groupId.partitionId());
+        } else {
+            return false;
+        }
     }
 
     private CompletableFuture<?> createRestartFuture(
