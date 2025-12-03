@@ -355,15 +355,20 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         memtable.appendSegmentFileOffset(0, 1, 1);
 
-        indexFileManager.saveIndexMemtable(memtable, 5);
+        indexFileManager.recoverIndexFile(memtable, 5);
 
         memtable = new IndexMemTable(STRIPES);
 
         memtable.appendSegmentFileOffset(0, 2, 2);
 
-        indexFileManager.saveIndexMemtable(memtable, 10);
+        indexFileManager.recoverIndexFile(memtable, 6);
+
+        // Restart the manager to update in-memory meta.
+        indexFileManager = new IndexFileManager(workDir);
+
+        indexFileManager.start();
 
         assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(new SegmentFilePointer(5, 1)));
-        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(10, 2)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(6, 2)));
     }
 }

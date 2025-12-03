@@ -137,7 +137,7 @@ internal static partial class LogMessages
     internal static partial void LogUnexpectedResponseIdError(this ILogger logger, Exception? ex, string message);
 
     [LoggerMessage(
-        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}",
+        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}]",
         Level = LogLevel.Information,
         EventId = 1017)]
     internal static partial void LogPartitionAssignmentChangeNotificationInfo(
@@ -200,11 +200,11 @@ internal static partial class LogMessages
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 
     [LoggerMessage(
-        Message = "Received response [requestId={RequestId}, op={Op}, flags={Flags}, remoteAddress={RemoteAddress}, duration={Duration}]",
+        Message = "Received response [requestId={RequestId}, op={Op}, flags={Flags}, remoteAddress={RemoteAddress}, duration={Duration}, observableTs={ObservableTs}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
-        this ILogger logger, long requestId, ClientOp op, ResponseFlags flags, EndPoint remoteAddress, TimeSpan? duration);
+        this ILogger logger, long requestId, ClientOp op, ResponseFlags flags, EndPoint remoteAddress, TimeSpan? duration, long observableTs);
 
     [LoggerMessage(
         Message = "Failed to send server op response [requestId={RequestId}, message={Message}]",
@@ -233,4 +233,11 @@ internal static partial class LogMessages
         EventId = 1031)]
     internal static partial void LogFailedSocketDispose(
         this ILogger logger, Exception e);
+
+    [LoggerMessage(
+        Message = "ObservableTs updated [prev={Prev}, current={Current}]",
+        Level = LogLevel.Trace,
+        EventId = 1032)]
+    internal static partial void LogObservableTsUpdatedTrace(
+        this ILogger logger, long prev, long current);
 }

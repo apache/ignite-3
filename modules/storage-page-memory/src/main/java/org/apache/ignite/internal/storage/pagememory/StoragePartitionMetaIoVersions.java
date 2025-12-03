@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.storage.pagememory;
 
-/** Exception indicating that a handshake error occurred because the remote node is became stale. */
-public class NodeStaleException extends HandshakeException {
-    private static final long serialVersionUID = 0L;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
 
-    /** Constructor. */
-    public NodeStaleException(String message) {
-        super(message);
-    }
+/** Storage partition meta I/O versions. */
+public class StoragePartitionMetaIoVersions {
+    /** I/O versions. */
+    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
+            new StoragePartitionMetaIo()
+    );
 }

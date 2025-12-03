@@ -50,6 +50,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
@@ -299,18 +300,20 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testTriggerOnLockConflictCoordinatorDead() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(tpId.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
-        when(placementDriver.awaitPrimaryReplica(eq(tpId), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplica(eq(zonePartitionId), any(), anyLong(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
-        lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
+        int tableId = 2;
+
+        lockManager.acquire(orphanTxId, new LockKey(tableId, rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -318,7 +321,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(null);
 
         // Should trigger lock conflict listener in OrphanDetector.
-        CompletableFuture<Lock> acquire = lockManager.acquire(concurrentTxId, new LockKey(1, rowId), LockMode.X);
+        CompletableFuture<Lock> acquire = lockManager.acquire(concurrentTxId, new LockKey(tableId, rowId), LockMode.X);
 
         TxStateMeta orphanState = txStateMetaStorage.state(orphanTxId);
 

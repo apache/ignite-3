@@ -76,6 +76,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
+            // TODO Ignite-22522 Use partition instead.
             @Nullable ReplicationGroupId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,

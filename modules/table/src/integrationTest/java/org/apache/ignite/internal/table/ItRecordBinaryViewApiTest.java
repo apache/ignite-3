@@ -35,7 +35,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -896,7 +896,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             if (thin) {
                 IgniteException ex = (IgniteException) IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
 
-                assertThat(ex.code(), is(Client.PROTOCOL_ERR));
+                assertThat(ex.code(), is(Marshalling.COMMON_ERR));
             } else {
                 //noinspection ThrowableNotThrown
                 IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);

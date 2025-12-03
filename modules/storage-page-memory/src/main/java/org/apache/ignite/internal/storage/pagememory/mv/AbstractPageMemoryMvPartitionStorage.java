@@ -449,7 +449,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 addWrite.afterCompletion();
 
-                AddWriteResult addWriteResult = addWrite.addWriteResult();
+                AddWriteResult addWriteResult = addWrite.result();
 
                 assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
@@ -962,27 +962,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        assert THREAD_LOCAL_LOCKER.get() != null;
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
 
-        // Assertion above guarantees that we're in "runConsistently" closure.
-        throwExceptionIfStorageNotInRunnableState();
+            if (count <= 0) {
+                return List.of();
+            } else if (count == 1) {
+                // Use a more optimal implementation to avoid creating a cursor that can load multiple elements from the page at once.
+                return peekSingleGcEntryBusy(lowWatermark);
+            }
 
-        GcRowVersion head = renewableState.gcQueue().getFirst();
-
-        // Garbage collection queue is empty.
-        if (head == null) {
-            return null;
-        }
-
-        HybridTimestamp rowTimestamp = head.getTimestamp();
-
-        // There are no versions in the garbage collection queue before watermark.
-        if (rowTimestamp.compareTo(lowWatermark) > 0) {
-            return null;
-        }
-
-        return head;
+            return peekGcEntriesBusy(lowWatermark, count);
+        });
     }
 
     @Override
@@ -1068,4 +1060,56 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @see MvPartitionStorage#estimatedSize
      */
     public abstract void decrementEstimatedSize();
+
+    private List<GcEntry> peekSingleGcEntryBusy(HybridTimestamp lowWatermark) {
+        GcRowVersion head = renewableState.gcQueue().getFirst();
+
+        // Garbage collection queue is empty.
+        if (head == null) {
+            return List.of();
+        }
+
+        HybridTimestamp rowTimestamp = head.getTimestamp();
+
+        // There are no versions in the garbage collection queue before watermark.
+        if (rowTimestamp.compareTo(lowWatermark) > 0) {
+            return List.of();
+        }
+
+        preloadingForGcIfNeededBusy(head);
+
+        return List.of(head);
+    }
+
+    private List<GcEntry> peekGcEntriesBusy(HybridTimestamp lowWatermark, int count) {
+        var res = new ArrayList<GcEntry>(count);
+
+        try (Cursor<GcRowVersion> cursor = renewableState.gcQueue().find(null, null)) {
+            while (res.size() < count && cursor.hasNext()) {
+                GcRowVersion next = cursor.next();
+
+                if (next.getTimestamp().compareTo(lowWatermark) > 0) {
+                    break;
+                }
+
+                res.add(next);
+
+                preloadingForGcIfNeededBusy(next);
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException(
+                    "Peek GC entries failed: [lowWatermark={}, count={}, {}]",
+                    e,
+                    lowWatermark, count, createStorageInfo()
+            );
+        }
+
+        return res;
+    }
+
+    protected void preloadingForGcIfNeededBusy(GcRowVersion gcRowVersion) {
+        // No-op.
+    }
 }

@@ -118,9 +118,11 @@ import org.jetbrains.annotations.TestOnly;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
-    public static final String PART_COL_NAME = "__PART";
-    // Old name for partition column. Kept for backward compatibility.
-    public static final String PART_COL_NAME_LEGACY = "__part";
+
+    public static final String PART_COL_NAME = "__PARTITION_ID";
+    // Old names for partition column. Kept for backward compatibility.
+    public static final String PART_COL_NAME_LEGACY1 = "__PART";
+    public static final String PART_COL_NAME_LEGACY2 = "__part";
 
     public static final String SYSTEM_USER_NAME = "SYSTEM";
 

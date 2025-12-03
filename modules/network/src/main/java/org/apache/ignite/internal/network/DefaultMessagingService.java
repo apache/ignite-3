@@ -57,7 +57,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
-import org.apache.ignite.internal.network.handshake.NodeStaleException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -416,12 +415,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                         "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
                         nodeId, type, addr, connectionManager.localBindAddress()
                 );
-            } else if (hasCause(ex, NodeStaleException.class) && LOG.isDebugEnabled()) {
-                LOG.debug(
-                        "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
-                        ex.getMessage(), nodeId, type, addr, connectionManager.localBindAddress()
-                );
-            } else if (!hasCause(ex, NodeStoppingException.class, NodeStaleException.class) && LOG.isInfoEnabled()) {
+            } else if (!hasCause(ex, NodeStoppingException.class) && LOG.isInfoEnabled()) {
                 // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
                 LOG.info(
                         "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",

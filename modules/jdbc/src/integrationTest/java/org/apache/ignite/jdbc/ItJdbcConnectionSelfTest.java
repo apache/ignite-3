@@ -27,6 +27,7 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -53,6 +54,7 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.awaitility.Awaitility;
@@ -987,6 +989,14 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testChangePartitionAwarenessCacheSize() throws SQLException {
+        // Default value.
+        try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(URL)) {
+            assertEquals(
+                    IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE,
+                    conn.properties().getPartitionAwarenessMetadataCacheSize()
+            );
+        }
+
         String urlPrefix = URL + "?partitionAwarenessMetadataCacheSize";
 
         assertInvalid(urlPrefix + "=A",
@@ -1012,5 +1022,45 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         assertThat(initialNodes(), greaterThan(1));
 
         Awaitility.await().until(() -> ((JdbcConnection) conn).channelsCount(), is(initialNodes()));
+    }
+
+    @Test
+    public void testChangeBackgroundReconnectInterval() throws SQLException {
+        String propertyName = "backgroundReconnectIntervalMillis";
+        String urlPrefix = URL + "?" + propertyName;
+
+        SqlThrowingFunction<String, Number> valueGetter = url -> {
+            try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(url)) {
+                return conn.properties().getBackgroundReconnectInterval();
+            }
+        };
+
+        assertThat(valueGetter.apply(URL), is(IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL));
+        assertThat(valueGetter.apply(urlPrefix + "=9223372036854775807"), is(Long.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0L));
+
+        assertInvalid(urlPrefix + "=A",
+                format("Failed to parse int property [name={}, value=A]", propertyName));
+
+        assertInvalid(urlPrefix + "=-1",
+                format("Property cannot be lower than 0 [name={}, value=-1]", propertyName));
+
+        assertInvalid(urlPrefix + "=9223372036854775808",
+                format("Failed to parse int property [name={}, value=9223372036854775808]", propertyName));
+    }
+
+    /**
+     * Function that can throw an {@link SQLException}.
+     */
+    @FunctionalInterface
+    private interface SqlThrowingFunction<T, R> {
+        /**
+         * Applies the function to a given argument.
+         *
+         * @param t Argument.
+         * @return Application result.
+         * @throws SQLException If something goes wrong.
+         */
+        R apply(T t) throws SQLException;
     }
 }
