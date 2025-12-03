@@ -303,13 +303,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("SELECT \"__part\" FROM t0")
-                .returns(partitionForKey(table, key1))
-                .returns(partitionForKey(table, key2))
+                .returns((int) partitionForKey(table, key1))
+                .returns((int) partitionForKey(table, key2))
                 .check();
 
         assertQuery("SELECT \"__part\", id FROM t0")
-                .returns(partitionForKey(table, key1), 101L)
-                .returns(partitionForKey(table, key2), 102L)
+                .returns((int) partitionForKey(table, key1), 101L)
+                .returns((int) partitionForKey(table, key2), 102L)
                 .check();
     }
 

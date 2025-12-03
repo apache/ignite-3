@@ -892,14 +892,14 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class PartitionJob implements ComputeJob<Long, Long> {
+    private static class PartitionJob implements ComputeJob<Long, Integer> {
         @Override
-        public CompletableFuture<Long> executeAsync(JobExecutionContext context, Long id) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
             Table table = context.ignite().tables().table(TABLE_NAME);
             Tuple key = Tuple.create().set("key", id);
             Partition partition = table.partitionDistribution().partitionAsync(key).join();
 
-            return completedFuture(partition.id());
+            return completedFuture((int) partition.id());
         }
     }
 
