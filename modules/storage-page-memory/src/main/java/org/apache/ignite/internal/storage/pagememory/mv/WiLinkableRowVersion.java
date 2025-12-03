@@ -32,6 +32,25 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link RowVersion} extension which allows the represented write intent to be included in the write intents list.
+ *
+ * <p>The write intents list is a doubly linked list organized using next and previous WI links stored in each write intent.
+ * The list head is stored in the partition metadata.
+ *
+ * <p>Each write intent also stores the {@link RowId} of the row it belongs to, so that pending rows can be efficiently found
+ * on partition recovery.
+ *
+ * <p>The overall structure is as follows:
+ * <pre>
+ * ...
+ *           ^                     |
+ *           |                     v
+ * Chain 1 = [rowId, timestamp, row] -> ... -> []
+ *           ^                     |
+ *           |                     v
+ * Chain 2 = [rowId, timestamp, row] -> ... -> []
+ *           ^                     |
+ *           |                     v
+ * ...</pre>
  */
 public final class WiLinkableRowVersion extends RowVersion {
     public static final byte DATA_TYPE = 2;
