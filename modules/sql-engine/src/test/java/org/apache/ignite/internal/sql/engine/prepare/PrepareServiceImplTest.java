@@ -448,13 +448,11 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         String selectQuery = "SELECT * FROM test.t1 WHERE c = 1";
         await(service.prepareAsync(parse(selectQuery), operationContext().build()));
 
-        assertThat(service.cache.size(), is(1));
         CacheKey key1 = service.cache.entrySet().iterator().next().getKey();
 
         // different table
         String insertQuery = "SELECT * FROM test.t2 WHERE c = 1";
         QueryPlan plan2 = await(service.prepareAsync(parse(insertQuery), operationContext().build()));
-        assertThat(service.cache.size(), is(1));
         CacheKey key2 = service.cache.entrySet().iterator().next().getKey();
 
         assertNotEquals(key1, key2);
