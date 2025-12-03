@@ -42,9 +42,13 @@ class PlainRowVersionReader implements RowVersionReader {
     @Override
     public void readFromPage(long pageAddr, int offset) {
         nextLink = RowVersion.readNextLink(partitionId, pageAddr, offset);
-        timestamp = HybridTimestamps.readTimestamp(pageAddr, offset + RowVersion.TIMESTAMP_OFFSET);
+        timestamp = readTimestamp(pageAddr, offset);
         schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, offset + RowVersion.SCHEMA_VERSION_OFFSET));
         valueSize = PageUtils.getInt(pageAddr, offset + RowVersion.VALUE_SIZE_OFFSET);
+    }
+
+    protected @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
+        return HybridTimestamps.readTimestamp(pageAddr, offset + RowVersion.TIMESTAMP_OFFSET);
     }
 
     @Override

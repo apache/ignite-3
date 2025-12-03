@@ -28,9 +28,43 @@ import org.junit.jupiter.api.Test;
 
 class WiLinkableRowVersionTest {
     @Test
-    void toStringContainsAllFields() {
+    void toStringContainsAllFieldsForWriteIntent() {
         int partitionId = 4;
         RowId rowId = new RowId(partitionId, 2, 3);
+        long link = 5L;
+        long nextLink = 7L;
+        long nextWiLink = 8L;
+        long prevWiLink = 9L;
+        int valueSize = 10;
+
+        WiLinkableRowVersion rowVersion = new WiLinkableRowVersion(
+                rowId,
+                partitionId,
+                link,
+                null,
+                nextLink,
+                nextWiLink,
+                prevWiLink,
+                valueSize,
+                null
+        );
+
+        String toString = rowVersion.toString();
+
+        assertThat(toString, allOf(
+                containsString("rowId=" + rowId),
+                containsString("partitionId=" + partitionId),
+                containsString("link=" + link),
+                containsString("nextLink=" + nextLink),
+                containsString("nextWriteIntentLink=" + nextWiLink),
+                containsString("prevWriteIntentLink=" + prevWiLink),
+                containsString("valueSize=" + valueSize)
+        ));
+    }
+
+    @Test
+    void toStringContainsAllFieldsForCommittedVersion() {
+        int partitionId = 4;
         long link = 5L;
         HybridTimestamp timestamp = hybridTimestamp(6L);
         long nextLink = 7L;
@@ -39,7 +73,7 @@ class WiLinkableRowVersionTest {
         int valueSize = 10;
 
         WiLinkableRowVersion rowVersion = new WiLinkableRowVersion(
-                rowId,
+                null,
                 partitionId,
                 link,
                 timestamp,
@@ -53,7 +87,6 @@ class WiLinkableRowVersionTest {
         String toString = rowVersion.toString();
 
         assertThat(toString, allOf(
-                containsString("rowId=" + rowId),
                 containsString("partitionId=" + partitionId),
                 containsString("link=" + link),
                 containsString("timestamp=" + timestamp),

@@ -17,21 +17,26 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
-abstract class WiLinkableRowVersionReader extends PlainRowVersionReader {
-    protected long nextWiLink;
-    protected long prevWiLink;
-
-    WiLinkableRowVersionReader(long link, int partitionId) {
+class WiLinkableCommittedVersionReader extends WiLinkableRowVersionReader {
+    WiLinkableCommittedVersionReader(long link, int partitionId) {
         super(link, partitionId);
     }
 
     @Override
-    public void readFromPage(long pageAddr, int offset) {
-        super.readFromPage(pageAddr, offset);
-
-        nextWiLink = readPartitionless(partitionId, pageAddr, offset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
-        prevWiLink = readPartitionless(partitionId, pageAddr, offset + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);
+    public WiLinkableRowVersion createRowVersion(int valueSize, @Nullable BinaryRow value) {
+        return new WiLinkableRowVersion(
+                null,
+                partitionId,
+                link,
+                timestamp,
+                nextLink,
+                nextWiLink,
+                prevWiLink,
+                valueSize,
+                value
+        );
     }
 }

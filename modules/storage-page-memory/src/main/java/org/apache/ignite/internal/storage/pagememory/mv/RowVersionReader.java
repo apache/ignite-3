@@ -31,8 +31,10 @@ interface RowVersionReader {
         switch (dataType) {
             case RowVersion.DATA_TYPE:
                 return new PlainRowVersionReader(link, partitionId);
-            case WiLinkableRowVersion.DATA_TYPE:
-                return new WiLinkableRowVersionReader(link, partitionId);
+            case WiLinkableRowVersion.WRITE_INTENT_DATA_TYPE:
+                return new WiLinkableWriteIntentReader(link, partitionId);
+            case WiLinkableRowVersion.COMMITTED_DATA_TYPE:
+                return new WiLinkableCommittedVersionReader(link, partitionId);
             default:
                 throw new IllegalStateException("Unsupported data type: " + dataType);
         }

@@ -54,11 +54,11 @@ class PlainRowVersionOperations implements RowVersionOperations {
 
     @Override
     public PageHandler<HybridTimestamp, Object> converterToCommittedVersion() {
-        return UpdateTimestampHandler.HANDLER_INSTANCE;
+        return ConvertToCommittedVersion.HANDLER_INSTANCE;
     }
 
-    private static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
-        private static final UpdateTimestampHandler HANDLER_INSTANCE = new UpdateTimestampHandler();
+    private static class ConvertToCommittedVersion implements PageHandler<HybridTimestamp, Object> {
+        private static final ConvertToCommittedVersion HANDLER_INSTANCE = new ConvertToCommittedVersion();
 
         @Override
         public Object run(

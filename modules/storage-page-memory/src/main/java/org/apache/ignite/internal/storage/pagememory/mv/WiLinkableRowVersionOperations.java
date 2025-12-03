@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.WriteIntentListSupport.removeNodeFromWriteIntentsList;
 import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
@@ -59,11 +61,11 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
 
     @Override
     public PageHandler<HybridTimestamp, Object> converterToCommittedVersion() {
-        return UpdateTimestampAndZeroWiLinksHandler.INSTANCE;
+        return ConvertToCommittedVersion.INSTANCE;
     }
 
-    private static class UpdateTimestampAndZeroWiLinksHandler implements PageHandler<HybridTimestamp, Object> {
-        private static final UpdateTimestampAndZeroWiLinksHandler INSTANCE = new UpdateTimestampAndZeroWiLinksHandler();
+    private static class ConvertToCommittedVersion implements PageHandler<HybridTimestamp, Object> {
+        private static final ConvertToCommittedVersion INSTANCE = new ConvertToCommittedVersion();
 
         @Override
         public Object run(
@@ -78,6 +80,9 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
             DataPageIo dataIo = (DataPageIo) io;
 
             int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            // Change data type to committed as we represent write intents and committed versions with different types.
+            putByte(pageAddr, payloadOffset + Storable.DATA_TYPE_OFFSET, WiLinkableRowVersion.COMMITTED_DATA_TYPE);
 
             HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
             writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET, NULL_LINK);

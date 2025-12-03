@@ -715,7 +715,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
                 nextLink = linkableRowVersion.nextWriteIntentLink();
 
-                return linkableRowVersion.rowId();
+                return linkableRowVersion.requiredRowId();
             });
         }
 

@@ -47,7 +47,8 @@ class ReadWriteIntentLinks implements PageMemoryTraversal<Void> {
     private long readFullOrInitiateReadFragmented(long pageAddr, DataPagePayload payload) {
         byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
 
-        assert dataType == WiLinkableRowVersion.DATA_TYPE;
+        assert dataType == WiLinkableRowVersion.WRITE_INTENT_DATA_TYPE || dataType == WiLinkableRowVersion.COMMITTED_DATA_TYPE
+                : "Unexpected data type: " + dataType;
 
         nextWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
         prevWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);

@@ -223,7 +223,7 @@ public class RowVersion implements Storable {
 
     protected void writeHeader(long pageAddr, int dataOff) {
         PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, dataType());
-        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
+        writeTimestamp(pageAddr, dataOff);
         writePartitionless(pageAddr + dataOff + NEXT_LINK_OFFSET, nextLink());
         PageUtils.putInt(pageAddr, dataOff + VALUE_SIZE_OFFSET, valueSize());
         PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, schemaVersionOrZero());
@@ -231,10 +231,18 @@ public class RowVersion implements Storable {
 
     protected void writeHeader(ByteBuffer pageBuf) {
         pageBuf.put(dataType());
-        HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
+        writeToTimestampSlot(pageBuf);
         PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
         pageBuf.putInt(valueSize());
         pageBuf.putShort(schemaVersionOrZero());
+    }
+
+    protected void writeTimestamp(long pageAddr, int dataOff) {
+        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
+    }
+
+    protected void writeToTimestampSlot(ByteBuffer pageBuf) {
+        HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
     }
 
     private short schemaVersionOrZero() {
