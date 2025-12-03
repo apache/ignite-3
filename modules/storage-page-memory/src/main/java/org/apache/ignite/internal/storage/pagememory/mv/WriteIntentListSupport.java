@@ -51,9 +51,7 @@ class WriteIntentListSupport {
                         UpdateNextWiLinkHandler.INSTANCE,
                         links.nextWriteIntentLink()
                 );
-            }
-
-            if (links.prevWriteIntentLink() == NULL_LINK) {
+            } else {
                 wiListHeadLink = links.nextWriteIntentLink();
             }
         } catch (IgniteInternalCheckedException e) {
