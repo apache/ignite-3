@@ -27,9 +27,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
+import org.apache.ignite.internal.lang.RunnableX;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +54,43 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
      * <p>Test sequentially restarts each cluster node keeping CMG majority alive.
      */
     @Test
-    void testConnectionFailover() throws SQLException {
+    void testBasicQueryForwardedToAliveNode() throws Throwable {
+        int nodesCount = 3;
+        cluster.startAndInit(nodesCount, new int[]{0, 1, 2});
+
+        try (Connection connection = getConnection(nodesCount)) {
+            try (Statement statement = connection.createStatement()) {
+                Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
+
+                RunnableX query = () -> {
+                    for (int i = 0; i < 100; i++) {
+                        assertThat(statement.execute("SELECT " + i), is(true));
+                    }
+                };
+
+                query.run();
+
+                cluster.stopNode(0);
+
+                query.run();
+
+                cluster.startNode(0);
+                cluster.stopNode(1);
+                query.run();
+
+                cluster.startNode(1);
+                cluster.stopNode(2);
+                query.run();
+            }
+        }
+    }
+
+    /**
+     * Ensures that the partition aware query is forwarded to the alive node.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27180")
+    void testPartitionAwareQueryForwardedToRandomNode() throws SQLException {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{0, 1, 2});
 
@@ -58,6 +98,8 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default']");
                 statement.executeUpdate("CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
+
+                Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
 
                 try (PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO t VALUES (?, ?)")) {
                     performUpdates(preparedStatement, 0, 100);
@@ -79,6 +121,50 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                     assertThat(rs.getInt(1), is(400));
                 }
             }
+        }
+    }
+
+    /**
+     * Ensures that the connection to a previously stopped node will be restored after the specified time interval.
+     *
+     * <p>Note: this test relies on the internal implementation to ensure that the
+     *          JDBC connection property is correctly applied to the underlying client.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27188")
+    void testConnectionRestoredAfterBackgroundReconnectInterval() throws Exception {
+        int nodesCount = 3;
+        cluster.startAndInit(nodesCount, new int[]{2});
+        int backgroundReconnectInterval = 300;
+
+        try (Connection connection = getConnection(nodesCount, "backgroundReconnectIntervalMillis=" + backgroundReconnectInterval)) {
+            Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
+
+            cluster.stopNode(0);
+
+            assertThat(channelsCount(connection), is(nodesCount - 1));
+
+            cluster.startNode(0);
+
+            Awaitility.await().atMost(Duration.ofMillis(backgroundReconnectInterval * 2))
+                    .until(() -> channelsCount(connection), is(nodesCount));
+        }
+
+        // No background reconnection is expected.
+        try (Connection connection = getConnection(nodesCount, "backgroundReconnectIntervalMillis=0")) {
+            Awaitility.await().until(() -> channelsCount(connection), is(nodesCount));
+
+            cluster.stopNode(0);
+
+            assertThat(channelsCount(connection), is(nodesCount - 1));
+
+            cluster.startNode(0);
+
+            // Ensure that no new connections occur during the specified background reconnect interval.
+            Awaitility.await().during(Duration.ofMillis(backgroundReconnectInterval * 2))
+                    .until(() -> channelsCount(connection), is(nodesCount - 1));
+
+            assertThat(channelsCount(connection), is(nodesCount - 1));
         }
     }
 
@@ -143,13 +229,19 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
     }
 
-    private static Connection getConnection(int nodesCount) throws SQLException {
+    private static Connection getConnection(int nodesCount, String ... params) throws SQLException {
         String addresses = IntStream.range(0, nodesCount)
                 .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
                 .collect(Collectors.joining(","));
 
+        return getConnection(addresses, params);
+    }
+
+    private static Connection getConnection(String addresses, String ... params) throws SQLException {
+        String args = String.join("&", params);
+
         //noinspection CallToDriverManagerGetConnection
-        return DriverManager.getConnection("jdbc:ignite:thin://" + addresses);
+        return DriverManager.getConnection("jdbc:ignite:thin://" + addresses + "?" + args);
     }
 
     private static void performUpdates(PreparedStatement preparedStatement, int start, int end) throws SQLException {
@@ -160,5 +252,11 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
 
             assertThat(preparedStatement.executeUpdate(), is(1));
         }
+    }
+
+    private static int channelsCount(Connection connection) throws SQLException {
+        JdbcConnection jdbcConnection = connection.unwrap(JdbcConnection.class);
+
+        return jdbcConnection.channelsCount();
     }
 }

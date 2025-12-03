@@ -51,7 +51,6 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest {
@@ -83,7 +82,6 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26811")
     void writeIntentFromTxAbandonedWhileWaitingForTransactionsToFinishShouldNotBeIndexed() {
         createTable(1, 1);
 

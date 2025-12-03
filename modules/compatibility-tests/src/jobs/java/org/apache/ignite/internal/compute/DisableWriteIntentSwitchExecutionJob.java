@@ -21,14 +21,14 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.jetbrains.annotations.Nullable;
 
 /** Disables write intent switches on the local node until restart. */
 public class DisableWriteIntentSwitchExecutionJob implements ComputeJob<Void, Void> {
     @Override
     public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, @Nullable Void arg) {
-        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+        IgniteImpl igniteImpl = JobsCommon.unwrapIgniteImpl(context.ignite());
+
         igniteImpl.dropMessages((recipientId, message) -> message.getClass().getName().contains("WriteIntentSwitchReplicaRequest"));
 
         return null;

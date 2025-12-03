@@ -137,6 +137,7 @@ enum class code : underlying_t {
     TX_STALE_OPERATION = 0x7000e,
     TX_STALE_READ_ONLY_OPERATION = 0x7000f,
     TX_ALREADY_FINISHED_WITH_TIMEOUT = 0x70010,
+    TX_DELAYED_ACK = 0x70011,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,
@@ -225,6 +226,7 @@ enum class code : underlying_t {
     CLUSTER_NOT_IDLE = 0x140004,
     NOT_ENOUGH_ALIVE_NODES = 0x140005,
     ILLEGAL_NODES_SET = 0x140006,
+    REQUEST_FORWARD = 0x140007,
 
     // Embedded group. Group code: 21
     CLUSTER_NOT_INITIALIZED = 0x150001,

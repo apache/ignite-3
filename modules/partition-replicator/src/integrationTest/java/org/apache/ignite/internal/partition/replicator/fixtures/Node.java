@@ -778,11 +778,9 @@ public class Node {
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
-                distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 failureManager,
@@ -855,9 +853,9 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
-                nodeProperties,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
@@ -880,7 +878,6 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),

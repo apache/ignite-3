@@ -42,21 +42,22 @@ import org.jetbrains.annotations.Nullable;
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
 class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
-    private final RowId rowId;
+    protected final RowId rowId;
 
-    private final @Nullable BinaryRow row;
+    protected final @Nullable BinaryRow row;
 
     private final UUID txId;
 
-    private final int commitTableOrZoneId;
+    private final int commitZoneId;
 
     private final int commitPartitionId;
 
-    private final AbstractPageMemoryMvPartitionStorage storage;
+    protected final AbstractPageMemoryMvPartitionStorage storage;
 
     private OperationType operationType;
 
-    private @Nullable VersionChain newRow;
+    @Nullable
+    private VersionChain newRow;
 
     private @Nullable RowVersion toRemove;
 
@@ -66,28 +67,27 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
         this.row = row;
         this.txId = txId;
-        this.commitTableOrZoneId = commitTableOrZoneId;
+        this.commitZoneId = commitZoneId;
         this.commitPartitionId = commitPartitionId;
         this.storage = storage;
     }
 
     @Override
-    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+    public final void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
         if (oldRow == null) {
-            RowVersion newVersion = insertRowVersion(row, NULL_LINK);
-
-            newRow = VersionChain.createUncommitted(rowId, txId, commitTableOrZoneId, commitPartitionId, newVersion.link(), NULL_LINK);
-
             operationType = OperationType.PUT;
-
             addWriteResult = AddWriteResult.success(null);
+
+            RowVersion newVersion = insertFirstRowVersion();
+
+            newRow = createUncommittedVersionChain(newVersion);
 
             return;
         }
@@ -103,29 +103,39 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             return;
         }
 
-        RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink());
+        operationType = OperationType.PUT;
 
-        if (oldRow.isUncommitted()) {
-            RowVersion currentVersion = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
+        boolean replacingExistingWriteIntent = oldRow.isUncommitted();
+        RowVersion existingWriteIntent;
 
-            addWriteResult = AddWriteResult.success(currentVersion.value());
+        if (replacingExistingWriteIntent) {
+            existingWriteIntent = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
 
-            // As we replace an uncommitted version with new one, we need to remove old uncommitted version.
-            toRemove = currentVersion;
+            addWriteResult = AddWriteResult.success(existingWriteIntent.value());
+
+            // As we are replacing an uncommitted version with new one, we need to remove old uncommitted version.
+            toRemove = existingWriteIntent;
         } else {
             addWriteResult = AddWriteResult.success(null);
+
+            existingWriteIntent = null;
         }
 
-        newRow = VersionChain.createUncommitted(
-                rowId,
-                txId,
-                commitTableOrZoneId,
-                commitPartitionId,
-                newVersion.link(),
-                newVersion.nextLink()
-        );
+        RowVersion newVersion = insertAnotherRowVersion(oldRow, existingWriteIntent);
 
-        operationType = OperationType.PUT;
+        newRow = createUncommittedVersionChain(newVersion);
+    }
+
+    protected RowVersion insertFirstRowVersion() {
+        return insertRowVersion(NULL_LINK);
+    }
+
+    protected RowVersion insertAnotherRowVersion(VersionChain oldRow, @Nullable RowVersion existingWriteIntent) {
+        return insertRowVersion(oldRow.newestCommittedLink());
+    }
+
+    private VersionChain createUncommittedVersionChain(RowVersion newVersion) {
+        return VersionChain.createUncommitted(rowId, txId, commitZoneId, commitPartitionId, newVersion.link(), newVersion.nextLink());
     }
 
     @Override
@@ -143,8 +153,8 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return operationType;
     }
 
-    private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
-        RowVersion rowVersion = new RowVersion(storage.partitionId, nextPartitionlessLink, row);
+    private RowVersion insertRowVersion(long nextLink) {
+        RowVersion rowVersion = new RowVersion(storage.partitionId, nextLink, row);
 
         storage.insertRowVersion(rowVersion);
 
@@ -176,11 +186,11 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return rowVersion.timestamp();
     }
 
-    AddWriteResult addWriteResult() {
+    AddWriteResult result() {
         return addWriteResult;
     }
 
-    private String addWriteInfo() {
-        return storage.addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+    final String addWriteInfo() {
+        return storage.addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 }

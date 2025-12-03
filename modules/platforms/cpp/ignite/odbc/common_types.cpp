@@ -208,6 +208,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_STALE_OPERATION:
         case error::code::TX_STALE_READ_ONLY_OPERATION:
         case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
+        case error::code::TX_DELAYED_ACK:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -311,6 +312,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLUSTER_NOT_IDLE:
         case error::code::NOT_ENOUGH_ALIVE_NODES:
         case error::code::ILLEGAL_NODES_SET:
+        case error::code::REQUEST_FORWARD:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21

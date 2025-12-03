@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
@@ -33,18 +31,16 @@ import org.jetbrains.annotations.Nullable;
  * <p>Contains attributes that are required to execute query (like txId and time to initialize transactional cursor properly).
  * These attributes will be shared among the nodes that should execute the query.
  */
-public class TxAttributes implements Serializable {
-    private static final long serialVersionUID = 3933878724800694086L;
-
+public class TxAttributes {
     private static final TxAttributes DUMMY = new TxAttributes(
-            new UUID(0L, 0L), (TablePartitionId) null, new UUID(0, 0)
+            new UUID(0L, 0L), (ZonePartitionId) null, new UUID(0, 0)
     );
 
     private final UUID id;
     private final UUID coordinatorId;
     private final boolean readOnly;
     private final @Nullable HybridTimestamp readTimestamp;
-    private final @Nullable ReplicationGroupId commitPartition;
+    private final @Nullable ZonePartitionId commitPartition;
 
     /**
      * Derives transactional attributes from the given transaction.
@@ -64,7 +60,8 @@ public class TxAttributes implements Serializable {
             return new TxAttributes(tx.id(), readTime, tx.coordinatorId());
         }
 
-        return new TxAttributes(tx.id(), tx.commitPartition(), tx.coordinatorId());
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27175 remove cast to ZonePartitionId
+        return new TxAttributes(tx.id(), (ZonePartitionId) tx.commitPartition(), tx.coordinatorId());
     }
 
     /**
@@ -94,7 +91,7 @@ public class TxAttributes implements Serializable {
 
     private TxAttributes(
             UUID id,
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             UUID coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
@@ -113,7 +110,7 @@ public class TxAttributes implements Serializable {
      *
      * @return An identifier of commit partition, or {@code null} if commit partition was not yet assigned.
      */
-    public @Nullable ReplicationGroupId commitPartition() {
+    public @Nullable ZonePartitionId commitPartition() {
         return commitPartition;
     }
 

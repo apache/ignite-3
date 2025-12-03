@@ -97,12 +97,12 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override

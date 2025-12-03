@@ -92,6 +92,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl.LogEntryAndClosure;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
@@ -611,6 +612,21 @@ public class JraftServerImpl implements RaftServer {
     @Override
     public void destroyRaftNodeStoragesDurably(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
         destroyRaftNodeStoragesInternal(nodeId, groupOptions, true);
+    }
+
+    /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param nodeId ID of the Raft node.
+     */
+    public void createMetaStorage(RaftNodeId nodeId) {
+        RaftGroupService raftGroupService = nodes.get(nodeId);
+
+        if (raftGroupService == null) {
+            return;
+        }
+
+        ((NodeImpl) raftGroupService.getRaftNode()).metaStorage().createAfterDestroy();
     }
 
     private void destroyRaftNodeStoragesInternal(RaftNodeId nodeId, RaftGroupOptions groupOptions, boolean durable) {

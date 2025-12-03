@@ -50,6 +50,24 @@ public interface IgniteServer {
     }
 
     /**
+     * Starts an embedded Ignite node with a configuration from a HOCON string.
+     *
+     * <p>When the future returned from this method completes, the node is partially started, and is ready to accept the init command (that
+     * is, its REST endpoint is
+     * functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configString Node configuration in the HOCON format. Must not be {@code null}.
+     * @param workDir Work directory for the node. Must not be {@code null}.
+     * @return Future that will be completed when the node is partially started, and is ready to accept the init command (that is, its REST
+     *         endpoint is functional).
+     */
+    static CompletableFuture<IgniteServer> startAsync(String nodeName, String configString, Path workDir) {
+        IgniteServer server = builder(nodeName, configString, workDir).build();
+        return server.startAsync().thenApply(unused -> server);
+    }
+
+    /**
      * Starts the node.
      *
      * <p>When the returned future completes, the node is partially started and ready to accept the init command (that is, its
@@ -79,6 +97,23 @@ public interface IgniteServer {
     }
 
     /**
+     * Starts an embedded Ignite node with a configuration from a HOCON string synchronously.
+     *
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST endpoint is
+     * functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configString Node configuration in the HOCON format. Must not be {@code null}.
+     * @param workDir Work directory for the node. Must not be {@code null}.
+     * @return Node instance.
+     */
+    static IgniteServer start(String nodeName, String configString, Path workDir) {
+        IgniteServer server = builder(nodeName, configString, workDir).build();
+        server.start();
+        return server;
+    }
+
+    /**
      * Starts the node.
      *
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
@@ -98,6 +133,18 @@ public interface IgniteServer {
      */
     static Builder builder(String nodeName, Path configPath, Path workDir) {
         return new Builder(nodeName, configPath, workDir);
+    }
+
+    /**
+     * Returns a builder for an embedded Ignite node.
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configString Node configuration in the HOCON format. Must not be {@code null}.
+     * @param workDir Work directory for the node. Must not be {@code null}.
+     * @return Node instance.
+     */
+    static Builder builder(String nodeName, String configString, Path workDir) {
+        return new Builder(nodeName, configString, workDir);
     }
 
     /**
@@ -186,7 +233,8 @@ public interface IgniteServer {
      */
     final class Builder {
         private final String nodeName;
-        private final Path configPath;
+        private Path configPath;
+        private String configString;
         private final Path workDir;
 
         private @Nullable ClassLoader serviceLoaderClassLoader;
@@ -195,6 +243,12 @@ public interface IgniteServer {
         private Builder(String nodeName, Path configPath, Path workDir) {
             this.nodeName = nodeName;
             this.configPath = configPath;
+            this.workDir = workDir;
+        }
+
+        private Builder(String nodeName, String configString, Path workDir) {
+            this.nodeName = nodeName;
+            this.configString = configString;
             this.workDir = workDir;
         }
 
@@ -230,6 +284,7 @@ public interface IgniteServer {
             return new IgniteServerImpl(
                     nodeName,
                     configPath,
+                    configString,
                     workDir,
                     serviceLoaderClassLoader,
                     asyncContinuationExecutor

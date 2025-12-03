@@ -299,9 +299,10 @@ public class Compactor extends IgniteWorker {
                 long totalDurationInNanos = tracker.totalDuration(NANOSECONDS);
 
                 LOG.info(
-                        "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",
+                        "Compaction round finished [compactionId={}, pages={}, skipped={}, duration={}ms, avgWriteSpeed={}MB/s]",
                         compactionId,
                         tracker.dataPagesWritten(),
+                        tracker.dataPagesSkipped(),
                         tracker.totalDuration(MILLISECONDS),
                         WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                 );
@@ -388,11 +389,35 @@ public class Compactor extends IgniteWorker {
         // Copy pages deltaFilePageStore -> filePageStore.
         ByteBuffer buffer = getThreadLocalBuffer(pageSize);
 
+        DeltaFilePageStoreIo[] newerDeltaFiles = filePageStore.getCompletedDeltaFiles()
+                .stream()
+                .filter(file -> file.fileIndex() > deltaFilePageStore.fileIndex())
+                .toArray(DeltaFilePageStoreIo[]::new);
+
+        int[] pointers = new int[newerDeltaFiles.length];
+
+        boolean shouldFsync = false;
         for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
 
             if (shouldStopCompaction(filePageStore)) {
                 return;
+            }
+
+            boolean shouldSkip = false;
+            for (int i = 0; i < pointers.length && !shouldSkip; i++) {
+                int[] newerPageIndexes = newerDeltaFiles[i].pageIndexes();
+
+                while (pointers[i] < newerPageIndexes.length - 1 && newerPageIndexes[pointers[i]] < pageIndex) {
+                    pointers[i]++;
+                }
+
+                shouldSkip = pointers[i] < newerPageIndexes.length && newerPageIndexes[pointers[i]] == pageIndex;
+            }
+
+            if (shouldSkip) {
+                tracker.onPageSkipped();
+                continue;
             }
 
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
@@ -417,16 +442,19 @@ public class Compactor extends IgniteWorker {
             filePageStore.write(pageId, buffer.rewind());
 
             tracker.onDataPageWritten();
+
+            shouldFsync = true;
         }
 
-        // Fsync the file page store.
-        updateHeartbeat();
+        if (shouldFsync) {
+            updateHeartbeat();
 
-        if (shouldStopCompaction(filePageStore)) {
-            return;
+            if (shouldStopCompaction(filePageStore)) {
+                return;
+            }
+
+            filePageStore.sync();
         }
-
-        filePageStore.sync();
 
         // Removing the delta file page store from a file page store.
         updateHeartbeat();

@@ -46,7 +46,7 @@ Fragment#4
               est: (rows=1)
             TableScan
                 table: PUBLIC.CT_N1
-                fieldNames: [ID, C1, C2, __PART, __part]
+                fieldNames: [ID, C1, C2, __PARTITION_ID, __PART, __part]
                 est: (rows=100001)
 
 Fragment#3
@@ -98,7 +98,7 @@ Fragment#2 root
             est: (rows=1)
           TableScan
               table: PUBLIC.CT_N1
-              fieldNames: [ID, C1, C2, __PART, __part]
+              fieldNames: [ID, C1, C2, __PARTITION_ID, __PART, __part]
               est: (rows=100001)
 
 Fragment#3
@@ -167,7 +167,7 @@ Fragment#4
               est: (rows=1)
             TableScan
                 table: PUBLIC.CT_N1
-                fieldNames: [ID, C1, C2, __PART, __part]
+                fieldNames: [ID, C1, C2, __PARTITION_ID, __PART, __part]
                 est: (rows=100001)
 
 Fragment#3
@@ -219,7 +219,7 @@ Fragment#2 root
             est: (rows=1)
           TableScan
               table: PUBLIC.CT_N1
-              fieldNames: [ID, C1, C2, __PART, __part]
+              fieldNames: [ID, C1, C2, __PARTITION_ID, __PART, __part]
               est: (rows=100001)
 
 Fragment#3

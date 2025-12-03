@@ -23,9 +23,12 @@
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/ssl_mode.h"
 
-#include "ignite/common/detail/bytes.h"
+#include <ignite/common/detail/bytes.h>
+#include <ignite/common/detail/duration_min_max.h>
+#include <ignite/common/detail/utils.h>
 #include <ignite/network/network.h>
 #include <ignite/protocol/client_operation.h>
+#include <ignite/protocol/heartbeat_timeout.h>
 #include <ignite/protocol/messages.h>
 
 #include <algorithm>
@@ -33,7 +36,6 @@
 #include <new>
 #include <random>
 #include <sstream>
-#include <detail/utils.h>
 
 namespace {
 
@@ -69,6 +71,10 @@ std::vector<ignite::end_point> collect_addresses(const ignite::configuration &cf
 }
 
 namespace ignite {
+
+sql_connection::~sql_connection() {
+    deregister();
+}
 
 void sql_connection::get_info(connection_info::info_type type, void *buf, short buffer_len, short *result_len) {
     LOG_MSG("SQLGetInfo called: " << type << " (" << connection_info::info_type_to_string(type) << "), " << std::hex
@@ -119,6 +125,7 @@ void sql_connection::establish(const configuration &cfg) {
 }
 
 sql_result sql_connection::init_socket() {
+    std::unique_lock lock(m_socket_mutex);
     if (m_socket)
         return sql_result::AI_SUCCESS;
 
@@ -153,7 +160,7 @@ sql_result sql_connection::init_socket() {
     ssl_cfg.key_path = m_config.get_ssl_key_file().get_value();
     ssl_cfg.ca_path = m_config.get_ssl_ca_file().get_value();
 
-    m_socket = std::move(network::make_secure_socket_client(ssl_cfg));
+    m_socket = network::make_secure_socket_client(ssl_cfg);
 
     return sql_result::AI_SUCCESS;
 }
@@ -177,7 +184,6 @@ sql_result sql_connection::internal_establish(const configuration &cfg) {
     }
 
     bool errors = get_diagnostic_records().get_status_records_number() > 0;
-
     return errors ? sql_result::AI_SUCCESS_WITH_INFO : sql_result::AI_SUCCESS;
 }
 
@@ -190,6 +196,7 @@ void sql_connection::deregister() {
 }
 
 sql_result sql_connection::internal_release() {
+    std::unique_lock lock(m_socket_mutex);
     if (!m_socket) {
         add_status_record(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
 
@@ -204,6 +211,8 @@ sql_result sql_connection::internal_release() {
 }
 
 void sql_connection::close() {
+    std::unique_lock lock(m_socket_mutex);
+    m_connection_closed = true;
     if (m_socket) {
         m_socket->close();
         m_socket.reset();
@@ -264,6 +273,9 @@ sql_connection::operation_result sql_connection::send_all(
     }
 
     assert(static_cast<std::size_t>(sent) == len);
+
+    // Update the last message timestamp only in case operation was successful and there was no timeout.
+    m_last_message_ts = std::chrono::steady_clock::now();
 
     return operation_result::SUCCESS;
 }
@@ -712,6 +724,13 @@ sql_result sql_connection::make_request_handshake() {
         auto cluster_name = response.context.get_cluster_name();
         LOG_MSG("Cluster name: " << cluster_name);
         m_info.set_info(SQL_SERVER_NAME, cluster_name);
+
+        m_heartbeat_interval = calculate_heartbeat_interval(m_config.get_heartbeat_interval().get_value(),
+            std::chrono::milliseconds(response.idle_timeout_ms));
+
+        if (m_heartbeat_interval.count()) {
+            plan_heartbeat(m_heartbeat_interval);
+        }
     } catch (const odbc_error &err) {
         add_status_record(err);
 
@@ -728,6 +747,9 @@ sql_result sql_connection::make_request_handshake() {
 void sql_connection::ensure_connected() {
     if (m_socket)
         return;
+
+    if (m_connection_closed)
+        throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection was manually closed");
 
     bool success = try_restore_connection();
     if (!success)
@@ -799,6 +821,40 @@ void sql_connection::on_observable_timestamp(std::int64_t timestamp) {
         if (success)
             return;
         expected = m_observable_timestamp.load();
+    }
+}
+
+void sql_connection::send_heartbeat() {
+    std::unique_lock lock(m_socket_mutex);
+    if (m_connection_closed) {
+        return;
+    }
+
+    catch_errors([&] {
+        sync_request(protocol::client_operation::HEARTBEAT, [&](protocol::writer &) {});
+    });
+}
+
+void sql_connection::on_heartbeat_timeout() {
+    auto idle_for = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - m_last_message_ts);
+
+    auto sleep_for = m_heartbeat_interval;
+    if (idle_for > m_heartbeat_interval) {
+        send_heartbeat();
+    } else {
+        sleep_for = m_heartbeat_interval - idle_for;
+    }
+    plan_heartbeat(sleep_for);
+}
+
+void sql_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
+    if (auto timer_thread = m_timer_thread.lock()) {
+        timer_thread->add(timeout, [self_weak = weak_from_this()] {
+            if (auto self = self_weak.lock()) {
+                self->on_heartbeat_timeout();
+            }
+        });
     }
 }
 

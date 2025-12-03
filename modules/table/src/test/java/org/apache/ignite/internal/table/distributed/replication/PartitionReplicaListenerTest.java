@@ -118,7 +118,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -172,7 +171,6 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -440,7 +438,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .schemaId(1)
                 .primaryKeyIndexId(2)
                 .name(TABLE_NAME)
-                .zoneId(1)
+                .zoneId(ZONE_ID)
                 .newColumns(columns)
                 .primaryKeyColumns(IntList.of(0, 1))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
@@ -681,7 +679,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 lowWatermark,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
@@ -820,7 +817,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(PART_ID);
 
         pkStorage().put(testBinaryRow, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
+        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
         testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
@@ -839,7 +836,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         txState = COMMITTED;
 
         pkStorage().put(testBinaryRow, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
+        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
         txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, localNode.id(), commitPartitionId, clock.now(), null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
@@ -857,7 +854,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(PART_ID);
 
         pkStorage().put(testBinaryRow, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
+        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
         txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
@@ -876,7 +873,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         txState = ABORTED;
 
         pkStorage().put(testBinaryRow, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
+        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
         txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
@@ -900,7 +897,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
-            testMvPartitionStorage.addWrite(rowId, storeRow, txId, TABLE_ID, PART_ID);
+            testMvPartitionStorage.addWrite(rowId, storeRow, txId, ZONE_ID, PART_ID);
             sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
             testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
         });
@@ -1028,7 +1025,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
-            testMvPartitionStorage.addWrite(rowId, storeRow, txId, TABLE_ID, PART_ID);
+            testMvPartitionStorage.addWrite(rowId, storeRow, txId, ZONE_ID, PART_ID);
             sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
             testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
         });
@@ -1141,7 +1138,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
-            testMvPartitionStorage.addWrite(rowId, storeRow, txId, TABLE_ID, PART_ID);
+            testMvPartitionStorage.addWrite(rowId, storeRow, txId, ZONE_ID, PART_ID);
             hashIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
             testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
         });
@@ -1389,10 +1386,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
     }
 
-    private static TablePartitionIdMessage commitPartitionId() {
-        return REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+    private static ZonePartitionIdMessage commitPartitionId() {
+        return REPLICA_MESSAGES_FACTORY.zonePartitionIdMessage()
                 .partitionId(PART_ID)
-                .tableId(TABLE_ID)
+                .zoneId(ZONE_ID)
                 .build();
     }
 
@@ -1566,7 +1563,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             // This is needed to check that this row will be skipped by RO tx and it will see the data anyway.
             // TODO https://issues.apache.org/jira/browse/IGNITE-18767 after this, the following check may be not needed.
             RowId emptyRowId = new RowId(PART_ID, new UUID(Long.MIN_VALUE, Long.MIN_VALUE));
-            testMvPartitionStorage.addWrite(emptyRowId, null, tx1, TABLE_ID, PART_ID);
+            testMvPartitionStorage.addWrite(emptyRowId, null, tx1, ZONE_ID, PART_ID);
 
             if (committed) {
                 testMvPartitionStorage.commitWrite(emptyRowId, clock.now(), tx1);
@@ -1701,7 +1698,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
 
         pkStorage().put(futureSchemaVersionRow, rowId);
-        testMvPartitionStorage.addWrite(rowId, futureSchemaVersionRow, futureSchemaVersionTxId, TABLE_ID, PART_ID);
+        testMvPartitionStorage.addWrite(rowId, futureSchemaVersionRow, futureSchemaVersionTxId, ZONE_ID, PART_ID);
         sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
         testMvPartitionStorage.commitWrite(rowId, clock.now(), futureSchemaVersionTxId);
 

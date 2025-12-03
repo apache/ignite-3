@@ -406,7 +406,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
-        int commitTableId = chain.commitTableId();
+        int commitTableId = chain.commitZoneId();
         int commitPartitionId = chain.commitPartitionId();
 
         return ReadResult.createFromWriteIntent(
@@ -432,26 +432,26 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
-        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
             try {
-                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
                 addWrite.afterCompletion();
 
-                AddWriteResult addWriteResult = addWrite.addWriteResult();
+                AddWriteResult addWriteResult = addWrite.result();
 
-                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
                 return addWriteResult;
             } catch (IgniteInternalCheckedException e) {
@@ -460,7 +460,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException(
                         "Error while executing addWrite: [{}]",
                         e,
-                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                        addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId)
                 );
             }
         });
@@ -647,7 +647,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     RowMeta row = new RowMeta(
                             versionChain.rowId(),
                             versionChain.transactionId(),
-                            versionChain.commitTableId(),
+                            versionChain.commitZoneId(),
                             versionChain.commitPartitionId()
                     );
                     result.add(row);
@@ -795,12 +795,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) {
         return IgniteStringFormatter.format(
-                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
-                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+                "rowId={}, rowIsTombstone={}, txId={}, commitZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitZoneId, commitPartitionId, createStorageInfo()
         );
     }
 

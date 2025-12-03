@@ -161,7 +161,7 @@ public class PartialBinaryTupleMatcher {
                 return compareAsUuid(partialTuple, tuple2, index);
 
             case STRING:
-                return compareAsString(partialTuple, tuple2, index, false);
+                return compareAsString(partialTuple, tuple2, index);
 
             case TIMESTAMP:
                 return compareAsTimestamp(partialTuple, tuple2, index);

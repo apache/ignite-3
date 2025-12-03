@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterZonesForOperations;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
@@ -61,6 +62,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +72,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -263,8 +266,7 @@ public class DistributionZoneManager extends
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager,
-                nodeProperties
+                catalogManager
         );
 
         partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -311,20 +313,12 @@ public class DistributionZoneManager extends
 
             restoreGlobalStateFromLocalMetaStorage(recoveryRevision);
 
-            // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
-            // nevertheless everything works correctly.
-            // All components execute the synchronous part of startAsync sequentially and only when they all complete,
-            // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
-            // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
-            // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
-            int catalogVersion = catalogManager.latestCatalogVersion();
-
             registerMetricSourcesOnStart();
 
             return allOf(
                     restoreLogicalTopologyChangeEvent(recoveryRevision),
                     dataNodesManager.startAsync(currentZones(), recoveryRevision)
-            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(), componentContext.executor());
         });
     }
 
@@ -348,7 +342,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Returns data nodes for the given time.
+     * Returns data nodes at the current time.
      *
      * @param zoneId Zone id.
      * @return Data nodes for the current time.
@@ -357,6 +351,27 @@ public class DistributionZoneManager extends
         HybridTimestamp current = clockService.current();
         int catalogVersion = catalogManager.activeCatalogVersion(current.longValue());
         return dataNodes(current, catalogVersion, zoneId);
+    }
+
+    /**
+     * Returns data nodes at the current time.
+     *
+     * @param zoneName Zone name.
+     * @return Returns data nodes at the current time.
+     */
+    public CompletableFuture<Set<String>> currentDataNodes(String zoneName) {
+        Objects.requireNonNull(zoneName, "Zone name is required.");
+
+        HybridTimestamp current = clockService.current();
+        int catalogVersion = catalogManager.activeCatalogVersion(current.longValue());
+
+        CatalogZoneDescriptor zoneDesc = catalogManager.catalog(catalogVersion).zone(zoneName);
+
+        if (zoneDesc == null) {
+            throw new DistributionZoneNotFoundException(zoneName);
+        }
+
+        return dataNodes(current, catalogVersion, zoneDesc.id());
     }
 
     /**
@@ -393,6 +408,36 @@ public class DistributionZoneManager extends
 
     public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
+    }
+
+    /**
+     * Recalculates data nodes for given zones and writes them to metastorage.
+     *
+     * @param zoneNames Zone names set. If is empty then the recalculation will be performed against all known zones
+     *      at the moment.
+     * @return The future with recalculated data nodes for the given zones set.
+     */
+    @SuppressWarnings("rawtypes")
+    public CompletableFuture<Void> recalculateDataNodes(Set<String> zoneNames) throws DistributionZoneNotFoundException {
+        Collection<CatalogZoneDescriptor> zones = catalogManager.latestCatalog().zones();
+
+        CompletableFuture[] recalculationFutures = filterZonesForOperations(zoneNames, zones)
+                .stream()
+                .map(CatalogObjectDescriptor::name)
+                .map(this::recalculateDataNodes)
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(recalculationFutures);
+    }
+
+    /**
+     * Recalculates data nodes for given zone and writes them to metastorage.
+     *
+     * @param zoneName Zone name.
+     * @return The future with recalculated data nodes for the given zone.
+     */
+    public CompletableFuture<Void> recalculateDataNodes(String zoneName) throws DistributionZoneNotFoundException {
+        return dataNodesManager.recalculateDataNodes(zoneName).thenAccept(v -> {});
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {

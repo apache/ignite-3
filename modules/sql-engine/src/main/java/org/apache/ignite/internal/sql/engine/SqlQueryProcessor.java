@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -202,8 +201,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final TxManager txManager;
 
-    private final NodeProperties nodeProperties;
-
     private final TransactionalOperationTracker txTracker;
 
     private final ScheduledExecutorService commonScheduler;
@@ -229,7 +226,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
             TxManager txManager,
-            NodeProperties nodeProperties,
             LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler,
             KillCommandHandler killCommandHandler,
@@ -252,7 +248,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.nodeCfg = nodeCfg;
         this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
         this.txManager = txManager;
-        this.nodeProperties = nodeProperties;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
@@ -264,7 +259,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                nodeProperties,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
@@ -339,7 +333,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, nodeProperties, TABLE_CACHE_SIZE, CACHE_FACTORY
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE, CACHE_FACTORY
         );
 
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
@@ -357,8 +351,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager, nodeProperties),
-                nodeProperties,
+                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager),
                 taskExecutor
         );
 
@@ -383,7 +376,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
-                nodeProperties,
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY

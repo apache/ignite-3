@@ -50,7 +50,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -93,9 +93,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties(),
             new CommittedFinalTransactionStateResolver(),
-            indexMetaStorage
+            indexMetaStorage,
+            new TestMetricManager()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
