@@ -384,20 +384,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     /**
-     * Create coarse lock exception.
-     *
-     * @param locker Locker.
-     * @param holder Lock holder.
-     * @param abandoned If locker is abandoned.
-     * @return Lock exception.
-     */
-    private static LockException coarseLockException(UUID locker, UUID holder, boolean abandoned) {
-        return new LockException(ACQUIRE_LOCK_ERR,
-                "Failed to acquire the intention table lock due to a conflict [locker=" + locker + ", holder=" + holder + ", abandoned="
-                        + abandoned + ']');
-    }
-
-    /**
      * Common interface for releasing transaction locks.
      */
     interface Releasable {
@@ -525,7 +511,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                     // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
                                     for (Lock lock : ixlockOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
-                                            return notifyAndFail(txId, lock.txId());
+                                            return notifyAndFail(txId, lock.txId(), lockMode, lock.lockMode());
                                         }
                                     }
                                 }
@@ -538,7 +524,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 for (Lock lock : ixlockOwners.values()) {
                                     // Allow only high priority transactions to wait.
                                     if (txComparator.compare(lock.txId(), txId) < 0) {
-                                        return notifyAndFail(txId, lock.txId());
+                                        return notifyAndFail(txId, lock.txId(), lockMode, lock.lockMode());
                                     }
                                 }
                             }
@@ -582,7 +568,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                     // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
                                     for (Lock lock : slockOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
-                                            return notifyAndFail(txId, lock.txId());
+                                            return notifyAndFail(txId, lock.txId(), lockMode, lock.lockMode());
                                         }
                                     }
                                 }
@@ -591,8 +577,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             }
 
                             // IX locks never allowed to wait.
-                            UUID holderTx = slockOwners.keySet().iterator().next();
-                            return notifyAndFail(txId, holderTx);
+                            Entry<UUID, Lock> holderEntry = slockOwners.entrySet().iterator().next();
+                            return notifyAndFail(txId, holderEntry.getKey(), lockMode, holderEntry.getValue().lockMode());
                         } else {
                             Lock lock = new Lock(lockKey, lockMode, txId);
                             Lock prev = ixlockOwners.putIfAbsent(txId, lock); // Avoid overwrite existing lock.
@@ -621,14 +607,35 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         /**
          * Triggers event and fails.
          *
-         * @param txId Tx id.
-         * @param conflictedHolderId Holder tx id.
+         * @param failedToAcquireLockTxId UUID of a transaction that tried to acquire lock, but failed.
+         * @param currentLockHolderTxId UUID of a transaction that currently holds the lock.
+         * @param attemptedLockModeToAcquireWith {@link LockMode} that was tried to acquire the lock with but failed the attempt.
+         * @param currentlyAcquiredLockMode {@link LockMode} of the lock that is already acquired with.
          * @return Failed future.
          */
-        CompletableFuture<Lock> notifyAndFail(UUID txId, UUID conflictedHolderId) {
-            CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, allLockHolderTxs()));
+        CompletableFuture<Lock> notifyAndFail(
+                UUID failedToAcquireLockTxId,
+                UUID currentLockHolderTxId,
+                LockMode attemptedLockModeToAcquireWith,
+                LockMode currentlyAcquiredLockMode
+        ) {
+            CompletableFuture<Lock> failedFuture = new CompletableFuture<>();
+
+            fireEvent(LOCK_CONFLICT, new LockEventParameters(failedToAcquireLockTxId, allLockHolderTxs())).whenComplete((v, ex) -> {
+                if (ex != null) {
+                    failedFuture.completeExceptionally(abandonedLockException(failedToAcquireLockTxId, currentLockHolderTxId));
+                } else {
+                    failedFuture.completeExceptionally(new PossibleDeadlockOnLockAcquireException(
+                            failedToAcquireLockTxId,
+                            currentLockHolderTxId,
+                            attemptedLockModeToAcquireWith,
+                            currentlyAcquiredLockMode
+                    ));
+                }
+            });
+
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
-            return failedFuture(coarseLockException(txId, conflictedHolderId, res.isCompletedExceptionally()));
+            return failedFuture;
         }
 
         /**

@@ -45,4 +45,10 @@ public class LockException extends TransactionInternalCheckedException implement
     protected LockException(int code, String msg, Throwable cause) {
         super(code, msg, cause);
     }
+
+    @Override
+    public synchronized Throwable fillInStackTrace() {
+        // Omits redundant stacktrace.
+        return this;
+    }
 }
