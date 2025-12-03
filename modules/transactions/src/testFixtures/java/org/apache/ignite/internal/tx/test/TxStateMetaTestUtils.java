@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Objects;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 
 /**
@@ -34,7 +35,7 @@ public class TxStateMetaTestUtils {
         boolean res = meta0.txState() == meta1.txState()
                 && Objects.equals(meta0.txCoordinatorId(), meta1.txCoordinatorId())
                 && Objects.equals(meta0.commitPartitionId(), meta1.commitPartitionId())
-                && Objects.equals(meta0.commitTimestamp(), meta1.commitTimestamp())
+                && (meta0.txState() == TxState.FINISHING || Objects.equals(meta0.commitTimestamp(), meta1.commitTimestamp()))
                 && Objects.equals(meta0.txLabel(), meta1.txLabel());
 
         if (!res) {

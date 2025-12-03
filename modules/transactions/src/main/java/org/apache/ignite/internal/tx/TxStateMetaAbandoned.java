@@ -117,7 +117,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
     }
 
     @Override
-    public TxStateMetaBuilder mutate() {
+    public TxStateMetaAbandonedBuilder mutate() {
         return new TxStateMetaAbandonedBuilder(this);
     }
 
@@ -125,15 +125,8 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * Builder for {@link TxStateMetaAbandoned} instances.
      */
     public static class TxStateMetaAbandonedBuilder extends TxStateMetaBuilder {
-        private long lastAbandonedMarkerTs;
-
         TxStateMetaAbandonedBuilder(TxStateMeta old) {
             super(old);
-        }
-
-        public TxStateMetaAbandonedBuilder lastAbandonedMarkerTs(long lastAbandonedMarkerTs) {
-            this.lastAbandonedMarkerTs = lastAbandonedMarkerTs;
-            return this;
         }
 
         @Override
