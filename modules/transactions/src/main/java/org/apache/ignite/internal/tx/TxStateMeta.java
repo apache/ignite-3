@@ -202,11 +202,132 @@ public class TxStateMeta implements TransactionMeta {
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
                 .isFinishedDueToTimeout(isFinishedDueToTimeout)
+                .txLabel(txLabel)
                 .build();
     }
 
     @Override
     public String toString() {
         return S.toString(TxStateMeta.class, this);
+    }
+
+    /**
+     * Creates a builder for TxStateMeta.
+     *
+     * @param txState Transaction state.
+     * @return Builder.
+     */
+    public static TxStateMetaBuilder builder(TxState txState) {
+        return new TxStateMetaBuilder(txState);
+    }
+
+    /**
+     * Mutate the old meta if it's not null, otherwise create a new builder with the provided txState.
+     *
+     * @param old Old meta.
+     * @param txStateIfOldIsNull Transaction state to use if the old meta is null.
+     * @return Builder.
+     */
+    public static TxStateMetaBuilder mutate(@Nullable TxStateMeta old, TxState txStateIfOldIsNull) {
+        return old == null ? builder(txStateIfOldIsNull) : old.mutate();
+    }
+
+    /**
+     * Mutate this meta using builder.
+     *
+     * @return Builder.
+     */
+    public TxStateMetaBuilder mutate() {
+        return new TxStateMetaBuilder(this);
+    }
+
+    /**
+     * Builder for TxStateMeta.
+     */
+    public static class TxStateMetaBuilder {
+        private final TxState txState;
+        protected @Nullable UUID txCoordinatorId;
+        protected @Nullable ReplicationGroupId commitPartitionId;
+        private @Nullable HybridTimestamp commitTimestamp;
+        private @Nullable Long initialVacuumObservationTimestamp;
+        private @Nullable Long cleanupCompletionTimestamp;
+        protected @Nullable Boolean isFinishedDueToTimeout;
+        protected @Nullable String txLabel;
+        private @Nullable InternalTransaction tx;
+
+        TxStateMetaBuilder(TxState txState) {
+            this.txState = txState;
+        }
+
+        TxStateMetaBuilder(TxStateMeta old) {
+            this.txState = old.txState;
+            this.txCoordinatorId = old.txCoordinatorId;
+            this.commitPartitionId = old.commitPartitionId;
+            this.commitTimestamp = old.commitTimestamp;
+            this.initialVacuumObservationTimestamp = old.initialVacuumObservationTimestamp;
+            this.cleanupCompletionTimestamp = old.cleanupCompletionTimestamp;
+            this.isFinishedDueToTimeout = old.isFinishedDueToTimeout;
+            this.txLabel = old.txLabel;
+            this.tx = old.tx;
+        }
+
+        public TxStateMetaBuilder txCoordinatorId(@Nullable UUID txCoordinatorId) {
+            this.txCoordinatorId = txCoordinatorId;
+            return this;
+        }
+
+        public TxStateMetaBuilder commitPartitionId(@Nullable ReplicationGroupId commitPartitionId) {
+            this.commitPartitionId = commitPartitionId;
+            return this;
+        }
+
+        public TxStateMetaBuilder commitTimestamp(@Nullable HybridTimestamp commitTimestamp) {
+            this.commitTimestamp = commitTimestamp;
+            return this;
+        }
+
+        public TxStateMetaBuilder initialVacuumObservationTimestamp(@Nullable Long initialVacuumObservationTimestamp) {
+            this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
+            return this;
+        }
+
+        public TxStateMetaBuilder cleanupCompletionTimestamp(@Nullable Long cleanupCompletionTimestamp) {
+            this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
+            return this;
+        }
+
+        public TxStateMetaBuilder finishedDueToTimeout(@Nullable Boolean finishedDueToTimeout) {
+            isFinishedDueToTimeout = finishedDueToTimeout;
+            return this;
+        }
+
+        public TxStateMetaBuilder txLabel(@Nullable String txLabel) {
+            this.txLabel = txLabel;
+            return this;
+        }
+
+        public TxStateMetaBuilder tx(@Nullable InternalTransaction tx) {
+            this.tx = tx;
+            return this;
+        }
+
+        /**
+         * Builds TxStateMeta.
+         *
+         * @return TxStateMeta.
+         */
+        public TxStateMeta build() {
+            return new TxStateMeta(
+                    txState,
+                    txCoordinatorId,
+                    commitPartitionId,
+                    commitTimestamp,
+                    tx,
+                    initialVacuumObservationTimestamp,
+                    cleanupCompletionTimestamp,
+                    isFinishedDueToTimeout,
+                    txLabel
+            );
+        }
     }
 }

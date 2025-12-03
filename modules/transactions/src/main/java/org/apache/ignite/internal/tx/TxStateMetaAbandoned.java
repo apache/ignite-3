@@ -27,6 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaAbandonedMessage;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abandoned transaction state meta.
@@ -47,7 +48,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
     public TxStateMetaAbandoned(
             UUID txCoordinatorId,
             ReplicationGroupId commitPartitionId,
-            String txLabel
+            @Nullable String txLabel
     ) {
         super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null, null, null, txLabel);
 
@@ -80,6 +81,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
                 .lastAbandonedMarkerTs(lastAbandonedMarkerTs)
+                .txLabel(txLabel())
                 .build();
     }
 
@@ -112,5 +114,31 @@ public class TxStateMetaAbandoned extends TxStateMeta {
     @Override
     public String toString() {
         return S.toString(TxStateMetaAbandoned.class, this);
+    }
+
+    @Override
+    public TxStateMetaBuilder mutate() {
+        return new TxStateMetaAbandonedBuilder(this);
+    }
+
+    /**
+     * Builder for {@link TxStateMetaAbandoned} instances.
+     */
+    public static class TxStateMetaAbandonedBuilder extends TxStateMetaBuilder {
+        private long lastAbandonedMarkerTs;
+
+        TxStateMetaAbandonedBuilder(TxStateMeta old) {
+            super(old);
+        }
+
+        public TxStateMetaAbandonedBuilder lastAbandonedMarkerTs(long lastAbandonedMarkerTs) {
+            this.lastAbandonedMarkerTs = lastAbandonedMarkerTs;
+            return this;
+        }
+
+        @Override
+        public TxStateMeta build() {
+            return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
+        }
     }
 }

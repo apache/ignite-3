@@ -50,6 +50,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.tx.test.TxStateMetaTestUtils.assertTxStateMetaIsSame;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -226,6 +227,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -1921,6 +1923,33 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 argumentSet("rw non-pk full single-row", false, false, true, false, false),
                 argumentSet("rw non-pk non-full multi-row", false, false, false, true, true),
                 argumentSet("rw non-pk non-full single-row", false, false, false, false, true)
+        );
+    }
+
+    @Test
+    public void txStateMessageConversion() {
+        TxStateMeta txStateMeta = new TxStateMeta(
+                TxState.PENDING,
+                UUID.randomUUID(),
+                new ZonePartitionId(1, 1),
+                hybridTimestamp(1),
+                null,
+                null,
+                null,
+                false,
+                "test-tx-label"
+        );
+
+        assertTxStateMetaIsSame(
+                txStateMeta,
+                txStateMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY).asTxStateMeta()
+        );
+
+        TxStateMetaAbandoned txStateMetaAbandoned = txStateMeta.abandoned();
+
+        assertTxStateMetaIsSame(
+                txStateMetaAbandoned,
+                txStateMetaAbandoned.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY).asTxStateMeta()
         );
     }
 

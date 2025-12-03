@@ -100,4 +100,23 @@ public class TxStateMetaFinishing extends TxStateMeta {
 
         return result;
     }
+
+    @Override
+    public TxStateMetaBuilder mutate() {
+        return new TxStateMetaFinishingBuilder(this);
+    }
+
+    /**
+     * Builder for {@link TxStateMetaAbandoned} instances.
+     */
+    public static class TxStateMetaFinishingBuilder extends TxStateMetaBuilder {
+        TxStateMetaFinishingBuilder(TxStateMeta old) {
+            super(old);
+        }
+
+        @Override
+        public TxStateMeta build() {
+            return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+        }
+    }
 }
