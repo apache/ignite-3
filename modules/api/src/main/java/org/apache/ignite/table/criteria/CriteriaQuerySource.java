@@ -31,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public interface CriteriaQuerySource<T> {
     /**
      * Executes predicate-based criteria query.
+     * Opens implicit transaction.
      *
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Iterator with query results.
@@ -54,6 +55,7 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes predicate-based criteria query.
+     * Opens implicit transaction.
      *
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
@@ -79,6 +81,7 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes a predicate-based criteria query.
+     * Opens implicit transaction.
      *
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
@@ -104,6 +107,7 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes a predicate-based criteria query in an asynchronous way.
+     * Opens implicit transaction.
      *
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Future that represents the pending completion of the operation.
@@ -127,6 +131,7 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes a predicate-based criteria query in an asynchronous way.
+     * Opens implicit transaction.
      *
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
@@ -153,6 +158,7 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes a predicate-based criteria query in an asynchronous way.
+     * Opens implicit transaction.
      *
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
