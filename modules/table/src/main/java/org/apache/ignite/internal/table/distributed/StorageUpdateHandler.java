@@ -117,6 +117,7 @@ public class StorageUpdateHandler {
         int count = 0;
         try (Cursor<RowId> writeIntentRowIds = storage.getStorage().scanWriteIntents()) {
             for (RowId rowId : writeIntentRowIds) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-27234 - only read row metadata.
                 ReadResult result = storage.getStorage().read(rowId, HybridTimestamp.MAX_VALUE);
 
                 if (!result.isEmpty() && result.isWriteIntent()) {
