@@ -49,6 +49,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuildInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -438,6 +439,48 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
             hasNext = treeRow != null;
             return hasNext;
+        }
+    }
+
+    /**
+     * Wrapper to the cursor that's returned from B+Tree.
+     *
+     * @param <E> Type of elements in the cursor.
+     * @param <R> Type of result.
+     */
+    protected abstract class ReadOnlyScanCursor<E, R> implements Cursor<R> {
+        private final Cursor<E> treeCursor;
+
+        protected ReadOnlyScanCursor(Cursor<E> treeCursor) {
+            this.treeCursor = treeCursor;
+        }
+
+        /**
+         * Maps value from the index tree into the required result.
+         */
+        protected abstract R map(E value);
+
+        @Override
+        public boolean hasNext() {
+            return busyDataRead(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryIndexStorage.this::createStorageInfo);
+
+                return treeCursor.hasNext();
+            });
+        }
+
+        @Override
+        public R next() {
+            return busyDataRead(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryIndexStorage.this::createStorageInfo);
+
+                return map(treeCursor.next());
+            });
+        }
+
+        @Override
+        public void close() {
+            treeCursor.close();
         }
     }
 

@@ -97,6 +97,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -1213,8 +1214,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return;
         }
 
-        // Ignore error responses here. A transaction will be rolled back in other place.
+        // Only removing the failed inflight here. A transaction will be rolled back in other place.
         if (message instanceof ErrorReplicaResponse) {
+            ErrorReplicaResponse response = (ErrorReplicaResponse) message;
+
+            Throwable err = response.throwable();
+
+            Throwable cause = ExceptionUtils.unwrapCause(err);
+
+            if (cause instanceof DelayedAckException) {
+                // Keep compatibility.
+                DelayedAckException err0 = (DelayedAckException) cause;
+
+                transactionInflights.removeInflight(err0.txId(), err0);
+            }
+
             return;
         }
 

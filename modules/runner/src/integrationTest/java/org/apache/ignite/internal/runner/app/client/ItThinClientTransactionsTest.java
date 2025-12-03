@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
@@ -49,7 +50,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
@@ -449,10 +449,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertTrue(coordIdx != -1);
 
-        IgniteImpl coord = TestWrappers.unwrapIgniteImpl(server(coordIdx));
+        IgniteImpl coord = unwrapIgniteImpl(server(coordIdx));
         assertNotNull(coord.txManager().stateMeta(txId), "Transaction expected to be colocated with enlistment");
 
-        IgniteImpl other = TestWrappers.unwrapIgniteImpl(server(1 - coordIdx));
+        IgniteImpl other = unwrapIgniteImpl(server(1 - coordIdx));
 
         do {
             k++;
@@ -618,7 +618,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
 
         List<Tuple> tuples0 = generateKeysForNode(200, 2, map, server0.cluster().localNode(), table);
 
@@ -648,8 +648,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.cluster().localNode(), table);
@@ -680,8 +680,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(400, 1, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(410, 1, map, server1.cluster().localNode(), table);
@@ -729,8 +729,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.cluster().localNode(), table);
@@ -856,8 +856,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(600, 50, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(610, 50, map, server1.cluster().localNode(), table);
@@ -887,8 +887,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(600, 2, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
@@ -952,8 +952,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> keys0 = generateKeysForNode(600, 2, map, server0.cluster().localNode(), table);
         List<Tuple> keys1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
@@ -1017,8 +1017,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientTable table = (ClientTable) table();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(700, 50, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(710, 50, map, server1.cluster().localNode(), table);
@@ -1095,8 +1095,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Load partition map to ensure all entries are directly mapped.
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(600, 20, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(600, 20, map, server1.cluster().localNode(), table);
@@ -1133,8 +1133,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Load partition map to ensure all entries are directly mapped.
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
 
-        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(600, 20, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(600, 20, map, server1.cluster().localNode(), table);
