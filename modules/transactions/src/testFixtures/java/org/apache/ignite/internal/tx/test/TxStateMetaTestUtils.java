@@ -31,6 +31,12 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 public class TxStateMetaTestUtils {
     private static final IgniteLogger log = Loggers.forClass(TxStateMetaTestUtils.class);
 
+    /**
+     * Asserts that two TxStateMeta are the same.
+     *
+     * @param meta0 TxStateMeta.
+     * @param meta1 TxStateMeta.
+     */
     public static void assertTxStateMetaIsSame(TxStateMeta meta0, TxStateMeta meta1) {
         boolean res = meta0.txState() == meta1.txState()
                 && Objects.equals(meta0.txCoordinatorId(), meta1.txCoordinatorId())
