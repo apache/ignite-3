@@ -130,6 +130,7 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
         if (newRowVersion != null) {
             if (newRowVersion.prevWriteIntentLink() != NULL_LINK) {
                 try {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-27235 - move updateDataRow() from FreeList.
                     freeList.updateDataRow(newRowVersion.prevWriteIntentLink(), UpdateNextWiLinkHandler.INSTANCE, newRowVersion.link());
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
