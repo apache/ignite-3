@@ -196,7 +196,15 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             String zone,
             Set<Integer> partitionIds
     ) throws InterruptedException {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+       awaitPartitionsToBeHealthy(CLUSTER, zone, partitionIds);
+    }
+
+    public static void awaitPartitionsToBeHealthy(
+            Cluster cluster,
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         assertTrue(waitForCondition(() -> {
                     CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;
