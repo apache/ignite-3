@@ -708,7 +708,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     throw new NoSuchElementException();
                 }
 
-                RowVersion rowVersion = runConsistently(locker -> readRowVersion(nextLink, DONT_LOAD_VALUE));
+                RowVersion rowVersion = readRowVersion(nextLink, DONT_LOAD_VALUE);
 
                 assert rowVersion instanceof WiLinkableRowVersion;
                 WiLinkableRowVersion linkableRowVersion = (WiLinkableRowVersion) rowVersion;
