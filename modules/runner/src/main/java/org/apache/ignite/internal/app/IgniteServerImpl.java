@@ -27,14 +27,22 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryManagerMXBean;
+import java.lang.management.MemoryUsage;
+import java.lang.management.RuntimeMXBean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -413,6 +421,12 @@ public class IgniteServerImpl implements IgniteServer {
 
         logVmInfo();
 
+        logJvmArguments();
+
+        logAvailableVmMemory();
+
+        logGcConfiguration();
+
         ackRemoteManagement();
 
         return instance.startAsync().thenCompose(unused -> {
@@ -525,6 +539,48 @@ public class IgniteServerImpl implements IgniteServer {
                 "VM: [jreName={}, jreVersion={}, jvmVendor={}, jvmName={}, jvmVersion={}]",
                 jreName, jreVersion, jvmVendor, jvmName, jvmVersion
         );
+    }
+
+    private static void logAvailableVmMemory() {
+        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+        MemoryUsage heapMemoryUsage = memoryBean.getHeapMemoryUsage();
+        MemoryUsage nonHeapMemoryUsage = memoryBean.getNonHeapMemoryUsage();
+
+        LOG.info(
+                "VM Memory Configuration: heap [init={}, max={}], non-heap [init={}, max={}]",
+                toHumanReadableMemoryString(heapMemoryUsage.getInit()),
+                toHumanReadableMemoryString(heapMemoryUsage.getMax()),
+                toHumanReadableMemoryString(nonHeapMemoryUsage.getInit()),
+                toHumanReadableMemoryString(nonHeapMemoryUsage.getMax())
+        );
+    }
+
+    private static void logJvmArguments() {
+        RuntimeMXBean runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+        List<String> jvmArgs = runtimeMxBean.getInputArguments();
+
+        LOG.info("VM arguments: {}", String.join(" ", jvmArgs));
+    }
+
+    private static String toHumanReadableMemoryString(long bytes) {
+        String[] suffix = { "KB", "MB", "GB", "TB" };
+        for (int i = suffix.length; i > 0; i--) {
+            int shift = i * 10;
+            long valueInUnits = bytes >> shift;
+            if (valueInUnits > 0) {
+                return valueInUnits + " " + suffix[i - 1];
+            }
+        }
+        return bytes + " B";
+    }
+
+    private static void logGcConfiguration() {
+        List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
+        String gcConfiguration = gcBeans.stream()
+                .map(MemoryManagerMXBean::getName)
+                .collect(Collectors.joining(", "));
+
+        LOG.info("VM GC: {}", gcConfiguration);
     }
 
     private static void ackRemoteManagement() {
