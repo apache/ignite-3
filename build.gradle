@@ -168,9 +168,13 @@ allprojects {
     }
 }
 
+// Apply common configuration to all subprojects
 subprojects {
     apply plugin: 'base'
-
+    
+    // Apply publishing configuration to relevant modules
+    apply from: "$rootDir/gradle/publishing.gradle"
+    
     repositories {
         maven {
             url = uri('https://repo.maven.apache.org/maven2/')

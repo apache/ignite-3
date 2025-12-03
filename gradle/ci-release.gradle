@@ -34,7 +34,5 @@ task ciPerformRelease {
 task getVersion() {
   doFirst {
     println version
-    println System.getenv('ARTIFACTORY_USER')
-    println System.getenv('ARTIFACTORY_KEY')
   }
 }
