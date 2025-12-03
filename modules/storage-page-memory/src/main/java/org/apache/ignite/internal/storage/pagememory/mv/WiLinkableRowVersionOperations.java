@@ -48,7 +48,7 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
     }
 
     @Override
-    public long nextWriteIntentLink(long defaultLink) {
+    public long nextWriteIntentLink(long fallbackLink) {
         return rowVersion.nextWriteIntentLink();
     }
 

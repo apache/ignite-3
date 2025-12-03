@@ -42,8 +42,9 @@ class PlainRowVersionOperations implements RowVersionOperations {
     }
 
     @Override
-    public long nextWriteIntentLink(long defaultLink) {
-        return defaultLink;
+    public long nextWriteIntentLink(long fallbackLink) {
+        // Current row version is a plain one, so it doesn't have WI links, so we return the fallback link.
+        return fallbackLink;
     }
 
     @Override
@@ -53,11 +54,11 @@ class PlainRowVersionOperations implements RowVersionOperations {
 
     @Override
     public PageHandler<HybridTimestamp, Object> converterToCommittedVersion() {
-        return UpdateTimestampHandler.INSTANCE;
+        return UpdateTimestampHandler.HANDLER_INSTANCE;
     }
 
     private static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
-        private static final UpdateTimestampHandler INSTANCE = new UpdateTimestampHandler();
+        private static final UpdateTimestampHandler HANDLER_INSTANCE = new UpdateTimestampHandler();
 
         @Override
         public Object run(
