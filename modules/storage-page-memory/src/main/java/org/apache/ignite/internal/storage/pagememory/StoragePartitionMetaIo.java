@@ -76,7 +76,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         super(T_TABLE_PARTITION_META_IO, ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);

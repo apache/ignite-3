@@ -37,7 +37,6 @@ public class StoragePartitionMetaIoV2 extends StoragePartitionMetaIo {
         super(2);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
