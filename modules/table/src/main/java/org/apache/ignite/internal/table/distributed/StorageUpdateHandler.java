@@ -120,7 +120,7 @@ public class StorageUpdateHandler {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-27234 - only read row metadata.
                 ReadResult result = storage.getStorage().read(rowId, HybridTimestamp.MAX_VALUE);
 
-                if (!result.isEmpty() && result.isWriteIntent()) {
+                if (result.isWriteIntent()) {
                     UUID txId = result.transactionId();
                     assert txId != null : "Transaction ID is null for a write intent [rowId=" + rowId + "]";
 
