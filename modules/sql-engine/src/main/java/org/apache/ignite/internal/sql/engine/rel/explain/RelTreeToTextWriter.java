@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.Spacer;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptTable;
@@ -46,6 +47,9 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -53,10 +57,14 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.QualifiedNameHelper;
+import org.jetbrains.annotations.Nullable;
 
 class RelTreeToTextWriter {
     static final int NEXT_OPERATOR_INDENT = 2;
     private static final int OPERATOR_ATTRIBUTES_INDENT = 2 * NEXT_OPERATOR_INDENT;
+
+    private static final String OPEN_TUPLE_SYMBOL = "<";
+    private static final String CLOSE_TUPLE_SYMBOL = ">";
 
     private static boolean needToAddFieldNames(IgniteRel rel) {
         List<RelNode> inputs = rel.getInputs();
@@ -284,7 +292,7 @@ class RelTreeToTextWriter {
 
         @Override
         public IgniteRelWriter addSearchBounds(List<SearchBounds> searchBounds) {
-            attributes.put(AttributeName.SEARCH_BOUNDS, searchBounds.toString());
+            attributes.put(AttributeName.SEARCH_BOUNDS, beautifySearchBounds(searchBounds));
 
             return this;
         }
@@ -329,6 +337,57 @@ class RelTreeToTextWriter {
             attributes.put(AttributeName.TARGET_FRAGMENT_ID, String.valueOf(fragmentId));
 
             return this;
+        }
+    }
+
+    private static String beautifySearchBounds(List<SearchBounds> searchBounds) {
+        return searchBounds.stream()
+                .flatMap(bounds -> {
+                    if (bounds.type() == SearchBounds.Type.MULTI) {
+                        return ((MultiBounds) bounds).bounds().stream();
+                    }
+                    return Stream.of(bounds);
+                })
+                .map(RelTreeToTextWriter::beautifySearchBounds)
+                .collect(Collectors.joining(", "));
+    }
+
+    private static String beautifySearchBounds(SearchBounds searchBounds) {
+        switch (searchBounds.type()) {
+            case EXACT:
+                RexNode lookupKey = ((ExactBounds) searchBounds).bound();
+
+                return OPEN_TUPLE_SYMBOL + lookupKey + CLOSE_TUPLE_SYMBOL;
+            case RANGE:
+                RangeBounds rangeBounds = (RangeBounds) searchBounds;
+
+                RexNode lowerBound = rangeBounds.lowerBound();
+                RexNode upperBound = rangeBounds.upperBound();
+
+                StringBuilder sb = new StringBuilder();
+                sb.append((lowerBound == null || rangeBounds.lowerInclude()) ? "[" : "(");
+                if (lowerBound != null) {
+                    sb.append(beautifyConditionalBound(lowerBound, rangeBounds.shouldComputeLower()));
+                }
+                sb.append("..");
+                if (upperBound != null) {
+                    sb.append(beautifyConditionalBound(upperBound, rangeBounds.shouldComputeUpper()));
+                }
+                sb.append((upperBound == null || rangeBounds.upperInclude()) ? "]" : ")");
+                return sb.toString();
+            case MULTI:
+            default:
+                assert false;
+
+                return searchBounds.toString();
+        }
+    }
+
+    private static String beautifyConditionalBound(RexNode bound, @Nullable RexNode condition) {
+        if (condition != null && !condition.isAlwaysTrue()) {
+            return OPEN_TUPLE_SYMBOL + condition + " ? " + bound + " : inf" + CLOSE_TUPLE_SYMBOL;
+        } else {
+            return OPEN_TUPLE_SYMBOL + bound + CLOSE_TUPLE_SYMBOL;
         }
     }
 
