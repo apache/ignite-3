@@ -81,7 +81,6 @@ import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -668,7 +667,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23633")
     @Test
     void testRestartPartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
