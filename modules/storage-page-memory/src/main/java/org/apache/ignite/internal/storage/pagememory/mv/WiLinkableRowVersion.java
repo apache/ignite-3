@@ -36,6 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public final class WiLinkableRowVersion extends RowVersion {
     public static final byte DATA_TYPE = 2;
 
+    /** A single UUID (16 bytes) and two partitionless links (6 bytes each). */
     private static final int WRITE_INTENT_LINKS_SIZE_BYTES = 2 * Long.BYTES + 2 * PARTITIONLESS_LINK_SIZE_BYTES;
 
     // Write intents list.
