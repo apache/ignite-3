@@ -266,6 +266,10 @@ bin/ignite3 cluster config show > cluster-config.txt
 {
   "ignite" : {
     "sql" : {
+      "createTable" : {
+        "minStaleRowsCount" : 500,
+        "staleRowsFraction" : 0.2
+      },
       "planner" : {
         "estimatedNumberOfQueries" : 1024,
         "maxPlanningTimeMillis" : 15000
