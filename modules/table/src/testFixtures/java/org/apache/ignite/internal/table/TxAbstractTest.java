@@ -77,7 +77,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -2216,7 +2215,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         var accountRecordsView = accounts.recordView();
 
         SchemaRegistry schemaRegistry = accounts.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
+        var marshaller = KeyValueTestUtils.createMarshaller(schemaRegistry.lastKnownSchema());
 
         int partId = accounts.internalTable().partitionId(marshaller.marshalKey(makeKey(0)));
 
