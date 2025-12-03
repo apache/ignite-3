@@ -392,9 +392,9 @@ sql planner invalidate-cache --tables=PUBLIC.Person
 
 == Plan Cache and Statistics Staleness
 
-GridGain 9 caches SQL execution plans to avoid re-calculating them for frequently executed queries. These plans depend on table statistics (row counts, distribution, distinct values) and during rows modifications may become inefficient and require re-calculation.
+Apache Ignite 3 caches SQL execution plans to avoid re-calculating them for frequently executed queries. These plans depend on table statistics (row counts, distribution, distinct values) and during rows modifications may become inefficient and require re-calculation.
 
-GridGain 9 tracks how many rows change and decides when a cached plan should be re-calculated. When the modification level is high enough, it refreshes the needed statistics and rebuilds the plan before execution.
+Apache Ignite 3 tracks how many rows change and decides when a cached plan should be re-calculated. When the modification level is high enough, it refreshes the needed statistics and rebuilds the plan before execution.
 
 === How Staleness Detection Works
 
@@ -412,6 +412,6 @@ This keeps plans aligned with actual data patterns, especially after bulk loads 
 
 Staleness thresholds can be configured in two ways:
 
-- Per-table settings via `CREATE TABLE` link:https://www.gridgain.com/docs/gridgain9/latest/sql-reference/ddl#create-table[syntax]
+- Per-table settings via `CREATE TABLE` link:https://ignite.apache.org/docs/ignite3/latest/sql-reference/ddl#create-table[syntax]
 
 - Cluster-wide parameters `sql.createTable.staleRowsFraction` and `sql.createTable.minStaleRowsCount` in the configuration file
