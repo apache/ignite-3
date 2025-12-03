@@ -167,6 +167,6 @@ public final class WiLinkableRowVersion extends RowVersion {
 
     @Override
     public String toString() {
-        return S.toString(WiLinkableRowVersion.class, this);
+        return S.toString(WiLinkableRowVersion.class, this, super.toString());
     }
 }
