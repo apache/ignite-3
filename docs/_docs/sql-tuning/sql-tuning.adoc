@@ -389,3 +389,29 @@ To force the update earlier, you can use the `sql planner invalidate-cache` CLI 
 ----
 sql planner invalidate-cache --tables=PUBLIC.Person
 ----
+
+== Plan Cache and Statistics Staleness
+
+GridGain 9 caches SQL execution plans to avoid re-calculating them for frequently executed queries. These plans depend on table statistics (row counts, distribution, distinct values) and during rows modifications may become inefficient and require re-calculation.
+
+GridGain 9 tracks how many rows change and decides when a cached plan should be re-calculated. When the modification level is high enough, it refreshes the needed statistics and rebuilds the plan before execution.
+
+=== How Staleness Detection Works
+
+For each table, GridGain tracks the number of modifications and if such modifications exceed a configurable threshold - statistics are considered stale and:
+
+- Fresh statistics are automatically recollected
+
+- Cached plans are re-calculated using the updated statistics
+
+- The new plan replaces the outdated cached version
+
+This keeps plans aligned with actual data patterns, especially after bulk loads or frequent updates.
+
+=== Configuring Staleness Thresholds
+
+Staleness thresholds can be configured in two ways:
+
+- Per-table settings via `CREATE TABLE` link:https://www.gridgain.com/docs/gridgain9/latest/sql-reference/ddl#create-table[syntax]
+
+- Cluster-wide parameters `sql.createTable.staleRowsFraction` and `sql.createTable.minStaleRowsCount` in the configuration file
