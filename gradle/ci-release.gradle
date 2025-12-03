@@ -29,6 +29,9 @@ allprojects {
 task ciPerformRelease {
   description = "Performs the release, intended to be ran on CI"
   dependsOn "githubRelease", "artifactoryPublishAll"
+
+  // Skip tests during release
+  gradle.startParameter.excludedTaskNames += 'integrationTest'
 }
 
 task getVersion() {

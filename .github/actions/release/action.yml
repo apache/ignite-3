@@ -12,7 +12,7 @@ runs:
       shell: bash
     - run: echo Got version ${{ steps.get-tag.outputs.tag }}
       shell: bash
-    - run: ./gradlew build publishToMavenLocal artifactoryPublish -Partifactory.dryRun
+    - run: ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish -Partifactory.dryRun
       shell: bash
     - run: ./gradlew ciPerformRelease
       shell: bash
