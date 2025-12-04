@@ -420,7 +420,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 LOG.debug("Sending delayed response for replica request [request={}]", request);
 
                                 if (ex0 == null) {
-                                    msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
+                                    msg0 = prepareDelayedReplicaResponse(sendTimestamp, res0);
                                 } else {
                                     if (indicatesUnexpectedProblem(ex0)) {
                                         LOG.warn("Failed to process delayed response [request={}]", ex0, request);
@@ -1104,12 +1104,27 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestamp(clockService.now())
+                    .timestamp(clockService.current())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
                     .errorReplicaResponse()
                     .throwable(ex)
+                    .build();
+        }
+    }
+
+    private NetworkMessage prepareDelayedReplicaResponse(boolean sendTimestamp, Object result) {
+        if (sendTimestamp) {
+            return REPLICA_MESSAGES_FACTORY
+                    .timestampAwareReplicaResponse()
+                    .result(result)
+                    .timestamp(clockService.current())
+                    .build();
+        } else {
+            return REPLICA_MESSAGES_FACTORY
+                    .replicaResponse()
+                    .result(result)
                     .build();
         }
     }

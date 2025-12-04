@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
-/** Exception indicating that a handshake error occurred because the remote node is became stale. */
-public class NodeStaleException extends HandshakeException {
-    private static final long serialVersionUID = 0L;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-    /** Constructor. */
-    public NodeStaleException(String message) {
-        super(message);
-    }
+/**
+ * Data nodes management REPL command.
+ */
+@Command(name = "datanodes",
+        subcommands = {
+                RecalculateDataNodesReplCommand.class
+        },
+        description = "Manages data nodes for distribution zones")
+public class DataNodesReplCommand extends BaseCommand {
 }
