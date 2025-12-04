@@ -296,10 +296,10 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
                 );
 
                 msgSendFut.complete(false);
+            } else if (invokeCause instanceof NodeStoppingException) {
+                msgSendFut.complete(false);
             } else {
-                if (!(invokeCause instanceof NodeStoppingException)) {
-                    LOG.error("Could not send the subscribe message to the node: [node={}, msg={}].", invokeThrowable, node, msg);
-                }
+                LOG.error("Could not send the subscribe message to the node: [node={}, msg={}].", invokeThrowable, node, msg);
 
                 msgSendFut.completeExceptionally(invokeThrowable);
             }
@@ -492,12 +492,14 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
             callbacks.add(callback);
 
             if (leaderTerm != -1) {
+                long finalLeaderTerm = this.leaderTerm;
+                InternalClusterNode finalLeaderNode = this.leaderNode;
 
                 // Notify about the current leader outside of the synchronized block.
                 if (fut.isDone()) {
-                    fut = runAsync(() -> callback.onLeaderElected(leaderNode, leaderTerm), executor);
+                    fut = runAsync(() -> callback.onLeaderElected(finalLeaderNode, finalLeaderTerm), executor);
                 } else {
-                    fut = fut.thenRunAsync(() -> callback.onLeaderElected(leaderNode, leaderTerm), executor);
+                    fut = fut.thenRunAsync(() -> callback.onLeaderElected(finalLeaderNode, finalLeaderTerm), executor);
                 }
             }
         }
