@@ -17,17 +17,30 @@
 
 namespace Apache.Ignite.Tests.Table.Serialization;
 
+using System;
 using Ignite.Table.Mapper;
 using Internal.Table.Serialization;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="MapperSerializerHandler{T}"/>.
 /// </summary>
+[TestFixture]
 internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 {
     protected override IRecordSerializerHandler<T> GetHandler<T>()
     {
-        return new MapperSerializerHandler<T>((IMapper<T>)new PocoMapper());
+        if (typeof(T) == typeof(Poco))
+        {
+            return new MapperSerializerHandler<T>((IMapper<T>)new PocoMapper());
+        }
+
+        if (typeof(T) == typeof(BadPoco))
+        {
+            return new MapperSerializerHandler<T>((IMapper<T>)new BadPocoMapper());
+        }
+
+        throw new NotSupportedException($"Type '{typeof(T)}' is not supported.");
     }
 
     public class PocoMapper : IMapper<Poco>
@@ -76,6 +89,56 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
             }
 
             return res;
+        }
+    }
+
+    public class BadPocoMapper : IMapper<BadPoco>
+    {
+        public void Write(BadPoco obj, ref MapperWriter writer, IMapperSchema schema)
+        {
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "Key":
+                        writer.Write(obj.Key);
+                        break;
+
+                    case "Val":
+                        writer.Write(obj.Val);
+                        break;
+
+                    default:
+                        writer.Write<object>(null);
+                        break;
+                }
+            }
+        }
+
+        public BadPoco Read(ref MapperReader reader, IMapperSchema schema)
+        {
+            Guid key = Guid.Empty;
+            DateTimeOffset val = default;
+
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "Key":
+                        key = reader.Read<Guid>();
+                        break;
+
+                    case "Val":
+                        val = reader.Read<DateTimeOffset>();
+                        break;
+
+                    default:
+                        reader.Skip();
+                        break;
+                }
+            }
+
+            return new BadPoco(key, val);
         }
     }
 }

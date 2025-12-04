@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Table.Serialization;
 
 using Internal.Table.Serialization;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="ObjectSerializerHandler{T}"/>.
 /// </summary>
+[TestFixture]
 internal class ObjectSerializerHandlerTests : SerializerHandlerTestBase
 {
     protected override IRecordSerializerHandler<T> GetHandler<T>() => new ObjectSerializerHandler<T>();

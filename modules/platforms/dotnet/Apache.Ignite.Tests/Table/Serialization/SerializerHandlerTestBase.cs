@@ -134,5 +134,5 @@ internal abstract class SerializerHandlerTestBase
         return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
     }
 
-    private record BadPoco(Guid Key, DateTimeOffset Val);
+    public record BadPoco(Guid Key, DateTimeOffset Val);
 }
