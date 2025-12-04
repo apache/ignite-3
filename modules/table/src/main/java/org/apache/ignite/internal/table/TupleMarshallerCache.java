@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,16 +39,17 @@ class TupleMarshallerCache {
     /**
      * Returns a {@link TupleMarshaller} for the given schema version.
      *
+     * @param tableNameSupplier Supplier of table name.
      * @param schemaVersion Version for which to return a marshaller.
      */
-    TupleMarshaller marshaller(int schemaVersion) {
+    TupleMarshaller marshaller(Supplier<QualifiedName> tableNameSupplier, int schemaVersion) {
         TupleMarshaller marshaller = cachedMarshaller;
 
         if (marshaller != null && marshaller.schemaVersion() == schemaVersion) {
             return marshaller;
         }
 
-        marshaller = new TupleMarshallerImpl(schemaRegistry.schema(schemaVersion));
+        marshaller = new TupleMarshallerImpl(tableNameSupplier, schemaRegistry.schema(schemaVersion));
 
         cachedMarshaller = marshaller;
 

@@ -253,7 +253,7 @@ public class StorageUpdateHandler {
                     batchLength += row.tupleSliceLength();
                 }
 
-                if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
+                if (!processedRowIds.isEmpty() && (locker.shouldRelease() || batchLength > maxBatchLength)) {
                     break;
                 }
 

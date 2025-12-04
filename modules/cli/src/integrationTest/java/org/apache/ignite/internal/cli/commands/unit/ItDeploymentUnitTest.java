@@ -115,7 +115,7 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
 
         // Then
         assertAll(
-                () -> assertExitCodeIs(1),
+                this::assertExitCodeIsError,
                 () -> assertErrOutputContains("Unit not found")
         );
     }
@@ -298,6 +298,29 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Done")
         );
+    }
+
+    @Test
+    @DisplayName("Should deploy a unit with full semantic version")
+    void deploySemantic() {
+        // When deploy with full semantic version
+        String id = "test.unit.id.10";
+        String version = "1.2.3.4-patch1";
+        execute("cluster", "unit", "deploy", id, "--version", version, "--path", testFile);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        // And
+        await().untilAsserted(() -> {
+            execute("cluster", "unit", "list", "--plain", id);
+
+            assertDeployed(id, "*" + version);
+        });
     }
 
     private void assertDeployed(String id) {

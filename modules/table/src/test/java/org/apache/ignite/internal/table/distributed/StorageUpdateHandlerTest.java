@@ -17,18 +17,25 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -58,8 +65,12 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Test for {@link StorageUpdateHandler}. */
+@ExtendWith(MockitoExtension.class)
 public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
@@ -86,6 +97,9 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
+
+    @Mock
+    private BooleanSupplier shouldReleaseSupplier;
 
     @BeforeEach
     void setUp() {
@@ -149,7 +163,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         );
 
         lock = spy(new LockByRowId());
-        storage = spy(new TestMvPartitionStorage(PARTITION_ID, lock));
+        storage = spy(new TestMvPartitionStorage(PARTITION_ID, lock, shouldReleaseSupplier));
 
         Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
                 pkIndexId, pkStorage,
@@ -222,4 +236,54 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         assertEquals(row3, result3.binaryRow());
     }
 
+    /**
+     * Tests that {@link StorageUpdateHandler#handleUpdateAll} respects {@code shouldRelease()} from the storage engine.
+     *
+     * <p>This test verifies that the implementation checks {@code shouldRelease()} during batch processing
+     * to allow the storage engine to perform critical operations like checkpoints.
+     */
+    @Test
+    void testHandleUpdateAllExitsEarlyOnShouldRelease() {
+        UUID txUuid = UUID.randomUUID();
+        HybridTimestamp commitTs = CLOCK.now();
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+
+        Map<UUID, BinaryRow> rows = Map.of(
+                UUID.randomUUID(), binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar")),
+                UUID.randomUUID(), binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz")),
+                UUID.randomUUID(), binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"))
+        );
+
+        Map<UUID, TimedBinaryRow> rowsToUpdate = rows.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> new TimedBinaryRow(entry.getValue(), null)
+        ));
+        // Given: shouldRelease returns true at first
+        lenient().doReturn(true, false).when(shouldReleaseSupplier).getAsBoolean();
+
+        // When: handleUpdateAll is called with write intents
+        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null, null);
+
+        // Then: All rows are eventually written across multiple batches
+        verify(storage, times(rows.size())).addWrite(any(), any(), any(), anyInt(), anyInt());
+
+        // Commit all write intents
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
+
+        // Verify all rows were committed
+        verify(storage, times(rows.size())).commitWrite(any(), any(), eq(txUuid));
+        // And shouldRelease() was called at least once
+        verify(shouldReleaseSupplier, atLeastOnce()).getAsBoolean();
+
+        // Verify all rows can be read with correct values
+        List<BinaryRow> readResults = new ArrayList<>();
+        for (UUID id : rows.keySet()) {
+            ReadResult readResult = storage.read(new RowId(partitionId.partitionId(), id), HybridTimestamp.MAX_VALUE);
+            if (readResult != null) {
+                readResults.add(readResult.binaryRow());
+            }
+        }
+
+        assertThat(readResults, containsInAnyOrder(rows.values().toArray()));
+    }
 }
