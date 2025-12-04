@@ -58,7 +58,7 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
             return new Poco
             {
                 Key = reader.Read<long>(),
-                Val = reader.Read<string?>()
+                Val = schema.Columns.Count > 1 ? reader.Read<string?>() : null
             };
         }
     }

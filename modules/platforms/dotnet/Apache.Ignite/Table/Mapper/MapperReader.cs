@@ -28,7 +28,7 @@ public ref struct MapperReader
 {
     private readonly BinaryTupleReader _reader;
 
-    private readonly Schema _schema;
+    private readonly Column[] _schema;
 
     private int _position;
 
@@ -37,7 +37,7 @@ public ref struct MapperReader
     /// </summary>
     /// <param name="reader">Reader.</param>
     /// <param name="schema">Schema.</param>
-    internal MapperReader(ref BinaryTupleReader reader, Schema schema)
+    internal MapperReader(ref BinaryTupleReader reader, Column[] schema)
     {
         _reader = reader;
         _schema = schema;
@@ -52,12 +52,12 @@ public ref struct MapperReader
     {
         var pos = _position++;
 
-        if (pos >= _schema.Columns.Length)
+        if (pos >= _schema.Length)
         {
-            throw new InvalidOperationException($"No more columns to read. Total columns: {_schema.Columns.Length}.");
+            throw new InvalidOperationException($"No more columns to read. Total columns: {_schema.Length}.");
         }
 
-        var col = _schema.Columns[pos];
+        var col = _schema[pos];
 
         return (T?)_reader.GetObject(pos, col.Type, col.Scale);
     }
