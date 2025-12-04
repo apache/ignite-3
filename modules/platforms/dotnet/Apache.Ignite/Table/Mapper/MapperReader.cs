@@ -22,13 +22,15 @@ using Internal.Proto.BinaryTuple;
 using Internal.Table;
 
 /// <summary>
-/// Mapper reader.
+/// Row reader for mappers. Reads columns in the order defined by the schema.
 /// </summary>
 public ref struct MapperReader
 {
     private readonly BinaryTupleReader _reader;
 
     private readonly Column[] _schema;
+
+    private readonly bool _keyOnly;
 
     private int _position;
 
@@ -37,10 +39,12 @@ public ref struct MapperReader
     /// </summary>
     /// <param name="reader">Reader.</param>
     /// <param name="schema">Schema.</param>
-    internal MapperReader(ref BinaryTupleReader reader, Column[] schema)
+    /// <param name="keyOnly">Whether this reader works with the key part of the row only.</param>
+    internal MapperReader(ref BinaryTupleReader reader, Column[] schema, bool keyOnly)
     {
         _reader = reader;
         _schema = schema;
+        _keyOnly = keyOnly;
     }
 
     /// <summary>
@@ -58,15 +62,23 @@ public ref struct MapperReader
         }
 
         var col = _schema[pos];
+        var ordinal = _keyOnly ? col.KeyIndex : col.SchemaIndex;
+        var obj = _reader.GetObject(ordinal, col.Type, col.Scale);
 
-        // TODO: Use KeyIndex/SchemaIndex.
-        return (T?)_reader.GetObject(pos, col.Type, col.Scale);
+        try
+        {
+            return (T?)obj;
+        }
+        catch (InvalidCastException e)
+        {
+            throw new InvalidCastException(
+                $"Unable to cast object of type '{obj?.GetType()}' to type '{typeof(T)}' while reading column '{col.Name}'.",
+                e);
+        }
     }
 
     /// <summary>
     /// Skips the current column.
     /// </summary>
     public void Skip() => _position++;
-
-    // TODO: Add read by name?
 }

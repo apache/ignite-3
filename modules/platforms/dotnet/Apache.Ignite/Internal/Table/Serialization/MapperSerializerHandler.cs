@@ -50,7 +50,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         var columns = schema.GetColumnsFor(keyOnly);
         var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Length);
 
-        var mapperReader = new MapperReader(ref binaryTupleReader, columns);
+        var mapperReader = new MapperReader(ref binaryTupleReader, columns, keyOnly);
         var mapperSchema = schema.GetMapperSchema(keyOnly);
 
         return _mapper.Read(ref mapperReader, mapperSchema);
