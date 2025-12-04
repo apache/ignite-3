@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -140,6 +139,9 @@ public final class ReliableChannel implements AutoCloseable {
     /** Address resolver. */
     private final InetAddressResolver addressResolver;
 
+    /** Scheduled executor for re-resolving addresses. */
+    private final ScheduledExecutorService reResolveAddressesExecutor;
+
     /**
      * A validator that is called when a connection to a node is established,
      * if it throws an exception, the network channel to that node will be closed.
@@ -176,6 +178,9 @@ public final class ReliableChannel implements AutoCloseable {
         inflights = new ClientTransactionInflights();
 
         addressResolver = requireNonNullElse(clientCfg.addressResolver(), InetAddressResolver.DEFAULT);
+        reResolveAddressesExecutor = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory("client-re-resolve-addresses-" + hashCode(), ClientUtils.logger(clientCfg, ReliableChannel.class))
+        );
     }
 
     /** {@inheritDoc} */
@@ -193,6 +198,7 @@ public final class ReliableChannel implements AutoCloseable {
         }
         closeables.add(connMgr::stop);
         closeables.add(() -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
+        closeables.add(() -> shutdownAndAwaitTermination(reResolveAddressesExecutor, 10, TimeUnit.SECONDS));
         IgniteUtils.closeAllManually(closeables);
     }
 
@@ -491,13 +497,10 @@ public final class ReliableChannel implements AutoCloseable {
     private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
         chFailLsnrs.forEach(Runnable::run);
 
-        if (scheduledChannelsReinit.compareAndSet(false, true)) {
-            // Refresh addresses and reinit channels.
-            initChannelHolders();
-        }
-
         // Roll current channel even if a topology changes. To help find working channel faster.
         rollCurrentChannel(hld);
+
+        reResolveAddressesExecutor.execute(this::reResolveAddresses);
     }
 
     /**
@@ -630,14 +633,6 @@ public final class ReliableChannel implements AutoCloseable {
             curChannelsGuard.writeLock().unlock();
         }
 
-        // Schedule the background re-resolve of addresses.
-        if (clientCfg.backgroundReResolveAddressesInterval() > 0L) {
-            supplyAsync(
-                    this::initChannelHolders,
-                    delayedExecutor(clientCfg.backgroundReResolveAddressesInterval(), TimeUnit.MILLISECONDS)
-            );
-        }
-
         return true;
     }
 
@@ -654,7 +649,15 @@ public final class ReliableChannel implements AutoCloseable {
         var fut = getDefaultChannelAsync();
 
         // Establish secondary connections in the background.
-        fut.thenAccept(unused -> ForkJoinPool.commonPool().submit(this::initAllChannelsAsync));
+        fut.thenAccept(unused -> {
+            ForkJoinPool.commonPool().submit(this::initAllChannelsAsync);
+
+            // Schedule the background re-resolve of addresses.
+            long interval = clientCfg.backgroundReResolveAddressesInterval();
+            if (interval > 0L) {
+                reResolveAddressesExecutor.scheduleWithFixedDelay(this::reResolveAddresses, interval, interval, TimeUnit.MILLISECONDS);
+            }
+        });
 
         return fut;
     }
@@ -803,10 +806,7 @@ public final class ReliableChannel implements AutoCloseable {
         var old = partitionAssignmentTimestamp.getAndUpdate(curTs -> Math.max(curTs, timestamp));
 
         if (timestamp > old) {
-            // New assignment timestamp, topology change possible.
-            if (scheduledChannelsReinit.compareAndSet(false, true)) {
-                initChannelHolders();
-            }
+            reResolveAddressesExecutor.execute(this::reResolveAddresses);
         }
     }
 
@@ -988,20 +988,6 @@ public final class ReliableChannel implements AutoCloseable {
             return ch;
         }
 
-        private void rollNodeChannelsByName() {
-            List<ClientChannelHolder> holders = channels;
-
-            for (ClientChannelHolder h : holders) {
-                if (h != this && h.serverNode != null && Objects.equals(serverNode.id(), h.serverNode.id())) {
-                    nodeChannelsByName.put(h.serverNode.name(), h);
-
-                    return;
-                }
-            }
-
-            nodeChannelsByName.remove(serverNode.name(), this);
-        }
-
         /**
          * Close channel.
          */
@@ -1055,6 +1041,20 @@ public final class ReliableChannel implements AutoCloseable {
 
             return ch != null && !ch.closed();
         }
+
+        private void rollNodeChannelsByName() {
+            List<ClientChannelHolder> holders = channels;
+
+            for (ClientChannelHolder h : holders) {
+                if (h != this && h.serverNode != null && Objects.equals(serverNode.id(), h.serverNode.id())) {
+                    nodeChannelsByName.put(h.serverNode.name(), h);
+
+                    return;
+                }
+            }
+
+            nodeChannelsByName.remove(serverNode.name(), this);
+        }
     }
 
     private void logFailedEstablishConnection(ClientChannelHolder ch, Throwable err) {
@@ -1075,5 +1075,12 @@ public final class ReliableChannel implements AutoCloseable {
     private static boolean isLogFailedEstablishConnectionExceptionStackTrace(Throwable err) {
         // May occur when nodes are restarted, which is expected.
         return !hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
+    }
+
+    /** Resolve addresses in background. */
+    private void reResolveAddresses() {
+        if (!closed && scheduledChannelsReinit.compareAndSet(false, true)) {
+            initChannelHolders();
+        }
     }
 }
