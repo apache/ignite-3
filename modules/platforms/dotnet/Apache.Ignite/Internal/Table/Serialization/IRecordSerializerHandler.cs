@@ -108,6 +108,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             T record,
             Schema schema,
             bool keyOnly,
-            scoped Span<byte> noValueSet);
+            Span<byte> noValueSet);
     }
 }

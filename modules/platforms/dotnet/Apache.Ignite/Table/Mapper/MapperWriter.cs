@@ -20,6 +20,7 @@ namespace Apache.Ignite.Table.Mapper;
 using System;
 using Internal.Proto.BinaryTuple;
 using Internal.Table;
+using Internal.Table.Serialization;
 using Sql;
 
 /// <summary>
@@ -28,6 +29,8 @@ using Sql;
 public ref struct MapperWriter
 {
     private readonly Schema _schema;
+
+    private readonly Span<byte> _noValueSet;
 
     private BinaryTupleBuilder _builder;
 
@@ -38,10 +41,12 @@ public ref struct MapperWriter
     /// </summary>
     /// <param name="builder">Builder.</param>
     /// <param name="schema">Schema.</param>
-    internal MapperWriter(ref BinaryTupleBuilder builder, Schema schema)
+    /// <param name="noValueSet">No-value set.</param>
+    internal MapperWriter(ref BinaryTupleBuilder builder, Schema schema, Span<byte> noValueSet)
     {
         _builder = builder;
         _schema = schema;
+        _noValueSet = noValueSet;
     }
 
     /// <summary>
@@ -72,5 +77,13 @@ public ref struct MapperWriter
             throw new InvalidOperationException(
                 $"Column type mismatch for {col.Name}. Expected: {col.Type}, actual: {actualType}, value: '{obj}'.");
         }
+    }
+
+    /// <summary>
+    /// Skips writing the next column (marks as not set, so that the default column value can be applied by the server).
+    /// </summary>
+    public void Skip()
+    {
+        _builder.AppendNoValue(_noValueSet);
     }
 }
