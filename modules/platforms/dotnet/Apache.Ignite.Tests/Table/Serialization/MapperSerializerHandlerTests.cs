@@ -60,7 +60,7 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                         break;
 
                     default:
-                        rowWriter.Write<object>(null);
+                        rowWriter.Skip();
                         break;
                 }
             }
@@ -109,7 +109,7 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                         break;
 
                     default:
-                        rowWriter.Write<object>(null);
+                        rowWriter.Skip();
                         break;
                 }
             }
