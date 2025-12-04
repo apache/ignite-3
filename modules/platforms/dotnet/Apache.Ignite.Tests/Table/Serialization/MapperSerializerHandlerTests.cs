@@ -25,18 +25,21 @@ using Internal.Table.Serialization;
 /// </summary>
 internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 {
-    protected override IRecordSerializerHandler<T> GetHandler<T>() => new MapperSerializerHandler<T>(new MyMapper<T>());
-
-    public class MyMapper<T> : IMapper<T>
+    protected override IRecordSerializerHandler<T> GetHandler<T>()
     {
-        public void Write(T obj, ref MapperWriter writer, IMapperSchema schema)
+        return new MapperSerializerHandler<T>((IMapper<T>)new PocoMapper());
+    }
+
+    public class PocoMapper : IMapper<Poco>
+    {
+        public void Write(Poco obj, ref MapperWriter writer, IMapperSchema schema)
         {
             // TODO
         }
 
-        public T Read(ref MapperReader reader, IMapperSchema schema)
+        public Poco Read(ref MapperReader reader, IMapperSchema schema)
         {
-            return default!;
+            return new Poco();
         }
     }
 }

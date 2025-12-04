@@ -58,5 +58,11 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         // TODO: keyOnly support.
         var mapperWriter = new MapperWriter(tupleBuilder, schema);
         _mapper.Write(record, ref mapperWriter, schema);
+
+        if (tupleBuilder.ElementIndex < tupleBuilder.NumElements)
+        {
+            throw new InvalidOperationException("Not all columns were written by the mapper. " +
+                $"Expected: {tupleBuilder.NumElements}, written: {tupleBuilder.ElementIndex}.");
+        }
     }
 }
