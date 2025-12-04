@@ -188,8 +188,8 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
             int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
 
-            writePartitionless(pageAddr + payloadOffset + NEXT_WRITE_INTENT_LINK_OFFSET, wiLinks.nextWriteIntentLink());
             writePartitionless(pageAddr + payloadOffset + PREV_WRITE_INTENT_LINK_OFFSET, wiLinks.prevWriteIntentLink());
+            writePartitionless(pageAddr + payloadOffset + NEXT_WRITE_INTENT_LINK_OFFSET, wiLinks.nextWriteIntentLink());
 
             return true;
         }

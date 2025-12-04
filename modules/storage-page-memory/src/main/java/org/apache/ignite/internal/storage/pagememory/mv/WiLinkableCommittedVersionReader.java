@@ -33,8 +33,8 @@ class WiLinkableCommittedVersionReader extends WiLinkableRowVersionReader {
                 link,
                 timestamp,
                 nextLink,
-                nextWiLink,
                 prevWiLink,
+                nextWiLink,
                 valueSize,
                 value
         );

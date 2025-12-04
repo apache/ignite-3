@@ -68,15 +68,15 @@ public final class WiLinkableRowVersion extends RowVersion {
     public static final int ROW_ID_LSB_OFFSET = TIMESTAMP_OFFSET;
 
     public static final int ROW_ID_MSB_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_SIZE_BYTES;
-    public static final int NEXT_WRITE_INTENT_LINK_OFFSET = ROW_ID_MSB_OFFSET + Long.BYTES;
-    public static final int PREV_WRITE_INTENT_LINK_OFFSET = NEXT_WRITE_INTENT_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
+    public static final int PREV_WRITE_INTENT_LINK_OFFSET = ROW_ID_MSB_OFFSET + Long.BYTES;
+    public static final int NEXT_WRITE_INTENT_LINK_OFFSET = PREV_WRITE_INTENT_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
 
-    public static final int VALUE_OFFSET = PREV_WRITE_INTENT_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
+    public static final int VALUE_OFFSET = NEXT_WRITE_INTENT_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
 
     private final @Nullable RowId rowId;
 
-    private final long nextWriteIntentLink;
     private final long prevWriteIntentLink;
+    private final long nextWriteIntentLink;
 
     /**
      * Constructor.
@@ -85,8 +85,8 @@ public final class WiLinkableRowVersion extends RowVersion {
             RowId rowId,
             int partitionId,
             long nextLink,
-            long nextWriteIntentLink,
             long prevWriteIntentLink,
+            long nextWriteIntentLink,
             @Nullable BinaryRow value
     ) {
         this(
@@ -95,8 +95,8 @@ public final class WiLinkableRowVersion extends RowVersion {
                 NULL_LINK,
                 null,
                 nextLink,
-                nextWriteIntentLink,
                 prevWriteIntentLink,
+                nextWriteIntentLink,
                 value == null ? 0 : value.tupleSliceLength(),
                 value
         );
@@ -111,8 +111,8 @@ public final class WiLinkableRowVersion extends RowVersion {
             long link,
             @Nullable HybridTimestamp timestamp,
             long nextLink,
-            long nextWriteIntentLink,
             long prevWriteIntentLink,
+            long nextWriteIntentLink,
             int valueSize,
             @Nullable BinaryRow value
     ) {
@@ -121,8 +121,8 @@ public final class WiLinkableRowVersion extends RowVersion {
         assert (timestamp == null) ^ (rowId == null) : "Either timestamp or rowId must be null";
 
         this.rowId = rowId;
-        this.nextWriteIntentLink = nextWriteIntentLink;
         this.prevWriteIntentLink = prevWriteIntentLink;
+        this.nextWriteIntentLink = nextWriteIntentLink;
     }
 
     public RowId requiredRowId() {
@@ -172,8 +172,8 @@ public final class WiLinkableRowVersion extends RowVersion {
             // We don't write row ID LSB in committed versions as it overlaps with timestamp.
         }
 
-        writePartitionless(pageAddr + dataOff + NEXT_WRITE_INTENT_LINK_OFFSET, nextWriteIntentLink);
         writePartitionless(pageAddr + dataOff + PREV_WRITE_INTENT_LINK_OFFSET, prevWriteIntentLink);
+        writePartitionless(pageAddr + dataOff + NEXT_WRITE_INTENT_LINK_OFFSET, nextWriteIntentLink);
     }
 
     @Override
@@ -192,8 +192,8 @@ public final class WiLinkableRowVersion extends RowVersion {
             pageBuf.putLong(0L);
         }
 
-        PartitionlessLinks.writeToBuffer(pageBuf, nextWriteIntentLink);
         PartitionlessLinks.writeToBuffer(pageBuf, prevWriteIntentLink);
+        PartitionlessLinks.writeToBuffer(pageBuf, nextWriteIntentLink);
     }
 
     @Override

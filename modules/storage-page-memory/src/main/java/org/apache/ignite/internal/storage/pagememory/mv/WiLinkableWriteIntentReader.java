@@ -54,8 +54,8 @@ class WiLinkableWriteIntentReader extends WiLinkableRowVersionReader {
                 link,
                 null,
                 nextLink,
-                nextWiLink,
                 prevWiLink,
+                nextWiLink,
                 valueSize,
                 value
         );

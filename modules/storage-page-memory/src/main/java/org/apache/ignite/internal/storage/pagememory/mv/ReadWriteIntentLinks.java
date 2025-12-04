@@ -32,8 +32,8 @@ class ReadWriteIntentLinks implements PageMemoryTraversal<Void> {
 
     private WriteIntentLinks result;
 
-    private long nextWiLink;
     private long prevWiLink;
+    private long nextWiLink;
 
     ReadWriteIntentLinks(int partitionId) {
         this.partitionId = partitionId;
@@ -50,8 +50,8 @@ class ReadWriteIntentLinks implements PageMemoryTraversal<Void> {
         assert dataType == WiLinkableRowVersion.WRITE_INTENT_DATA_TYPE || dataType == WiLinkableRowVersion.COMMITTED_DATA_TYPE
                 : "Unexpected data type: " + dataType;
 
-        nextWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
         prevWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);
+        nextWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
 
         return STOP_TRAVERSAL;
     }

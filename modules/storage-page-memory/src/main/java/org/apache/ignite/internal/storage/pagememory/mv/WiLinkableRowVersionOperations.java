@@ -85,8 +85,8 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
             putByte(pageAddr, payloadOffset + Storable.DATA_TYPE_OFFSET, WiLinkableRowVersion.COMMITTED_DATA_TYPE);
 
             HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
-            writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
             writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
+            writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
 
             return true;
         }
