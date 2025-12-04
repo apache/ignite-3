@@ -19,8 +19,10 @@ namespace Apache.Ignite.Table.Mapper;
 
 /// <summary>
 /// Maps table rows to objects of type <typeparamref name="T"/> and vice versa.
+/// <para />
+/// This API is performance-oriented and requires in-order reading and writing of all columns defined in the schema.
 /// </summary>
-/// <typeparam name="T">Object type.</typeparam>
+/// <typeparam name="T">Mapped object type.</typeparam>
 public interface IMapper<T>
 {
     /// <summary>
