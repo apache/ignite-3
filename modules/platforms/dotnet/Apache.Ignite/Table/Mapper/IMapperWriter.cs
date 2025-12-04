@@ -18,15 +18,15 @@
 namespace Apache.Ignite.Table.Mapper;
 
 /// <summary>
-/// Mapper reader.
+/// Mapper writer.
 /// </summary>
-public interface IMapperReader
+public interface IMapperWriter
 {
     /// <summary>
-    /// Returns the value of the specified column cast to type <typeparamref name="T"/>.
+    /// Writes the specified object to an Ignite table row.
+    /// This method must be called for every column in the schema, in the order of the columns (see <see cref="IMapper{T}.Write"/>).
     /// </summary>
-    /// <param name="ordinal">Column schema index.</param>
-    /// <typeparam name="T">Value type.</typeparam>
-    /// <returns>Column value.</returns>
-    T? Read<T>(int ordinal);
+    /// <param name="obj">Object.</param>
+    /// <typeparam name="T">Object type.</typeparam>
+    void Write<T>(T obj);
 }
