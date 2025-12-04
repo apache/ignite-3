@@ -86,7 +86,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final RowHandler<RowT> handler;
 
-    private final ExpressionFactory<RowT> expressionFactory;
+    private final ExpressionFactory expressionFactory;
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
@@ -131,7 +131,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param topologyVersion Topology version the query was mapped on.
      */
     public ExecutionContext(
-            ExpressionFactory<RowT> expressionFactory,
+            ExpressionFactory expressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
             InternalClusterNode localNode,
@@ -237,7 +237,7 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Get expression factory.
      */
-    public ExpressionFactory<RowT> expressionFactory() {
+    public ExpressionFactory expressionFactory() {
         return expressionFactory;
     }
 

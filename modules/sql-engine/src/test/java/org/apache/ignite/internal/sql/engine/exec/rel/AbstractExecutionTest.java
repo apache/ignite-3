@@ -143,7 +143,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
-                new ExpressionFactoryImpl<>(
+                new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,
@@ -409,11 +409,16 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         }
     }
 
-    static SqlJoinProjection<Object[]> identityProjection() {
-        return (c, r1, r2) -> ArrayUtils.concat(r1, r2);
+    static SqlJoinProjection identityProjection() {
+        return new SqlJoinProjection() {
+            @Override
+            public <RowT> RowT project(ExecutionContext<RowT> context, RowT left, RowT right) {
+                return (RowT) ArrayUtils.concat((Object[]) left, (Object[]) right);
+            }
+        };
     }
 
-    static @Nullable SqlJoinProjection<Object[]> createIdentityProjectionIfNeeded(JoinRelType type) {
+    static @Nullable SqlJoinProjection createIdentityProjectionIfNeeded(JoinRelType type) {
         if (type == SEMI || type == ANTI) {
             return null;
         }

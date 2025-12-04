@@ -1271,7 +1271,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),
                 clockService,
                 killCommandHandler,
-                new ExpressionFactoryImpl<>(
+                new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 SHUTDOWN_TIMEOUT

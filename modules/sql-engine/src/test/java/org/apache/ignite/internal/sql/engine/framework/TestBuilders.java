@@ -574,7 +574,7 @@ public class TestBuilders {
         @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
-                    new ExpressionFactoryImpl<>(
+                    new ExpressionFactoryImpl(
                             Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                     ),
                     Objects.requireNonNull(executor, "executor"),

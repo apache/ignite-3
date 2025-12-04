@@ -185,7 +185,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
     private final KillCommandHandler killCommandHandler;
 
-    private final ExpressionFactory<RowT> expressionFactory;
+    private final ExpressionFactory expressionFactory;
 
     /**
      * Constructor.
@@ -215,7 +215,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
-            ExpressionFactory<RowT> expressionFactory,
+            ExpressionFactory expressionFactory,
             long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
@@ -270,7 +270,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
-            ExpressionFactory<RowT> expressionFactory,
+            ExpressionFactory expressionFactory,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(

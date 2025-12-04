@@ -200,7 +200,7 @@ public class TestNode implements LifecycleAware {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
-                new ExpressionFactoryImpl<>(
+                new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 5_000

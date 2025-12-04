@@ -53,7 +53,7 @@ public class DynamicPartitionProvider<RowT> implements PartitionProvider<RowT> {
     /** {@inheritDoc} */
     @Override
     public List<PartitionWithConsistencyToken> getPartitions(ExecutionContext<RowT> ctx) {
-        ExpressionFactory<RowT> expressionFactory = ctx.expressionFactory();
+        ExpressionFactory expressionFactory = ctx.expressionFactory();
 
         return PartitionPruningPredicate.prunePartitions(ctx, columns, table, expressionFactory, assignments, nodeName);
     }

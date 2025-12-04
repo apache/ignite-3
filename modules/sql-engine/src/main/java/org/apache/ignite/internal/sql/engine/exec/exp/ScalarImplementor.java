@@ -75,25 +75,30 @@ class ScalarImplementor {
      * (which in turn may be of a complex type or collection).
      *
      * @param scalarExpression The expression to implement.
-     * @param <RowT> The type of the execution row.
      * @param <T> The type of the returned value by scalar.
      * @return An implemented scalar expression.
      * @see SqlScalar
      */
-    <RowT, T> SqlScalar<RowT, T> implement(RexNode scalarExpression) {
+    <T> SqlScalar<T> implement(RexNode scalarExpression) {
         if (scalarExpression instanceof RexLiteral) {
             Class<?> javaType = Primitives.wrap((Class<?>) typeFactory.getJavaClass(scalarExpression.getType()));
 
-            return context -> (T) RexUtils.literalValue(context, (RexLiteral) scalarExpression, javaType);
+            return new SqlScalar<>() {
+                @Override
+                public <RowT> T get(ExecutionContext<RowT> context) {
+                    //noinspection DataFlowIssue
+                    return (T) RexUtils.literalValue(context, (RexLiteral) scalarExpression, javaType);
+                }
+            };
         }
 
         String digest = digest(SqlScalar.class, List.of(scalarExpression), null);
-        Cache<String, SqlScalar<RowT, T>> cache = cast(this.cache);
+        Cache<String, SqlScalar<T>> cache = cast(this.cache);
 
         return cache.get(digest, key -> implementInternal(scalarExpression));
     }
 
-    private <RowT, T> SqlScalar<RowT, T> implementInternal(RexNode scalarValue) {
+    private <T> SqlScalar<T> implementInternal(RexNode scalarValue) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(emptyType, rexBuilder);
 
         programBuilder.addProject(scalarValue, null);
@@ -129,7 +134,7 @@ class ScalarImplementor {
                 Modifier.PUBLIC, Object.class, "get", params, tryCatchBlock.toBlock()
         );
 
-        Class<SqlScalar<RowT, T>> clazz = cast(SqlScalar.class);
+        Class<SqlScalar<T>> clazz = cast(SqlScalar.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 
