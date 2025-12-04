@@ -34,6 +34,9 @@ class IndexFileMeta {
     private final int indexFileOrdinal;
 
     IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, int indexFileOrdinal) {
+        assert firstLogIndexInclusive >= 0 : "Invalid first log index: " + firstLogIndexInclusive;
+        assert lastLogIndexExclusive >= 0 : "Invalid first log index: " + firstLogIndexInclusive;
+
         if (lastLogIndexExclusive < firstLogIndexInclusive) {
             throw new IllegalArgumentException("Invalid log index range: [" + firstLogIndexInclusive + ", " + lastLogIndexExclusive + ").");
         }

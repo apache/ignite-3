@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Math.toIntExact;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
@@ -56,13 +58,23 @@ class SegmentInfo {
             return new ArrayWithSize(array, size + 1);
         }
 
-        ArrayWithSize truncate(int newSize) {
+        ArrayWithSize truncateSuffix(int newSize) {
+            return truncate(0, newSize);
+        }
+
+        ArrayWithSize truncatePrefix(int newSize) {
+            int srcPos = size - newSize;
+
+            return truncate(srcPos, newSize);
+        }
+
+        private ArrayWithSize truncate(int srcPos, int newSize) {
             assert newSize <= size
                     : String.format("Array must shrink on truncation, current size: %d, size after truncation: %d", size, newSize);
 
-            int[] newArray = new int[size];
+            int[] newArray = new int[array.length];
 
-            System.arraycopy(array, 0, newArray, 0, newSize);
+            System.arraycopy(array, srcPos, newArray, 0, newSize);
 
             return new ArrayWithSize(newArray, newSize);
         }
@@ -92,14 +104,30 @@ class SegmentInfo {
      */
     private final long logIndexBase;
 
+    private final long firstIndexKept;
+
     /**
      * Offsets in a segment file.
      */
     @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
-    private volatile ArrayWithSize segmentFileOffsets = new ArrayWithSize();
+    private volatile ArrayWithSize segmentFileOffsets;
 
     SegmentInfo(long logIndexBase) {
+        this(logIndexBase, -1, new ArrayWithSize());
+    }
+
+    SegmentInfo(long logIndexBase, long firstIndexKept) {
+        this(logIndexBase, firstIndexKept, new ArrayWithSize());
+    }
+
+    static SegmentInfo prefixTombstone(long firstIndexKept) {
+        return new SegmentInfo(-1, firstIndexKept);
+    }
+
+    private SegmentInfo(long logIndexBase, long firstIndexKept, ArrayWithSize segmentFileOffsets) {
         this.logIndexBase = logIndexBase;
+        this.firstIndexKept = firstIndexKept;
+        this.segmentFileOffsets = segmentFileOffsets;
     }
 
     /**
@@ -113,13 +141,7 @@ class SegmentInfo {
                 String.format("Log indexes are not monotonically increasing [logIndex=%d, expectedLogIndex=%d].",
                         logIndex, logIndexBase + segmentFileOffsets.size());
 
-        ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.add(segmentFileOffset);
-
-        // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
-        // this invariant, just in case.
-        boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, segmentFileOffsets, newSegmentFileOffsets);
-
-        assert updated : "Concurrent writes detected";
+        setSegmentFileOffsets(segmentFileOffsets, segmentFileOffsets.add(segmentFileOffset));
     }
 
     /**
@@ -156,6 +178,17 @@ class SegmentInfo {
     }
 
     /**
+     * Returns the log index used during prefix truncation or {@code -1} if no prefix truncation was issued.
+     */
+    long firstIndexKept() {
+        return firstIndexKept;
+    }
+
+    boolean isPrefixTombstone() {
+        return logIndexBase == -1;
+    }
+
+    /**
      * Returns the number of offsets stored in this memtable.
      */
     int size() {
@@ -168,29 +201,74 @@ class SegmentInfo {
     void saveOffsetsTo(ByteBuffer buffer) {
         ArrayWithSize offsets = segmentFileOffsets;
 
+        assert offsets.size() > 0 : "Offsets array must not be empty";
+
         buffer.asIntBuffer().put(offsets.array, 0, offsets.size);
     }
 
     /**
      * Removes all data which log indices are strictly greater than {@code lastLogIndexKept}.
      */
-    void truncateSuffix(long lastLogIndexKept) {
+    SegmentInfo truncateSuffix(long lastLogIndexKept) {
         assert lastLogIndexKept >= logIndexBase : String.format("logIndexBase=%d, lastLogIndexKept=%d", logIndexBase, lastLogIndexKept);
 
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
-        long newSize = lastLogIndexKept - logIndexBase + 1;
+        long lastLogIndexExclusive = logIndexBase + segmentFileOffsets.size();
 
-        // Not using an assertion here, because this value comes doesn't come from the storage code.
-        if (newSize > segmentFileOffsets.size()) {
+        // Not using an assertion here, because this value doesn't come from the storage code.
+        if (lastLogIndexKept >= lastLogIndexExclusive) {
             throw new IllegalArgumentException(String.format(
                     "lastLogIndexKept is too large. Last index in memtable: %d, lastLogIndexKept: %d",
-                    logIndexBase + segmentFileOffsets.size() - 1, lastLogIndexKept
+                    lastLogIndexExclusive - 1, lastLogIndexKept
             ));
         }
 
-        ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.truncate((int) newSize);
+        int newSize = toIntExact(lastLogIndexKept - logIndexBase + 1);
 
+        setSegmentFileOffsets(segmentFileOffsets, segmentFileOffsets.truncateSuffix(newSize));
+
+        // This could have been a "void" method, but this way it looks consistent with "truncatePrefix".
+        return this;
+    }
+
+    /**
+     * Removes all data which log indices are strictly smaller than {@code firstIndexKept}.
+     */
+    SegmentInfo truncatePrefix(long firstIndexKept) {
+        if (isPrefixTombstone()) {
+            if (this.firstIndexKept >= firstIndexKept) {
+                throw new IllegalStateException(String.format(
+                        "Trying to truncate an already truncated prefix [curFirstIndexKept=%d, newFirstIndexKept=%d]",
+                        this.firstIndexKept, firstIndexKept
+                ));
+            }
+
+            return prefixTombstone(firstIndexKept);
+        }
+
+        ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
+
+        if (firstIndexKept < logIndexBase) {
+            return new SegmentInfo(logIndexBase, firstIndexKept, segmentFileOffsets);
+        }
+
+        long lastLogIndexExclusive = logIndexBase + segmentFileOffsets.size();
+
+        // Not using an assertion here, because this value doesn't come from the storage code.
+        if (firstIndexKept >= lastLogIndexExclusive) {
+            throw new IllegalArgumentException(String.format(
+                    "firstIndexKept is too large. Last index in memtable: %d, firstIndexKept: %d",
+                    lastLogIndexExclusive - 1, firstIndexKept
+            ));
+        }
+
+        int newSize = toIntExact(lastLogIndexExclusive - firstIndexKept);
+
+        return new SegmentInfo(firstIndexKept, firstIndexKept, segmentFileOffsets.truncatePrefix(newSize));
+    }
+
+    private void setSegmentFileOffsets(ArrayWithSize segmentFileOffsets, ArrayWithSize newSegmentFileOffsets) {
         // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
         // this invariant, just in case.
         boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, segmentFileOffsets, newSegmentFileOffsets);

@@ -66,12 +66,6 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         super.testReset();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26285")
-    @Override
-    public void testTruncatePrefix() {
-        super.testTruncatePrefix();
-    }
-
     @ParameterizedTest
     // Number of entries is chosen to test scenarios with zero index files and with multiple index files.
     @ValueSource(ints = { 15, 100_000 })
@@ -97,6 +91,9 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
         logStorage.truncateSuffix(lastIndexKept);
 
+        assertThat(logStorage.getFirstLogIndex(), is(0L));
+        assertThat(logStorage.getLastLogIndex(), is(lastIndexKept));
+
         logStorage.shutdown();
         segmentFileManager.close();
 
@@ -105,5 +102,27 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
         assertThat(logStorage.getFirstLogIndex(), is(0L));
         assertThat(logStorage.getLastLogIndex(), is(lastIndexKept));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = { 15, 100_000 })
+    public void firstAndLastLogIndexAfterPrefixTruncateAndRestart(int numEntries) throws Exception {
+        logStorage.appendEntries(TestUtils.mockEntries(numEntries));
+
+        long lastIndexKept = numEntries / 2;
+
+        logStorage.truncatePrefix(lastIndexKept);
+
+        assertThat(logStorage.getFirstLogIndex(), is(lastIndexKept));
+        assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
+
+        logStorage.shutdown();
+        segmentFileManager.close();
+
+        logStorage = newLogStorage();
+        logStorage.init(newLogStorageOptions());
+
+        assertThat(logStorage.getFirstLogIndex(), is(lastIndexKept));
+        assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
     }
 }

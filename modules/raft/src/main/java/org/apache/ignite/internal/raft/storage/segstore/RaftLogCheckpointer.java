@@ -104,11 +104,8 @@ class RaftLogCheckpointer {
 
     /**
      * Searches for the segment payload corresponding to the given Raft Group ID and Raft Log Index in the checkpoint queue.
-     *
-     * @return {@code ByteBuffer} which position is set to the start of the corresponding segment payload or {@code null} if the payload has
-     *         not been found in all files currently present in the queue.
      */
-    @Nullable ByteBuffer findSegmentPayloadInQueue(long groupId, long logIndex) {
+    @Nullable EntrySearchResult findSegmentPayloadInQueue(long groupId, long logIndex) {
         Iterator<Entry> it = queue.tailIterator();
 
         while (it.hasNext()) {
@@ -116,10 +113,25 @@ class RaftLogCheckpointer {
 
             SegmentInfo segmentInfo = e.memTable().segmentInfo(groupId);
 
-            int segmentPayloadOffset = segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
+            if (segmentInfo == null) {
+                continue;
+            }
+
+            if (segmentInfo.lastLogIndexExclusive() <= logIndex) {
+                return EntrySearchResult.empty();
+            }
+
+            if (segmentInfo.firstIndexKept() > logIndex) {
+                // This is a prefix tombstone and it cuts off the log index we search for.
+                return EntrySearchResult.empty();
+            }
+
+            int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
 
             if (segmentPayloadOffset != 0) {
-                return e.segmentFile().buffer().position(segmentPayloadOffset);
+                ByteBuffer entryBuffer = e.segmentFile().buffer().position(segmentPayloadOffset);
+
+                return new EntrySearchResult(entryBuffer);
             }
         }
 
