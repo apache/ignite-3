@@ -59,6 +59,14 @@ public ref struct MapperReader
 
         var col = _schema[pos];
 
+        // TODO: Use KeyIndex/SchemaIndex.
         return (T?)_reader.GetObject(pos, col.Type, col.Scale);
     }
+
+    /// <summary>
+    /// Skips the current column.
+    /// </summary>
+    public void Skip() => _position++;
+
+    // TODO: Add read by name?
 }

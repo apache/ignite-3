@@ -45,7 +45,7 @@ public ref struct MapperWriter
     internal MapperWriter(ref BinaryTupleBuilder builder, Schema schema, Span<byte> noValueSet)
     {
         _builder = builder;
-        _schema = schema;
+        _schema = schema; // TODO: Pass schema subset.
         _noValueSet = noValueSet;
     }
 

@@ -55,11 +55,27 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 
         public Poco Read(ref MapperReader reader, IMapperSchema schema)
         {
-            return new Poco
+            var res = new Poco();
+
+            foreach (var column in schema.Columns)
             {
-                Key = reader.Read<long>(),
-                Val = schema.Columns.Count > 1 ? reader.Read<string?>() : null
-            };
+                switch (column.Name)
+                {
+                    case "Key":
+                        res.Key = reader.Read<long>();
+                        break;
+
+                    case "Val":
+                        res.Val = reader.Read<string?>();
+                        break;
+
+                    default:
+                        reader.Skip();
+                        break;
+                }
+            }
+
+            return res;
         }
     }
 }
