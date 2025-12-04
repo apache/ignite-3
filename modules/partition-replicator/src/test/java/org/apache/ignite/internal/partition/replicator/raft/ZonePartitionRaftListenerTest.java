@@ -571,7 +571,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(StorageUpdateHandler.class),
                 txStatePartitionStorage,
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L),
                 mock(CatalogService.class),
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),
@@ -580,7 +579,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
     }

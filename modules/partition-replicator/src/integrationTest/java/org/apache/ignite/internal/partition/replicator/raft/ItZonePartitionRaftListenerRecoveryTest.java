@@ -401,7 +401,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 storageUpdateHandler,
                 txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId()),
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaRegistry,
                 indexMetaStorage,
@@ -410,7 +409,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
     }

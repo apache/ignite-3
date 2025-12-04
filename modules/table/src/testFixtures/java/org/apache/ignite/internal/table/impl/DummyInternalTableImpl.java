@@ -311,7 +311,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
 
@@ -536,7 +535,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 safeTime,
-                storageIndexTracker,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
@@ -545,8 +543,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                enabledColocation ? zonePartitionId : tablePartitionId
+                zonePartitionId
         );
 
         if (enabledColocation) {

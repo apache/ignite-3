@@ -236,7 +236,6 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME))
         );
 

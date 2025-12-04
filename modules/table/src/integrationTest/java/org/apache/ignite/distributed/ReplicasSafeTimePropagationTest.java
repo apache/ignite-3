@@ -395,7 +395,6 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(StorageUpdateHandler.class),
                             mock(TxStatePartitionStorage.class),
                             safeTs,
-                            mock(PendingComparableValuesTracker.class),
                             mock(CatalogService.class),
                             mock(SchemaRegistry.class),
                             mock(IndexMetaStorage.class),
@@ -404,7 +403,6 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(Executor.class),
                             placementDriver,
                             clockService,
-                            new SystemPropertiesNodeProperties(),
                             GROUP_ID
                     ) {
                         @Override
