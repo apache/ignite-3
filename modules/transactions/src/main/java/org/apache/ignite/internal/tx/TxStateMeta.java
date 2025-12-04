@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
@@ -223,14 +225,14 @@ public class TxStateMeta implements TransactionMeta {
     }
 
     /**
-     * Mutate the old meta if it's not null, otherwise create a new builder with the provided txState.
+     * Creates a builder for nullable TxStateMeta.
      *
      * @param old Old meta.
-     * @param txStateIfOldIsNull Transaction state to use if the old meta is null.
+     * @param txState Transaction state to use. If old meta is null, the builder will be created with this state.
      * @return Builder.
      */
-    public static TxStateMetaBuilder mutate(@Nullable TxStateMeta old, TxState txStateIfOldIsNull) {
-        return old == null ? builder(txStateIfOldIsNull) : old.mutate();
+    public static TxStateMetaBuilder builder(@Nullable TxStateMeta old, TxState txState) {
+        return old == null ? builder(txState) : old.mutate().txState(txState);
     }
 
     /**
@@ -246,7 +248,7 @@ public class TxStateMeta implements TransactionMeta {
      * Builder for TxStateMeta.
      */
     public static class TxStateMetaBuilder {
-        private final TxState txState;
+        protected TxState txState;
         protected @Nullable UUID txCoordinatorId;
         protected @Nullable ReplicationGroupId commitPartitionId;
         private @Nullable HybridTimestamp commitTimestamp;
@@ -270,6 +272,11 @@ public class TxStateMeta implements TransactionMeta {
             this.isFinishedDueToTimeout = old.isFinishedDueToTimeout;
             this.txLabel = old.txLabel;
             this.tx = old.tx;
+        }
+
+        public TxStateMetaBuilder txState(TxState txState) {
+            this.txState = txState;
+            return this;
         }
 
         public TxStateMetaBuilder txCoordinatorId(@Nullable UUID txCoordinatorId) {
@@ -318,17 +325,25 @@ public class TxStateMeta implements TransactionMeta {
          * @return TxStateMeta.
          */
         public TxStateMeta build() {
-            return new TxStateMeta(
-                    txState,
-                    txCoordinatorId,
-                    commitPartitionId,
-                    commitTimestamp,
-                    tx,
-                    initialVacuumObservationTimestamp,
-                    cleanupCompletionTimestamp,
-                    isFinishedDueToTimeout,
-                    txLabel
-            );
+            requireNonNull(txState, "txState must not be null");
+
+            if (txState == FINISHING) {
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+            } else if (txState == ABANDONED) {
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
+            } else {
+                return new TxStateMeta(
+                        txState,
+                        txCoordinatorId,
+                        commitPartitionId,
+                        commitTimestamp,
+                        tx,
+                        initialVacuumObservationTimestamp,
+                        cleanupCompletionTimestamp,
+                        isFinishedDueToTimeout,
+                        txLabel
+                );
+            }
         }
     }
 }

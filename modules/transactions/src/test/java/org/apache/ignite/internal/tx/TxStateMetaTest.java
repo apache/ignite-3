@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.internal.tx.TxStateMeta.mutate;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.test.TxStateMetaTestUtils.assertTxStateMetaIsSame;
 import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 
@@ -97,7 +97,7 @@ public class TxStateMetaTest {
         return Stream.of(
                 args("setInitialTs", COMMITTED_META, BASE_WITH_IVOT, m -> m.mutate().initialVacuumObservationTimestamp(1000L).build()),
                 args("setCleanupTs", COMMITTED_META, BASE_WITH_CCT, m -> m.mutate().cleanupCompletionTimestamp(1000L).build()),
-                args("initMeta", null, COMMITTED_META, m -> mutate(null, COMMITTED)
+                args("initMeta", null, COMMITTED_META, m -> builder(null, COMMITTED)
                         .txCoordinatorId(COMMITTED_META.txCoordinatorId())
                         .commitPartitionId(COMMITTED_META.commitPartitionId())
                         .commitTimestamp(COMMITTED_META.commitTimestamp())

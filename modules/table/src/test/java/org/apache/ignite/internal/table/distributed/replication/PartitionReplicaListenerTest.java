@@ -49,6 +49,7 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.test.TxStateMetaTestUtils.assertTxStateMetaIsSame;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -1926,17 +1927,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void txStateMessageConversion() {
-        TxStateMeta txStateMeta = new TxStateMeta(
-                TxState.PENDING,
-                UUID.randomUUID(),
-                new ZonePartitionId(1, 1),
-                hybridTimestamp(1),
-                null,
-                null,
-                null,
-                false,
-                "test-tx-label"
-        );
+        TxStateMeta txStateMeta = TxStateMeta.builder(PENDING)
+                .txCoordinatorId(UUID.randomUUID())
+                .commitPartitionId(new ZonePartitionId(1, 1))
+                .commitTimestamp(hybridTimestamp(1))
+                .txLabel("test-tx-label")
+                .build();
 
         assertTxStateMetaIsSame(
                 txStateMeta,
