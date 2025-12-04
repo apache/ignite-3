@@ -759,7 +759,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlBatchException>(
                 async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1]]));
 
-            Assert.AreEqual("Statement of type \"Query\" is not allowed in current context", ex.Message);
+            Assert.AreEqual("Statement of type \"Query\" is not allowed in current context [allowedTypes=[DML]].", ex.Message);
         }
 
         [Test]
