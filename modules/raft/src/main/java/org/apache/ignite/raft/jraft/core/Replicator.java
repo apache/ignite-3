@@ -608,7 +608,7 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void installSnapshot() {
-        long lastIncludedTerm = installSnapshotIfNeeded(-1);
+        long lastIncludedTerm = installSnapshotIfNeeded(NOT_SPECIFIED_NEXT_SENDING_INDEX);
 
         assert lastIncludedTerm == NOT_SPECIFIED_LAST_INCLUDED_TERM;
     }
