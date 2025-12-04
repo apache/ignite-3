@@ -151,11 +151,8 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
-            where T : notnull
-        {
-            // TODO
-            throw new NotImplementedException();
-        }
+            where T : notnull =>
+            new RecordView<T>(this, new RecordSerializer<T>(this, new MapperSerializerHandler<T>(mapper)), _sql);
 
         /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
