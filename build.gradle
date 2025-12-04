@@ -18,13 +18,30 @@
 import com.github.spotbugs.snom.SpotBugsTask
 
 buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
     dependencies {
         classpath "org.shipkit:shipkit-auto-version:1.1.1"
         classpath "org.shipkit:shipkit-changelog:1.1.1"
-        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.24.5"
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:5.2.3"
+    }
+    
+    // Force Jackson to use version compatible with the project
+    configurations.classpath {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'com.fasterxml.jackson.core') {
+                details.useVersion '2.17.0'
+                details.because 'Force Jackson version compatible with OpenAPI generator'
+            }
+            if (details.requested.group == 'com.fasterxml.jackson.dataformat') {
+                details.useVersion '2.17.0'
+                details.because 'Force Jackson version compatible with OpenAPI generator'
+            }
+        }
     }
 }
-//This need for resolving plugins in buildscripts
+
 plugins {
     id('idea')
     alias(libs.plugins.ideaext)
