@@ -24,13 +24,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Diagnostics.CodeAnalysis;
     using System.Numerics;
     using Ignite.Sql;
-    using Ignite.Table.Mapper;
     using NodaTime;
 
     /// <summary>
     /// Binary tuple reader.
     /// </summary>
-    internal readonly ref struct BinaryTupleReader : IMapperReader
+    internal readonly ref struct BinaryTupleReader
     {
         /** Buffer. */
         private readonly ReadOnlySpan<byte> _buffer;
@@ -521,9 +520,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw;
             }
         }
-
-        /// <inheritdoc/>
-        public T? Read<T>(IMapperColumn column) => (T?)GetObject(column.);
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
         {
