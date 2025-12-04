@@ -24,11 +24,11 @@ using Internal.Table.Serialization;
 using Sql;
 
 /// <summary>
-/// Mapper writer.
+/// Row writer for mappers. Writes columns in the order defined by the schema.
 /// </summary>
 public ref struct MapperWriter
 {
-    private readonly Schema _schema;
+    private readonly Column[] _schema;
 
     private readonly Span<byte> _noValueSet;
 
@@ -42,10 +42,10 @@ public ref struct MapperWriter
     /// <param name="builder">Builder.</param>
     /// <param name="schema">Schema.</param>
     /// <param name="noValueSet">No-value set.</param>
-    internal MapperWriter(ref BinaryTupleBuilder builder, Schema schema, Span<byte> noValueSet)
+    internal MapperWriter(ref BinaryTupleBuilder builder, Column[] schema, Span<byte> noValueSet)
     {
         _builder = builder;
-        _schema = schema; // TODO: Pass schema subset.
+        _schema = schema;
         _noValueSet = noValueSet;
     }
 
@@ -64,12 +64,12 @@ public ref struct MapperWriter
     {
         var pos = _position++;
 
-        if (pos >= _schema.Columns.Length)
+        if (pos >= _schema.Length)
         {
-            throw new InvalidOperationException($"No more columns to write. Total columns: {_schema.Columns.Length}.");
+            throw new InvalidOperationException($"No more columns to write. Total columns: {_schema.Length}.");
         }
 
-        Column col = _schema.Columns[pos];
+        Column col = _schema[pos];
         ColumnType actualType = _builder.AppendObjectAndGetType(obj);
 
         if (col.Type != actualType)
