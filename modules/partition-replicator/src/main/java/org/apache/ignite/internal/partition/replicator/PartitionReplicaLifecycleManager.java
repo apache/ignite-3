@@ -1417,14 +1417,14 @@ public class PartitionReplicaLifecycleManager extends
                     // stable = [A, B, C], pending = [C, force] and only C should be started.
                     CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
 
-                    assert isRecovery || replicaFut != null && isCompletedSuccessfully(replicaFut) :
+                    assert replicaFut != null || isRecovery :
                             "The local node is outside of the replication group ["
                             + ", groupId=" + replicaGrpId
                             + ", stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
 
-                    if (replicaFut == null || !isCompletedSuccessfully(replicaFut)) {
+                    if (replicaFut == null || isRecovery && !isCompletedSuccessfully(replicaFut)) {
                         return;
                     }
 
