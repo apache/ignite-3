@@ -17,10 +17,12 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using Ignite.Table.Mapper;
     using Proto.BinaryTuple;
 
     /// <summary>
@@ -46,7 +48,14 @@ namespace Apache.Ignite.Internal.Table
         IReadOnlyDictionary<string, Column> ColumnsByName,
         IHashedColumnIndexProvider HashedColumnIndexProvider,
         IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
+    : IMapperSchema
     {
+        private readonly Lazy<IReadOnlyList<IMapperColumn>> _mapperColumnsLazy =
+            new(() => Columns.Cast<IMapperColumn>().ToArray());
+
+        /// <inheritdoc/>
+        IReadOnlyList<IMapperColumn> IMapperSchema.Columns => _mapperColumnsLazy.Value;
+
         /// <summary>
         /// Gets column by name.
         /// </summary>

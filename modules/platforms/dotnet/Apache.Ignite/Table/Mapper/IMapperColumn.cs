@@ -30,11 +30,6 @@ public interface IMapperColumn
     string Name { get; }
 
     /// <summary>
-    /// Gets the column index in the schema.
-    /// </summary>
-    int Ordinal { get; }
-
-    /// <summary>
     /// Gets the column type.
     /// </summary>
     ColumnType Type { get; }
