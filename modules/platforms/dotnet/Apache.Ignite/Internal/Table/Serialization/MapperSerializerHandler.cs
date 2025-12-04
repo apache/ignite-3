@@ -45,6 +45,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
+        // TODO: keyOnly support.
         var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.Columns.Length);
         var mapperReader = new MapperReader(binaryTupleReader, schema);
 
@@ -54,6 +55,8 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
-        throw new NotImplementedException();
+        // TODO: keyOnly support.
+        var mapperWriter = new MapperWriter(tupleBuilder, schema);
+        _mapper.Write(record, ref mapperWriter, schema);
     }
 }
