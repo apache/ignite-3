@@ -17,16 +17,55 @@
 
 namespace Apache.Ignite.Table.Mapper;
 
+using System;
+using Internal.Proto.BinaryTuple;
+using Internal.Table;
+using Sql;
+
 /// <summary>
 /// Mapper writer.
 /// </summary>
-public interface IMapperWriter
+public ref struct MapperWriter
 {
+    private readonly Schema _schema;
+
+    private BinaryTupleBuilder _builder;
+
+    private int _position;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MapperWriter"/> struct.
+    /// </summary>
+    /// <param name="builder">Builder.</param>
+    /// <param name="schema">Schema.</param>
+    internal MapperWriter(BinaryTupleBuilder builder, Schema schema)
+    {
+        _builder = builder;
+        _schema = schema;
+    }
+
     /// <summary>
     /// Writes the specified object to an Ignite table row.
     /// This method must be called for every column in the schema, in the order of the columns (see <see cref="IMapper{T}.Write"/>).
     /// </summary>
     /// <param name="obj">Object.</param>
     /// <typeparam name="T">Object type.</typeparam>
-    void Write<T>(T obj);
+    public void Write<T>(T obj)
+    {
+        var pos = _position++;
+
+        if (pos >= _schema.Columns.Length)
+        {
+            throw new InvalidOperationException($"No more columns to write. Total columns: {_schema.Columns.Length}.");
+        }
+
+        Column col = _schema.Columns[pos];
+        ColumnType actualType = _builder.AppendObjectAndGetType(obj);
+
+        if (col.Type != actualType)
+        {
+            throw new InvalidOperationException(
+                $"Column type mismatch for {col.Name}. Expected: {col.Type}, actual: {actualType}, value: '{obj}'.");
+        }
+    }
 }

@@ -29,7 +29,7 @@ public interface IMapper<T>
     /// <param name="obj">Object.</param>
     /// <param name="writer">Row writer.</param>
     /// <param name="schema">Row schema.</param>
-    void Write(T obj, IMapperWriter writer, IMapperSchema schema);
+    void Write(T obj, MapperWriter writer, IMapperSchema schema);
 
     /// <summary>
     /// Reads an object of type <typeparamref name="T"/> from an Ignite table row.
@@ -37,5 +37,5 @@ public interface IMapper<T>
     /// <param name="reader">Row reader.</param>
     /// <param name="schema">Row schema.</param>
     /// <returns>Object.</returns>
-    T Read(IMapperReader reader, IMapperSchema schema);
+    T Read(ref MapperReader reader, IMapperSchema schema);
 }
