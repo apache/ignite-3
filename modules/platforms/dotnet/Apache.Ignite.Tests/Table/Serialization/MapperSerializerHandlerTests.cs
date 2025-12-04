@@ -34,12 +34,32 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
     {
         public void Write(Poco obj, ref MapperWriter writer, IMapperSchema schema)
         {
-            // TODO
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "Key":
+                        writer.Write(obj.Key);
+                        break;
+
+                    case "Val":
+                        writer.Write(obj.Val);
+                        break;
+
+                    default:
+                        writer.Write<object>(null);
+                        break;
+                }
+            }
         }
 
         public Poco Read(ref MapperReader reader, IMapperSchema schema)
         {
-            return new Poco();
+            return new Poco
+            {
+                Key = reader.Read<long>(),
+                Val = reader.Read<string?>()
+            };
         }
     }
 }

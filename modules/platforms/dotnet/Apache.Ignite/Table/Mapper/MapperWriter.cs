@@ -38,7 +38,7 @@ public ref struct MapperWriter
     /// </summary>
     /// <param name="builder">Builder.</param>
     /// <param name="schema">Schema.</param>
-    internal MapperWriter(BinaryTupleBuilder builder, Schema schema)
+    internal MapperWriter(ref BinaryTupleBuilder builder, Schema schema)
     {
         _builder = builder;
         _schema = schema;
@@ -50,7 +50,7 @@ public ref struct MapperWriter
     /// </summary>
     /// <param name="obj">Object.</param>
     /// <typeparam name="T">Object type.</typeparam>
-    public void Write<T>(T obj)
+    public void Write<T>(T? obj)
     {
         var pos = _position++;
 

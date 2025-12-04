@@ -37,7 +37,7 @@ public ref struct MapperReader
     /// </summary>
     /// <param name="reader">Reader.</param>
     /// <param name="schema">Schema.</param>
-    internal MapperReader(BinaryTupleReader reader, Schema schema)
+    internal MapperReader(ref BinaryTupleReader reader, Schema schema)
     {
         _reader = reader;
         _schema = schema;
