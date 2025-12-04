@@ -121,9 +121,10 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             IgniteSql igniteSql,
             String schema,
             int resHoldability,
-            String sql
+            String sql,
+            int queryTimeoutSeconds
     ) {
-        super(connection, igniteSql, schema, resHoldability);
+        super(connection, igniteSql, schema, resHoldability, queryTimeoutSeconds);
 
         this.sql = sql;
     }
