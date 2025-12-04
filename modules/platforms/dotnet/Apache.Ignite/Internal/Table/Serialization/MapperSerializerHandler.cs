@@ -45,7 +45,10 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        throw new NotImplementedException();
+        var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.Columns.Length);
+        IMapperReader mapperReader = null!;
+
+        return _mapper.Read(mapperReader, schema);
     }
 
     /// <inheritdoc/>

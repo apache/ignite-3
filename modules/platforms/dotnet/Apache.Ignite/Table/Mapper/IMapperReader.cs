@@ -25,8 +25,8 @@ public interface IMapperReader
     /// <summary>
     /// Returns the value of the specified column cast to type <typeparamref name="T"/>.
     /// </summary>
-    /// <param name="ordinal">Column schema index.</param>
+    /// <param name="column">Column.</param>
     /// <typeparam name="T">Value type.</typeparam>
     /// <returns>Column value.</returns>
-    T? Read<T>(int ordinal);
+    T? Read<T>(IMapperColumn column); // TODO: Remove generics?
 }
