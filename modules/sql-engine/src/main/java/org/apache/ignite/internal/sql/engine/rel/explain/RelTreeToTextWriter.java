@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -342,9 +343,10 @@ class RelTreeToTextWriter {
 
     private static String beautifySearchBounds(List<SearchBounds> searchBounds) {
         return searchBounds.stream()
+                .filter(Objects::nonNull)
                 .flatMap(bounds -> {
                     if (bounds.type() == SearchBounds.Type.MULTI) {
-                        return ((MultiBounds) bounds).bounds().stream();
+                        return ((MultiBounds) bounds).bounds().stream().filter(Objects::nonNull);
                     }
                     return Stream.of(bounds);
                 })
