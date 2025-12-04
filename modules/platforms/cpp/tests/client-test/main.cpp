@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
         runner.stop();
     });
 
-    if (!check_test_node_connectable(std::chrono::seconds(5)) && false) {
+    if (!check_test_node_connectable(std::chrono::seconds(5))) {
         runner.start();
         ensure_node_connectable(std::chrono::seconds(60));
     }
