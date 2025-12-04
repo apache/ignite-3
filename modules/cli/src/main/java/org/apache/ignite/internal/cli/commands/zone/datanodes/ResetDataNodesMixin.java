@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RESET_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RESET_ZONE_NAMES_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RESET_DATA_NODES_ZONE_NAMES_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RESET_DATA_NODES_ZONE_NAMES_OPTION_DESC;
 
 import java.util.List;
 import picocli.CommandLine.Option;
@@ -26,8 +26,8 @@ import picocli.CommandLine.Option;
 /** Arguments for reset data nodes command. */
 public class ResetDataNodesMixin {
     @Option(
-            names = RESET_ZONE_NAMES_OPTION,
-            description = RESET_ZONE_NAMES_OPTION_DESC,
+            names = RESET_DATA_NODES_ZONE_NAMES_OPTION,
+            description = RESET_DATA_NODES_ZONE_NAMES_OPTION_DESC,
             split = ","
     )
     private List<String> zoneNames;
