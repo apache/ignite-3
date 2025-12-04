@@ -83,6 +83,9 @@ public class Replicator implements ThreadId.OnError {
     /** The log. */
     private static final IgniteLogger LOG = Loggers.forClass(Replicator.class);
 
+    private static final long NOT_SPECIFIED_LAST_INCLUDED_TERM = -1;
+    private static final long NOT_SPECIFIED_NEXT_SENDING_INDEX = -1;
+
     private final RaftClientService rpcService;
     private final IgniteThrottledLogger throttledLogger;
     // Next sending log index
@@ -607,28 +610,29 @@ public class Replicator implements ThreadId.OnError {
     void installSnapshot() {
         long lastIncludedTerm = installSnapshotIfNeeded(-1);
 
-        assert lastIncludedTerm == -1;
+        assert lastIncludedTerm == NOT_SPECIFIED_LAST_INCLUDED_TERM;
     }
 
     /**
      * Tries to install snapshot. If next log index to send is provided, will skip snapshot if it doesn't contain required index and
      * append entries should be sent instead.
      *
-     * @param nextSendingIndex Next log index to send or -1.
-     * @return -1 If snapshot installed or failed, snapshot last included term if it doesn't contain required send index.
+     * @param nextSendingIndex Next log index to send or {@link #NOT_SPECIFIED_NEXT_SENDING_INDEX}.
+     * @return {@link #NOT_SPECIFIED_LAST_INCLUDED_TERM} If snapshot installed or failed, snapshot last included term if it doesn't contain
+     * required send index.
      */
     private long installSnapshotIfNeeded(long nextSendingIndex) {
         if (getState() == State.Snapshot) {
             LOG.warn("Replicator is installing snapshot, ignoring the new request [node={}].", this.options.getNode().getNodeId());
             unlockId();
-            return -1;
+            return NOT_SPECIFIED_LAST_INCLUDED_TERM;
         }
         boolean doUnlock = true;
         if (!this.rpcService.connect(this.options.getPeerId())) {
             throttledLogger.warn("Fail to check install snapshot connection to node={}, give up to send install snapshot request."
                             + " Check if node is up.", this.options.getNode().getNodeId());
             block(Utils.nowMs(), RaftError.EHOSTDOWN.getNumber());
-            return -1;
+            return NOT_SPECIFIED_LAST_INCLUDED_TERM;
         }
         try {
             Requires.requireTrue(this.reader == null,
@@ -642,7 +646,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return -1;
+                return NOT_SPECIFIED_LAST_INCLUDED_TERM;
             }
             final String uri = this.reader.generateURIForCopy();
             if (uri == null) {
@@ -653,7 +657,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return -1;
+                return NOT_SPECIFIED_LAST_INCLUDED_TERM;
             }
             final RaftOutter.SnapshotMeta meta = this.reader.load();
             if (meta == null) {
@@ -665,7 +669,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return -1;
+                return NOT_SPECIFIED_LAST_INCLUDED_TERM;
             }
 
             // If the snapshot doesn't have new entries, ignore it.
@@ -710,7 +714,7 @@ public class Replicator implements ThreadId.OnError {
                 });
             addInflight(RequestType.Snapshot, this.nextIndex, 0, 0, seq, rpcFuture);
 
-            return -1;
+            return NOT_SPECIFIED_LAST_INCLUDED_TERM;
         }
         finally {
             if (doUnlock) {
@@ -1707,7 +1711,7 @@ public class Replicator implements ThreadId.OnError {
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
             // If snapshot was not skipped, unlocked id in installSnapshot
             long lastIncludedTerm = installSnapshotIfNeeded(nextSendingIndex);
-            if (lastIncludedTerm == -1) {
+            if (lastIncludedTerm == NOT_SPECIFIED_LAST_INCLUDED_TERM) {
                 return false;
             }
             // If snapshot was skipped, append entries request should be sent instead
