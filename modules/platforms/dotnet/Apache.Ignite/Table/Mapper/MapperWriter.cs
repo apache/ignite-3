@@ -62,8 +62,6 @@ public ref struct MapperWriter
     /// <typeparam name="T">Object type.</typeparam>
     public void Write<T>(T? obj)
     {
-        // TODO: Allow writing in arbitrary order by column name. If the order matches schema order, we can avoid lookups.
-        // Otherwise, put values into a map or a separate BinaryTuple.
         var pos = _position++;
 
         if (pos >= _schema.Columns.Length)
@@ -84,8 +82,5 @@ public ref struct MapperWriter
     /// <summary>
     /// Skips writing the next column (marks as not set, so that the default column value can be applied by the server).
     /// </summary>
-    public void Skip()
-    {
-        _builder.AppendNoValue(_noValueSet);
-    }
+    public void Skip() => _builder.AppendNoValue(_noValueSet);
 }
