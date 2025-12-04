@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.cli.call.management.zone;
 
 import java.util.List;
-import org.apache.ignite.internal.cli.commands.zone.datanodes.RecalculateDataNodesMixin;
+import org.apache.ignite.internal.cli.commands.zone.datanodes.ResetDataNodesMixin;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 /**
- * Input for {@link RecalculateDataNodesCall}.
+ * Input for {@link ResetDataNodesCall}.
  */
-public class RecalculateDataNodesCallInput implements CallInput {
+public class ResetDataNodesCallInput implements CallInput {
     private final List<String> zoneNames;
     private final String clusterUrl;
 
-    private RecalculateDataNodesCallInput(List<String> zoneNames, String clusterUrl) {
+    private ResetDataNodesCallInput(List<String> zoneNames, String clusterUrl) {
         this.zoneNames = zoneNames;
         this.clusterUrl = clusterUrl;
     }
@@ -40,11 +40,11 @@ public class RecalculateDataNodesCallInput implements CallInput {
      * @param clusterUrl Cluster URL.
      * @return Call input.
      */
-    public static RecalculateDataNodesCallInput of(RecalculateDataNodesMixin mixin, String clusterUrl) {
-        return new RecalculateDataNodesCallInput(mixin.zoneNames(), clusterUrl);
+    public static ResetDataNodesCallInput of(ResetDataNodesMixin mixin, String clusterUrl) {
+        return new ResetDataNodesCallInput(mixin.zoneNames(), clusterUrl);
     }
 
-    /** Returns zone names to recalculate data nodes for. */
+    /** Returns zone names to reset data nodes for. */
     public List<String> zoneNames() {
         return zoneNames;
     }

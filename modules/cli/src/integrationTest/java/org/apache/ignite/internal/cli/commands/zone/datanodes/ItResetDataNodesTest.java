@@ -24,8 +24,8 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Base test class for recalculate data nodes commands. */
-public abstract class ItRecalculateDataNodesTest extends CliIntegrationTest {
+/** Base test class for reset data nodes commands. */
+public abstract class ItResetDataNodesTest extends CliIntegrationTest {
     private static final String ZONE1 = "test_zone_1";
     private static final String ZONE2 = "test_zone_2";
 
@@ -36,7 +36,7 @@ public abstract class ItRecalculateDataNodesTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRecalculateAllZones() {
+    public void testResetAllZones() {
         execute(CLUSTER_URL_OPTION, NODE_URL);
 
         assertErrOutputIsEmpty();
@@ -44,7 +44,7 @@ public abstract class ItRecalculateDataNodesTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRecalculateSpecifiedZones() {
+    public void testResetSpecifiedZones() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 "--zone-names", ZONE1 + "," + ZONE2);
 
@@ -53,7 +53,7 @@ public abstract class ItRecalculateDataNodesTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRecalculateSingleZone() {
+    public void testResetSingleZone() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 "--zone-names", ZONE1);
 
@@ -62,7 +62,7 @@ public abstract class ItRecalculateDataNodesTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRecalculateNonExistentZone() {
+    public void testResetNonExistentZone() {
         String unknownZone = "unknown_zone";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -74,7 +74,7 @@ public abstract class ItRecalculateDataNodesTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRecalculateMixedZones() {
+    public void testResetMixedZones() {
         String unknownZone = "unknown_zone";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
