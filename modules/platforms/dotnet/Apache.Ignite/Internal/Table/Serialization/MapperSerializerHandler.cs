@@ -59,6 +59,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         var mapperWriter = new MapperWriter(ref tupleBuilder, schema);
         _mapper.Write(record, ref mapperWriter, schema);
 
+        // NOTE: MapperWriter constructor makes a copy of the builder, but this is ok since the underlying buffer is shared.
         if (mapperWriter.Builder.ElementIndex < mapperWriter.Builder.NumElements)
         {
             throw new InvalidOperationException("Not all columns were written by the mapper. " +
