@@ -105,4 +105,7 @@ artifactory {
 
 artifactoryPublish {
     skip = project.hasProperty('artifactory.dryRun')
+    
+    // Always re-run this task, don't use up-to-date checks
+    outputs.upToDateWhen { false }
 }
