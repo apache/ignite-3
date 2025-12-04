@@ -19,6 +19,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
+import org.apache.ignite.internal.pagememory.io.DataPagePayload;
+
 abstract class WiLinkableRowVersionReader extends PlainRowVersionReader {
     protected long nextWiLink;
     protected long prevWiLink;
@@ -28,10 +30,10 @@ abstract class WiLinkableRowVersionReader extends PlainRowVersionReader {
     }
 
     @Override
-    public void readFromPage(long pageAddr, int offset) {
-        super.readFromPage(pageAddr, offset);
+    public void readFromPage(long pageAddr, DataPagePayload payload) {
+        super.readFromPage(pageAddr, payload);
 
-        nextWiLink = readPartitionless(partitionId, pageAddr, offset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
-        prevWiLink = readPartitionless(partitionId, pageAddr, offset + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);
+        nextWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
+        prevWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);
     }
 }

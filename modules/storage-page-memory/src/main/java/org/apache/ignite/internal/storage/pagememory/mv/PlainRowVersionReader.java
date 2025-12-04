@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
@@ -40,11 +41,11 @@ class PlainRowVersionReader implements RowVersionReader {
     }
 
     @Override
-    public void readFromPage(long pageAddr, int offset) {
-        nextLink = RowVersion.readNextLink(partitionId, pageAddr, offset);
-        timestamp = readTimestamp(pageAddr, offset);
-        schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, offset + RowVersion.SCHEMA_VERSION_OFFSET));
-        valueSize = PageUtils.getInt(pageAddr, offset + RowVersion.VALUE_SIZE_OFFSET);
+    public void readFromPage(long pageAddr, DataPagePayload payload) {
+        nextLink = RowVersion.readNextLink(partitionId, pageAddr, payload.offset());
+        timestamp = readTimestamp(pageAddr, payload.offset());
+        schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, payload.offset() + RowVersion.SCHEMA_VERSION_OFFSET));
+        valueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
     }
 
     protected @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {

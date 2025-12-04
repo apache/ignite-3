@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
@@ -31,11 +32,11 @@ class WiLinkableWriteIntentReader extends WiLinkableRowVersionReader {
     }
 
     @Override
-    public void readFromPage(long pageAddr, int offset) {
-        super.readFromPage(pageAddr, offset);
+    public void readFromPage(long pageAddr, DataPagePayload payload) {
+        super.readFromPage(pageAddr, payload);
 
-        long rowIdMsb = PageUtils.getLong(pageAddr, offset + WiLinkableRowVersion.ROW_ID_MSB_OFFSET);
-        long rowIdLsb = PageUtils.getLong(pageAddr, offset + WiLinkableRowVersion.ROW_ID_LSB_OFFSET);
+        long rowIdMsb = PageUtils.getLong(pageAddr, payload.offset() + WiLinkableRowVersion.ROW_ID_MSB_OFFSET);
+        long rowIdLsb = PageUtils.getLong(pageAddr, payload.offset() + WiLinkableRowVersion.ROW_ID_LSB_OFFSET);
 
         rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
     }
