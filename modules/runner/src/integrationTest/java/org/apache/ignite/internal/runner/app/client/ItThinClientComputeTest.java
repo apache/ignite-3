@@ -1172,4 +1172,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             return context.ignite().tables().table(TABLE_NAME).recordView().upsertAllAsync(null, tuples);
         }
     }
+
+    /** Simple job which always return null value. */
+    public static class ReturnNullJob implements ComputeJob<Void, String> {
+        @Override
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable Void arg) {
+            return null;
+        }
+    }
 }
