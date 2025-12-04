@@ -45,6 +45,11 @@ public ref struct MapperWriter
     }
 
     /// <summary>
+    /// Gets the builder.
+    /// </summary>
+    internal readonly BinaryTupleBuilder Builder => _builder;
+
+    /// <summary>
     /// Writes the specified object to an Ignite table row.
     /// This method must be called for every column in the schema, in the order of the columns (see <see cref="IMapper{T}.Write"/>).
     /// </summary>

@@ -59,7 +59,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         var mapperWriter = new MapperWriter(ref tupleBuilder, schema);
         _mapper.Write(record, ref mapperWriter, schema);
 
-        if (tupleBuilder.ElementIndex < tupleBuilder.NumElements)
+        if (mapperWriter.Builder.ElementIndex < mapperWriter.Builder.NumElements)
         {
             throw new InvalidOperationException("Not all columns were written by the mapper. " +
                 $"Expected: {tupleBuilder.NumElements}, written: {tupleBuilder.ElementIndex}.");
