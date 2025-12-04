@@ -1016,8 +1016,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <returns>Resulting column type.</returns>
-        public ColumnType AppendObjectAndGetType(
-            object? value)
+        /// <typeparam name="T">Value type.</typeparam>
+        public ColumnType AppendObjectAndGetType<T>(T? value)
         {
             switch (value)
             {
