@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.WriteIntentListSupport.removeNodeFromWriteIntentsList;
 import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
@@ -87,6 +88,9 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
             HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
             writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
             writePartitionless(pageAddr + payloadOffset + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET, NULL_LINK);
+
+            // We don't need to clear row ID LSB as it overlaps with timestamp and is already overwritten.
+            putLong(pageAddr, payloadOffset + WiLinkableRowVersion.ROW_ID_MSB_OFFSET, 0L);
 
             return true;
         }
