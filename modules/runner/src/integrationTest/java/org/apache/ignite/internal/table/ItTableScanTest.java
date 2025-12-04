@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -35,6 +36,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -89,6 +92,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -538,11 +542,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")),
-                "Failed to acquire a lock due to a possible deadlock"
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"))
         );
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
@@ -612,16 +613,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, scannedRows.size());
 
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")),
-                "Failed to acquire a lock due to a possible deadlock");
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")),
-                "Failed to acquire a lock due to a possible deadlock");
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"))
+        );
+
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"))
+        );
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -1075,5 +1073,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         tx.assignCommitPartition(replicationGroupId);
 
         return tx;
+    }
+
+    private static void assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(Executable operation) {
+        TransactionException transactionException = (TransactionException) IgniteTestUtils.assertThrowsWithCode(
+                TransactionException.class,
+                Transactions.ACQUIRE_LOCK_ERR,
+                operation,
+                "Lock acquiring failed during request handling"
+        );
+
+        Throwable rootCause = unwrapRootCause(transactionException);
+        assertInstanceOf(PossibleDeadlockOnLockAcquireException.class, rootCause);
+        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock due to a possible deadlock"));
     }
 }

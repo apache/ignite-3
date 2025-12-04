@@ -763,14 +763,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     }
 
     private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                full ? COMMITTED : PENDING,
-                txCoordinatorId,
-                old == null ? null : old.commitPartitionId(),
-                full ? commitTimestamp : null,
-                old == null ? null : old.tx(),
-                old == null ? null : old.isFinishedDueToTimeout()
-        ));
+        txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, full ? COMMITTED : PENDING)
+                .txCoordinatorId(txCoordinatorId)
+                .commitTimestamp(full ? commitTimestamp : null)
+                .build()
+        );
     }
 
     /**

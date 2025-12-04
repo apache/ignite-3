@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_FORMAT_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_FORMAT_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
 import static picocli.CommandLine.Help.Visibility.ALWAYS;
 
 import jakarta.inject.Inject;
@@ -63,6 +64,7 @@ public class FormatMixin {
     }
 
     private boolean isHighlightEnabled() {
-        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
+        return isTreeSitterParserAvailable()
+                && Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 }

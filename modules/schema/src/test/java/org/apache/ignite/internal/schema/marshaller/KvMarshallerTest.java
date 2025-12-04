@@ -329,7 +329,7 @@ public class KvMarshallerTest {
         );
 
         Throwable ex = assertThrows(
-                ClassCastException.class,
+                MarshallerException.class,
                 () -> factory.create(schema, TestSimpleObjectKey.class, TestSimpleObjectVal.class));
 
         assertThat(

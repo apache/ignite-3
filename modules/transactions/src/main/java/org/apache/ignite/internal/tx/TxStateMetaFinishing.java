@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.internal.tx.message.TxStateMetaFinishingMessage;
+import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,11 +42,15 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
      * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
+     * @param txLabel Transaction label.
      */
     public TxStateMetaFinishing(
-            @Nullable UUID txCoordinatorId, @Nullable ReplicationGroupId commitPartitionId, @Nullable Boolean isFinishingDueToTimeout
+            @Nullable UUID txCoordinatorId,
+            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable Boolean isFinishingDueToTimeout,
+            @Nullable String txLabel
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, isFinishingDueToTimeout);
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, null, null, isFinishingDueToTimeout, txLabel);
     }
 
     /**
@@ -66,22 +68,11 @@ public class TxStateMetaFinishing extends TxStateMeta {
     }
 
     @Override
-    public TxStateMetaFinishingMessage toTransactionMetaMessage(
+    public TxStateMetaMessage toTransactionMetaMessage(
             ReplicaMessagesFactory replicaMessagesFactory,
             TxMessagesFactory txMessagesFactory
     ) {
-        ReplicationGroupId commitPartitionId = commitPartitionId();
-
-        return txMessagesFactory.txStateMetaFinishingMessage()
-                .txState(txState())
-                .txCoordinatorId(txCoordinatorId())
-                .commitPartitionId(
-                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
-                )
-                .commitTimestamp(commitTimestamp())
-                .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
-                .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
-                .build();
+        throw new AssertionError("This state shouldn't be transferred over the network.");
     }
 
     @Override
@@ -108,5 +99,28 @@ public class TxStateMetaFinishing extends TxStateMeta {
         result = 31 * result + txFinishFuture.hashCode();
 
         return result;
+    }
+
+    @Override
+    public TxStateMetaBuilder mutate() {
+        return new TxStateMetaFinishingBuilder(this);
+    }
+
+    /**
+     * Builder for {@link TxStateMetaAbandoned} instances.
+     */
+    public static class TxStateMetaFinishingBuilder extends TxStateMetaBuilder {
+        TxStateMetaFinishingBuilder(TxStateMeta old) {
+            super(old);
+        }
+
+        @Override
+        public TxStateMeta build() {
+            if (txState == TxState.FINISHING) {
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+            } else {
+                return super.build();
+            }
+        }
     }
 }

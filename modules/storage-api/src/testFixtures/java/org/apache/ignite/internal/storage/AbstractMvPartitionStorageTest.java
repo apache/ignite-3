@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.storage.AddWriteResultMatcher.equalsToA
 import static org.apache.ignite.internal.storage.CommitResultMatcher.equalsToCommitResult;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -53,9 +54,15 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -2076,6 +2083,48 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    void testPeekEmptyStorage() {
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 1), empty());
+    }
+
+    @Test
+    void testPeek() {
+        var commitTimestamp = new HybridTimestamp(10, 0);
+
+        addWriteCommitted(ROW_ID, binaryRow, commitTimestamp);
+        addWriteCommitted(ROW_ID, binaryRow, commitTimestamp.addPhysicalTime(10));
+        addWriteCommitted(ROW_ID, binaryRow, commitTimestamp.addPhysicalTime(20));
+
+        Matcher<GcEntry> expGcEntry0 = eqGcEntry(new TestGcEntry(ROW_ID, commitTimestamp.addPhysicalTime(10)));
+        Matcher<GcEntry> expGcEntry1 = eqGcEntry(new TestGcEntry(ROW_ID, commitTimestamp.addPhysicalTime(20)));
+
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 0), empty());
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 1), contains(expGcEntry0));
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 2), contains(expGcEntry0, expGcEntry1));
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 3), contains(expGcEntry0, expGcEntry1));
+
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 0), empty());
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 1), empty());
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 2), empty());
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 3), empty());
+
+        assertThat(storage.peek(commitTimestamp, 0), empty());
+        assertThat(storage.peek(commitTimestamp, 1), empty());
+        assertThat(storage.peek(commitTimestamp, 2), empty());
+        assertThat(storage.peek(commitTimestamp, 3), empty());
+
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 0), empty());
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 1), contains(expGcEntry0));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 2), contains(expGcEntry0));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 3), contains(expGcEntry0));
+
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 0), empty());
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 1), contains(expGcEntry0));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 2), contains(expGcEntry0, expGcEntry1));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 3), contains(expGcEntry0, expGcEntry1));
+    }
+
+    @Test
     protected void writeIntentsCursorIsEmptyEvenWhenHavingWriteIntents() {
         addWrite(ROW_ID, binaryRow, txId);
 
@@ -2107,6 +2156,20 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         return new RowId(value.partitionId(), msb, lsb);
     }
 
+    protected static Matcher<GcEntry> eqGcEntry(GcEntry gcEntry) {
+        return new TypeSafeMatcher<>() {
+            @Override
+            protected boolean matchesSafely(GcEntry item) {
+                return gcEntry.getRowId().equals(item.getRowId()) && gcEntry.getTimestamp().equals(item.getTimestamp());
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendValue(gcEntry);
+            }
+        };
+    }
+
     private enum ScanTimestampProvider {
         NOW {
             @Override
@@ -2122,5 +2185,34 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         };
 
         abstract HybridTimestamp scanTimestamp(HybridClock clock);
+    }
+
+    /** Implementation for tests. */
+    protected static class TestGcEntry implements GcEntry {
+        @IgniteToStringInclude
+        private final RowId rowId;
+
+        @IgniteToStringInclude
+        private final HybridTimestamp timestamp;
+
+        protected TestGcEntry(RowId rowId, HybridTimestamp timestamp) {
+            this.rowId = rowId;
+            this.timestamp = timestamp;
+        }
+
+        @Override
+        public RowId getRowId() {
+            return rowId;
+        }
+
+        @Override
+        public HybridTimestamp getTimestamp() {
+            return timestamp;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 }
