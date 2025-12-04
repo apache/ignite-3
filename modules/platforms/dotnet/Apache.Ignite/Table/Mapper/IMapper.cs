@@ -27,6 +27,25 @@ public interface IMapper<T>
 {
     /// <summary>
     /// Writes the specified object to an Ignite table row.
+    /// <para />
+    /// The columns must be written in the order defined by the schema. A typical implementation looks like this:
+    /// <code>
+    /// foreach (var column in schema.Columns)
+    /// {
+    ///     switch (column.Name)
+    ///     {
+    ///         case "Column1":
+    ///             rowWriter.Write(obj.Property1);
+    ///             break;
+    ///         case "Column2":
+    ///             rowWriter.Write(obj.Property2);
+    ///             break;
+    ///         default:
+    ///             rowWriter.Skip(); // Unmapped column.
+    ///             break;
+    ///     }
+    /// }
+    /// </code>
     /// </summary>
     /// <param name="obj">Object.</param>
     /// <param name="rowWriter">Row writer.</param>
