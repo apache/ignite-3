@@ -572,12 +572,14 @@ TEST_F(compute_test, job_execution_change_priority) {
 }
 
 TEST_F(compute_test, job_execution_return_null) {
-
     auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_return_null_job, {});
-    execution.get_result();
+    std::optional<binary_object> res = execution.get_result();
 
     auto state = execution.get_state();
 
     ASSERT_TRUE(state.has_value());
     EXPECT_EQ(job_status::COMPLETED, state->status);
+
+    ASSERT_TRUE(res.has_value());
+    ASSERT_TRUE(res->get_primitive().is_null());
 }
