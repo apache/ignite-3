@@ -27,7 +27,7 @@ Sort
                 index: L_SD
                 type: SORTED
                 predicate: <=(L_SHIPDATE, 1998-09-02)
-                searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=null, lowerInclude=true, shouldComputeUpper=true, upperBound=1998-09-02, upperInclude=true]]
+                searchBounds: [..<1998-09-02>]
                 fieldNames: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, $f4, $f5, L_DISCOUNT]
                 projection: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), +(1, L_TAX)), L_DISCOUNT]
                 collation: []
