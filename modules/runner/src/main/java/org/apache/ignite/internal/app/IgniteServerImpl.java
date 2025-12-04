@@ -505,7 +505,6 @@ public class IgniteServerImpl implements IgniteServer {
 
     private static void logAvailableResources() {
         LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
-        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
     }
 
     private static void logOsInfo() {
