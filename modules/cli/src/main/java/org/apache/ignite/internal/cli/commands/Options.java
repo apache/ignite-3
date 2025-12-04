@@ -336,9 +336,9 @@ public enum Options {
         /** Config update file option description. */
         public static final String CONFIG_UPDATE_FILE_OPTION_DESC = "Path to file with config update commands to execute";
 
-        public static final String RECALCULATE_ZONE_NAMES_OPTION = "--zone-names";
+        public static final String RESET_ZONE_NAMES_OPTION = "--zone-names";
 
-        public static final String RECALCULATE_ZONE_NAMES_OPTION_DESC = "Comma-separated list of zone names to recalculate data nodes for. "
-                + "If not specified, recalculates for all zones.";
+        public static final String RESET_ZONE_NAMES_OPTION_DESC = "Comma-separated list of zone names to reset data nodes for. "
+                + "If not specified, resets for all zones.";
     }
 }

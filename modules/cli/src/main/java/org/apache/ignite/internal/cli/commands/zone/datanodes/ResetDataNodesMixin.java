@@ -17,10 +17,23 @@
 
 package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
-/** Test class for {@link RecalculateDataNodesReplCommand}. */
-public class ItRecalculateDataNodesReplCommandTest extends ItRecalculateDataNodesTest {
-    @Override
-    protected Class<?> getCommandClass() {
-        return RecalculateDataNodesReplCommand.class;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RESET_ZONE_NAMES_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RESET_ZONE_NAMES_OPTION_DESC;
+
+import java.util.List;
+import picocli.CommandLine.Option;
+
+/** Arguments for reset data nodes command. */
+public class ResetDataNodesMixin {
+    @Option(
+            names = RESET_ZONE_NAMES_OPTION,
+            description = RESET_ZONE_NAMES_OPTION_DESC,
+            split = ","
+    )
+    private List<String> zoneNames;
+
+    /** Returns names of zones to reset data nodes for. */
+    public List<String> zoneNames() {
+        return zoneNames;
     }
 }
