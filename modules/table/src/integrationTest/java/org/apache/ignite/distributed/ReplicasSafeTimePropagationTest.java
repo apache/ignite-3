@@ -45,7 +45,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -76,7 +75,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -87,7 +86,6 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -114,7 +112,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     private static final int BASE_PORT = 1234;
 
-    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+    private static final ZonePartitionId GROUP_ID = new ZonePartitionId(1, 0);
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 

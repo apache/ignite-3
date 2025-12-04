@@ -147,8 +147,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             Executor partitionOperationsExecutor,
             LeasePlacementDriver placementDriver,
             ClockService clockService,
-            // TODO sanpwc Convert to ZonePartitionId
-            ReplicationGroupId realReplicationGroupId
+            ZonePartitionId realReplicationGroupId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -159,8 +158,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.localNodeId = localNodeId;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
-        // TODO sanpwc remove
-        this.realReplicationGroupId = (ZonePartitionId) realReplicationGroupId;
+        this.realReplicationGroupId = realReplicationGroupId;
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
