@@ -34,70 +34,62 @@ signing {
 }
 
 ////////////////////////////////////////////////
-// Artifactory publishing
+// Artifactory publishing (version 5.x API)
 ////////////////////////////////////////////////
 
 // Configure Artifactory after evaluation to avoid serialization issues
 afterEvaluate {
-    artifactory {
-        contextUrl = 'https://linkedin.jfrog.io/artifactory'
-        publish {
-            repository {
-                repoKey = 'ignite-3'
-                username = System.getenv('ARTIFACTORY_USER')
-                password = System.getenv('ARTIFACTORY_KEY')
-                maven = true
-            }
+        artifactory {
+            clientConfig.setIncludeEnvVars(false)
+            
+            publish {
+                contextUrl = 'https://linkedin.jfrog.io/artifactory'
+                repository {
+                    repoKey = 'ignite-3'
+                    username = System.getenv('ARTIFACTORY_USER')
+                    password = System.getenv('ARTIFACTORY_KEY')
+                }
 
-            defaults {
-                // Use publication names as strings, not objects
-                publications('maven')
-                publishArtifacts = true
-                publishPom = true
-            }
-        }
-
-        resolve {
-            repository {
-                repoKey = 'release'
-                username = System.getenv('ARTIFACTORY_USER')
-                password = System.getenv('ARTIFACTORY_KEY')
-                maven = true
-            }
-        }
-    }
-
-    tasks.named('artifactoryPublish').configure {
-        skip = project.hasProperty('artifactory.dryRun')
-        
-        // Always re-run this task, don't use up-to-date checks
-        outputs.upToDateWhen { false }
-        
-        doFirst {
-            if (project.hasProperty('artifactory.dryRun')) {
-                logger.lifecycle("DRY RUN: Would publish ${project.name} to Artifactory")
-            } else {
-                logger.lifecycle("Publishing ${project.name} to Artifactory at https://linkedin.jfrog.io/artifactory")
-                logger.lifecycle("  Repository: ignite-3")
-                logger.lifecycle("  User: ${System.getenv('ARTIFACTORY_USER') ?: 'NOT SET'}")
-                
-                // Log the actual artifacts being published
-                def mavenPub = project.publishing.publications.findByName('maven')
-                if (mavenPub) {
-                    logger.lifecycle("  Artifacts to upload:")
-                    mavenPub.artifacts.each { artifact ->
-                        def file = artifact.file
-                        def size = file.exists() ? String.format("%.2f KB", file.length() / 1024.0) : "N/A"
-                        logger.lifecycle("    - ${file.name} (${size})")
-                    }
+                defaults {
+                    // Use publication names as strings, not objects
+                    publications('maven')
+                    publishArtifacts = true
+                    publishPom = true
                 }
             }
         }
-        
-        doLast {
-            if (!project.hasProperty('artifactory.dryRun')) {
-                logger.lifecycle("✓ Completed publishing ${project.name} to Artifactory")
+
+        tasks.named('artifactoryPublish').configure {
+            skip = project.hasProperty('artifactory.dryRun')
+            
+            // Always re-run this task, don't use up-to-date checks
+            outputs.upToDateWhen { false }
+
+            doFirst {
+                if (project.hasProperty('artifactory.dryRun')) {
+                    logger.lifecycle("DRY RUN: Would publish ${project.name} to Artifactory")
+                } else {
+                    logger.lifecycle("Publishing ${project.name} to Artifactory at https://linkedin.jfrog.io/artifactory")
+                    logger.lifecycle("  Repository: ignite-3")
+                    logger.lifecycle("  User: ${System.getenv('ARTIFACTORY_USER') ?: 'NOT SET'}")
+
+                    // Log the actual artifacts being published
+                    def mavenPub = project.publishing.publications.findByName('maven')
+                    if (mavenPub) {
+                        logger.lifecycle("  Artifacts to upload:")
+                        mavenPub.artifacts.each { artifact ->
+                            def file = artifact.file
+                            def size = file.exists() ? String.format("%.2f KB", file.length() / 1024.0) : "N/A"
+                            logger.lifecycle("    - ${file.name} (${size})")
+                        }
+                    }
+                }
+            }
+
+            doLast {
+                if (!project.hasProperty('artifactory.dryRun')) {
+                    logger.lifecycle("✓ Completed publishing ${project.name} to Artifactory")
+                }
             }
         }
-    }
 }
