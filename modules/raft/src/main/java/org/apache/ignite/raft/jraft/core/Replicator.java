@@ -605,30 +605,30 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void installSnapshot() {
-        boolean installed = installSnapshotIfNeeded(null);
+        long lastIncludedTerm = installSnapshotIfNeeded(-1);
 
-        assert installed;
+        assert lastIncludedTerm == -1;
     }
 
-    /** 
-    * Tries to install snapshot. If append entries request is provided, will skip snapshot if it doesn't contain required send index and
-    * append entries should be sent instead.
-    *
-    * @param rb Append entries request builder, must contain prevLogIndex.
-    * @return true If snapshot installed or failed, false if append entries request should be sent instead.
-    */
-    private boolean installSnapshotIfNeeded(@Nullable AppendEntriesRequestBuilder rb) {
+    /**
+     * Tries to install snapshot. If next log index to send is provided, will skip snapshot if it doesn't contain required index and
+     * append entries should be sent instead.
+     *
+     * @param nextSendingIndex Next log index to send or -1.
+     * @return -1 If snapshot installed or failed, snapshot last included term if it doesn't contain required send index.
+     */
+    private long installSnapshotIfNeeded(long nextSendingIndex) {
         if (getState() == State.Snapshot) {
             LOG.warn("Replicator is installing snapshot, ignoring the new request [node={}].", this.options.getNode().getNodeId());
             unlockId();
-            return true;
+            return -1;
         }
         boolean doUnlock = true;
         if (!this.rpcService.connect(this.options.getPeerId())) {
             throttledLogger.warn("Fail to check install snapshot connection to node={}, give up to send install snapshot request."
                             + " Check if node is up.", this.options.getNode().getNodeId());
             block(Utils.nowMs(), RaftError.EHOSTDOWN.getNumber());
-            return true;
+            return -1;
         }
         try {
             Requires.requireTrue(this.reader == null,
@@ -642,7 +642,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return true;
+                return -1;
             }
             final String uri = this.reader.generateURIForCopy();
             if (uri == null) {
@@ -653,7 +653,7 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return true;
+                return -1;
             }
             final RaftOutter.SnapshotMeta meta = this.reader.load();
             if (meta == null) {
@@ -665,11 +665,11 @@ public class Replicator implements ThreadId.OnError {
                 unlockId();
                 doUnlock = false;
                 node.onError(error);
-                return true;
+                return -1;
             }
 
             // If the snapshot doesn't have new entries, ignore it.
-            if (rb != null && meta.lastIncludedIndex() <= rb.prevLogIndex()) {
+            if (meta.lastIncludedIndex() < nextSendingIndex) {
                 LOG.info("Snapshot doesn't have new entries, ignoring [node={}", this.options.getPeerId());
 
                 releaseReader();
@@ -677,9 +677,7 @@ public class Replicator implements ThreadId.OnError {
                 // Will be unlocked when sending append entries request.
                 doUnlock = false;
 
-                rb.prevLogTerm(meta.lastIncludedTerm());
-
-                return false;
+                return meta.lastIncludedTerm();
             }
 
             final InstallSnapshotRequest request = raftOptions.getRaftMessagesFactory()
@@ -712,7 +710,7 @@ public class Replicator implements ThreadId.OnError {
                 });
             addInflight(RequestType.Snapshot, this.nextIndex, 0, 0, seq, rpcFuture);
 
-            return true;
+            return -1;
         }
         finally {
             if (doUnlock) {
@@ -1708,9 +1706,12 @@ public class Replicator implements ThreadId.OnError {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
             // If snapshot was not skipped, unlocked id in installSnapshot
-            if (installSnapshotIfNeeded(rb)) {
+            long lastIncludedTerm = installSnapshotIfNeeded(nextSendingIndex);
+            if (lastIncludedTerm == -1) {
                 return false;
             }
+            // If snapshot was skipped, append entries request should be sent instead
+            rb.prevLogTerm(lastIncludedTerm);
         }
 
         ByteBufferCollector dataBuf = null;
