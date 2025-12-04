@@ -52,7 +52,7 @@ public class RaftTxFinishMarker {
             @Nullable ReplicationGroupId commitPartitionId
     ) {
         txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, commit ? COMMITTED : ABORTED)
-                .commitPartitionId(commitPartitionId == null ? old.commitPartitionId() : commitPartitionId)
+                .commitPartitionId(commitPartitionId)
                 .commitTimestamp(commit ? commitTimestamp : null)
                 .build()
         );

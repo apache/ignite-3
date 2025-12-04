@@ -145,7 +145,7 @@ public class TxCleanupRequestSender {
 
         commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
                 .commitPartitionId(commitPartitionId)
-                .commitTimestamp(oldMeta == null ? commitTimestamp : oldMeta.commitTimestamp())
+                .commitTimestamp(commitTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
                 .build())
         );

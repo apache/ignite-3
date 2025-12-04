@@ -279,18 +279,48 @@ public class TxStateMeta implements TransactionMeta {
             return this;
         }
 
+        /**
+         * Sets transaction coordinator id. {@code null} value is ignored, because this field can change value only from {@code null}
+         * to non-{@code null}, and can't change one value to another.
+         *
+         * @param txCoordinatorId Transaction coordinator id.
+         * @return Builder.
+         */
         public TxStateMetaBuilder txCoordinatorId(@Nullable UUID txCoordinatorId) {
-            this.txCoordinatorId = txCoordinatorId;
+            if (txCoordinatorId != null) {
+                this.txCoordinatorId = txCoordinatorId;
+            }
+
             return this;
         }
 
+        /**
+         * Sets commit partition replication group id. {@code null} value is ignored, because this field can change value only from
+         * {@code null} to non-{@code null}, and can't change one value to another.
+         *
+         * @param commitPartitionId Commit partition replication group id.
+         * @return Builder.
+         */
         public TxStateMetaBuilder commitPartitionId(@Nullable ReplicationGroupId commitPartitionId) {
-            this.commitPartitionId = commitPartitionId;
+            if (commitPartitionId != null) {
+                this.commitPartitionId = commitPartitionId;
+            }
+
             return this;
         }
 
+        /**
+         * Sets commit timestamp. {@code null} value is ignored, because this field can change value only from {@code null}
+         * to non-{@code null}, and can't change one value to another.
+         *
+         * @param commitTimestamp Commit timestamp.
+         * @return Builder.
+         */
         public TxStateMetaBuilder commitTimestamp(@Nullable HybridTimestamp commitTimestamp) {
-            this.commitTimestamp = commitTimestamp;
+            if (commitTimestamp != null) {
+                this.commitTimestamp = commitTimestamp;
+            }
+
             return this;
         }
 
