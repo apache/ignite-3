@@ -48,13 +48,20 @@ namespace Apache.Ignite.Internal.Table
         IReadOnlyDictionary<string, Column> ColumnsByName,
         IHashedColumnIndexProvider HashedColumnIndexProvider,
         IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
-    : IMapperSchema
     {
-        private readonly Lazy<IReadOnlyList<IMapperColumn>> _mapperColumnsLazy =
-            new(() => Columns.Cast<IMapperColumn>().ToArray());
+        private readonly Lazy<IMapperSchema> _mapperSchema =
+            new(() => new MapperSchema(Columns.Cast<IMapperColumn>().ToArray()));
 
-        /// <inheritdoc/>
-        IReadOnlyList<IMapperColumn> IMapperSchema.Columns => _mapperColumnsLazy.Value;
+        private readonly Lazy<IMapperSchema> _mapperSchemaKeyOnly =
+            new(() => new MapperSchema(KeyColumns.Cast<IMapperColumn>().ToArray()));
+
+        /// <summary>
+        /// Gets the mapper schema.
+        /// </summary>
+        /// <param name="keyOnly">Whether to get a key-only schema.</param>
+        /// <returns>Mapper schema.</returns>
+        public IMapperSchema GetMapperSchema(bool keyOnly) =>
+            keyOnly ? _mapperSchemaKeyOnly.Value : _mapperSchema.Value;
 
         /// <summary>
         /// Gets column by name.

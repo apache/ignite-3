@@ -47,20 +47,18 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        // TODO: keyOnly support.
         var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.Columns.Length);
         var mapperReader = new MapperReader(ref binaryTupleReader, schema);
 
-        return _mapper.Read(ref mapperReader, schema);
+        return _mapper.Read(ref mapperReader, schema.GetMapperSchema(keyOnly));
     }
 
     /// <inheritdoc/>
     public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
-        // TODO: keyOnly support.
         Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
         var mapperWriter = new MapperWriter(ref tupleBuilder, schema, noValueSetRef);
-        _mapper.Write(record, ref mapperWriter, schema);
+        _mapper.Write(record, ref mapperWriter, schema.GetMapperSchema(keyOnly));
 
         // NOTE: MapperWriter constructor makes a copy of the builder, but this is ok since the underlying buffer is shared.
         if (mapperWriter.Builder.ElementIndex < mapperWriter.Builder.NumElements)
