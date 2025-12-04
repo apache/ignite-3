@@ -273,7 +273,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     }
 
     private void maybeRunFailHandler(Throwable ex, long term) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-26085
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove `!hasCause(ex, TimeoutException.class)`
         if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)
                 && !hasCause(ex, TimeoutException.class)) {
             String errorMessage = String.format(
