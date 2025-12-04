@@ -57,6 +57,7 @@ public:
     inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
     inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
+    inline static const std::string RETURN_NULL_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ReturnNullJob";
 
     static constexpr const char *KEY_COLUMN = "KEY";
     static constexpr const char *VAL_COLUMN = "VAL";

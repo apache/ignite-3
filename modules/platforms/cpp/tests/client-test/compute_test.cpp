@@ -117,6 +117,9 @@ protected:
 
     /** ToString job. */
     std::shared_ptr<job_descriptor> m_to_string_job{job_descriptor::builder(TO_STRING_JOB).build()};
+
+    /** Return null job. */
+    std::shared_ptr<job_descriptor> m_return_null_job{job_descriptor::builder(RETURN_NULL_JOB).build()};
 };
 
 TEST_F(compute_test, get_cluster_nodes) {
@@ -515,7 +518,7 @@ TEST_F(compute_test, job_execution_status_executing) {
     EXPECT_EQ(job_status::EXECUTING, state->status);
 }
 
-TEST_F(compute_test, DISABLED_job_execution_status_completed) {
+TEST_F(compute_test, job_execution_status_completed) {
     const std::int32_t sleep_ms = 1;
 
     auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_sleep_job, {sleep_ms});
@@ -566,4 +569,15 @@ TEST_F(compute_test, job_execution_change_priority) {
     auto res = execution.change_priority(123);
 
     EXPECT_EQ(res, job_execution::operation_result::INVALID_STATE);
+}
+
+TEST_F(compute_test, job_execution_return_null) {
+
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_return_null_job, {});
+    execution.get_result();
+
+    auto state = execution.get_state();
+
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(job_status::COMPLETED, state->status);
 }
