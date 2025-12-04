@@ -59,6 +59,6 @@ public ref struct MapperReader
 
         var col = _schema.Columns[pos];
 
-        return (T?)_reader.GetObject(_position++, col.Type, col.Scale);
+        return (T?)_reader.GetObject(pos, col.Type, col.Scale);
     }
 }
