@@ -27,15 +27,15 @@ public interface IMapper<T>
     /// Writes the specified object to an Ignite table row.
     /// </summary>
     /// <param name="obj">Object.</param>
-    /// <param name="writer">Row writer.</param>
+    /// <param name="rowWriter">Row writer.</param>
     /// <param name="schema">Row schema.</param>
-    void Write(T obj, ref MapperWriter writer, IMapperSchema schema);
+    void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema);
 
     /// <summary>
     /// Reads an object of type <typeparamref name="T"/> from an Ignite table row.
     /// </summary>
-    /// <param name="reader">Row reader.</param>
+    /// <param name="rowReader">Row reader.</param>
     /// <param name="schema">Row schema.</param>
     /// <returns>Object.</returns>
-    T Read(ref MapperReader reader, IMapperSchema schema);
+    T Read(ref RowReader rowReader, IMapperSchema schema);
 }

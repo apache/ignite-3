@@ -24,7 +24,7 @@ using Internal.Table;
 /// <summary>
 /// Row reader for mappers. Reads columns in the order defined by the schema.
 /// </summary>
-public ref struct MapperReader
+public ref struct RowReader
 {
     private readonly BinaryTupleReader _reader;
 
@@ -35,12 +35,12 @@ public ref struct MapperReader
     private int _position;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MapperReader"/> struct.
+    /// Initializes a new instance of the <see cref="RowReader"/> struct.
     /// </summary>
     /// <param name="reader">Reader.</param>
     /// <param name="schema">Schema.</param>
     /// <param name="keyOnly">Whether this reader works with the key part of the row only.</param>
-    internal MapperReader(ref BinaryTupleReader reader, Column[] schema, bool keyOnly)
+    internal RowReader(ref BinaryTupleReader reader, Column[] schema, bool keyOnly)
     {
         _reader = reader;
         _schema = schema;

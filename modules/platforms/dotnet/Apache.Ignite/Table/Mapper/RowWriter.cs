@@ -26,7 +26,7 @@ using Sql;
 /// <summary>
 /// Row writer for mappers. Writes columns in the order defined by the schema.
 /// </summary>
-public ref struct MapperWriter
+public ref struct RowWriter
 {
     private readonly Column[] _schema;
 
@@ -37,12 +37,12 @@ public ref struct MapperWriter
     private int _position;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MapperWriter"/> struct.
+    /// Initializes a new instance of the <see cref="RowWriter"/> struct.
     /// </summary>
     /// <param name="builder">Builder.</param>
     /// <param name="schema">Schema.</param>
     /// <param name="noValueSet">No-value set.</param>
-    internal MapperWriter(ref BinaryTupleBuilder builder, Column[] schema, Span<byte> noValueSet)
+    internal RowWriter(ref BinaryTupleBuilder builder, Column[] schema, Span<byte> noValueSet)
     {
         _builder = builder;
         _schema = schema;

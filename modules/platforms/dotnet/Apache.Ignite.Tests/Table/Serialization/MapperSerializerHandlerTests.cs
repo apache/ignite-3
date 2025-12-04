@@ -45,28 +45,28 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 
     public class PocoMapper : IMapper<Poco>
     {
-        public void Write(Poco obj, ref MapperWriter writer, IMapperSchema schema)
+        public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
         {
             foreach (var column in schema.Columns)
             {
                 switch (column.Name)
                 {
                     case "Key":
-                        writer.Write(obj.Key);
+                        rowWriter.Write(obj.Key);
                         break;
 
                     case "Val":
-                        writer.Write(obj.Val);
+                        rowWriter.Write(obj.Val);
                         break;
 
                     default:
-                        writer.Write<object>(null);
+                        rowWriter.Write<object>(null);
                         break;
                 }
             }
         }
 
-        public Poco Read(ref MapperReader reader, IMapperSchema schema)
+        public Poco Read(ref RowReader rowReader, IMapperSchema schema)
         {
             var res = new Poco();
 
@@ -75,15 +75,15 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                 switch (column.Name)
                 {
                     case "Key":
-                        res.Key = reader.Read<long>();
+                        res.Key = rowReader.Read<long>();
                         break;
 
                     case "Val":
-                        res.Val = reader.Read<string?>();
+                        res.Val = rowReader.Read<string?>();
                         break;
 
                     default:
-                        reader.Skip();
+                        rowReader.Skip();
                         break;
                 }
             }
@@ -94,28 +94,28 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 
     public class BadPocoMapper : IMapper<BadPoco>
     {
-        public void Write(BadPoco obj, ref MapperWriter writer, IMapperSchema schema)
+        public void Write(BadPoco obj, ref RowWriter rowWriter, IMapperSchema schema)
         {
             foreach (var column in schema.Columns)
             {
                 switch (column.Name)
                 {
                     case "Key":
-                        writer.Write(obj.Key);
+                        rowWriter.Write(obj.Key);
                         break;
 
                     case "Val":
-                        writer.Write(obj.Val);
+                        rowWriter.Write(obj.Val);
                         break;
 
                     default:
-                        writer.Write<object>(null);
+                        rowWriter.Write<object>(null);
                         break;
                 }
             }
         }
 
-        public BadPoco Read(ref MapperReader reader, IMapperSchema schema)
+        public BadPoco Read(ref RowReader rowReader, IMapperSchema schema)
         {
             Guid key = Guid.Empty;
             DateTimeOffset val = default;
@@ -125,15 +125,15 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                 switch (column.Name)
                 {
                     case "Key":
-                        key = reader.Read<Guid>();
+                        key = rowReader.Read<Guid>();
                         break;
 
                     case "Val":
-                        val = reader.Read<DateTimeOffset>();
+                        val = rowReader.Read<DateTimeOffset>();
                         break;
 
                     default:
-                        reader.Skip();
+                        rowReader.Skip();
                         break;
                 }
             }
