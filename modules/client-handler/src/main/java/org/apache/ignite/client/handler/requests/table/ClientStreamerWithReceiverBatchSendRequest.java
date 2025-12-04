@@ -77,7 +77,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                 : ReceiverExecutionOptions.DEFAULT;
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
-            return table.partitionManager()
+            return table.partitionDistribution()
                     .primaryReplicaAsync(new HashPartition(partition))
                     .thenApply(ClusterNodeImpl::fromPublicClusterNode)
                     .thenCompose(node -> table.internalTable().streamerReceiverRunner()

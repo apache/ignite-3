@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.table.partition;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Thin client implementation of partition management test suite.
  */
-public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManagerTest {
+public class ItThinClientPartitionDistributionTest extends ItAbstractPartitionDistributionTest {
     private IgniteClient client;
 
     @BeforeEach
@@ -41,7 +41,7 @@ public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManager
     }
 
     @Override
-    protected PartitionManager partitionManager() {
-        return client.tables().table(TABLE_NAME).partitionManager();
+    protected PartitionDistribution partitionDistribution() {
+        return client.tables().table(TABLE_NAME).partitionDistribution();
     }
 }

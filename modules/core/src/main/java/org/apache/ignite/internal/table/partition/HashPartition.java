@@ -32,8 +32,14 @@ public class HashPartition implements Partition {
         this.partitionId = partitionId;
     }
 
-    public int partitionId() {
+    @Override
+    public long id() {
         return partitionId;
+    }
+
+    @Deprecated(since = "3.2", forRemoval = true)
+    public int partitionId() {
+        return Math.toIntExact(id());
     }
 
     @Override

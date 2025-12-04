@@ -57,7 +57,6 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.ErrorGroups;
@@ -72,7 +71,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -420,7 +419,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin(new TransactionOptions().timeoutMillis(450));
 
         // Load partition map to ensure all entries are directly mapped.
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         assertEquals(PARTITIONS, map.size());
 
@@ -429,7 +428,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Map<Tuple, Tuple> txMap = new HashMap<>();
 
         Tuple k1 = key(k);
-        Partition p1 = table().partitionManager().partitionAsync(k1).join();
+        Partition p1 = table().partitionDistribution().partitionAsync(k1).join();
         Tuple v1 = val(String.valueOf(k));
         kvView.put(tx, k1, v1);
         txMap.put(k1, v1);
@@ -513,14 +512,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         }
 
         List<Tuple> keys = new ArrayList<>();
-        PartitionManager partitionManager = table.partitionManager();
+        PartitionDistribution partDistribution = table.partitionDistribution();
 
         int k = start;
         while (keys.size() != count) {
             k++;
             Tuple t = key(k);
 
-            Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
+            Partition part = partDistribution.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
             ClusterNode node = map.get(part);
 
             if (node.name().equals(clusterNodeName)) {
@@ -540,7 +539,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             Table table
     ) {
         List<Tuple> keys = new ArrayList<>();
-        PartitionManager partitionManager = table.partitionManager();
+        PartitionDistribution partitionManager = table.partitionDistribution();
 
         int k = start;
         while (keys.size() != count) {
@@ -548,9 +547,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             Tuple t = key(k);
 
             Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
-            HashPartition hashPart = (HashPartition) part;
 
-            if (hashPart.partitionId() == partId) {
+            if (part.id() == partId) {
                 keys.add(t);
             }
         }
@@ -559,7 +557,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     private static Integer partitions(Collection<Tuple> keys, Table table) {
-        PartitionManager partitionManager = table.partitionManager();
+        PartitionDistribution partitionManager = table.partitionDistribution();
 
         Set<Partition> count = new HashSet<>();
 
@@ -578,7 +576,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Partition part0 = null;
 
         for (Tuple t : list) {
-            Partition part = table().partitionManager().partitionAsync(t).join();
+            Partition part = table().partitionDistribution().partitionAsync(t).join();
 
             if (part0 == null) {
                 part0 = part;
@@ -599,18 +597,18 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testAssignmentLoadedDuringTransaction() {
         // Wait for assignments.
-        table().partitionManager().primaryReplicasAsync().join();
+        table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
         ClientTable spyTable = Mockito.spy(table);
 
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
-        List<String> origPartMap = map.entrySet().stream().sorted(comparing(e -> {
-            HashPartition part = (HashPartition) e.getKey();
-            return part.partitionId();
-        })).map(e -> e.getValue().name()).collect(Collectors.toList());
+        List<String> origPartMap = map.entrySet().stream()
+                .sorted(comparing(e -> e.getKey().id()))
+                .map(e -> e.getValue().name())
+                .collect(Collectors.toList());
 
         List<String> emptyPartMap = new ArrayList<>(Collections.nCopies(10, null));
 
@@ -646,7 +644,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testMixedMappingScenario1() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -678,7 +676,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testMixedMappingScenario2() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -727,7 +725,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             f.set(channel, spyed);
         }
 
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -854,7 +852,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testBatchScenarioWithNoopEnlistmentImplicit() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -885,7 +883,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testImplicitDirectMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -950,7 +948,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testImplicitRecordDirectMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -1015,7 +1013,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testBatchScenarioWithNoopEnlistmentExplicit() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -1095,7 +1093,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         // Load partition map to ensure all entries are directly mapped.
-        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
 
         IgniteImpl server0 = unwrapIgniteImpl(server(0));
         IgniteImpl server1 = unwrapIgniteImpl(server(1));
@@ -1133,7 +1131,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         // Load partition map to ensure all entries are directly mapped.
-        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
 
         IgniteImpl server0 = unwrapIgniteImpl(server(0));
         IgniteImpl server1 = unwrapIgniteImpl(server(1));

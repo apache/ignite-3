@@ -18,6 +18,7 @@
 package org.apache.ignite.table;
 
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
@@ -59,7 +60,15 @@ public interface Table {
      *
      * @return Partition manager.
      */
+    @Deprecated(forRemoval = true, since = "3.2")
     PartitionManager partitionManager();
+
+    /**
+     * Gets the partition distribution.
+     *
+     * @return Partition distribution.
+     */
+    PartitionDistribution partitionDistribution();
 
     /**
      * Gets a record view of the table using the specified record class mapper.

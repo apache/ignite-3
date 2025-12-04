@@ -34,13 +34,13 @@ import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-class ItPartitionManagerApiThreadingTest extends ClusterPerClassIntegrationTest {
+class ItPartitionDistributionApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     private static final int KEY = 1;
@@ -63,18 +63,18 @@ class ItPartitionManagerApiThreadingTest extends ClusterPerClassIntegrationTest 
     }
 
     @ParameterizedTest
-    @EnumSource(PartitionManagerAsyncOperation.class)
-    void partitionManagerFuturesCompleteInContinuationsPool(PartitionManagerAsyncOperation operation) {
-        PartitionManager partitionManager = partitionManager();
+    @EnumSource(PartitionDistributionAsyncOperation.class)
+    void partitionManagerFuturesCompleteInContinuationsPool(PartitionDistributionAsyncOperation operation) {
+        PartitionDistribution partitionDistribution = partitionDistribution();
 
-        CompletableFuture<Thread> completerFuture = operation.executeOn(partitionManager)
+        CompletableFuture<Thread> completerFuture = operation.executeOn(partitionDistribution)
                 .thenApply(unused -> currentThread());
 
         assertThat(completerFuture, willBe(either(is(currentThread())).or(asyncContinuationPool())));
     }
 
-    private static PartitionManager partitionManager() {
-        return testTable().partitionManager();
+    private static PartitionDistribution partitionDistribution() {
+        return testTable().partitionDistribution();
     }
 
     private static Table testTable() {
@@ -82,18 +82,18 @@ class ItPartitionManagerApiThreadingTest extends ClusterPerClassIntegrationTest 
     }
 
     @ParameterizedTest
-    @EnumSource(PartitionManagerAsyncOperation.class)
-    void partitionManagerFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(PartitionManagerAsyncOperation operation) {
-        PartitionManager partitionManager = partitionManagerForInternalUse();
+    @EnumSource(PartitionDistributionAsyncOperation.class)
+    void partitionManagerFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(PartitionDistributionAsyncOperation operation) {
+        PartitionDistribution partitionDistribution = partitionDistributionForInternalUse();
 
-        CompletableFuture<Thread> completerFuture = operation.executeOn(partitionManager)
+        CompletableFuture<Thread> completerFuture = operation.executeOn(partitionDistribution)
                 .thenApply(unused -> currentThread());
 
         assertThat(completerFuture, willBe(either(is(currentThread())).or(anIgniteThread())));
     }
 
-    private static PartitionManager partitionManagerForInternalUse() {
-        return testTableForInternalUse().partitionManager();
+    private static PartitionDistribution partitionDistributionForInternalUse() {
+        return testTableForInternalUse().partitionDistribution();
     }
 
     private static Table testTableForInternalUse() {
@@ -101,20 +101,22 @@ class ItPartitionManagerApiThreadingTest extends ClusterPerClassIntegrationTest 
         return internalIgniteTables.table(TABLE_NAME);
     }
 
-    private enum PartitionManagerAsyncOperation {
+    private enum PartitionDistributionAsyncOperation {
+        PARTITIONS_ASYNC(PartitionDistribution::partitionsAsync),
         PRIMARY_REPLICA_ASYNC(distribution -> distribution.primaryReplicaAsync(new HashPartition(0))),
-        PRIMARY_REPLICAS_ASYNC(distribution -> distribution.primaryReplicasAsync()),
+        PRIMARY_REPLICAS_ASYNC(PartitionDistribution::primaryReplicasAsync),
+        PRIMARY_REPLICAS_BY_NODE_ASYNC(distribution -> distribution.primaryReplicasAsync(CLUSTER.aliveNode().cluster().localNode())),
         PARTITION_BY_TUPLE_ASYNC(distribution -> distribution.partitionAsync(KEY_TUPLE)),
         PARTITION_BY_KEY_ASYNC(distribution -> distribution.partitionAsync(KEY, Mapper.of(Integer.class)));
 
-        private final Function<PartitionManager, CompletableFuture<?>> action;
+        private final Function<PartitionDistribution, CompletableFuture<?>> action;
 
-        PartitionManagerAsyncOperation(Function<PartitionManager, CompletableFuture<?>> action) {
+        PartitionDistributionAsyncOperation(Function<PartitionDistribution, CompletableFuture<?>> action) {
             this.action = action;
         }
 
-        CompletableFuture<?> executeOn(PartitionManager partitionManager) {
-            return action.apply(partitionManager);
+        CompletableFuture<?> executeOn(PartitionDistribution partitionDistribution) {
+            return action.apply(partitionDistribution);
         }
     }
 }
