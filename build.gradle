@@ -21,6 +21,7 @@ buildscript {
     dependencies {
         classpath "org.shipkit:shipkit-auto-version:1.1.1"
         classpath "org.shipkit:shipkit-changelog:1.1.1"
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.24.5"
     }
 }
 //This need for resolving plugins in buildscripts
@@ -171,10 +172,7 @@ allprojects {
 // Apply common configuration to all subprojects
 subprojects {
     apply plugin: 'base'
-    
-    // Apply publishing configuration to relevant modules
-    apply from: "$rootDir/gradle/publishing.gradle"
-    
+
     repositories {
         maven {
             url = uri('https://repo.maven.apache.org/maven2/')
