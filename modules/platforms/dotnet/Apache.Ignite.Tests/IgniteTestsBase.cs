@@ -118,15 +118,30 @@ namespace Apache.Ignite.Tests
             PocoView = _useMapper ? Table.GetRecordView(new PocoMapper()) : Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            PocoAllColumnsNullableView = _useMapper
+                ? tableAllColumns!.GetRecordView(new PocoAllColumnsNullableMapper())
+                : tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
 
             var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
-            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsBigDecimalView = tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
+
+            PocoAllColumnsView = _useMapper
+                ? tableAllColumnsNotNull!.GetRecordView(new PocoAllColumnsMapper())
+                : tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
+
+            PocoAllColumnsBigDecimalView = _useMapper
+                ? tableAllColumnsNotNull.GetRecordView(new PocoAllColumnsBigDecimalMapper())
+                : tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
-            PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
-            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
+
+            PocoAllColumnsSqlView = _useMapper
+                ? tableAllColumnsSql!.GetRecordView(new PocoAllColumnsSqlMapper())
+                : tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
+
+            PocoAllColumnsSqlNullableView = _useMapper
+                ? tableAllColumnsSql.GetRecordView(new PocoAllColumnsSqlNullableMapper())
+                : tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
 
             _logger.Flush();
         }
