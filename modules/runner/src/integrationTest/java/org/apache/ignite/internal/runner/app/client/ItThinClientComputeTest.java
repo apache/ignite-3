@@ -1173,7 +1173,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    /** Simple job which always return null value. */
+    /** Simple job which always returns null value. */
     public static class ReturnNullJob implements ComputeJob<Void, String> {
         @Override
         public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable Void arg) {

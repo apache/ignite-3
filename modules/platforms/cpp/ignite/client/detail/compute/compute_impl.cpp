@@ -115,7 +115,7 @@ primitive read_primitive_from_binary_tuple(protocol::reader &reader) {
  */
 primitive unpack_compute_result(protocol::reader &reader) {
     // Check whether job returned null value
-    if (auto nil_val = reader.try_read_nil(); nil_val) {
+    if (reader.try_read_nil()) {
         return primitive{nullptr};
     }
 
