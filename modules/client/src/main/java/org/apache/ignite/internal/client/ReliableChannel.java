@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -44,6 +45,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -139,8 +141,12 @@ public final class ReliableChannel implements AutoCloseable {
     /** Address resolver. */
     private final InetAddressResolver addressResolver;
 
-    /** Scheduled executor for re-resolving addresses. */
-    private final ScheduledExecutorService reResolveAddressesExecutor;
+    /** Executor for async re-resolving addresses. */
+    private final Executor asyncContinuationExecutor;
+
+    /** Executor for async re-resolving addresses. */
+    @Nullable
+    private volatile CompletableFuture<Void> scheduledReResolveAddressesFuture;
 
     /**
      * A validator that is called when a connection to a node is established,
@@ -178,15 +184,22 @@ public final class ReliableChannel implements AutoCloseable {
         inflights = new ClientTransactionInflights();
 
         addressResolver = requireNonNullElse(clientCfg.addressResolver(), InetAddressResolver.DEFAULT);
-        reResolveAddressesExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("client-re-resolve-addresses-" + hashCode(), ClientUtils.logger(clientCfg, ReliableChannel.class))
-        );
+
+        asyncContinuationExecutor = clientCfg.asyncContinuationExecutor() == null
+                ? ForkJoinPool.commonPool()
+                : clientCfg.asyncContinuationExecutor();
     }
 
     /** {@inheritDoc} */
     @Override
     public synchronized void close() throws Exception {
         closed = true;
+
+        if (scheduledReResolveAddressesFuture != null) {
+            scheduledReResolveAddressesFuture.cancel(true);
+
+            scheduledReResolveAddressesFuture = null;
+        }
 
         List<ClientChannelHolder> holders = channels;
 
@@ -198,7 +211,6 @@ public final class ReliableChannel implements AutoCloseable {
         }
         closeables.add(connMgr::stop);
         closeables.add(() -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
-        closeables.add(() -> shutdownAndAwaitTermination(reResolveAddressesExecutor, 10, TimeUnit.SECONDS));
         IgniteUtils.closeAllManually(closeables);
     }
 
@@ -500,7 +512,7 @@ public final class ReliableChannel implements AutoCloseable {
         // Roll current channel even if a topology changes. To help find working channel faster.
         rollCurrentChannel(hld);
 
-        reResolveAddressesExecutor.execute(this::reResolveAddresses);
+        asyncContinuationExecutor.execute(this::reResolveAddresses);
     }
 
     /**
@@ -652,11 +664,7 @@ public final class ReliableChannel implements AutoCloseable {
         fut.thenAccept(unused -> {
             ForkJoinPool.commonPool().submit(this::initAllChannelsAsync);
 
-            // Schedule the background re-resolve of addresses.
-            long interval = clientCfg.backgroundReResolveAddressesInterval();
-            if (interval > 0L) {
-                reResolveAddressesExecutor.scheduleWithFixedDelay(this::reResolveAddresses, interval, interval, TimeUnit.MILLISECONDS);
-            }
+            scheduleNextReResolveAddresses();
         });
 
         return fut;
@@ -806,7 +814,7 @@ public final class ReliableChannel implements AutoCloseable {
         var old = partitionAssignmentTimestamp.getAndUpdate(curTs -> Math.max(curTs, timestamp));
 
         if (timestamp > old) {
-            reResolveAddressesExecutor.execute(this::reResolveAddresses);
+            asyncContinuationExecutor.execute(this::reResolveAddresses);
         }
     }
 
@@ -1077,10 +1085,46 @@ public final class ReliableChannel implements AutoCloseable {
         return !hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
     }
 
+    /** Schedule the background re-resolve of addresses. */
+    private void scheduleNextReResolveAddresses() {
+        if (closed) {
+            if (log.isDebugEnabled()) {
+                log.debug("Skipping scheduling re-resolve of addresses since channel is closed");
+            }
+
+            return;
+        }
+
+        long interval = clientCfg.backgroundReResolveAddressesInterval();
+        if (interval > 0L) {
+            if (log.isDebugEnabled()) {
+                log.debug("Scheduling next re-resolve of addresses in {} ms", interval);
+            }
+
+            scheduledReResolveAddressesFuture = runAsync(this::reResolveAddresses,
+                    delayedExecutor(interval, TimeUnit.MILLISECONDS, asyncContinuationExecutor));
+        }
+    }
+
     /** Resolve addresses in background. */
     private void reResolveAddresses() {
-        if (!closed && scheduledChannelsReinit.compareAndSet(false, true)) {
+        // Skip if another re-resolve is already running or closed.
+        if (closed || (scheduledReResolveAddressesFuture != null && !scheduledReResolveAddressesFuture.cancel(false))) {
+            if (log.isDebugEnabled()) {
+                log.debug("Skipping re-resolve of addresses since another re-resolve is already running or channel is closed");
+            }
+
+            return;
+        }
+
+        if (scheduledChannelsReinit.compareAndSet(false, true)) {
+            if (log.isDebugEnabled()) {
+                log.debug("Re-resolving addresses and re-initializing channel holders");
+            }
+
             initChannelHolders();
         }
+
+        scheduleNextReResolveAddresses();
     }
 }
