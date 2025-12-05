@@ -94,7 +94,7 @@ testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
 protobuf = "4.33.0"
 cytodynamics = "0.2.0"
-japicmp = "0.24.2"
+japicmp = "0.25.0"
 
 # JDBC connection pools (for testing purposes)
 hikariCP = "7.0.2"
