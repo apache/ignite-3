@@ -20,14 +20,18 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
 /// Tests record view with single-column mapping to a primitive type.
 /// </summary>
-public class RecordViewPrimitiveTests : IgniteTestsBase
+[TestFixture("reflective")]
+[TestFixture("mapper")]
+public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: mode == "mapper")
 {
     [Test]
     public async Task TestLongKey() => await TestKey(7L, Table.GetRecordView<long>());
@@ -88,6 +92,44 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
 
         Assert.IsNotNull(table, "Table must exist: " + tableName);
 
-        await TestKey(val, table!.GetRecordView<T>());
+        var recordView = UseMapper
+            ? table!.GetRecordView(new PrimitiveMapper<T>())
+            : table!.GetRecordView<T>();
+
+        await TestKey(val, recordView);
+    }
+
+    private class PrimitiveMapper<T> : IMapper<T>
+        where T : notnull
+    {
+        public void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            var col = schema.Columns.Single();
+
+            switch (col.Type)
+            {
+                case ColumnType.Boolean:
+                    rowWriter.WriteBool((bool)(object)obj);
+                    break;
+                case ColumnType.Int8:
+                    rowWriter.WriteByte((sbyte)(object)obj);
+                    break;
+                default:
+                    Assert.Fail("Unsupported column type: " + col.Type);
+                    break;
+            }
+        }
+
+        public T Read(ref RowReader rowReader, IMapperSchema schema)
+        {
+            var col = schema.Columns.Single();
+
+            return col.Type switch
+            {
+                ColumnType.Boolean => (T)(object)rowReader.ReadBool()!,
+                ColumnType.Int8 => (T)(object)rowReader.ReadByte()!,
+                _ => throw new InvalidOperationException("Unsupported column type: " + col.Type)
+            };
+        }
     }
 }
