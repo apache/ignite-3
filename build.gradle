@@ -54,6 +54,7 @@ plugins {
 }
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
+apply from: "$rootDir/gradle/java-publishing.gradle"
 apply from: "./gradle/release.gradle"
 
 repositories {
