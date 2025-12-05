@@ -104,7 +104,7 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
     {
         public void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema)
         {
-            var col = schema.Columns.Single();
+            var col = schema.Columns[0];
 
             switch (col.Type)
             {
@@ -165,11 +165,16 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
                     Assert.Fail("Unsupported column type: " + col.Type);
                     break;
             }
+
+            for (int i = 1; i < schema.Columns.Count; i++)
+            {
+                rowWriter.Skip();
+            }
         }
 
         public T Read(ref RowReader rowReader, IMapperSchema schema)
         {
-            var col = schema.Columns.Single();
+            var col = schema.Columns[0];
 
             return col.Type switch
             {
