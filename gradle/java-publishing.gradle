@@ -1,103 +1,36 @@
-assert plugins.hasPlugin(JavaPlugin)
-
-if (project.hasProperty('disableShipkit')) {
-  return
-}
-
 apply plugin: 'maven-publish'
 apply plugin: 'com.jfrog.artifactory'
 
-////////////////////////////////////////////////
-// Artifact setup (can keep/adapt this part)
-////////////////////////////////////////////////
+// All Java-specific stuff is only configured for projects that apply the 'java' plugin
+plugins.withId('java') {
 
-tasks.withType(Jar) {
-  from "$rootDir/LICENSE"
-  from "$rootDir/NOTICE"
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
-  from sourceSets.main.allSource
-}
-
-javadoc {
-  // adapt / keep as needed for ignite
-  options.addStringOption('Xdoclint:all,-missing', '-quiet')
-  options.addStringOption('Xwerror', '-quiet')
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-  classifier = 'javadoc'
-  from javadoc.destinationDir
-}
-
-artifacts {
-  archives sourcesJar
-  archives javadocJar
-}
-
-def pomConfig = {
-  licenses {
-    license {
-      name = 'The Apache License, Version 2.0'
-      url = 'https://github.com/linkedin/ignite-3/blob/master/LICENSE'
-      distribution = 'repo'
-    }
-  }
-  scm {
-    url = 'https://github.com/linkedin/ignite-3.git'
-  }
-  issueManagement {
-    url = 'https://github.com/linkedin/ignite-3/issues'
-    system = 'GitHub issues'
-  }
-}
-
-publishing {
-  publications {
-    jar(MavenPublication) {
-      from components.java
-
-      artifact javadocJar
-      artifact sourcesJar
-
-      pom pomConfig
+  // Simple Maven publication for the main Java component
+  publishing {
+    publications {
+      mavenJava(MavenPublication) {
+        from components.java
+      }
     }
   }
 }
 
-////////////////////////////////////////////////
-// Artifactory publishing  🔻 THIS IS THE IMPORTANT PART
-////////////////////////////////////////////////
-
+// Artifactory publishing config
 artifactory {
-  contextUrl = 'https://linkedin.jfrog.io/artifactory'
-  publish {
-    repository {
-      // 🔹 Your ignite JFrog repo from URL: /artifactory/ignite/
-      repoKey = 'ignite'
-      username = System.getenv('ARTIFACTORY_USER')
-      password = System.getenv('ARTIFACTORY_KEY')
-      maven = true
-    }
+    contextUrl = 'https://linkedin.jfrog.io/artifactory'
 
-    defaults {
-      publications('jar')
-    }
-  }
+    publish {
+        repository {
+            repoKey = 'ignite'
+            username = System.getenv('ARTIFACTORY_USER')
+            password = System.getenv('ARTIFACTORY_KEY')
+        }
 
-  // optional: if you want to resolve deps via Artifactory too
-  resolve {
-    repository {
-      repoKey = 'release'
-      username = System.getenv('ARTIFACTORY_USER')
-      password = System.getenv('ARTIFACTORY_KEY')
-      maven = true
+        defaults {
+            publications('mavenJava')
+        }
     }
-  }
 }
 
 artifactoryPublish {
-  skip = project.hasProperty('artifactory.dryRun')
+    skip = project.hasProperty('artifactory.dryRun')
 }
