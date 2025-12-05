@@ -151,6 +151,7 @@ if (${ENABLE_TESTS})
 
     if (${ENABLE_CLIENT})
         add_subdirectory(tests/client-test)
+        add_subdirectory(tests/fake_server)
     endif()
 
     if (${ENABLE_ODBC})

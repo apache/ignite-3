@@ -210,6 +210,9 @@ namespace Apache.Ignite
 
             /// <summary> ResourceNotFound error. </summary>
             public const int ResourceNotFound = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> Client operation timeout. </summary>
+            public const int ClientOperationTimeout = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
