@@ -20,10 +20,10 @@ namespace Apache.Ignite.Table.Mapper;
 /// <summary>
 /// Maps table rows to objects of type <typeparamref name="T"/> and vice versa.
 /// <para />
-/// This API is performance-oriented and requires in-order reading and writing of all columns defined in the schema.
+/// This API is performance-oriented and mostly intended for use by source generators, but can also enable advanced mapping scenarios.
 /// </summary>
 /// <typeparam name="T">Mapped object type.</typeparam>
-public interface IMapper<T> // TODO: Better docs and examples
+public interface IMapper<T>
 {
     /// <summary>
     /// Writes the specified object to an Ignite table row.
@@ -34,11 +34,11 @@ public interface IMapper<T> // TODO: Better docs and examples
     /// {
     ///     switch (column.Name)
     ///     {
-    ///         case "Column1":
-    ///             rowWriter.Write(obj.Property1);
+    ///         case "ID":
+    ///             rowWriter.WriteInt(obj.Id);
     ///             break;
-    ///         case "Column2":
-    ///             rowWriter.Write(obj.Property2);
+    ///         case "NAME":
+    ///             rowWriter.WriteString(obj.Name);
     ///             break;
     ///         default:
     ///             rowWriter.Skip(); // Unmapped column.
