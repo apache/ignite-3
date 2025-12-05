@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Common;
 using Ignite.Table.Mapper;
@@ -50,7 +49,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         var columns = schema.GetColumnsFor(keyOnly);
         var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Length);
 
-        var mapperReader = new RowReader(ref binaryTupleReader, columns, keyOnly);
+        var mapperReader = new RowReader(ref binaryTupleReader);
         var mapperSchema = schema.GetMapperSchema(keyOnly);
 
         return _mapper.Read(ref mapperReader, mapperSchema);

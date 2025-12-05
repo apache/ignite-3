@@ -19,7 +19,6 @@ namespace Apache.Ignite.Table.Mapper;
 
 using System;
 using Internal.Proto.BinaryTuple;
-using Internal.Table;
 
 /// <summary>
 /// Row reader for mappers. Reads columns in the order defined by the schema.
@@ -28,81 +27,37 @@ public ref struct RowReader
 {
     private readonly BinaryTupleReader _reader;
 
-    private readonly Column[] _schema;
-
-    private readonly bool _keyOnly;
-
     private int _position;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RowReader"/> struct.
     /// </summary>
     /// <param name="reader">Reader.</param>
-    /// <param name="schema">Schema.</param>
-    /// <param name="keyOnly">Whether this reader works with the key part of the row only.</param>
-    internal RowReader(ref BinaryTupleReader reader, Column[] schema, bool keyOnly)
+    internal RowReader(ref BinaryTupleReader reader)
     {
         _reader = reader;
-        _schema = schema;
-        _keyOnly = keyOnly;
-    }
-
-    /// <summary>
-    /// Returns the value of the next column.
-    /// </summary>
-    /// <typeparam name="T">Value type.</typeparam>
-    /// <returns>Column value.</returns>
-    public T? Read<T>()
-    {
-        var pos = GetNextPos();
-        var col = _schema[pos];
-        var ordinal = _keyOnly ? col.KeyIndex : col.SchemaIndex;
-        var obj = _reader.GetObject(ordinal, col.Type, col.Scale);
-
-        try
-        {
-            return (T?)obj;
-        }
-        catch (InvalidCastException e)
-        {
-            throw new InvalidCastException(
-                $"Unable to cast object of type '{obj?.GetType()}' to type '{typeof(T)}' while reading column '{col.Name}'.",
-                e);
-        }
     }
 
     /// <summary>
     /// Reads the next column as a GUID.
     /// </summary>
     /// <returns>Column value.</returns>
-    public Guid? ReadGuid() => _reader.GetGuidNullable(GetNextPos());
+    public Guid? ReadGuid() => _reader.GetGuidNullable(_position++);
 
     /// <summary>
     /// Reads the next column as a string.
     /// </summary>
     /// <returns>Column value.</returns>
-    public string? ReadString() => _reader.GetStringNullable(GetNextPos());
+    public string? ReadString() => _reader.GetStringNullable(_position++);
 
     /// <summary>
     /// Reads the next column as an int.
     /// </summary>
     /// <returns>Column value.</returns>
-    public int? ReadInt() => _reader.GetByteNullable(GetNextPos());
+    public int? ReadInt() => _reader.GetByteNullable(_position++);
 
     /// <summary>
     /// Skips the current column.
     /// </summary>
     public void Skip() => _position++;
-
-    private int GetNextPos()
-    {
-        var pos = _position++;
-
-        if (pos >= _schema.Length)
-        {
-            throw new InvalidOperationException($"No more columns to read. Total columns: {_schema.Length}.");
-        }
-
-        return pos;
-    }
 }
