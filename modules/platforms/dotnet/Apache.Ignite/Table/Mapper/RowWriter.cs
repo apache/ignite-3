@@ -20,6 +20,7 @@ namespace Apache.Ignite.Table.Mapper;
 using System;
 using Internal.Proto.BinaryTuple;
 using Internal.Table.Serialization;
+using NodaTime;
 
 /// <summary>
 /// Row writer for mappers. Writes columns in the order defined by the schema.
@@ -47,6 +48,25 @@ public ref struct RowWriter
     internal readonly BinaryTupleBuilder Builder => _builder;
 
     /// <summary>
+    /// Writes a byte value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    [CLSCompliant(false)]
+    public void WriteByte(sbyte? value) => _builder.AppendByteNullable(value);
+
+    /// <summary>
+    /// Writes a boolean value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteBool(bool? value) => _builder.AppendBoolNullable(value);
+
+    /// <summary>
+    /// Writes a short value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteShort(short? value) => _builder.AppendShortNullable(value);
+
+    /// <summary>
     /// Writes an integer value.
     /// </summary>
     /// <param name="value">Value.</param>
@@ -59,16 +79,87 @@ public ref struct RowWriter
     public void WriteLong(long? value) => _builder.AppendLongNullable(value);
 
     /// <summary>
+    /// Writes a float value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteFloat(float? value) => _builder.AppendFloatNullable(value);
+
+    /// <summary>
+    /// Writes a double value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteDouble(double? value) => _builder.AppendDoubleNullable(value);
+
+    /// <summary>
     /// Writes a string value.
     /// </summary>
     /// <param name="value">Value.</param>
     public void WriteString(string? value) => _builder.AppendStringNullable(value);
 
     /// <summary>
-    /// Writes a string value.
+    /// Writes a byte array value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteBytes(byte[]? value) => _builder.AppendBytesNullable(value);
+
+    /// <summary>
+    /// Writes a GUID value.
     /// </summary>
     /// <param name="value">Value.</param>
     public void WriteGuid(Guid? value) => _builder.AppendGuidNullable(value);
+
+    /// <summary>
+    /// Writes a decimal value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <param name="scale">Decimal scale from schema.</param>
+    public void WriteDecimal(decimal? value, int scale) => _builder.AppendDecimalNullable(value, scale);  // TODO: Remove scale.
+
+    /// <summary>
+    /// Writes a big decimal value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <param name="scale">Decimal scale from schema.</param>
+    public void WriteBigDecimal(BigDecimal? value, int scale) => _builder.AppendBigDecimalNullable(value, scale);
+
+    /// <summary>
+    /// Writes a date value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteDate(LocalDate? value) => _builder.AppendDateNullable(value);
+
+    /// <summary>
+    /// Writes a time value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <param name="precision">Precision.</param>
+    public void WriteTime(LocalTime? value, int precision) => _builder.AppendTimeNullable(value, precision);
+
+    /// <summary>
+    /// Writes a date and time value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <param name="precision">Precision.</param>
+    public void WriteDateTime(LocalDateTime? value, int precision) => _builder.AppendDateTimeNullable(value, precision);
+
+    /// <summary>
+    /// Writes a timestamp (instant) value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <param name="precision">Precision.</param>
+    public void WriteTimestamp(Instant? value, int precision) => _builder.AppendTimestampNullable(value, precision);
+
+    /// <summary>
+    /// Writes a duration value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteDuration(Duration? value) => _builder.AppendDurationNullable(value);
+
+    /// <summary>
+    /// Writes a period value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WritePeriod(Period? value) => _builder.AppendPeriodNullable(value);
 
     /// <summary>
     /// Skips writing the next column (marks as not set, so that the default column value can be applied by the server).

@@ -19,6 +19,8 @@ namespace Apache.Ignite.Table.Mapper;
 
 using System;
 using Internal.Proto.BinaryTuple;
+using NodaTime;
+using Sql;
 
 /// <summary>
 /// Row reader for mappers. Reads columns in the order defined by the schema.
@@ -39,16 +41,23 @@ public ref struct RowReader
     }
 
     /// <summary>
-    /// Reads the next column as a GUID.
+    /// Reads the next column as a byte.
     /// </summary>
     /// <returns>Column value.</returns>
-    public Guid? ReadGuid() => _reader.GetGuidNullable(_position++);
+    [CLSCompliant(false)]
+    public sbyte? ReadByte() => _reader.GetByteNullable(_position++);
 
     /// <summary>
-    /// Reads the next column as a string.
+    /// Reads the next column as a boolean.
     /// </summary>
     /// <returns>Column value.</returns>
-    public string? ReadString() => _reader.GetStringNullable(_position++);
+    public bool? ReadBool() => _reader.GetBoolNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a short.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public short? ReadShort() => _reader.GetShortNullable(_position++);
 
     /// <summary>
     /// Reads the next column as an int.
@@ -61,6 +70,86 @@ public ref struct RowReader
     /// </summary>
     /// <returns>Column value.</returns>
     public long? ReadLong() => _reader.GetLongNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a float.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public float? ReadFloat() => _reader.GetFloatNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a double.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public double? ReadDouble() => _reader.GetDoubleNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a string.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public string? ReadString() => _reader.GetStringNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a byte array.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public byte[]? ReadBytes() => _reader.GetBytesNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a GUID.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public Guid? ReadGuid() => _reader.GetGuidNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a decimal.
+    /// </summary>
+    /// <param name="scale">Decimal scale from schema.</param>
+    /// <returns>Column value.</returns>
+    public decimal? ReadDecimal(int scale) => _reader.GetDecimalNullable(_position++, scale); // TODO: Remove scale.
+
+    /// <summary>
+    /// Reads the next column as a big decimal.
+    /// </summary>
+    /// <param name="scale">Decimal scale from schema.</param>
+    /// <returns>Column value.</returns>
+    public BigDecimal? ReadBigDecimal(int scale) => _reader.GetBigDecimalNullable(_position++, scale);
+
+    /// <summary>
+    /// Reads the next column as a date.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public LocalDate? ReadDate() => _reader.GetDateNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a time.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public LocalTime? ReadTime() => _reader.GetTimeNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a date and time.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public LocalDateTime? ReadDateTime() => _reader.GetDateTimeNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a timestamp (instant).
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public Instant? ReadTimestamp() => _reader.GetTimestampNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a duration.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public Duration? ReadDuration() => _reader.GetDurationNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a period.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public Period? ReadPeriod() => _reader.GetPeriodNullable(_position++);
 
     /// <summary>
     /// Skips the current column.
