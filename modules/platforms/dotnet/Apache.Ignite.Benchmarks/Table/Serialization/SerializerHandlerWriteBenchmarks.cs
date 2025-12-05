@@ -67,6 +67,17 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         }
 
         [Benchmark]
+        public void WriteObjectWithMapper()
+        {
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
+
+            ObjectSerializerHandler.Write(ref writer, Schema, Object);
+
+            VerifyWritten(pooledWriter);
+        }
+
+        [Benchmark]
         public void WriteTuple()
         {
             using var pooledWriter = new PooledArrayBuffer();

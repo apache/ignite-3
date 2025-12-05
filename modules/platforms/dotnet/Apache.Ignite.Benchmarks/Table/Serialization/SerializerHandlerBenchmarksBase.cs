@@ -59,7 +59,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly IRecordSerializerHandler<Car> ObjectSerializerHandler = new ObjectSerializerHandler<Car>();
 
-        internal static readonly CarMapper Mapper = new();
+        internal static readonly IRecordSerializerHandler<Car> MapperSerializerHandler = new MapperSerializerHandler<Car>(new CarMapper());
 
         protected Consumer Consumer { get; } = new();
 
