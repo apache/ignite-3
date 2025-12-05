@@ -23,6 +23,7 @@ import org.apache.ignite.internal.pagememory.io.IoVersions;
 public class StoragePartitionMetaIoVersions {
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
-            new StoragePartitionMetaIo()
+            new StoragePartitionMetaIo(),
+            new StoragePartitionMetaIoV2()
     );
 }

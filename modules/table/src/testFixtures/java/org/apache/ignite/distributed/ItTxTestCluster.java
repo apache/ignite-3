@@ -504,7 +504,7 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    Executors.newSingleThreadScheduledExecutor(),
+                    executor,
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
             );
@@ -1201,14 +1201,6 @@ public class ItTxTestCluster {
             assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
-        if (executor != null) {
-            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-        }
-
-        if (partitionOperationsExecutor != null) {
-            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
-        }
-
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
 
@@ -1272,6 +1264,14 @@ public class ItTxTestCluster {
             for (ClockWaiter clockWaiter : clockWaiters) {
                 assertThat(clockWaiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
+        }
+
+        if (executor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
+
+        if (partitionOperationsExecutor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
     }
 

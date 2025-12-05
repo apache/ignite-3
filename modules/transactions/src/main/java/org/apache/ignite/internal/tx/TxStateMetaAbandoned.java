@@ -27,6 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaAbandonedMessage;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abandoned transaction state meta.
@@ -42,12 +43,14 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group ID.
+     * @param txLabel Transaction label.
      */
     public TxStateMetaAbandoned(
             UUID txCoordinatorId,
-            ReplicationGroupId commitPartitionId
+            ReplicationGroupId commitPartitionId,
+            @Nullable String txLabel
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null, null, null, txLabel);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }
@@ -78,6 +81,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
                 .lastAbandonedMarkerTs(lastAbandonedMarkerTs)
+                .txLabel(txLabel())
                 .build();
     }
 
@@ -110,5 +114,28 @@ public class TxStateMetaAbandoned extends TxStateMeta {
     @Override
     public String toString() {
         return S.toString(TxStateMetaAbandoned.class, this);
+    }
+
+    @Override
+    public TxStateMetaAbandonedBuilder mutate() {
+        return new TxStateMetaAbandonedBuilder(this);
+    }
+
+    /**
+     * Builder for {@link TxStateMetaAbandoned} instances.
+     */
+    public static class TxStateMetaAbandonedBuilder extends TxStateMetaBuilder {
+        TxStateMetaAbandonedBuilder(TxStateMeta old) {
+            super(old);
+        }
+
+        @Override
+        public TxStateMeta build() {
+            if (txState == ABANDONED) {
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
+            } else {
+                return super.build();
+            }
+        }
     }
 }

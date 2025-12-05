@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -434,7 +435,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
         if (readOnly) {
             return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
         }
@@ -442,7 +443,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
         var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
 
-        txStateVolatileStorage.initialize(tx);
+        txStateVolatileStorage.initialize(tx, txLabel);
         txMetrics.onTransactionStarted();
 
         return tx;
@@ -460,7 +461,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, txOptions);
         }
 
-        txStateVolatileStorage.initialize(tx);
+        txStateVolatileStorage.initialize(tx, txOptions.txLabel());
         txMetrics.onTransactionStarted();
 
         return tx;
@@ -601,15 +602,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old ->
-                new TxStateMeta(
-                        finalState,
-                        old == null ? null : old.txCoordinatorId(),
-                        old == null ? null : old.commitPartitionId(),
-                        ts,
-                        old == null ? null : old.tx(),
-                        timeoutExceeded
-                ));
+        updateTxMeta(txId, old -> builder(old, finalState)
+                .commitTimestamp(ts)
+                .finishedDueToTimeout(timeoutExceeded)
+                .build()
+        );
 
         txMetrics.onReadWriteTransactionFinished(txId, finalState == COMMITTED);
 
@@ -643,14 +640,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-            updateTxMeta(txId, old -> new TxStateMeta(
-                    commitIntent ? COMMITTED : ABORTED,
-                    localNodeId,
-                    commitPartition,
-                    commitTimestamp(commitIntent),
-                    old == null ? null : old.tx(),
-                    timeout
-            ));
+            updateTxMeta(txId, old -> builder(old, commitIntent ? COMMITTED : ABORTED)
+                    .txCoordinatorId(localNodeId)
+                    .commitPartitionId(commitPartition)
+                    .commitTimestamp(commitTimestamp(commitIntent))
+                    .finishedDueToTimeout(timeout)
+                    .build()
+            );
 
             txMetrics.onReadWriteTransactionFinished(txId, commitIntent);
 
@@ -671,7 +667,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         TxStateMetaFinishing finishingStateMeta =
                 txMeta == null
-                        ? new TxStateMetaFinishing(null, commitPartition, timeout)
+                        ? new TxStateMetaFinishing(null, commitPartition, timeout, null)
                         : txMeta.finishing(timeout);
 
         TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
@@ -756,18 +752,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                 return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
                                         .thenAccept(ignored -> {
                                             // Don't keep useless state.
+                                            TxStateMeta previous = txStateVolatileStorage.state(txId);
                                             txStateVolatileStorage.updateMeta(txId, old -> null);
 
-                                            TxStateMeta meta = new TxStateMeta(
-                                                    verifiedCommit ? COMMITTED : ABORTED,
-                                                    localNodeId,
-                                                    null,
-                                                    commitTimestamp,
-                                                    null,
-                                                    null,
-                                                    System.currentTimeMillis(),
-                                                    null
-                                            );
+                                            TxStateMeta meta = builder(verifiedCommit ? COMMITTED : ABORTED)
+                                                    .txCoordinatorId(localNodeId)
+                                                    .commitTimestamp(commitTimestamp)
+                                                    .cleanupCompletionTimestamp(System.currentTimeMillis())
+                                                    .txLabel(previous == null ? null : previous.txLabel())
+                                                    .build();
 
                                             txFinishFuture.complete(meta);
                                         });
@@ -835,17 +828,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
                             TransactionResult result = transactionException.transactionResult();
 
-                            TxStateMeta updatedMeta = updateTxMeta(txId, old ->
-                                    new TxStateMeta(
-                                            result.transactionState(),
-                                            old == null ? null : old.txCoordinatorId(),
-                                            commitPartition,
-                                            result.commitTimestamp(),
-                                            old == null ? null : old.tx(),
-                                            old == null ? null : old.initialVacuumObservationTimestamp(),
-                                            old == null ? null : old.cleanupCompletionTimestamp(),
-                                            old == null ? null : old.isFinishedDueToTimeout()
-                                    )
+                            TxStateMeta updatedMeta = updateTxMeta(txId, old -> builder(old, result.transactionState())
+                                    .commitPartitionId(commitPartition)
+                                    .commitTimestamp(result.commitTimestamp())
+                                    .build()
                             );
 
                             txFinishFuture.complete(updatedMeta);
@@ -903,17 +889,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 .thenAccept(txResult -> {
                     validateTxFinishedAsExpected(commit, txId, txResult);
 
-                    TxStateMeta updatedMeta = updateTxMeta(txId, old ->
-                            new TxStateMeta(
-                                    txResult.transactionState(),
-                                    localNodeId,
-                                    old == null ? null : old.commitPartitionId(),
-                                    txResult.commitTimestamp(),
-                                    old == null ? null : old.tx(),
-                                    old == null ? null : old.initialVacuumObservationTimestamp(),
-                                    old == null ? null : old.cleanupCompletionTimestamp(),
-                                    old == null ? null : old.isFinishedDueToTimeout()
-                            ));
+                    TxStateMeta updatedMeta = updateTxMeta(txId, old -> builder(old, txResult.transactionState())
+                            .txCoordinatorId(localNodeId)
+                            .commitTimestamp(txResult.commitTimestamp())
+                            .build()
+                    );
 
                     assert isFinalState(updatedMeta.txState()) :
                             "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
