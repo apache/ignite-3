@@ -28,13 +28,14 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     ///
     /// Results on i9-12900H, .NET SDK 8.0.416, Ubuntu 22.04:
     ///
-    /// | Method               | Mean      | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated |
-    /// |--------------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|
-    /// | ReadObjectManual     |  41.10 ns | 0.240 ns | 0.212 ns |  1.00 |    0.01 | 0.0002 |      80 B |
-    /// | ReadObject           |  70.69 ns | 0.304 ns | 0.284 ns |  1.72 |    0.01 | 0.0002 |      80 B |
-    /// | ReadObjectWithMapper |  46.33 ns | 0.645 ns | 0.603 ns |  1.13 |    0.02 | 0.0004 |     112 B |
-    /// | ReadTuple            |  21.61 ns | 0.055 ns | 0.046 ns |  0.53 |    0.00 | 0.0004 |     112 B |
-    /// | ReadTupleAndFields   | 134.81 ns | 0.783 ns | 0.654 ns |  3.28 |    0.02 | 0.0005 |     200 B |.
+    /// | Method                         | Mean      | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated | Alloc Ratio |
+    /// |------------------------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|------------:|
+    /// | ReadObjectManual               |  40.92 ns | 0.171 ns | 0.143 ns |  1.00 |    0.00 | 0.0002 |      80 B |        1.00 |
+    /// | ReadObject                     |  69.99 ns | 0.235 ns | 0.220 ns |  1.71 |    0.01 | 0.0002 |      80 B |        1.00 |
+    /// | ReadObjectWithMapper           |  50.23 ns | 0.196 ns | 0.163 ns |  1.23 |    0.01 | 0.0004 |     112 B |        1.40 |
+    /// | ReadObjectWithMapperKnownOrder |  39.68 ns | 0.269 ns | 0.252 ns |  0.97 |    0.01 | 0.0002 |      80 B |        1.00 |
+    /// | ReadTuple                      |  21.44 ns | 0.114 ns | 0.089 ns |  0.52 |    0.00 | 0.0004 |     112 B |        1.40 |
+    /// | ReadTupleAndFields             | 130.85 ns | 0.832 ns | 0.694 ns |  3.20 |    0.02 | 0.0005 |     200 B |        2.50 |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
