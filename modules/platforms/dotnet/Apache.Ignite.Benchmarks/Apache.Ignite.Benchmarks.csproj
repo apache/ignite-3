@@ -29,6 +29,7 @@
 
     <ItemGroup>
       <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+      <PackageReference Include="BenchmarkDotNet.Diagnostics.dotMemory" Version="0.15.8" />
     </ItemGroup>
 
     <ItemGroup>
