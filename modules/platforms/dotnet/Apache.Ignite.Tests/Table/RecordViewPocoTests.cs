@@ -28,8 +28,14 @@ namespace Apache.Ignite.Tests.Table
     /// <summary>
     /// Tests for POCO view.
     /// </summary>
+    [TestFixture("reflective")]
+    [TestFixture("mapper")]
     public class RecordViewPocoTests : IgniteTestsBase
     {
+        public RecordViewPocoTests(string mode)
+        {
+        }
+
         [TearDown]
         public async Task CleanTable()
         {

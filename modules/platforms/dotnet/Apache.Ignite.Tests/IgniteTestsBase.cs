@@ -88,6 +88,8 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
 
+        protected IRecordView<Poco> PocoViewWithMapper { get; private set; } = null!;
+
         protected IRecordView<PocoAllColumns> PocoAllColumnsView { get; private set; } = null!;
 
         protected IRecordView<PocoAllColumnsBigDecimal> PocoAllColumnsBigDecimalView { get; private set; } = null!;
@@ -109,6 +111,7 @@ namespace Apache.Ignite.Tests
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
             PocoView = Table.GetRecordView<Poco>();
+            PocoViewWithMapper = Table.GetRecordView(new PocoMapper());
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
             PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
