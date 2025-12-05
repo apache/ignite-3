@@ -60,7 +60,7 @@ public interface NodeConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({MediaType.TEXT_PLAIN, MediaType.PROBLEM_JSON})
     @Get
-    HttpResponse<?> getConfiguration();
+    HttpResponse<String> getConfiguration();
 
     /**
      * Returns configuration in HOCON format represented by path. This is represented as a plain text.
@@ -82,7 +82,7 @@ public interface NodeConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({MediaType.TEXT_PLAIN, MediaType.PROBLEM_JSON})
     @Get("/{path}")
-    HttpResponse<?> getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
+    HttpResponse<String> getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
             description = "Configuration tree address. For example: `element.subelement`.") String path);
 
     /**

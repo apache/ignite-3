@@ -43,7 +43,7 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      *
      * @return the presentation of configuration.
      */
-    public HttpResponse<?> getConfiguration() {
+    public HttpResponse<String> getConfiguration() {
         return plainTextResponse(cfgPresentation.represent());
     }
 
@@ -53,7 +53,7 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      * @param path to represent a configuration.
      * @return system configuration represented by given path.
      */
-    public HttpResponse<?> getConfigurationByPath(String path) {
+    public HttpResponse<String> getConfigurationByPath(String path) {
         try {
             return plainTextResponse(cfgPresentation.representByPath(path));
         } catch (IllegalArgumentException ex) {

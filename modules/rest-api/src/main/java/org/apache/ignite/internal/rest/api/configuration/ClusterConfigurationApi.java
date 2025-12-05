@@ -63,7 +63,7 @@ public interface ClusterConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({MediaType.TEXT_PLAIN, MediaType.PROBLEM_JSON})
     @Get
-    HttpResponse<?> getConfiguration();
+    HttpResponse<String> getConfiguration();
 
     /**
      * Updates cluster configuration in HOCON format. This is represented as a plain text.
@@ -112,6 +112,6 @@ public interface ClusterConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({MediaType.TEXT_PLAIN, MediaType.PROBLEM_JSON})
     @Get("/{path}")
-    HttpResponse<?> getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
+    HttpResponse<String> getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
             description = "Configuration tree address. For example: `element.subelement`.") String path);
 }

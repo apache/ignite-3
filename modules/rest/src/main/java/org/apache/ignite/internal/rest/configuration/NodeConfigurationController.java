@@ -43,7 +43,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
      * @return the whole node configuration in HOCON format.
      */
     @Override
-    public HttpResponse<?> getConfiguration() {
+    public HttpResponse<String> getConfiguration() {
         return super.getConfiguration();
     }
 
@@ -54,7 +54,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
      * @return system configuration in HOCON format represented by given path.
      */
     @Override
-    public HttpResponse<?> getConfigurationByPath(String path) {
+    public HttpResponse<String> getConfigurationByPath(String path) {
         return super.getConfigurationByPath(path);
     }
 
