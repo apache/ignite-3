@@ -27,14 +27,15 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> read methods.
     ///
-    /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
+    /// Results on i9-12900H, .NET SDK 8.0.416, Ubuntu 22.04:
     ///
-    /// |             Method |      Mean |    Error |   StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
-    /// |------------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|
-    /// |   ReadObjectManual |  52.88 ns | 0.348 ns | 0.325 ns |  1.00 |    0.00 | 0.0003 |      80 B |
-    /// |         ReadObject |  89.68 ns | 0.738 ns | 0.654 ns |  1.70 |    0.02 | 0.0002 |      80 B |
-    /// |          ReadTuple |  20.02 ns | 0.147 ns | 0.131 ns |  0.38 |    0.00 | 0.0004 |     112 B |
-    /// | ReadTupleAndFields | 127.92 ns | 2.234 ns | 2.194 ns |  2.42 |    0.05 | 0.0007 |     200 B |.
+    /// | Method               | Mean      | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated |
+    /// |--------------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|
+    /// | ReadObjectManual     |  41.10 ns | 0.240 ns | 0.212 ns |  1.00 |    0.01 | 0.0002 |      80 B |
+    /// | ReadObject           |  70.69 ns | 0.304 ns | 0.284 ns |  1.72 |    0.01 | 0.0002 |      80 B |
+    /// | ReadObjectWithMapper |  46.33 ns | 0.645 ns | 0.603 ns |  1.13 |    0.02 | 0.0004 |     112 B |
+    /// | ReadTuple            |  21.61 ns | 0.055 ns | 0.046 ns |  0.53 |    0.00 | 0.0004 |     112 B |
+    /// | ReadTupleAndFields   | 134.81 ns | 0.783 ns | 0.654 ns |  3.28 |    0.02 | 0.0005 |     200 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
