@@ -102,6 +102,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -207,7 +208,8 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            MetricManager metricManager
+            MetricManager metricManager,
+            LowWatermark lowWatermark
     ) {
         this(
                 nodeName,
@@ -220,7 +222,8 @@ public class DistributionZoneManager extends
                 systemDistributedConfiguration,
                 clockService,
                 new SystemPropertiesNodeProperties(),
-                metricManager
+                metricManager,
+                lowWatermark
         );
     }
 
@@ -236,6 +239,9 @@ public class DistributionZoneManager extends
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param clockService Clock service.
+     * @param nodeProperties Node properties.
+     * @param metricManager Metric manager.
+     * @param lowWatermark Low watermark manager.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -248,7 +254,8 @@ public class DistributionZoneManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
             NodeProperties nodeProperties,
-            MetricManager metricManager
+            MetricManager metricManager,
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -287,7 +294,8 @@ public class DistributionZoneManager extends
                 failureProcessor,
                 partitionResetClosure,
                 partitionDistributionResetTimeoutConfiguration::currentValue,
-                this::logicalTopology
+                this::logicalTopology,
+                lowWatermark
         );
 
         this.metricManager = metricManager;
@@ -375,7 +383,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * Gets data nodes of the zone using timestamp and catalog version. {@code timestamp} must be agreed
      * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
      * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
@@ -406,8 +414,20 @@ public class DistributionZoneManager extends
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
 
-    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
+    /**
+     * Gets data nodes of the zone using catalog version. The timestamp which is used for data nodes retrieval is taken from the catalog
+     * with the given {@code catalogVersion}.
+     *
+     * <p>Return data nodes or throw the exception:
+     * {@link IllegalArgumentException} if zoneId is not valid.
+     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
+     *
+     * @param catalogVersion Catalog version.
+     * @param zoneId Zone id.
+     * @return The future with data nodes for the zoneId.
+     */
+    public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
+        return dataNodes(INITIAL_TIMESTAMP, catalogVersion, zoneId);
     }
 
     /**

@@ -794,7 +794,7 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Set<Assignment>> calculateZoneAssignments(ZonePartitionId zonePartitionId, Catalog catalog) {
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
-        return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneDescriptor.id())
+        return distributionZoneMgr.dataNodes(catalog.version(), zoneDescriptor.id())
                 .thenApply(dataNodes -> calculateAssignmentForPartition(
                         dataNodes,
                         zonePartitionId.partitionId(),
@@ -1087,7 +1087,7 @@ public class PartitionReplicaLifecycleManager extends
     ) {
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
-        return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
+        return distributionZoneMgr.dataNodes(catalog.version(), replicaGrpId.zoneId())
                 .thenCompose(dataNodes -> ZoneRebalanceRaftGroupEventsListener.handleReduceChanged(
                         metaStorageMgr,
                         dataNodes,

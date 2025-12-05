@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -38,6 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -50,9 +54,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.PartitionResetClosure;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -62,6 +68,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -79,10 +86,12 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link DataNodesManager}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     private static final String ZONE_NAME_1 = "test_zone_1";
     private static final String ZONE_NAME_2 = "test_zone_2";
@@ -108,8 +117,10 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private static final String NODE_NAME = "node";
 
+    private UUID nodeId;
     private KeyValueStorage storage;
     private HybridClock clock;
+    private ClockService clockService;
     private MetaStorageManager metaStorageManager;
     private CatalogManager catalogManager;
     private DataNodesManager dataNodesManager;
@@ -120,40 +131,37 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private final PartitionResetClosure partitionResetClosure = (revision, zoneId) -> partitionResetTriggered.set(true);
 
+    @Nullable
+    private Catalog catalog;
+
+    private LowWatermark lowWatermark;
+
     @BeforeEach
     public void setUp() {
         ComponentContext startComponentContext = new ComponentContext();
-
-        ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
-        storage = new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker);
-        clock = new HybridClockImpl();
-
-        metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
-        assertThat(metaStorageManager.startAsync(startComponentContext), willCompleteSuccessfully());
-        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
-
-        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
                 IgniteThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
         );
 
-        ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
+        ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+        storage = new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker);
+        clock = new HybridClockImpl();
+        clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
 
-        UUID nodeId = UUID.randomUUID();
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
+        assertThat(metaStorageManager.startAsync(startComponentContext), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        dataNodesManager = new DataNodesManager(
-                NODE_NAME,
-                () -> nodeId,
-                new IgniteSpinBusyLock(),
-                metaStorageManager,
-                catalogManager,
-                clockService,
-                new NoOpFailureManager(),
-                partitionResetClosure,
-                () -> 1,
-                Collections::emptySet
-        );
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager, () -> TEST_DELAY_DURATION, () -> catalog);
+        catalog = null;
+
+        nodeId = UUID.randomUUID();
+
+        lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(clock.current().getPhysical() - 500, 0));
+
+        dataNodesManager = createDataNodesManager(lowWatermark);
 
         currentTopology = new HashSet<>(Set.of(A, B));
 
@@ -166,6 +174,22 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         createZone(ZONE_NAME_2, HIGH_AVAILABILITY);
 
         dataNodesManager.onZoneCreate(0, clock.now(), currentTopology);
+    }
+
+    private DataNodesManager createDataNodesManager(LowWatermark lowWatermark) {
+        return new DataNodesManager(
+                NODE_NAME,
+                () -> nodeId,
+                new IgniteSpinBusyLock(),
+                metaStorageManager,
+                catalogManager,
+                clockService,
+                new NoOpFailureManager(),
+                partitionResetClosure,
+                () -> 1,
+                Collections::emptySet,
+                lowWatermark
+        );
     }
 
     @AfterEach
@@ -477,6 +501,84 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         NodeWithAttributes c = nodeFromHistory(dataNodesHistory(ZONE_NAME_1), C.nodeName(), HybridTimestamp.MAX_VALUE);
 
         assertEquals(C_DIFFERENT_ATTRS.userAttributes().get("region"), c.userAttributes().get("region"));
+    }
+
+    @Test
+    public void testHistoryCompaction() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        checkDataNodes(ZONE_NAME_1, clock.current(), nodeNames(A, B));
+
+        HybridTimestamp afterRemovalTs = clock.now();
+
+        // Greater than the low watermark data availability time (500 ms).
+        Thread.sleep(600);
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(clock.currentLong()).zone(ZONE_NAME_1);
+        catalog = mock(Catalog.class);
+        when(catalog.time()).thenAnswer(inv -> clock.now().longValue());
+        when(catalog.zone(anyInt())).thenAnswer(inv -> zoneDescriptor);
+
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is compacted.
+        DataNodesHistoryEntry compactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(afterRemovalTs);
+        assertEquals(HybridTimestamp.MIN_VALUE, compactedHistoryEntry.timestamp());
+        assertTrue(compactedHistoryEntry.dataNodes().isEmpty());
+
+        // Check that the last data nodes history entry is not compacted.
+        HybridTimestamp now = clock.now();
+        DataNodesHistoryEntry actualHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(now);
+        assertTrue(actualHistoryEntry.dataNodes().containsAll(asList(A, B, C)));
+    }
+
+    @Test
+    public void testHistoryCompactionLeavesEntriesForNonCompactedCatalog() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        DataNodesHistoryEntry firstEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(clock.current());
+
+        // Greater than the low watermark data availability time (500 ms).
+        Thread.sleep(600);
+
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is not compacted.
+        DataNodesHistoryEntry nonCompactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(firstEntry.timestamp());
+        assertEquals(firstEntry.timestamp(), nonCompactedHistoryEntry.timestamp());
+        assertEquals(firstEntry.dataNodes(), nonCompactedHistoryEntry.dataNodes());
+    }
+
+    @Test
+    public void testHistoryCompactionLeavesEntriesForDataAvailability() {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        // Make sure the history will be not compacted because of low watermark.
+        lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(clock.current().getPhysical() - Integer.MAX_VALUE, 0));
+
+        dataNodesManager = createDataNodesManager(lowWatermark);
+
+        DataNodesHistoryEntry firstEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(clock.current());
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(clock.currentLong()).zone(ZONE_NAME_1);
+        catalog = mock(Catalog.class);
+        when(catalog.time()).thenAnswer(inv -> clock.now().longValue());
+        when(catalog.zone(anyInt())).thenAnswer(inv -> zoneDescriptor);
+
+        log.info("Test: adding node C.");
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is not compacted.
+        DataNodesHistoryEntry nonCompactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(firstEntry.timestamp());
+        assertEquals(firstEntry.timestamp(), nonCompactedHistoryEntry.timestamp());
+        assertEquals(firstEntry.dataNodes(), nonCompactedHistoryEntry.dataNodes());
     }
 
     private static NodeWithAttributes nodeFromHistory(DataNodesHistory history, String nodeName, HybridTimestamp timestamp) {

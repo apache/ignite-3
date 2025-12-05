@@ -1008,7 +1008,8 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration,
                 clockService,
                 nodeProperties,
-                metricManager
+                metricManager,
+                lowWatermark
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
