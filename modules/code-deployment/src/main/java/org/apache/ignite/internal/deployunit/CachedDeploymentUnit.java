@@ -42,7 +42,7 @@ public class CachedDeploymentUnit implements DeploymentUnit {
     public void close() throws Exception {
         future.whenComplete((unit, throwable) -> {
             if (throwable != null) {
-               LOG.info("Future to access cached unit is failed.", throwable);
+                LOG.info("Future to access cached unit is failed.", throwable);
             } else {
                 try {
                     unit.close();
