@@ -114,6 +114,53 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
                 case ColumnType.Int8:
                     rowWriter.WriteByte((sbyte)(object)obj);
                     break;
+                case ColumnType.Int16:
+                    rowWriter.WriteShort((short)(object)obj);
+                    break;
+                case ColumnType.Int32:
+                    rowWriter.WriteInt((int)(object)obj);
+                    break;
+                case ColumnType.Int64:
+                    rowWriter.WriteLong((long)(object)obj);
+                    break;
+                case ColumnType.Float:
+                    rowWriter.WriteFloat((float)(object)obj);
+                    break;
+                case ColumnType.Double:
+                    rowWriter.WriteDouble((double)(object)obj);
+                    break;
+                case ColumnType.Decimal:
+                    if (obj is BigDecimal bd)
+                    {
+                        rowWriter.WriteBigDecimal(bd);
+                    }
+                    else
+                    {
+                        rowWriter.WriteDecimal((decimal)(object)obj);
+                    }
+
+                    break;
+                case ColumnType.String:
+                    rowWriter.WriteString((string)(object)obj);
+                    break;
+                case ColumnType.Date:
+                    rowWriter.WriteDate((LocalDate)(object)obj);
+                    break;
+                case ColumnType.Time:
+                    rowWriter.WriteTime((LocalTime)(object)obj);
+                    break;
+                case ColumnType.Datetime:
+                    rowWriter.WriteDateTime((LocalDateTime)(object)obj);
+                    break;
+                case ColumnType.Timestamp:
+                    rowWriter.WriteTimestamp((Instant)(object)obj);
+                    break;
+                case ColumnType.Uuid:
+                    rowWriter.WriteGuid((Guid)(object)obj);
+                    break;
+                case ColumnType.ByteArray:
+                    rowWriter.WriteBytes((byte[])(object)obj);
+                    break;
                 default:
                     Assert.Fail("Unsupported column type: " + col.Type);
                     break;
@@ -128,7 +175,22 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
             {
                 ColumnType.Boolean => (T)(object)rowReader.ReadBool()!,
                 ColumnType.Int8 => (T)(object)rowReader.ReadByte()!,
-                _ => throw new InvalidOperationException("Unsupported column type: " + col.Type)
+                ColumnType.Int16 => (T)(object)rowReader.ReadShort()!,
+                ColumnType.Int32 => (T)(object)rowReader.ReadInt()!,
+                ColumnType.Int64 => (T)(object)rowReader.ReadLong()!,
+                ColumnType.Float => (T)(object)rowReader.ReadFloat()!,
+                ColumnType.Double => (T)(object)rowReader.ReadDouble()!,
+                ColumnType.Decimal => typeof(T) == typeof(BigDecimal)
+                    ? (T)(object)rowReader.ReadBigDecimal()!
+                    : (T)(object)rowReader.ReadDecimal()!,
+                ColumnType.String => (T)(object)rowReader.ReadString()!,
+                ColumnType.Date => (T)(object)rowReader.ReadDate()!,
+                ColumnType.Time => (T)(object)rowReader.ReadTime()!,
+                ColumnType.Datetime => (T)(object)rowReader.ReadDateTime()!,
+                ColumnType.Timestamp => (T)(object)rowReader.ReadTimestamp()!,
+                ColumnType.Uuid => (T)(object)rowReader.ReadGuid()!,
+                ColumnType.ByteArray => (T)(object)rowReader.ReadBytes()!,
+                ColumnType.Null or ColumnType.Period or ColumnType.Duration or _ => default!
             };
         }
     }
