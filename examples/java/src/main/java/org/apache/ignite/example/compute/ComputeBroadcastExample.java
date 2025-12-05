@@ -213,7 +213,7 @@ public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
         } finally {
 
             System.out.println("Cleaning up resources");
-            // undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             /* Drop table */
             System.out.println("\nDropping the table...");
