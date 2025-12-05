@@ -23,7 +23,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using Ignite.Table;
     using Ignite.Table.Mapper;
     using Internal.Buffers;
-    using Internal.Sql;
     using Internal.Table;
     using Internal.Table.Serialization;
 
@@ -102,15 +101,15 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
                     switch (column.Name)
                     {
                         case nameof(Car.Id):
-                            rowWriter.Write(obj.Id);
+                            rowWriter.WriteGuid(obj.Id);
                             break;
 
                         case nameof(Car.BodyType):
-                            rowWriter.Write(obj.BodyType);
+                            rowWriter.WriteString(obj.BodyType);
                             break;
 
                         case nameof(Car.Seats):
-                            rowWriter.Write(obj.Seats);
+                            rowWriter.WriteInt(obj.Seats);
                             break;
 
                         default:

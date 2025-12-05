@@ -58,10 +58,9 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
-        var columns = schema.GetColumnsFor(keyOnly);
         Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
+        var mapperWriter = new RowWriter(ref tupleBuilder, noValueSetRef);
 
-        var mapperWriter = new RowWriter(ref tupleBuilder, columns, noValueSetRef);
         _mapper.Write(record, ref mapperWriter, schema.GetMapperSchema(keyOnly));
 
         // NOTE: MapperWriter constructor makes a copy of the builder, but this is ok since the underlying buffer is shared.

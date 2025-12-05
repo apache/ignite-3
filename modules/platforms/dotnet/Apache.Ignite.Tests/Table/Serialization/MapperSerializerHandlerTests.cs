@@ -52,11 +52,11 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                 switch (column.Name)
                 {
                     case "Key":
-                        rowWriter.Write(obj.Key);
+                        rowWriter.WriteLong(obj.Key);
                         break;
 
                     case "Val":
-                        rowWriter.Write(obj.Val);
+                        rowWriter.WriteString(obj.Val);
                         break;
 
                     default:
@@ -101,11 +101,7 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                 switch (column.Name)
                 {
                     case "Key":
-                        rowWriter.Write(obj.Key);
-                        break;
-
-                    case "Val":
-                        rowWriter.Write(obj.Val);
+                        rowWriter.WriteGuid(obj.Key);
                         break;
 
                     default:

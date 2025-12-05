@@ -19,33 +19,25 @@ namespace Apache.Ignite.Table.Mapper;
 
 using System;
 using Internal.Proto.BinaryTuple;
-using Internal.Table;
 using Internal.Table.Serialization;
-using Sql;
 
 /// <summary>
 /// Row writer for mappers. Writes columns in the order defined by the schema.
 /// </summary>
 public ref struct RowWriter
 {
-    private readonly Column[] _schema;
-
     private readonly Span<byte> _noValueSet;
 
     private BinaryTupleBuilder _builder;
-
-    private int _position;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RowWriter"/> struct.
     /// </summary>
     /// <param name="builder">Builder.</param>
-    /// <param name="schema">Schema.</param>
     /// <param name="noValueSet">No-value set.</param>
-    internal RowWriter(ref BinaryTupleBuilder builder, Column[] schema, Span<byte> noValueSet)
+    internal RowWriter(ref BinaryTupleBuilder builder, Span<byte> noValueSet)
     {
         _builder = builder;
-        _schema = schema;
         _noValueSet = noValueSet;
     }
 
@@ -55,29 +47,28 @@ public ref struct RowWriter
     internal readonly BinaryTupleBuilder Builder => _builder;
 
     /// <summary>
-    /// Writes the specified object to an Ignite table row.
-    /// This method must be called for every column in the schema, in the order of the columns (see <see cref="IMapper{T}.Write"/>).
+    /// Writes an integer value.
     /// </summary>
-    /// <param name="obj">Object.</param>
-    /// <typeparam name="T">Object type.</typeparam>
-    public void Write<T>(T? obj)
-    {
-        var pos = _position++;
+    /// <param name="value">Value.</param>
+    public void WriteInt(int? value) => _builder.AppendIntNullable(value);
 
-        if (pos >= _schema.Length)
-        {
-            throw new InvalidOperationException($"No more columns to write. Total columns: {_schema.Length}.");
-        }
+    /// <summary>
+    /// Writes a long value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteLong(long? value) => _builder.AppendLongNullable(value);
 
-        Column col = _schema[pos];
-        ColumnType actualType = _builder.AppendObjectAndGetType(obj);
+    /// <summary>
+    /// Writes a string value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteString(string? value) => _builder.AppendStringNullable(value);
 
-        if (col.Type != actualType)
-        {
-            throw new InvalidOperationException(
-                $"Column type mismatch for {col.Name}. Expected: {col.Type}, actual: {actualType}, value: '{obj}'.");
-        }
-    }
+    /// <summary>
+    /// Writes a string value.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    public void WriteGuid(Guid? value) => _builder.AppendGuidNullable(value);
 
     /// <summary>
     /// Skips writing the next column (marks as not set, so that the default column value can be applied by the server).
