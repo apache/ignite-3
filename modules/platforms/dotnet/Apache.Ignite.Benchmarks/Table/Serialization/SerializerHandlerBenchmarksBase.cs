@@ -21,7 +21,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using BenchmarkDotNet.Engines;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Internal.Buffers;
+    using Internal.Sql;
     using Internal.Table;
     using Internal.Table.Serialization;
 
@@ -58,6 +60,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly IRecordSerializerHandler<Car> ObjectSerializerHandler = new ObjectSerializerHandler<Car>();
 
+        internal static readonly CarMapper Mapper = new();
+
         protected Consumer Consumer { get; } = new();
 
         internal static void VerifyWritten(PooledArrayBuffer pooledWriter)
@@ -87,6 +91,63 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             public string BodyType { get; set; } = null!;
 
             public int Seats { get; set; }
+        }
+
+        protected internal class CarMapper : IMapper<Car>
+        {
+            public void Write(Car obj, ref RowWriter rowWriter, IMapperSchema schema)
+            {
+                foreach (var column in schema.Columns)
+                {
+                    switch (column.Name)
+                    {
+                        case nameof(Car.Id):
+                            rowWriter.Write(obj.Id);
+                            break;
+
+                        case nameof(Car.BodyType):
+                            rowWriter.Write(obj.BodyType);
+                            break;
+
+                        case nameof(Car.Seats):
+                            rowWriter.Write(obj.Seats);
+                            break;
+
+                        default:
+                            rowWriter.Skip();
+                            break;
+                    }
+                }
+            }
+
+            public Car Read(ref RowReader rowReader, IMapperSchema schema)
+            {
+                var res = new Car();
+
+                foreach (var column in schema.Columns)
+                {
+                    switch (column.Name)
+                    {
+                        case nameof(Car.Id):
+                            res.Id = rowReader.Read<Guid>();
+                            break;
+
+                        case nameof(Car.BodyType):
+                            res.BodyType = rowReader.Read<string>()!;
+                            break;
+
+                        case nameof(Car.Seats):
+                            res.Seats = rowReader.Read<int>();
+                            break;
+
+                        default:
+                            rowReader.Skip();
+                            break;
+                    }
+                }
+
+                return res;
+            }
         }
     }
 }

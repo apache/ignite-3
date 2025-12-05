@@ -19,6 +19,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
+    using Ignite.Table.Mapper;
     using Internal.Proto.BinaryTuple;
     using Internal.Proto.MsgPack;
     using Internal.Table.Serialization;
@@ -82,6 +83,17 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             Consumer.Consume(res[0]!);
             Consumer.Consume(res[1]!);
             Consumer.Consume(res[2]!);
+        }
+
+        [Benchmark]
+        public void ReadObjectWithMapper()
+        {
+            var reader = new MsgPackReader(SerializedData);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), 3);
+            var rowReader = new RowReader(ref tupleReader, Schema.Columns, false);
+
+            Car res = Mapper.Read(ref rowReader, Schema.GetMapperSchema(false));
+            Consumer.Consume(res);
         }
     }
 }
