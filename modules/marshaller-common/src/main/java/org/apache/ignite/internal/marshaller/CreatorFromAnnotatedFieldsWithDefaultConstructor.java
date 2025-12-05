@@ -24,16 +24,16 @@ import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import org.apache.ignite.lang.MarshallerException;
 
-class AnnotatedFieldsWithDefaultConstructor implements Creator.Annotated {
+class CreatorFromAnnotatedFieldsWithDefaultConstructor implements Creator {
     private final MethodHandle mhNoArgs;
 
-    AnnotatedFieldsWithDefaultConstructor(Constructor<?> defaultCtor) {
+    CreatorFromAnnotatedFieldsWithDefaultConstructor(Constructor<?> defaultCtor) {
         assert defaultCtor.getParameterCount() == 0;
         this.mhNoArgs = unreflect(defaultCtor);
     }
 
     @Override
-    public Object createFrom(FieldAccessor[] accessors, MarshallerReader reader) {
+    public Object createInstance(FieldAccessor[] accessors, MarshallerReader reader) {
         try {
             Object instance = mhNoArgs.invokeExact();
 

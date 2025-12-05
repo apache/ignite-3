@@ -18,64 +18,49 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import org.jetbrains.annotations.Nullable;
 
-class Creator<T> {
-    final Class<T> clazz;
-    private @Nullable Annotated defaultConstructor;
-    private @Nullable Annotated creatorConstructor;
+/**
+ * Creates object during unmarshalling. It's class either may have default constructor with fields annotated with {@code @Column}
+ * or record canonical constructor with parameters annotated with {@code @Column}.
+ */
+@FunctionalInterface
+interface Creator {
 
-    Creator(Class<T> clazz) {
-        this.clazz = clazz;
-        findCreators(clazz);
+    Object createInstance(FieldAccessor[] accessors, MarshallerReader reader);
+
+    static Creator of(Class<?> clazz) {
+        try {
+            if (isRecord(clazz)) {
+                Constructor<?> canonicalCtor = getCanonicalConstructor(clazz);
+                return new CreatorFromAnnotatedConstructorParameters(canonicalCtor);
+            } else {
+                Constructor<?> defaultCtor = clazz.getDeclaredConstructor();
+                return new CreatorFromAnnotatedFieldsWithDefaultConstructor(defaultCtor);
+            }
+        } catch (ClassNotFoundException | InvocationTargetException | NoSuchMethodException | IllegalAccessException ex) {
+            throw new IllegalArgumentException("Could not find default (no-args) or canonical (record) constructor for " + clazz, ex);
+        }
     }
 
-    @FunctionalInterface
-    interface Annotated {
-        Object createFrom(FieldAccessor[] accessors, MarshallerReader reader);
-    }
-
-    Object createFrom(FieldAccessor[] accessors, MarshallerReader reader) {
-        if (creatorConstructor != null) {
-            return creatorConstructor.createFrom(accessors, reader);
+    /**
+     * Java 11 compatible, reflection based alternative, that returns true if and only if this class is a record class.
+     *
+     * <p>Without reflection:
+     *
+     * {@snippet lang="java" :
+     * Class<?> clazz;
+     * clazz.isRecord();
+     * }
+     */
+    private static boolean isRecord(Class<?> clazz)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        if (Runtime.version().version().get(0) < 14) {
+            return false;
         }
-        if (defaultConstructor != null) {
-            return defaultConstructor.createFrom(accessors, reader);
-        }
-
-        throw new IllegalArgumentException("Could not find default (no-args) or canonical (record) constructor for " + clazz.getName());
-    }
-
-    private void findCreators(Class<T> clazz) {
-        Constructor<?> defaultCtor = null;
-        Constructor<?> creatorCtor = null;
-
-        Constructor<?>[] ctors = clazz.getDeclaredConstructors();
-        for (Constructor<?> ctor : ctors) {
-            if (ctor.isSynthetic()) {
-                continue;
-            }
-            if (ctor.getParameterCount() == 0) {
-                defaultCtor = ctor;
-                continue;
-            }
-
-            if (isCanonicalConstructor(clazz, ctor)) {
-                creatorCtor = ctor;
-            }
-        }
-
-        if (defaultCtor != null) {
-            this.defaultConstructor = new AnnotatedFieldsWithDefaultConstructor(defaultCtor);
-        }
-        if (creatorCtor != null) {
-            this.creatorConstructor = new AnnotatedConstructor(creatorCtor);
-        }
-        if (this.defaultConstructor == null && this.creatorConstructor == null) {
-            throw new IllegalArgumentException("Could not find default (no-args) or canonical (record) constructor for " + clazz);
-        }
+        Method isRecordMtd = Class.class.getDeclaredMethod("isRecord");
+        return (boolean) isRecordMtd.invoke(clazz);
     }
 
     /**
@@ -93,34 +78,20 @@ class Creator<T> {
      *   return cls.getDeclaredConstructor(paramTypes);
      * }}
      */
-    private static boolean isCanonicalConstructor(Class<?> clazz, Constructor<?> ctor) {
-        if (Runtime.version().version().get(0) < 14) {
-            return false;
-        }
-        try {
-            Method getRecordComponentsMtd = Class.class.getDeclaredMethod("getRecordComponents");
+    private static <T> Constructor<T> getCanonicalConstructor(Class<T> clazz)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ClassNotFoundException {
+        Method getRecordComponentsMtd = Class.class.getDeclaredMethod("getRecordComponents");
 
-            Object[] recordComponents = (Object[]) getRecordComponentsMtd.invoke(clazz);
+        Object[] recordComponents = (Object[]) getRecordComponentsMtd.invoke(clazz);
 
-            if (recordComponents == null || recordComponents.length != ctor.getParameterCount()) {
-                return false;
-            }
+        Method getTypeMtd = Class.forName("java.lang.reflect.RecordComponent")
+                .getDeclaredMethod("getType");
 
-            Method getTypeMtd = Class.forName("java.lang.reflect.RecordComponent")
-                    .getDeclaredMethod("getType");
-
-            Object[] types = new Object[recordComponents.length];
-            for (int i = 0; i < recordComponents.length; i++) {
-                types[i] = getTypeMtd.invoke(recordComponents[i]);
-            }
-
-            if (Arrays.equals(types, ctor.getParameterTypes())) {
-                return true;
-            }
-        } catch (Exception e) {
-            return false;
+        Class<?>[] types = new Class<?>[recordComponents.length];
+        for (int i = 0; i < recordComponents.length; i++) {
+            types[i] = (Class<?>) getTypeMtd.invoke(recordComponents[i]);
         }
 
-        return false;
+        return clazz.getDeclaredConstructor(types);
     }
 }

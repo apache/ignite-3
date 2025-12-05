@@ -261,7 +261,7 @@ public abstract class Marshaller {
         private final FieldAccessor[] fieldAccessors;
 
         /** Object factory. */
-        private final Creator<?> creator;
+        private final Creator creator;
 
         /**
          * Creates a marshaller for POJOs.
@@ -271,7 +271,7 @@ public abstract class Marshaller {
          */
         PojoMarshaller(Class<?> targetType, FieldAccessor[] fieldAccessors) {
             this.fieldAccessors = fieldAccessors;
-            this.creator = new Creator<>(targetType);
+            this.creator = Creator.of(targetType);
         }
 
         /** {@inheritDoc} */
@@ -283,7 +283,7 @@ public abstract class Marshaller {
         /** {@inheritDoc} */
         @Override
         public Object readObject(MarshallerReader reader) throws MarshallerException {
-            return creator.createFrom(fieldAccessors, reader);
+            return creator.createInstance(fieldAccessors, reader);
         }
 
         /** {@inheritDoc} */

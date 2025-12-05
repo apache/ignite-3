@@ -443,4 +443,27 @@ class Records {
             }
         }
     }
+
+    static class NoDefaultConstructor {
+        static final class Class {
+            @Column("key")
+            private Integer key;
+            @Column("val")
+            private String val;
+
+            Class(Integer key, String val) {
+                this.key = key;
+                this.val = val;
+            }
+        }
+
+        static final class ClassV {
+            @Column("val")
+            private String val;
+
+            ClassV(String val) {
+                this.val = val;
+            }
+        }
+    }
 }

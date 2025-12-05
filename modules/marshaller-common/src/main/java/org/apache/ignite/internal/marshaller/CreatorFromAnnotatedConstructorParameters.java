@@ -30,18 +30,18 @@ import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.NotNull;
 
-class AnnotatedConstructor implements Creator.Annotated {
+class CreatorFromAnnotatedConstructorParameters implements Creator {
     private final MethodHandle mhFixedArity;
     private final List<String> argsColumnNames;
 
-    AnnotatedConstructor(Constructor<?> ctor) {
+    CreatorFromAnnotatedConstructorParameters(Constructor<?> ctor) {
         assert ctor.getParameterCount() > 0;
         this.argsColumnNames = argsNames(ctor);
         this.mhFixedArity = unreflect(ctor);
     }
 
     @Override
-    public Object createFrom(FieldAccessor[] accessors, MarshallerReader reader) {
+    public Object createInstance(FieldAccessor[] accessors, MarshallerReader reader) {
         try {
             NamedArguments args = readArgs(accessors, reader);
             return mhFixedArity.invokeWithArguments(args.values);
