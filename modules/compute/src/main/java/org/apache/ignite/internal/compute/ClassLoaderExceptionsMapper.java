@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThr
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.deployunit.loader.UnitsContext;
 
 class ClassLoaderExceptionsMapper {
     // <class_fqdn>. Deployment unit <deployment_unit_id_and ver> doesn't exist.
@@ -34,8 +34,8 @@ class ClassLoaderExceptionsMapper {
     private static final String DEPLOYMENT_UNIT_NOT_AVAILABLE_MSG = "%s. Deployment unit %s:%s can't be used: "
             + "[clusterStatus = %s, nodeStatus = %s]";
 
-    static CompletableFuture<JobContext> mapClassLoaderExceptions(
-            CompletableFuture<JobContext> future,
+    static CompletableFuture<UnitsContext> mapClassLoaderExceptions(
+            CompletableFuture<UnitsContext> future,
             String jobClassName
     ) {
         return future.handle((v, e) -> {

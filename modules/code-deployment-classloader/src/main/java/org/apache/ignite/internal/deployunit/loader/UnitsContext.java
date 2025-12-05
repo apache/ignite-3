@@ -15,22 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
-import java.util.List;
-import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import java.util.function.Consumer;
 
 /**
- * Creates a class loader for a job.
+ * Job context.
  */
-public class JobClassLoaderFactory {
-    /**
-     * Create a class loader for the specified units.
-     *
-     * @param units The units of the job.
-     * @return The class loader.
-     */
-    public JobClassLoader createClassLoader(List<DisposableDeploymentUnit> units) {
-        return new JobClassLoader(units, getClass().getClassLoader());
+public class UnitsContext implements AutoCloseable {
+
+    private final UnitsClassLoader classLoader;
+
+    private final Consumer<UnitsContext> onClose;
+
+    public UnitsContext(UnitsClassLoader classLoader, Consumer<UnitsContext> onClose) {
+        this.classLoader = classLoader;
+        this.onClose = onClose;
+    }
+
+    public UnitsClassLoader classLoader() {
+        return classLoader;
+    }
+
+    @Override
+    public void close() {
+        onClose.accept(this);
     }
 }

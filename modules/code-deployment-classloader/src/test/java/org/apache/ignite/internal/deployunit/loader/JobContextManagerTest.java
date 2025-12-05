@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.deployment.version.Version.LATEST;
@@ -42,13 +42,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.compute.util.DummyIgniteDeployment;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessorImpl;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.deployunit.util.DummyIgniteDeployment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -65,7 +65,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(WorkDirectoryExtension.class)
 class JobContextManagerTest extends BaseIgniteAbstractTest {
 
-    private final Path unitsDir = getPath(JobClassLoaderFactory.class.getClassLoader().getResource("units"));
+    private final Path unitsDir = getPath(UnitsClassLoaderFactory.class.getClassLoader().getResource("units"));
 
     @WorkDirectory
     private Path workDir;
@@ -74,16 +74,16 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
     private IgniteDeployment deployment = new DummyIgniteDeployment(unitsDir);
 
     @Mock
-    private JobClassLoaderFactory jobClassLoaderFactory;
+    private UnitsClassLoaderFactory jobClassLoaderFactory;
 
-    private JobContextManager classLoaderManager;
+    private UnitsContextManager classLoaderManager;
 
     @BeforeEach
     void setUp() {
         FileDeployerService deployerService = new FileDeployerService("test");
         deployerService.initUnitsFolder(unitsDir, workDir.resolve("tempDeployment"));
 
-        classLoaderManager = new JobContextManager(
+        classLoaderManager = new UnitsContextManager(
                 deployment,
                 new DeploymentUnitAccessorImpl(deployerService),
                 jobClassLoaderFactory
@@ -105,11 +105,11 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
                 })
                 .collect(Collectors.toList());
 
-        JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, getClass().getClassLoader());
+        UnitsClassLoader toBeReturned = new UnitsClassLoader(deploymentUnits, getClass().getClassLoader());
         doReturn(toBeReturned)
                 .when(jobClassLoaderFactory).createClassLoader(deploymentUnits);
 
-        JobContext context = classLoaderManager.acquireClassLoader(units).join();
+        UnitsContext context = classLoaderManager.acquireClassLoader(units).join();
         assertSame(toBeReturned, context.classLoader());
 
         verify(jobClassLoaderFactory, times(1)).createClassLoader(deploymentUnits); // verify that class loader was created
@@ -131,10 +131,10 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
         Path version2path = unitDir.resolve(version2.version().toString());
         List<DisposableDeploymentUnit> disposableVersion2 = List.of(new DisposableDeploymentUnit(version2, version2path, () -> {}));
 
-        try (JobClassLoader toBeReturned1 = new JobClassLoader(
+        try (UnitsClassLoader toBeReturned1 = new UnitsClassLoader(
                 disposableVersion1,
                 getClass().getClassLoader());
-                JobClassLoader toBeReturned2 = new JobClassLoader(
+                UnitsClassLoader toBeReturned2 = new UnitsClassLoader(
                         disposableVersion2,
                         getClass().getClassLoader())
         ) {
@@ -148,16 +148,16 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
             Files.createDirectories(version1path).toFile().deleteOnExit();
 
             List<DeploymentUnit> units = List.of(new DeploymentUnit(unitName, LATEST));
-            JobContext context1 = classLoaderManager.acquireClassLoader(units).join();
+            UnitsContext context1 = classLoaderManager.acquireClassLoader(units).join();
 
             assertSame(toBeReturned1, context1.classLoader());
 
-            JobContext context2 = classLoaderManager.acquireClassLoader(units).join();
+            UnitsContext context2 = classLoaderManager.acquireClassLoader(units).join();
             assertSame(context1.classLoader(), context2.classLoader());
 
             Files.createDirectories(version2path).toFile().deleteOnExit();
 
-            JobContext context3 = classLoaderManager.acquireClassLoader(units).join();
+            UnitsContext context3 = classLoaderManager.acquireClassLoader(units).join();
             assertSame(toBeReturned2, context3.classLoader());
         }
     }
