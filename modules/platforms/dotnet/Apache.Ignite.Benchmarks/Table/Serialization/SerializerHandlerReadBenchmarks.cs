@@ -19,7 +19,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
-    using BenchmarkDotNet.Diagnostics.dotMemory;
     using Ignite.Table.Mapper;
     using Internal.Proto.BinaryTuple;
     using Internal.Proto.MsgPack;
@@ -39,7 +38,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
-    [DotMemoryDiagnoser]
     public class SerializerHandlerReadBenchmarks : SerializerHandlerBenchmarksBase
     {
         [Benchmark(Baseline = true)]
