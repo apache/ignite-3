@@ -72,7 +72,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             using var pooledWriter = new PooledArrayBuffer();
             var writer = pooledWriter.MessageWriter;
 
-            ObjectSerializerHandler.Write(ref writer, Schema, Object);
+            MapperSerializerHandler.Write(ref writer, Schema, Object);
 
             VerifyWritten(pooledWriter);
         }
