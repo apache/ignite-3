@@ -75,11 +75,11 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                 switch (column.Name)
                 {
                     case "Key":
-                        res.Key = rowReader.Read<long>();
+                        res.Key = rowReader.ReadLong()!.Value;
                         break;
 
                     case "Val":
-                        res.Val = rowReader.Read<string?>();
+                        res.Val = rowReader.ReadString();
                         break;
 
                     default:
@@ -118,18 +118,13 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
         public BadPoco Read(ref RowReader rowReader, IMapperSchema schema)
         {
             Guid key = Guid.Empty;
-            DateTimeOffset val = default;
 
             foreach (var column in schema.Columns)
             {
                 switch (column.Name)
                 {
                     case "Key":
-                        key = rowReader.Read<Guid>();
-                        break;
-
-                    case "Val":
-                        val = rowReader.Read<DateTimeOffset>();
+                        key = rowReader.ReadGuid()!.Value;
                         break;
 
                     default:
@@ -138,7 +133,7 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                 }
             }
 
-            return new BadPoco(key, val);
+            return new BadPoco(key, default);
         }
     }
 }

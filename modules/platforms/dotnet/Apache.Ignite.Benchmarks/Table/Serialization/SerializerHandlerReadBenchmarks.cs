@@ -72,7 +72,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         {
             var reader = new MsgPackReader(SerializedData);
             var tupleReader = new BinaryTupleReader(reader.ReadBinary(), 3);
-            var rowReader = new RowReader(ref tupleReader, Schema.Columns, false);
+            var rowReader = new RowReader(ref tupleReader);
 
             Car res = Mapper.Read(ref rowReader, Schema.GetMapperSchema(false));
             Consumer.Consume(res);

@@ -54,7 +54,13 @@ public ref struct RowReader
     /// Reads the next column as an int.
     /// </summary>
     /// <returns>Column value.</returns>
-    public int? ReadInt() => _reader.GetByteNullable(_position++);
+    public int? ReadInt() => _reader.GetIntNullable(_position++);
+
+    /// <summary>
+    /// Reads the next column as a long.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public long? ReadLong() => _reader.GetLongNullable(_position++);
 
     /// <summary>
     /// Skips the current column.
