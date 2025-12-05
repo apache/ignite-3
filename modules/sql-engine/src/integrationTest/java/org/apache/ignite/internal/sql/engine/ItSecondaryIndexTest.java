@@ -814,16 +814,14 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId < 2 AND depId < ?")
                 .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=null, lowerInclude=true," 
-                        + " shouldComputeUpper=true, upperBound=$LEAST2(2, ?0), upperInclude=false]]"))
+                .matches(containsString("searchBounds: [..<$LEAST2(2, ?0)>)"))
                 .returns(3)
                 .check();
 
         assertQuery("SELECT id FROM Developer WHERE depId > 19 AND depId > ?")
                 .withParams(20)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(19, ?0)," 
-                        + " lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
+                .matches(containsString("searchBounds: (<$GREATEST2(19, ?0)>..<null:INTEGER>)"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -831,8 +829,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId > 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(20, ?0)," 
-                        + " lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
+                .matches(containsString("searchBounds: (<$GREATEST2(20, ?0)>..<null:INTEGER>)"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -840,8 +837,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId >= 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(20, ?0)," 
-                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
+                .matches(containsString("searchBounds: [<$GREATEST2(20, ?0)>..<null:INTEGER>)"))
                 .returns(21)
                 .returns(22)
                 .returns(23)
@@ -850,8 +846,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? AND ? AND depId > 19")
                 .withParams(19, 21)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(?0, 19)," 
-                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=?1, upperInclude=true]]"))
+                .matches(containsString("searchBounds: [<$GREATEST2(?0, 19)>..<?1>]"))
                 .returns(21)
                 .returns(22)
                 .check();
@@ -860,8 +855,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
                 .withParams("Bach")
                 .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(_UTF-8'B', ?0)," 
-                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=_UTF-8'D', upperInclude=true]]"))
+                .matches(containsString("searchBounds: [<$GREATEST2(_UTF-8'B', ?0)>..<_UTF-8'D'>]"))
                 .returns(2)
                 .returns(6)
                 .check();
