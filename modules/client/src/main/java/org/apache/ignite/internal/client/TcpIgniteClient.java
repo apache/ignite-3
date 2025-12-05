@@ -103,7 +103,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param channelValidator A validator that is called when a connection to a node is established,
      *                         if it throws an exception, the network channel to that node will be closed.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+    private TcpIgniteClient(IgniteClientConfigurationImpl cfg, HybridTimestampTracker observableTimeTracker,
             @Nullable ChannelValidator channelValidator) {
         this(TcpClientChannel::createAsync, cfg, observableTimeTracker, channelValidator);
     }
@@ -117,7 +117,10 @@ public class TcpIgniteClient implements IgniteClient {
      * @param channelValidator A validator that is called when a connection to a node is established,
      *                         if it throws an exception, the network channel to that node will be closed.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+    private TcpIgniteClient(
+            ClientChannelFactory chFactory,
+            IgniteClientConfigurationImpl cfg,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable ChannelValidator channelValidator) {
         assert chFactory != null;
         assert cfg != null;
@@ -173,7 +176,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Thin client configuration.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfigurationImpl cfg) {
         return startAsync(cfg, HybridTimestampTracker.atomicTracker(null), null);
     }
 
@@ -186,7 +189,9 @@ public class TcpIgniteClient implements IgniteClient {
      *                         if it throws an exception, the network channel to that node will be closed.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+    public static CompletableFuture<IgniteClient> startAsync(
+            IgniteClientConfigurationImpl cfg,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable ChannelValidator channelValidator) {
         ErrorGroups.initialize();
 
