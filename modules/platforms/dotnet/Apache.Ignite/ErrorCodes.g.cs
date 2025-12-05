@@ -364,6 +364,9 @@ namespace Apache.Ignite
 
             /// <summary> TxAlreadyFinishedWithTimeout error. </summary>
             public const int TxAlreadyFinishedWithTimeout = (GroupCode << 16) | (16 & 0xFFFF);
+
+            /// <summary> TxDelayedAck error. </summary>
+            public const int TxDelayedAck = (GroupCode << 16) | (17 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

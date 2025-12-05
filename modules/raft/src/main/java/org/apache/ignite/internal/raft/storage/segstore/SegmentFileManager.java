@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -189,7 +190,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
                         WriteModeIndexMemTable memTable = recoverMemtable(segmentFile, segmentFilePath);
 
-                        indexFileManager.saveIndexMemtable(memTable.transitionToReadMode(), segmentFileOrdinal);
+                        indexFileManager.recoverIndexFile(memTable.transitionToReadMode(), segmentFileOrdinal);
                     }
                 }
             }
@@ -331,64 +332,42 @@ class SegmentFileManager implements ManuallyCloseable {
 
     /**
      * Returns the lowest log index for the given group present in the storage or {@code -1} if no such index exists.
+     *
+     * <p>This method is expected to be called without any ongoing load (e.g. on recovery), because it only reflects the state of the
+     * storage, not taking pending in-memory state into account.
      */
-    long firstLogIndexInclusive(long groupId) {
-        long logIndexFromMemtable = firstLogIndexFromMemtable(groupId);
+    long firstLogIndexInclusiveOnRecovery(long groupId) {
+        long firstLogIndexFromIndexStorage = indexFileManager.firstLogIndexInclusive(groupId);
 
-        long logIndexFromCheckpointQueue = checkpointer.firstLogIndexInclusive(groupId);
-
-        long logIndexFromIndexFiles = indexFileManager.firstLogIndexInclusive(groupId);
-
-        if (logIndexFromIndexFiles >= 0) {
-            return logIndexFromIndexFiles;
+        if (firstLogIndexFromIndexStorage != -1) {
+            return firstLogIndexFromIndexStorage;
         }
 
-        if (logIndexFromCheckpointQueue >= 0) {
-            return logIndexFromCheckpointQueue;
-        }
-
-        return logIndexFromMemtable;
-    }
-
-    private long firstLogIndexFromMemtable(long groupId) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        if (segmentInfo == null || segmentInfo.size() == 0) {
-            return -1;
-        }
-
-        return segmentInfo.firstLogIndexInclusive();
+        return segmentInfo != null ? segmentInfo.firstLogIndexInclusive() : -1;
     }
 
     /**
      * Returns the highest possible exclusive log index for the given group or {@code -1} if no such index exists.
      *
      * <p>The highest log index currently present in the storage can be computed as {@code lastLogIndexExclusive - 1}.
+     *
+     * <p>This method is expected to be called without any ongoing load (e.g. on recovery), because it only reflects the state of the
+     * storage, not taking pending in-memory state into account.
      */
-    long lastLogIndexExclusive(long groupId) {
-        long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);
-
-        if (logIndexFromMemtable >= 0) {
-            return logIndexFromMemtable;
-        }
-
-        long logIndexFromCheckpointQueue = checkpointer.lastLogIndexExclusive(groupId);
-
-        if (logIndexFromCheckpointQueue >= 0) {
-            return logIndexFromCheckpointQueue;
-        }
-
-        return indexFileManager.lastLogIndexExclusive(groupId);
-    }
-
-    private long lastLogIndexFromMemtable(long groupId) {
+    long lastLogIndexExclusiveOnRecovery(long groupId) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        return segmentInfo == null ? -1 : segmentInfo.lastLogIndexExclusive();
+        if (segmentInfo != null) {
+            return segmentInfo.lastLogIndexExclusive();
+        }
+
+        return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
     /**
@@ -505,7 +484,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         var memtable = new IndexMemTable(stripes);
 
-        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+        while (!endOfSegmentReached(buffer)) {
             int segmentFilePayloadOffset = buffer.position();
 
             long groupId = buffer.getLong();
@@ -530,6 +509,22 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         return memtable;
+    }
+
+    private static boolean endOfSegmentReached(ByteBuffer buffer) {
+        if (buffer.remaining() < SWITCH_SEGMENT_RECORD.length) {
+            return true;
+        }
+
+        var switchSegmentRecordBytes = new byte[SWITCH_SEGMENT_RECORD.length];
+
+        int originalPos = buffer.position();
+
+        buffer.get(switchSegmentRecordBytes);
+
+        buffer.position(originalPos);
+
+        return Arrays.equals(switchSegmentRecordBytes, SWITCH_SEGMENT_RECORD);
     }
 
     /**

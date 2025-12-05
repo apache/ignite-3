@@ -1199,7 +1199,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -1220,7 +1221,6 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 killCommandHandler,

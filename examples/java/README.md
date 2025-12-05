@@ -50,33 +50,38 @@ with a result return.
 ## Running examples with an Ignite node within a Docker container
 
 1. Pull the docker image
-```shell
-docker pull apacheignite/ignite:3.0.0
-```
+    ```shell
+    docker pull apacheignite/ignite:3.1.0
+    ```
 
-2. Start an Ignite node:
-```shell
-docker run --name ignite3-node -d --rm -p 10300:10300 -p 10800:10800 \
-  -v $IGNITE_SOURCES/examples/config/ignite-config.conf:/opt/ignite/etc/ignite-config.conf apacheignite/ignite:3.0.0
-```
+2. Prepare an environment variable:
+    ```shell
+    IGNITE_SOURCES=/path/to/ignite-sources-dir
+    ```
 
-3. Get the IP address of the node:
-```shell
-NODE_IP_ADDRESS=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ignite3-node)
-```
+3. Start an Ignite node:
+    ```shell
+    docker run --name ignite3-node -d --rm -p 10300:10300 -p 10800:10800 \
+      -v $IGNITE_SOURCES/examples/java/config/ignite-config.conf:/opt/ignite/etc/ignite-config.conf apacheignite/ignite:3.1.0
+    ```
 
-4. Initialize the node:
-```shell
-docker run --rm -it apacheignite/ignite:3.0.0 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1 \
-  --cluster-management-group defaultNode --metastorage-group defaultNode
-```
+4. Get the IP address of the node:
+    ```shell
+    NODE_IP_ADDRESS=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ignite3-node)
+    ```
 
-5. Run the example via IDE.
+5. Initialize the node:
+    ```shell
+    docker run --rm -it apacheignite/ignite:3.1.0 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1 \
+      --cluster-management-group defaultNode --metastorage-group defaultNode
+    ```
 
-6. Stop the Ignite node:
-```shell
-docker stop ignite3-node
-```
+6. Run the example via IDE.
+
+7. Stop the Ignite node:
+    ```shell
+    docker stop ignite3-node
+    ```
 
 ## Running examples with an Ignite node started natively
 
@@ -86,30 +91,30 @@ docker stop ignite3-node
 (see [DEVNOTES.md](../DEVNOTES.md)). Unpack.
 
 3. Prepare the environment variables. `IGNITE_HOME` is used in the Ignite startup. Therefore, you need to export it:
-```shell
-export IGNITE_HOME=/path/to/ignite3-db-dir
-IGNITE_CLI_HOME=/path/to/ignite3-cli-dir
-IGNITE_SOURCES=/path/to/ignite3-sources-dir
-```
+    ```shell
+    export IGNITE_HOME=/path/to/ignite3-db-dir
+    IGNITE_CLI_HOME=/path/to/ignite3-cli-dir
+    IGNITE_SOURCES=/path/to/ignite3-sources-dir
+    ```
 
 4. Override the default configuration file:
-```shell
-echo "CONFIG_FILE=$IGNITE_SOURCES/examples/config/ignite-config.conf" >> $IGNITE_HOME/etc/vars.env
-```
+    ```shell
+    echo "CONFIG_FILE=$IGNITE_SOURCES/examples/java/config/ignite-config.conf" >> $IGNITE_HOME/etc/vars.env
+    ```
 
 5. Start an Ignite node using the startup script from the database part:
-```shell
-$IGNITE_HOME/bin/ignite3db start
-```
+    ```shell
+    $IGNITE_HOME/bin/ignite3db start
+    ```
 
 6. Initialize the cluster using Ignite CLI from the CLI part:
-```shell
-$IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1
-```
+    ```shell
+    $IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1
+    ```
 
 7. Run the example from the IDE.
 
 8. Stop the Ignite node using the startup script:
-```shell
-$IGNITE_HOME/bin/ignite3db stop
-```
+    ```shell
+    $IGNITE_HOME/bin/ignite3db stop
+    ```

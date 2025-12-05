@@ -854,7 +854,8 @@ public class Node {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
@@ -877,7 +878,6 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),

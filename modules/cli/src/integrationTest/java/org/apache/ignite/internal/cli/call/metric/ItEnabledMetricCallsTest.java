@@ -78,7 +78,8 @@ class ItEnabledMetricCallsTest extends CliIntegrationTest {
                 new MetricSource().name("jvm").enabled(true),
                 new MetricSource().name("client.handler").enabled(false),
                 new MetricSource().name("sql.client").enabled(false),
-                new MetricSource().name("sql.plan.cache").enabled(false)
+                new MetricSource().name("sql.plan.cache").enabled(false),
+                new MetricSource().name("index.builder").enabled(false),
         };
 
         // And

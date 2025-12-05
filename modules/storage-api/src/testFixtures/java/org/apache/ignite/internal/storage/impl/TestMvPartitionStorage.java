@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -698,20 +699,26 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        assert THREAD_LOCAL_LOCKER.get() != null;
+    public synchronized List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        if (count <= 0) {
+            return List.of();
+        }
 
-        try {
-            VersionChain versionChain = gcQueue.first();
+        var res = new ArrayList<GcEntry>(count);
 
-            if (versionChain.ts.compareTo(lowWatermark) > 0) {
-                return null;
+        Iterator<VersionChain> it = gcQueue.iterator();
+
+        for (int i = 0; i < count && it.hasNext(); i++) {
+            VersionChain next = it.next();
+
+            if (next.ts.compareTo(lowWatermark) > 0) {
+                break;
             }
 
-            return versionChain;
-        } catch (NoSuchElementException e) {
-            return null;
+            res.add(next);
         }
+
+        return res;
     }
 
     @Override
@@ -789,6 +796,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return estimatedSize;
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return Cursor.fromBareIterator(emptyIterator());
     }
 
     @Override

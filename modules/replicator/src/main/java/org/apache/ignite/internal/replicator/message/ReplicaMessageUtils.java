@@ -65,19 +65,17 @@ public class ReplicaMessageUtils {
      * @param replicationGroupId Replication group ID for a given partition.
      * @return New instance of network message.
      */
-    public static ReplicationGroupIdMessage toReplicationGroupIdMessage(
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27174 remove this method and its usages.
+    // For now, this method is left intentionally to facilitate the merge process.
+    public static ZonePartitionIdMessage toReplicationGroupIdMessage(
             ReplicaMessagesFactory messagesFactory,
             ReplicationGroupId replicationGroupId
     ) {
-        assert replicationGroupId instanceof TablePartitionId || replicationGroupId instanceof ZonePartitionId :
+        assert replicationGroupId instanceof ZonePartitionId :
                 "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
                         + ", value=" + replicationGroupId
-                        + ", requiredType=TablePartitionId or ZonePartitionId].";
+                        + ", requiredType = ZonePartitionId].";
 
-        if (replicationGroupId instanceof TablePartitionId) {
-            return toTablePartitionIdMessage(messagesFactory, (TablePartitionId) replicationGroupId);
-        } else {
-            return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
-        }
+        return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
     }
 }

@@ -23,8 +23,10 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InvalidClassException;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.util.Bits;
+import org.apache.ignite.raft.jraft.util.CompatibleJDKMarshaller;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -59,7 +61,20 @@ public class MessageFile {
             }
             final byte[] nameBytes = new byte[len];
             readBytes(nameBytes, input);
-            return JDKMarshaller.INSTANCE.unmarshall(nameBytes);
+
+            try {
+                return JDKMarshaller.INSTANCE.unmarshall(nameBytes);
+            } catch (Error e) {
+                if (e.getCause() instanceof InvalidClassException) {
+                    try {
+                        return CompatibleJDKMarshaller.INSTANCE.unmarshall(nameBytes);
+                    } catch (Throwable e1) {
+                        e.addSuppressed(e1);
+                    }
+                }
+
+                throw e;
+            }
         }
     }
 

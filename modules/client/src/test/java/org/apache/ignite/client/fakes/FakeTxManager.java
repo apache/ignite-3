@@ -30,7 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
@@ -67,7 +67,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
         return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
     }
 
@@ -103,7 +103,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public TablePartitionId commitPartition() {
+            public ReplicationGroupId commitPartition() {
                 return null;
             }
 
@@ -289,8 +289,14 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
-            Consumer<Throwable> cb) {
+    public InternalTransaction beginRemote(
+            UUID txId,
+            ZonePartitionId commitPartId,
+            UUID coord,
+            long token,
+            long timeout,
+            Consumer<Throwable> cb
+    ) {
         return null;
     }
 }

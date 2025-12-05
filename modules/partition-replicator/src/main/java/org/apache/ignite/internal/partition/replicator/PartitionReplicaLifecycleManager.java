@@ -73,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -98,7 +99,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -109,6 +109,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -124,6 +125,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
@@ -144,8 +146,11 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
@@ -164,6 +169,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -724,7 +730,6 @@ public class PartitionReplicaLifecycleManager extends
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
-                                                nodeProperties,
                                                 topologyService.localMember(),
                                                 zonePartitionId
                                         );
@@ -799,15 +804,21 @@ public class PartitionReplicaLifecycleManager extends
                 ));
     }
 
-    private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
-            CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
-            if (replicaFut == null) {
-                return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                        + " in zone " + replicaGrpId.zoneId()));
-            }
-            return replicaFut.thenApply(Replica::raftClient);
-        });
+    private ChangePeersAndLearnersWithRetry createChangePeersAndLearnersWithRetry(ZonePartitionId replicaGrpId) {
+        return new ChangePeersAndLearnersWithRetry(
+                busyLock,
+                rebalanceScheduler,
+                () -> partitionRaftClient(replicaGrpId)
+        );
+    }
+
+    private CompletableFuture<RaftGroupService> partitionRaftClient(ZonePartitionId replicaGrpId) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
+        if (replicaFut == null) {
+            return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                    + " in zone " + replicaGrpId.zoneId()));
+        }
+        return replicaFut.thenApply(Replica::raftClient);
     }
 
     private RaftGroupEventsListener createRaftGroupEventsListener(ZonePartitionId zonePartitionId) {
@@ -816,7 +827,7 @@ public class PartitionReplicaLifecycleManager extends
                 failureProcessor,
                 zonePartitionId,
                 busyLock,
-                createPartitionMover(zonePartitionId),
+                createChangePeersAndLearnersWithRetry(zonePartitionId),
                 rebalanceScheduler,
                 this::calculateZoneAssignments,
                 rebalanceRetryDelayConfiguration
@@ -1305,18 +1316,10 @@ public class PartitionReplicaLifecycleManager extends
                 }
 
                 changePeersOnRebalance(
-                        replicaMgr,
                         zonePartitionId,
                         pendingAssignments.nodes(),
                         revision);
-            }).whenComplete((v, ex) -> {
-                if (ex != null) {
-                    LOG.debug(
-                            "Failed to handle change pending assignment event "
-                                    + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
-                            zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
-                }
-            });
+            }).whenComplete((v, ex) -> maybeRunFailHandler(ex, zonePartitionId));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1462,59 +1465,61 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private void changePeersOnRebalance(
-            ReplicaManager replicaMgr,
             ZonePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
     ) {
         // According to the rebalance logic, it's safe to react to pending assignments change in async manner.
-        replicaMgr.replica(replicaGrpId)
-                .thenApply(Replica::raftClient)
-                .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
-                        .exceptionally(throwable -> {
-                            if (hasCause(throwable, TimeoutException.class)) {
-                                LOG.info(
-                                        "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
-                                        replicaGrpId
-                                );
-                            } else if (hasCause(throwable, ComponentStoppingException.class)) {
-                                LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
-                            } else {
-                                LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
-                            }
+        PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                            return LeaderWithTerm.NO_LEADER;
-                        })
-                        .thenCompose(leaderWithTerm -> {
-                            if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
-                                return nullCompletedFuture();
-                            }
+        ChangePeersAndLearnersWithRetry mover = createChangePeersAndLearnersWithRetry(replicaGrpId);
 
-                            // run update of raft configuration if this node is a leader
-                            LOG.info("Current node={} is the leader of partition raft group={}. "
-                                            + "Initiate rebalance process for partition={}, zoneId={}",
-                                    leaderWithTerm.leader(), replicaGrpId, replicaGrpId.partitionId(), replicaGrpId.zoneId());
+        mover.execute(
+                        newConfiguration,
+                        revision,
+                        raftClient -> ensureLeader(replicaGrpId, raftClient)
+                                .whenComplete((raftWithTerm, ex) -> {
+                                    if (raftWithTerm != null) {
+                                        LOG.info("Current node={} is the leader of partition raft group={}. "
+                                                        + "Initiate rebalance process for partition={}, zoneId={}",
+                                                localNode().name(), replicaGrpId, replicaGrpId.partitionId(), replicaGrpId.zoneId());
+                                    }
+                                })
+                )
+                .whenComplete((res, ex) -> maybeRunFailHandler(ex, replicaGrpId));
+    }
 
-                            return metaStorageMgr.get(pendingPartAssignmentsQueueKey(replicaGrpId))
-                                    .thenCompose(latestPendingAssignmentsEntry -> {
-                                        // Do not change peers of the raft group if this is a stale event.
-                                        // Note that we start raft node before for the sake of the consistency in a
-                                        // starting and stopping raft nodes.
-                                        if (revision < latestPendingAssignmentsEntry.revision()) {
-                                            return nullCompletedFuture();
-                                        }
+    private void maybeRunFailHandler(Throwable ex, ZonePartitionId replicaGrpId) {
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            String errorMessage = String.format("Failure while moving partition [partId=%s]", replicaGrpId);
+            failureProcessor.process(new FailureContext(ex, errorMessage));
+        }
+    }
 
-                                        PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
-
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term(), revision)
-                                                .exceptionally(e -> null);
-                                    });
-                        }))
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
-                        LOG.warn("Failed to change peers [grp={}].", ex, replicaGrpId);
+    private CompletableFuture<@Nullable IgniteBiTuple<RaftGroupService, Long>> ensureLeader(
+            ZonePartitionId replicaGrpId,
+            RaftGroupService raftClient
+    ) {
+        return raftClient.refreshAndGetLeaderWithTerm()
+                .exceptionally(throwable -> {
+                    if (hasCause(throwable, TimeoutException.class)) {
+                        LOG.info(
+                                "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
+                                replicaGrpId
+                        );
+                    } else if (hasCause(throwable, ComponentStoppingException.class)) {
+                        LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
+                    } else {
+                        LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
                     }
+
+                    return LeaderWithTerm.NO_LEADER;
+                }).thenApply(leaderWithTerm -> {
+                    if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
+                        return null;
+                    }
+
+                    return new IgniteBiTuple<>(raftClient, leaderWithTerm.term());
                 });
     }
 
@@ -1693,8 +1698,22 @@ public class PartitionReplicaLifecycleManager extends
 
             fut.get();
         } catch (Throwable e) {
-            failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
+            if (!isExpectedThrowableDuringResourcesStop(e)) {
+                failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
+            }
         }
+    }
+
+    private static boolean isExpectedThrowableDuringResourcesStop(Throwable throwable) {
+        return hasCause(
+                throwable,
+                NodeStoppingException.class,
+                ComponentStoppingException.class,
+                TrackerClosedException.class,
+                CancellationException.class,
+                // Is possible during cluster stop due to "stale" nodes (nodes that already left the cluster).
+                RecipientLeftException.class
+        );
     }
 
     private void printPartitionState(Stream<ZonePartitionId> partitionIds) {

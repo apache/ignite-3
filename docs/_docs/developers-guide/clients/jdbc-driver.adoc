@@ -16,10 +16,14 @@
 
 Apache Ignite is shipped with JDBC driver that allows processing of distributed data using standard SQL statements like `SELECT`, `INSERT`, `UPDATE`, or `DELETE` directly from the JDBC side. The name of the driver's class is `org.apache.ignite.jdbc.IgniteJdbcDriver`.
 
-This implementation of JDBC driver does not support:
+[NOTE]
+====
+The JDBC driver was completely reworked in Apache Ignite 3.2 and now supports multiple endpoints and link:developers-guide/clients/overview#partition-awareness[partition awareness].
 
-* Multiple endpoints
-* JDBC connection pools
+The new driver is not compatible with Apache Ignite 3.1 and 3.0. To connect to Ignite 3.1 (and 3.0), use the previous version of the driver that was shipped with Apache Ignite 3.1.
+
+The server part remains compatible with previous versions of the driver, so driver for Ignite 3.1 can successfully connect to the 3.2 cluster.
+====
 
 See also:
 
@@ -38,7 +42,7 @@ The JDBC connector needs to be included from Maven:
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-jdbc</artifactId>
-    <version>3.1.0</version>
+    <version>3.2.0</version>
 </dependency>
 ----
 
@@ -65,10 +69,10 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 * `schema` is the schema name to access. PUBLIC is used by default. This name should correspond to the SQL ANSI-99 standard. Non-quoted identifiers are not case sensitive. Quoted identifiers are case sensitive. When semicolon format is used, the schema may be defined as a parameter with name schema.
 * `parameters` are optional parameters. The following parameters are available:
 ** `connectionTimeZone` - Client connection time-zone ID. This property can be used by the client to change the time zone of the session on the server. Affects the interpretation of dates in queries that do not specify the time zone explicitly. If not set, system default on client timezone will be used.
+** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
 ** `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
 ** `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
-** `reconnectThrottlingPeriod` - Reconnect throttling period, in milliseconds. 0 means there is no limit. Default value: `30_000`.
-** `reconnectThrottlingRetries` - Reconnect throttling retries. 0 means there is no limit. Default value: `3`.
+** `backgroundReconnectIntervalMillis` - Specifies the wait time in milliseconds between runs of the background reconnection procedure. This procedure is used to restore old and establish new connections to cluster nodes. The value `0` can be used to disable background reconnection. Default value is `30000` (30 seconds).
 ** `username` - username for basic authentication to the cluster.
 ** `password` - user password for basic authentication to the cluster.
 ** `sslEnabled` - Determines if SSL is enabled. Possible values: `true`, `false`. Default value: `false`
@@ -89,7 +93,9 @@ If the same parameters are passed by using different means, the JDBC driver prio
 
 == Performing Transactions
 
-With the JDBC driver, you can  perform `commit` and `rollback` transactions. For more information about transactions, see link:developers-guide/transactions[Performing Transactions].
+By default, a JDBC connection is in auto-commit mode, and in this mode all its SQL statements will be executed and committed as individual transactions.
+To be able to manage the transaction, you must switch connection to non-autocommit mode.
+In non-autocommit mode, you can perform `commit` and `rollback` transactions. For more information about transactions, see link:developers-guide/transactions[Performing Transactions].
 
 Here is how you can commit a transaction:
 
@@ -98,11 +104,12 @@ Here is how you can commit a transaction:
 // Open the JDBC connection.
 Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
 
+// Disable auto-commit mode.
+conn.setAutoCommit(false);
+
 // Commit a transaction
 conn.commit();
 ----
-
-You can also configure Apache Ignite to automatically commit transactions by using the `setAutoCommit()` method.
 
 Here is how you can rollback a transaction:
 
@@ -110,6 +117,12 @@ Here is how you can rollback a transaction:
 ----
 conn.rollback();
 ----
+
+== Partition Awareness
+
+Partition awareness is supported by the JDBC driver.
+
+See link:developers-guide/clients/overview#partition-awareness[Partition Awareness Overview] for more details.
 
 == Unsupported Mandatory JDBC Features
 
