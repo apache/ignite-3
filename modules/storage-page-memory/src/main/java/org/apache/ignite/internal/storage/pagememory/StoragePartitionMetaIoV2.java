@@ -22,13 +22,12 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 
 /**
  * Storage Io for partition metadata pages (version 2).
  */
 public class StoragePartitionMetaIoV2 extends StoragePartitionMetaIo {
-    private static final int WI_HEAD_OFF = ESTIMATED_SIZE_OFF + PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+    private static final int WI_HEAD_OFF = ESTIMATED_SIZE_OFF + Integer.BYTES;
 
     /**
      * Constructor.
