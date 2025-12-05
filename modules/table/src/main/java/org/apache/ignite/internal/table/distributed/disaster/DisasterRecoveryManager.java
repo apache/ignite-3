@@ -132,6 +132,7 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalN
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
+import org.apache.ignite.internal.table.distributed.storage.NullMvTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -773,6 +774,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                 futures[i++] = invokeFuture.thenAccept(networkMessage -> {
                     inBusyLock(busyLock, () -> {
+                        LOG.debug("Received local partition states response [networkMessage={}]", networkMessage);
+
                         assert networkMessage instanceof LocalPartitionStatesResponse : networkMessage;
 
                         var response = (LocalPartitionStatesResponse) networkMessage;
@@ -788,6 +791,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                 return messageByNode;
                             });
                         }
+
+                        LOG.debug("Combined partition state result for node [node={}, result={}]", node, result);
                     });
                 });
             }
@@ -796,6 +801,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 if (err != null) {
                     throw new DisasterRecoveryException(PARTITION_STATE_ERR, err);
                 }
+
+                LOG.debug("Returning total result for local partition states [result={}]", result);
 
                 return result;
             });
@@ -943,6 +950,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String node,
             Set<ZonePartitionId> zones
     ) {
+        LOG.debug("Sending LocalTablePartitionStateRequest to node [nodeName={}, zones={}]", node, zones);
+
         Set<ZonePartitionIdMessage> zoneMessage = zones.stream()
                 .map(zonePartitionId -> toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
                 .collect(toSet());
@@ -953,6 +962,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
                 .thenApply(networkMessage -> {
+                    LOG.debug("Got response from node [nodeName={}, networkMessage={}]", node, networkMessage);
+
                     assert networkMessage instanceof LocalTablePartitionStateResponse : networkMessage;
 
                     return (LocalTablePartitionStateResponse) networkMessage;
@@ -1277,8 +1288,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof LocalPartitionStatesRequest) {
+            LOG.debug("Received local partition states request [request={}]", message);
+
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
         } else if (message instanceof LocalTablePartitionStateRequest) {
+            LOG.debug("Received local table partition states request [request={}]", message);
+
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
@@ -1359,6 +1374,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     .states(statesList)
                     .build();
 
+            LOG.debug("Responding with state for local table partitions [response={}]", response);
+
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
     }
@@ -1404,6 +1421,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             LocalPartitionStatesResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesResponse()
                     .states(statesList)
                     .build();
+
+            LOG.debug("Responding with state for local partitions [response={}]", response);
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
@@ -1457,7 +1476,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private long calculateEstimatedSize(ZonePartitionId zonePartitionId) {
         return tableManager.zoneTables(zonePartitionId.zoneId()).stream()
-                .map(tableImpl -> tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId()))
+                .map(tableImpl -> tableImpl.internalTable().storage())
+                .filter(storage -> !(storage instanceof NullMvTableStorage))
+                .map(storage -> storage.getMvPartition(zonePartitionId.partitionId()))
                 .filter(Objects::nonNull)
                 .mapToLong(MvPartitionStorage::estimatedSize)
                 .sum();
@@ -1467,6 +1488,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap = new HashMap<>();
 
         for (TableViewInternal tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
+            if (tableImpl.internalTable().storage() instanceof NullMvTableStorage) {
+                continue;
+            }
+
             MvPartitionStorage mvPartitionStorage = tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId());
 
             if (mvPartitionStorage != null) {
