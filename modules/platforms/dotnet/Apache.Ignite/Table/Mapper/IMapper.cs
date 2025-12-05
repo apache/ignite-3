@@ -23,7 +23,7 @@ namespace Apache.Ignite.Table.Mapper;
 /// This API is performance-oriented and requires in-order reading and writing of all columns defined in the schema.
 /// </summary>
 /// <typeparam name="T">Mapped object type.</typeparam>
-public interface IMapper<T>
+public interface IMapper<T> // TODO: Better docs and examples
 {
     /// <summary>
     /// Writes the specified object to an Ignite table row.
