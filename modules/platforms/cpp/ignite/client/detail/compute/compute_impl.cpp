@@ -114,6 +114,11 @@ primitive read_primitive_from_binary_tuple(protocol::reader &reader) {
  * @return Value.
  */
 primitive unpack_compute_result(protocol::reader &reader) {
+    // Check whether job returned null value
+    if (reader.try_read_nil()) {
+        return primitive{nullptr};
+    }
+
     auto type_id = ignite_type(reader.read_int32());
     auto job_id = from_type_id(type_id);
 
