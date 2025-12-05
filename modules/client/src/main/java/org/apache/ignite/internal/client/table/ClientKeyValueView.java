@@ -715,7 +715,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 var tupleReader = new BinaryTupleReader(schema.columns().length, in.in().readBinaryUnsafe());
                 var keyReader = new ClientMarshallerReader(tupleReader, schema.keyColumns(), TuplePart.KEY_AND_VAL);
                 var valReader = new ClientMarshallerReader(tupleReader, schema.valColumns(), TuplePart.KEY_AND_VAL);
-                res.put((K) keyMarsh.readObject(keyReader, null), (V) valMarsh.readObject(valReader, null));
+                res.put((K) keyMarsh.readObject(keyReader), (V) valMarsh.readObject(valReader));
             }
         }
 
@@ -810,8 +810,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
 
         return (row) -> new IgniteBiTuple<>(
-                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, keyCols)), null),
-                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, valCols)), null)
+                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, keyCols))),
+                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, valCols)))
         );
     }
 

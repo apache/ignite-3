@@ -656,6 +656,6 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Marshaller marsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, true);
         List<Column> cols = schema.columns();
 
-        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
+        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))));
     }
 }

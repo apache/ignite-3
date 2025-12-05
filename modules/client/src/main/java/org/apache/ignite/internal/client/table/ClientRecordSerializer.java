@@ -248,7 +248,7 @@ public class ClientRecordSerializer<R> {
                 ClientColumn[] columns = schema.columns(part);
                 var tupleReader = new BinaryTupleReader(columns.length, in.readBinaryUnsafe());
                 var reader = new ClientMarshallerReader(tupleReader, columns, part);
-                res.add((R) marshaller.readObject(reader, null));
+                res.add((R) marshaller.readObject(reader));
             }
         }
 
@@ -261,7 +261,7 @@ public class ClientRecordSerializer<R> {
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(partToRead), dataPart);
 
-        return (R) marshaller.readObject(reader, null);
+        return (R) marshaller.readObject(reader);
     }
 
     R readValRec(R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
@@ -274,7 +274,7 @@ public class ClientRecordSerializer<R> {
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(), TuplePart.KEY_AND_VAL);
 
-        return (R) valMarshaller.readObject(reader, null);
+        return (R) valMarshaller.readObject(reader);
     }
 
     private static int columnCount(ClientSchema schema, TuplePart part) {
