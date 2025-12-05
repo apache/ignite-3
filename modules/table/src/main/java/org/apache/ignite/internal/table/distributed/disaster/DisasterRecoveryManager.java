@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
@@ -41,6 +42,12 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
+import static org.apache.ignite.internal.table.distributed.disaster.MetaStorageKeys.COMPLETED_BYTES;
+import static org.apache.ignite.internal.table.distributed.disaster.MetaStorageKeys.IN_PROGRESS_BYTES;
+import static org.apache.ignite.internal.table.distributed.disaster.MetaStorageKeys.RECOVERY_TRIGGER_KEY;
+import static org.apache.ignite.internal.table.distributed.disaster.MetaStorageKeys.ongoingOperationsKey;
+import static org.apache.ignite.internal.table.distributed.disaster.MetaStorageKeys.operationPrefix;
+import static org.apache.ignite.internal.table.distributed.disaster.MetaStorageKeys.zoneRecoveryTriggerRevisionKey;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -72,6 +79,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -154,15 +162,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Logger. */
     static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
 
-    /** Single key for writing disaster recovery requests into meta-storage. */
-    static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
-
-    /**
-     * Metastorage key prefix to store the per zone revision of logical event, which start the recovery process.
-     * It's needed to skip the stale recovery triggers.
-     */
-    private static final String RECOVERY_TRIGGER_REVISION_KEY_PREFIX = "disaster.recovery.trigger.revision.";
-
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
@@ -201,7 +200,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Cluster physical topology service.  */
     private final TopologyService topologyService;
 
-    /** Watch listener for {@link #RECOVERY_TRIGGER_KEY}. */
+    private final LogicalTopologyService logicalTopologyService;
+
+    /** Watch listener for {@link MetaStorageKeys#RECOVERY_TRIGGER_KEY}. */
     private final WatchListener watchListener;
 
     /** Table manager. */
@@ -235,6 +236,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             DistributionZoneManager dzManager,
             Loza raftManager,
             TopologyService topologyService,
+            LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
             MetricManager metricManager,
             FailureManager failureManager,
@@ -248,6 +250,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.dzManager = dzManager;
         this.raftManager = raftManager;
         this.topologyService = topologyService;
+        this.logicalTopologyService = logicalTopologyService;
         this.tableManager = tableManager;
         this.metricManager = metricManager;
         this.failureManager = failureManager;
@@ -1138,6 +1141,19 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         ongoingOperationsById.put(operationId, operationFuture);
 
+        if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
+            ByteArray prefix = operationPrefix(operationId);
+
+            RecoveryWatch localStatusWatch = new RecoveryWatch(busyLock, request.nodeNames(), prefix, operationFuture);
+
+            metaStorageManager.registerPrefixWatch(prefix, localStatusWatch);
+            logicalTopologyService.addEventListener(localStatusWatch);
+
+            operationFuture.whenComplete((ignored, e) -> metaStorageManager.unregisterWatch(localStatusWatch));
+            operationFuture.whenComplete((ignored, e) -> logicalTopologyService.removeEventListener(localStatusWatch));
+            operationFuture.whenComplete((ignored, e) -> metaStorageManager.removeByPrefix(prefix));
+        }
+
         if (revision != -1) {
             putRecoveryTriggerIfRevisionIsNotProcessed(
                     request.zoneId(),
@@ -1155,7 +1171,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Put the {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY}
+     * Put the {@link MetaStorageKeys#RECOVERY_TRIGGER_KEY}
      * if the revision of the trigger event is not processed for this zone yet.
      *
      * @param zoneId Zone id.
@@ -1220,7 +1236,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
+     * Handler for {@link MetaStorageKeys#RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
      * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long, HybridTimestamp)}.
      */
     private void handleTriggerKeyUpdate(WatchEvent watchEvent) {
@@ -1238,7 +1254,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             return;
         }
 
-        CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(request.operationId());
+        UUID uuid = request.operationId();
+        CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(uuid);
 
         switch (request.type()) {
             case SINGLE_NODE:
@@ -1266,26 +1283,25 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         }));
                 break;
             case MULTI_NODE:
-                request.handle(this, watchEvent.revision(), watchEvent.timestamp())
-                        .handle((res, ex) -> inBusyLock(busyLock, () -> {
-                            if (operationFuture != null) {
-                                copyStateTo(operationFuture).accept(res, ex);
-                            }
+                metaStorageManager.put(ongoingOperationsKey(uuid, localNode().name()), IN_PROGRESS_BYTES)
+                        .thenRun(() -> request.handle(this, watchEvent.revision(), watchEvent.timestamp())
+                                .handle((res, ex) -> inBusyLock(busyLock, () -> {
+                                    if (ex != null) {
+                                        if (!hasCause(
+                                                ex,
+                                                NodeStoppingException.class,
+                                                UnresolvableConsistentIdException.class,
+                                                RecipientLeftException.class,
+                                                NotEnoughAliveNodesException.class
+                                        )) {
+                                            failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
+                                        }
 
-                            if (ex != null) {
-                                if (!hasCause(
-                                        ex,
-                                        NodeStoppingException.class,
-                                        UnresolvableConsistentIdException.class,
-                                        RecipientLeftException.class,
-                                        NotEnoughAliveNodesException.class
-                                )) {
-                                    failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
-                                }
-                            }
-
-                            return null;
-                        }));
+                                        return putErrorStateToMetastorage(uuid, ex.getMessage());
+                                    } else {
+                                        return metaStorageManager.put(ongoingOperationsKey(uuid, localNode().name()), COMPLETED_BYTES);
+                                    }
+                                })));
                 break;
             default:
                 var error = new AssertionError("Unexpected request type: " + request.getClass());
@@ -1294,6 +1310,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     operationFuture.completeExceptionally(error);
                 }
         }
+    }
+
+    private CompletableFuture<Void> putErrorStateToMetastorage(UUID uuid, String message) {
+        return metaStorageManager.put(ongoingOperationsKey(uuid, localNode().name()), message.getBytes(UTF_8));
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
@@ -1933,10 +1953,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
 
         return zoneDescriptor;
-    }
-
-    private static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
-        return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + zoneId);
     }
 
     InternalClusterNode localNode() {

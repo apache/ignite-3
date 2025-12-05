@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -38,12 +39,14 @@ interface DisasterRecoveryRequest {
     /** Returns request type. */
     DisasterRecoveryRequestType type();
 
+    Set<String> nodeNames();
+
     /**
      * The recovery operation itself.
      *
      * @param disasterRecoveryManager Disaster recovery manager.
-     * @param revision Revision of the {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY} update.
-     * @param timestamp Timestamp of {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY} update operation.
+     * @param revision Revision of the {@link MetaStorageKeys#RECOVERY_TRIGGER_KEY} update.
+     * @param timestamp Timestamp of {@link MetaStorageKeys#RECOVERY_TRIGGER_KEY} update operation.
      * @return New operation future, that completes when operation is completed.
      */
     CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision, HybridTimestamp timestamp);
