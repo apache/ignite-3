@@ -67,6 +67,8 @@ namespace Apache.Ignite.Tests
 
         private readonly List<IDisposable> _disposables = new();
 
+        private readonly bool _useMapper;
+
         private TestEventListener _eventListener = null!;
 
         private ConsoleLogger _logger = null!;
@@ -78,6 +80,11 @@ namespace Apache.Ignite.Tests
             AppDomain.CurrentDomain.ProcessExit += (_, _) => ServerNode.Dispose();
         }
 
+        protected IgniteTestsBase(bool useMapper = false)
+        {
+            _useMapper = useMapper;
+        }
+
         protected static int ServerPort => ServerNode.Port;
 
         protected IIgniteClient Client { get; private set; } = null!;
@@ -87,8 +94,6 @@ namespace Apache.Ignite.Tests
         protected IRecordView<IIgniteTuple> TupleView { get; private set; } = null!;
 
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
-
-        protected IRecordView<Poco> PocoViewWithMapper { get; private set; } = null!;
 
         protected IRecordView<PocoAllColumns> PocoAllColumnsView { get; private set; } = null!;
 
@@ -110,8 +115,7 @@ namespace Apache.Ignite.Tests
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
-            PocoView = Table.GetRecordView<Poco>();
-            PocoViewWithMapper = Table.GetRecordView(new PocoMapper());
+            PocoView = _useMapper ? Table.GetRecordView(new PocoMapper()) : Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
             PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();

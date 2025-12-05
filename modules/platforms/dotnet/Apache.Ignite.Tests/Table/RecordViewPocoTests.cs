@@ -30,12 +30,8 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     [TestFixture("reflective")]
     [TestFixture("mapper")]
-    public class RecordViewPocoTests : IgniteTestsBase
+    public class RecordViewPocoTests(string mode) : IgniteTestsBase(useMapper: mode == "mapper")
     {
-        public RecordViewPocoTests(string mode)
-        {
-        }
-
         [TearDown]
         public async Task CleanTable()
         {
