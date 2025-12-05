@@ -4,14 +4,19 @@ apply plugin: 'com.jfrog.artifactory'
 // All Java-specific stuff is only configured for projects that apply the 'java' plugin
 plugins.withId('java') {
 
-  // Simple Maven publication for the main Java component
-  publishing {
-    publications {
-      mavenJava(MavenPublication) {
-        from components.java
-      }
+    // 🔹 Skip publishing setup for this special module
+    if (project.name == "migration-tools-ignite2-repack") {
+        return
     }
-  }
+
+    // Simple Maven publication for the main Java component
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
+        }
+    }
 }
 
 // Artifactory publishing config
@@ -26,7 +31,12 @@ artifactory {
         }
 
         defaults {
-            publications('mavenJava')
+            // 🔹 Only register the publication if it actually exists and we didn't skip it
+            if (project.plugins.hasPlugin('java') &&
+                project.name != "migration-tools-ignite2-repack" &&
+                publishing.publications.findByName("mavenJava") != null) {
+                publications('mavenJava')
+            }
         }
     }
 }
