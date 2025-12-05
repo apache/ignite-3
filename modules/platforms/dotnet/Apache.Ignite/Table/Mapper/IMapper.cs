@@ -23,7 +23,7 @@ namespace Apache.Ignite.Table.Mapper;
 /// This API is performance-oriented and mostly intended for use by source generators, but can also enable advanced mapping scenarios.
 /// </summary>
 /// <typeparam name="T">Mapped object type.</typeparam>
-public interface IMapper<T>
+public interface IMapper<T> // TODO: Test primitives, test missing columns, test KV views.
 {
     /// <summary>
     /// Writes the specified object to an Ignite table row.
