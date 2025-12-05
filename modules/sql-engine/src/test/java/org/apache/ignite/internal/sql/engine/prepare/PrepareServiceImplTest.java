@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
-import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -59,12 +57,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
@@ -110,11 +111,16 @@ import org.mockito.Mockito;
  * Tests to verify {@link PrepareServiceImpl}.
  */
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static final List<PrepareService> createdServices = new ArrayList<>();
+    private static final int PLAN_UPDATER_REFRESH_PERIOD = 5_000;
 
     @InjectExecutorService
     private static ScheduledExecutorService commonExecutor;
+
+    @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=5")
+    private static StatisticsConfiguration statisticsConfiguration;
 
     @AfterEach
     public void stopServices() throws Exception {
@@ -412,13 +418,13 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         service.statisticsChanged(table.id());
 
         Awaitility.await()
-                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_REFRESH_PERIOD))
                 .until(
                         () -> !selectPlan.equals(await(service.prepareAsync(parse(selectQuery), operationContext().build())))
                 );
 
         Awaitility.await()
-                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_REFRESH_PERIOD))
                 .until(
                         () -> !insertPlan.equals(await(service.prepareAsync(parse(insertQuery), operationContext().build())))
                 );
@@ -466,7 +472,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         service.statisticsChanged(table2.id());
 
         Awaitility.await()
-                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_REFRESH_PERIOD))
                 .until(
                         () -> !plan2.equals(await(service.prepareAsync(parse(insertQuery), operationContext().build())))
                 );
@@ -510,7 +516,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         service.statisticsChanged(table1.id());
 
         Awaitility.await()
-                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_REFRESH_PERIOD))
                 .until(
                         () -> !plan2.equals(await(service.prepareAsync(parse(selectQuery), operationContext().build())))
                 );
@@ -863,11 +869,14 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
-        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {
+        };
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schemas), clockService::currentLong, commonExecutor, producer);
+                new PredefinedSchemaManager(schemas), clockService::currentLong, commonExecutor, producer,
+                statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
+        );
 
         createdServices.add(service);
 
@@ -900,11 +909,14 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
-        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {
+        };
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new VersionedSchemaManager(schemas, ver), clockService::currentLong, executor, producer);
+                new VersionedSchemaManager(schemas, ver), clockService::currentLong, executor, producer,
+                statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
+        );
 
         createdServices.add(service);
 
