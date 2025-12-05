@@ -26,6 +26,12 @@ using Proto.MsgPack;
 
 /// <summary>
 /// Mapper-based record serializer handler.
+/// <para />
+/// IMapper design considerations:
+/// - Source generators are the primary use case: performance is more important than ease of use.
+/// - Object creation is handled by the mapper, no restrictions on constructors.
+/// - If the mapper knows the column order, it can avoid name lookups.
+/// - If name lookups are needed, a regular switch block is as fast as it gets (compiler uses hash codes and other tricks).
 /// </summary>
 /// <typeparam name="T">Object type.</typeparam>
 internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
