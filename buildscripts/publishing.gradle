@@ -41,11 +41,12 @@ signing {
 afterEvaluate {
         artifactory {
             clientConfig.setIncludeEnvVars(false)
-            
+
             publish {
                 contextUrl = 'https://linkedin.jfrog.io/artifactory'
+                
                 repository {
-                    repoKey = 'ignite-3'
+                    repoKey = 'ignite'
                     username = System.getenv('ARTIFACTORY_USER')
                     password = System.getenv('ARTIFACTORY_KEY')
                 }
@@ -61,7 +62,7 @@ afterEvaluate {
 
         tasks.named('artifactoryPublish').configure {
             skip = project.hasProperty('artifactory.dryRun')
-            
+
             // Always re-run this task, don't use up-to-date checks
             outputs.upToDateWhen { false }
 
@@ -70,7 +71,7 @@ afterEvaluate {
                     logger.lifecycle("DRY RUN: Would publish ${project.name} to Artifactory")
                 } else {
                     logger.lifecycle("Publishing ${project.name} to Artifactory at https://linkedin.jfrog.io/artifactory")
-                    logger.lifecycle("  Repository: ignite-3")
+                    logger.lifecycle("  Repository: ignite")
                     logger.lifecycle("  User: ${System.getenv('ARTIFACTORY_USER') ?: 'NOT SET'}")
 
                     // Log the actual artifacts being published

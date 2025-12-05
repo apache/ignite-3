@@ -189,7 +189,6 @@ allprojects {
 // Apply common configuration to all subprojects
 subprojects {
     apply plugin: 'base'
-     apply from: "$rootDir/gradle/java-publishing.gradle"
     repositories {
         maven {
             url = uri('https://repo.maven.apache.org/maven2/')
