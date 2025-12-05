@@ -357,7 +357,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                new TestTxStateStorage(),
                 replicaService,
                 clockService,
                 observableTimestampTracker,
@@ -367,7 +366,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                true,
                 new TableMetricSource(QualifiedName.fromSimple("TEST"))
         );
     }

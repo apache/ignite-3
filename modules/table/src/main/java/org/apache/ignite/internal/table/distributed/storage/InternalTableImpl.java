@@ -102,7 +102,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -129,7 +128,6 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -184,9 +182,6 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
 
-    /** Storage for transaction states. */
-    private final TxStateStorage txStateStorage;
-
     /** Replica service. */
     private final ReplicaService replicaSvc;
 
@@ -214,8 +209,6 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-only transaction timeout. */
     private final Supplier<Long> defaultReadTxTimeout;
 
-    private final boolean colocationEnabled;
-
     private final TableMetricSource metrics;
 
     /**
@@ -228,7 +221,6 @@ public class InternalTableImpl implements InternalTable {
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
-     * @param txStateStorage Transaction state storage.
      * @param replicaSvc Replica service.
      * @param clockService A hybrid logical clock service.
      * @param placementDriver Placement driver.
@@ -246,7 +238,6 @@ public class InternalTableImpl implements InternalTable {
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxStateStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
             HybridTimestampTracker observableTimestampTracker,
@@ -256,7 +247,6 @@ public class InternalTableImpl implements InternalTable {
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
             Supplier<Long> defaultReadTxTimeout,
-            boolean colocationEnabled,
             TableMetricSource metrics
     ) {
         this.tableName = tableName;
@@ -266,7 +256,6 @@ public class InternalTableImpl implements InternalTable {
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
-        this.txStateStorage = txStateStorage;
         this.replicaSvc = replicaSvc;
         this.clockService = clockService;
         this.observableTimestampTracker = observableTimestampTracker;
@@ -276,7 +265,6 @@ public class InternalTableImpl implements InternalTable {
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
         this.defaultReadTxTimeout = defaultReadTxTimeout;
-        this.colocationEnabled = colocationEnabled;
         this.metrics = metrics;
     }
 
@@ -643,7 +631,7 @@ public class InternalTableImpl implements InternalTable {
      * @param full {@code True} for a full transaction.
      * @param enlistment Enlisted partition.
      * @param noWriteChecker Used to handle operations producing no updates.
-     * @param retryOnLockConflict {@code True} to retry on lock conflics.
+     * @param retryOnLockConflict {@code True} to retry on lock conflicts.
      * @return The future.
      */
     private <R> CompletableFuture<R> trackingInvoke(
@@ -1916,12 +1904,6 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public TxStateStorage txStateStorage() {
-        return txStateStorage;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int partitionId(BinaryRowEx row) {
         return IgniteUtils.safeAbs(row.colocationHash()) % partitions;
     }
@@ -2226,11 +2208,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
-        if (colocationEnabled) {
-            return new ZonePartitionId(zoneId, partitionIndex);
-        } else {
-            return new TablePartitionId(tableId, partitionIndex);
-        }
+        return new ZonePartitionId(zoneId, partitionIndex);
     }
 
     private static ZonePartitionIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
@@ -2297,15 +2275,12 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param partitionId Partition ID.
      * @param newSafeTimeTracker New partition safe time tracker.
-     * @param newStorageIndexTracker New partition storage index tracker.
      */
     public void updatePartitionTrackers(
             int partitionId,
-            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> newStorageIndexTracker
+            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker
     ) {
         PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
-        PendingComparableValuesTracker<Long, Void> previousStorageIndexTracker;
 
         synchronized (updatePartitionMapsMux) {
             Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
@@ -2316,7 +2291,6 @@ public class InternalTableImpl implements InternalTable {
             newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
 
             previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
-            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
 
             safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
             storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
@@ -2324,10 +2298,6 @@ public class InternalTableImpl implements InternalTable {
 
         if (previousSafeTimeTracker != null) {
             previousSafeTimeTracker.close();
-        }
-
-        if (previousStorageIndexTracker != null) {
-            previousStorageIndexTracker.close();
         }
     }
 

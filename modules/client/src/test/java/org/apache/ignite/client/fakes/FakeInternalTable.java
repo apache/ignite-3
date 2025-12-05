@@ -440,10 +440,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         return null;
     }
 
-    @Override public TxStateStorage txStateStorage() {
-        return null;
-    }
-
     @Override
     public void close() {
         // No-op.

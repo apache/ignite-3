@@ -327,7 +327,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new SingleClusterNodeResolver(mock(InternalClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
-                    mock(TxStateStorage.class),
                     replicaSvc,
                     clockService,
                     timestampTracker,
@@ -337,7 +336,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(StreamerReceiverRunner.class),
                     () -> 10_000L,
                     () -> 10_000L,
-                    true,
                     new TableMetricSource(QualifiedName.fromSimple("test"))
             );
             this.dataAmount = dataAmount;

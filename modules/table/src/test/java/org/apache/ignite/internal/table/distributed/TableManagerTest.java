@@ -332,9 +332,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         Table table = tableManager.table(PRECONFIGURED_TABLE_NAME);
         assertNotNull(table);
-
-        InternalTable internalTable = Wrappers.unwrap(table, TableImpl.class).internalTable();
-        assertThat(internalTable.txStateStorage(), isA(BrokenTxStateStorage.class));
     }
 
     /**
@@ -350,9 +347,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
-
-        InternalTable internalTable = Wrappers.unwrap(table, TableImpl.class).internalTable();
-        assertThat(internalTable.txStateStorage(), isA(BrokenTxStateStorage.class));
     }
 
     /**

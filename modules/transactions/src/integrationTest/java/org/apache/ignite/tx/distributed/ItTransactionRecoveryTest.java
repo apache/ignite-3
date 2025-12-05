@@ -1192,10 +1192,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return colocationEnabled()
-                ? bypassingThreadAssertions(
-                    () -> node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), 0).get(txId))
-                : bypassingThreadAssertions(() -> internalTable.txStateStorage().getPartitionStorage(0).get(txId));
+        return bypassingThreadAssertions(
+                    () -> node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), 0).get(txId));
     }
 
     /**
