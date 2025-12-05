@@ -10,7 +10,7 @@ All queries in Apache Ignite are transactional. You can provide an explicit tran
 
 ## Transaction Lifecycle
 
-When the transaction is created, the node that the transaction was started from is chosen as **transaction coordinator**. The coordinator finds the required [partitions](/docs/3.1.0/understand/architecture/data-partitioning) and sends the read or write requests to the nodes holding primary partitions. For correct transaction operation, all nodes in cluster must have similar time, that can be different by no more than `schemaSync.maxClockSkewMillis`.
+When the transaction is created, the node that the transaction was started from is chosen as **transaction coordinator**. The coordinator finds the required [partitions](/docs/3.1.0/understand/core-concepts/data-partitioning) and sends the read or write requests to the nodes holding primary partitions. For correct transaction operation, all nodes in cluster must have similar time, that can be different by no more than `schemaSync.maxClockSkewMillis`.
 
 If the key is not locked by a different transaction, the node gets the locks on the involved keys, and attempts to apply the changes in the transaction. When the operation finishes, the lock is removed. This way, several transactions can work on the same partition, while changing separate keys. Additionally, some operations may perform **short-term** locks on the keys in advance, to ensure operations proceed correctly.
 
@@ -148,7 +148,7 @@ future.join();
 
 ## Read-Only Transactions
 
-When starting a transaction, you can configure the transaction as a **read-only** transaction. In these transactions, no data modification can be performed, but they also do not secure locks and can be performed on non-primary [partitions](/docs/3.1.0/understand/architecture/data-partitioning), further improving their performance. Read-only transactions always check the data for the moment they were started, even if new data was written to the database.
+When starting a transaction, you can configure the transaction as a **read-only** transaction. In these transactions, no data modification can be performed, but they also do not secure locks and can be performed on non-primary [partitions](/docs/3.1.0/understand/core-concepts/data-partitioning), further improving their performance. Read-only transactions always check the data for the moment they were started, even if new data was written to the database.
 
 Here is how you can make a read-only transaction:
 
@@ -190,7 +190,7 @@ tx.commit();
 </Tabs>
 
 :::note
-Read-only transactions read data at a specific time. If new data was written since, old data will still be stored in [Version Storage](/docs/3.1.0/understand/architecture/data-partitioning#version-storage) and will be available until low watermark. If low watermark is reached during the transaction, data will be kept available until it is over.
+Read-only transactions read data at a specific time. If new data was written since, old data will still be stored in [Version Storage](/docs/3.1.0/understand/core-concepts/data-partitioning#version-storage) and will be available until low watermark. If low watermark is reached during the transaction, data will be kept available until it is over.
 :::
 
 ## Transaction Timeout

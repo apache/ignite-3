@@ -279,6 +279,7 @@ const sidebars: SidebarsConfig = {
             "understand/core-concepts/tables-and-schemas",
             "understand/core-concepts/transactions-and-mvcc",
             "understand/core-concepts/distribution-and-colocation",
+            "understand/core-concepts/data-partitioning",
             "understand/core-concepts/compute-and-events",
           ],
         },
@@ -287,6 +288,7 @@ const sidebars: SidebarsConfig = {
           label: "Architecture",
           link: { type: "doc", id: "understand/architecture/index" },
           items: [
+            "understand/architecture/architecture-overview",
             "understand/architecture/storage-architecture",
             {
               type: "category",
@@ -298,7 +300,7 @@ const sidebars: SidebarsConfig = {
                 "understand/architecture/storage-engines/rocksdb",
               ],
             },
-            "understand/architecture/data-partitioning",
+            "understand/architecture/security",
           ],
         },
         {

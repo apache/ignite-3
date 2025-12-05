@@ -327,5 +327,5 @@ Node attributes are configured in each node's configuration file.
 ## Related Topics
 
 - [Distribution Zones SQL Reference](/docs/3.1.0/sql/reference/language-definition/distribution-zones) for zone DDL syntax
-- [Data Partitioning](/docs/3.1.0/understand/architecture/data-partitioning) for partition internals
+- [Data Partitioning](/docs/3.1.0/understand/core-concepts/data-partitioning) for partition internals
 - [Disaster Recovery](/docs/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) for handling partition failures

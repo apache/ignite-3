@@ -6,17 +6,67 @@ sidebar_position: 2
 
 # Data Partitioning
 
-Data partitioning is a method of subdividing large sets of data into smaller chunks and distributing them between all server nodes in a balanced manner.
+Data partitioning divides table data into fixed-size chunks called partitions and distributes them across cluster nodes. This distribution enables horizontal scaling: adding nodes increases both storage capacity and query throughput.
 
-## How Data is Partitioned
+## Partition Distribution
 
-When the table is created, it is always assigned to a [distribution zone](/docs/3.1.0/sql/reference/language-definition/distribution-zones). Based on the distribution zone parameters, the table is separated into `PARTITIONS` parts, called *partitions*, stored `REPLICAS` times across the cluster. Each partition is identified by a number from a limited set (0 to 24 for the default zone). Each individual copy of a partition is called a *replica*, and is stored on separate nodes, if possible. Partitions with the same number for all tables in the zone are always stored on the same node.
+Tables belong to distribution zones, which define how data is partitioned and replicated. The zone's `PARTITIONS` parameter sets the number of partitions, and `REPLICAS` sets how many copies of each partition exist.
 
-Apache Ignite uses the *Fair* partition distribution algorithm. It means that it stores information on partition distribution and uses this information for assigning new partitions. This information is preserved in cluster metastorage, and is recalculated only when necessary.
+```mermaid
+flowchart TB
+    subgraph "Distribution Zone: financial"
+        direction TB
+        ZC[PARTITIONS: 6<br/>REPLICAS: 3]
+    end
 
-Once partitions and all replicas are created, they are distributed across the available cluster nodes that are included in the distribution zone following the `DATA_NODES_FILTER` parameter and according to the *partition distribution algorithm*. Thus, each key is mapped to a list of nodes owning the corresponding partition and is stored on those nodes. When data is added, it is distributed evenly between partitions.
+    subgraph "Table: accounts"
+        direction LR
+        P0[Partition 0]
+        P1[Partition 1]
+        P2[Partition 2]
+        P3[Partition 3]
+        P4[Partition 4]
+        P5[Partition 5]
+    end
 
-![Apache Ignite Partitions](/img/partitioning.png)
+    subgraph "Cluster Nodes"
+        subgraph "Node 1"
+            N1P0[P0 Primary]
+            N1P3[P3 Backup]
+            N1P4[P4 Backup]
+        end
+        subgraph "Node 2"
+            N2P1[P1 Primary]
+            N2P0[P0 Backup]
+            N2P5[P5 Backup]
+        end
+        subgraph "Node 3"
+            N3P2[P2 Primary]
+            N3P1[P1 Backup]
+            N3P3[P3 Primary]
+        end
+        subgraph "Node 4"
+            N4P4[P4 Primary]
+            N4P2[P2 Backup]
+            N4P5[P5 Primary]
+        end
+    end
+
+    ZC --> P0 & P1 & P2 & P3 & P4 & P5
+    P0 --> N1P0 & N2P0
+    P1 --> N2P1 & N3P1
+    P2 --> N3P2 & N4P2
+    P3 --> N3P3 & N1P3
+    P4 --> N4P4 & N1P4
+    P5 --> N4P5 & N2P5
+```
+
+Key behaviors:
+
+- Each partition is identified by a number (0 to PARTITIONS-1)
+- Replicas of the same partition are placed on different nodes when possible
+- Tables in the same zone share partition-to-node mappings (enabling colocation)
+- The Fair distribution algorithm stores placement decisions in metastorage and reuses them for consistent assignment
 
 You can configure the way node stores relevant information in the [node configuration](/docs/3.1.0/configure-and-operate/reference/node-configuration):
 
@@ -43,7 +93,7 @@ It is not recommended to set a significantly larger number of partitions or repl
 
 Otherwise, Apache Ignite will automatically calculate the recommended number of partitions:
 
-```
+```text
 dataNodesCount * coresOnNode * 2 / replicas
 ```
 
@@ -61,7 +111,7 @@ Losing the majority of the consensus group leads the partition to enter the `Rea
 
 The size of the consensus group is automatically calculated based on quorum size:
 
-```
+```text
 quorumSize * 2 - 1
 ```
 
@@ -73,11 +123,42 @@ You can also store data replicas on every node in cluster by creating a zone wit
 
 ## Primary Replicas and Leases
 
-Once the partitions are distributed on the nodes, Apache Ignite forms *replication groups* for all partitions of the table, and each group elects its leader. To linearize writes to partitions, Apache Ignite designates one replica of each partition as a *primary replica*, and other replicas as backups.
+Once partitions are distributed, Apache Ignite forms replication groups for each partition. Each group elects a leader through RAFT consensus, and the placement driver grants a lease to designate one replica as primary.
 
-To designate a primary replica, Apache Ignite uses a process of granting a *lease*. Leases are granted by the *lease placement driver*, and signify the node that houses the primary replica, called a *lease holder*. Once the lease is granted, information about it is written to the [metastorage](/docs/3.1.0/configure-and-operate/operations/lifecycle#cluster-metastorage-group), and provided to all nodes in the cluster. Usually, the primary replica will be the same as replication group leader.
+```mermaid
+flowchart TB
+    subgraph "Placement Driver"
+        PD[Lease Placement Driver]
+        MS[(Metastorage)]
+    end
 
-Granted leases are valid for a short period of time and are extended every couple of seconds, preserving the continuity of each lease. A lease cannot be revoked until it expires. In exceptional situations (for example, when the primary replica is unable to serve as primary anymore, the leaseholder node goes offline, the replication group is inoperable, etc.) the placement driver waits for the lease to expire and then initiates the negotiation of the new one.
+    subgraph "Partition 0 Replication Group"
+        subgraph "Node 1"
+            R1[Replica<br/>PRIMARY<br/>Lease Holder]
+        end
+        subgraph "Node 2"
+            R2[Replica<br/>BACKUP<br/>Voter]
+        end
+        subgraph "Node 3"
+            R3[Replica<br/>BACKUP<br/>Learner]
+        end
+    end
+
+    PD -->|"Grant Lease"| R1
+    PD -->|"Store Lease"| MS
+    R1 <-->|"RAFT Consensus"| R2
+    R1 -->|"Replicate"| R3
+
+    Client[Client] -->|"Read-Write TX"| R1
+    Client -.->|"Read-Only TX"| R2
+    Client -.->|"Read-Only TX"| R3
+```
+
+The lease mechanism provides:
+
+- **Write linearization**: Only the primary replica handles read-write transactions
+- **Lease renewal**: Leases are extended periodically to maintain continuity
+- **Automatic failover**: When a lease expires, the placement driver negotiates a new primary
 
 Only the primary replica can handle operations of read-write transactions. Other replicas of the partition can be read from by using read-only transactions.
 
@@ -91,11 +172,39 @@ Read-only transactions can be handled by either backup or primary replicas, depe
 
 ## Version Storage
 
-As new data is written to the partition, Apache Ignite does not immediately delete old one. Instead, Apache Ignite stores old keys in a *version chain* within the same partition.
+Apache Ignite maintains multiple versions of each row to support MVCC (Multi-Version Concurrency Control). When a row is updated, the old version is preserved in a version chain rather than being deleted immediately.
 
-Older key versions can only be accessed by [read-only transactions](/docs/3.1.0/develop/work-with-data/transactions#read-only-transactions), while up-to-date version can be accessed by any transactions.
+```mermaid
+flowchart LR
+    subgraph "Version Chain for Key: 42"
+        V3[Version 3<br/>ts: 1500<br/>value: 300]
+        V2[Version 2<br/>ts: 1200<br/>value: 200]
+        V1[Version 1<br/>ts: 1000<br/>value: 100]
+    end
 
-Older key versions are kept until the *low watermark* point is reached. By default, low watermark is 600000 ms, and it can be changed in [cluster configuration](/docs/3.1.0/configure-and-operate/configuration/config-cluster-and-nodes). Increasing data availability time will mean that old key versions are stored and available for longer, however storing them may require extra storage, depending on cluster load.
+    V3 --> V2 --> V1
+
+    subgraph "Transactions"
+        RW[Read-Write TX<br/>sees: V3]
+        RO1[Read-Only TX<br/>at ts: 1400<br/>sees: V2]
+        RO2[Read-Only TX<br/>at ts: 1100<br/>sees: V1]
+    end
+
+    RW -.-> V3
+    RO1 -.-> V2
+    RO2 -.-> V1
+
+    LW[Low Watermark<br/>ts: 1100] --> V1
+    GC[Garbage Collector] --> LW
+```
+
+Version visibility:
+
+- Read-write transactions see the latest version
+- Read-only transactions see the version valid at their start timestamp
+- Versions older than the low watermark are eligible for garbage collection
+
+The low watermark defaults to 600000 ms (10 minutes). Versions beyond this threshold are cleaned up by the garbage collector, though cleanup is deferred if any active transaction still requires the data.
 
 In a similar manner, [dropped tables](/docs/3.1.0/sql/reference/language-definition/ddl#drop-table) are also not removed from disk until the low watermark point, however you can no longer write to these tables. Read-only transactions that try to get data from these tables will succeed if they read data at timestamp before the table was dropped, and will delay the low watermark point if it is necessary to complete the transaction.
 

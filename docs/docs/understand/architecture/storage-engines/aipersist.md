@@ -4,38 +4,168 @@ title: AIPersist Storage Engine
 sidebar_position: 1
 ---
 
-# Persistent Storage
+# AIPersist Storage Engine
 
-## Overview
+The AIPersist engine (`aipersist`) provides durable storage using B+ tree data structures with checkpoint-based persistence. Data is stored in partition files on disk with an in-memory page cache for fast access. This is the default storage engine.
 
-Apache Ignite Persistence is designed to provide a quick and responsive persistent storage. When using the persistent storage, Apache Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
+## Storage Architecture
 
-When persistence is enabled, Apache Ignite stores each partition in a separate file on disk. In addition to data partitions, Apache Ignite stores indexes and metadata.
+```mermaid
+flowchart TB
+    subgraph "Memory"
+        PC[Page Cache]
+        CB[Checkpoint Buffer]
+        DP[Dirty Pages]
+    end
 
-## Profile Configuration
+    subgraph "Disk Storage"
+        subgraph "Partition Files"
+            PF1[table-1/part-0.bin]
+            PF2[table-1/part-1.bin]
+            PF3[table-1/part-2.bin]
+        end
+        subgraph "Delta Files"
+            DF1[part-0-delta-0.bin]
+            DF2[part-0-delta-1.bin]
+        end
+    end
 
-Each Apache Ignite storage engine can have several storage profiles.
+    subgraph "Data Structures"
+        VCT[VersionChainTree<br/>Row Data]
+        SIT[SortedIndexTree]
+        HIT[HashIndexTree]
+        IMT[IndexMetaTree]
+    end
+
+    PC --> DP
+    DP --> CB
+    CB -->|"Checkpoint"| PF1 & PF2 & PF3
+    PF1 --> DF1 & DF2
+    PC --> VCT & SIT & HIT & IMT
+```
+
+Storage organization:
+
+- Each partition stored in a separate file: `table-{tableId}/part-{partitionId}.bin`
+- Delta files capture incremental changes between checkpoints
+- B+ trees store version chains (row data), sorted indexes, hash indexes, and metadata
+- Default page size: 16 KB
 
 ## Checkpointing
 
-*Checkpointing* is the process of copying dirty pages from RAM to partition files on disk. A dirty page is a page that was updated in RAM but was not written to the respective partition file.
+Checkpointing flushes dirty pages from memory to partition files on disk. This process ensures durability and enables crash recovery.
 
-After a checkpoint is created, all changes are persisted to disk and will be available if the node crashes and is restarted.
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant PC as Page Cache
+    participant CB as Checkpoint Buffer
+    participant CP as Checkpoint Writer
+    participant Disk as Partition Files
 
-Checkpointing is designed to ensure durability of data and recovery in case of a node failure.
+    App->>PC: Write Operation
+    PC->>PC: Mark Page Dirty
 
-This process helps you utilize disk space frugally by keeping pages in the most up-to-date state on disk.
+    Note over CP: Checkpoint Interval (default: 180s)
 
-You can fine-tune checkpoint settings in the [aipersist](/docs/3.1.0/configure-and-operate/reference/node-configuration) storage engine configuration.
+    CP->>PC: Begin Checkpoint
+    PC->>CB: Copy Dirty Pages
+    CP->>Disk: Write Pages
+
+    alt Page Modified During Checkpoint
+        App->>PC: Update Page
+        PC->>CB: Copy Previous State
+    end
+
+    CP->>Disk: Finalize Checkpoint
+    CP->>CB: Clear Buffer
+```
+
+Checkpoint configuration:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `intervalMillis` | 180000 | Time between checkpoints (3 minutes) |
+| `intervalDeviationPercent` | 40 | Random deviation to prevent synchronized checkpoints |
+| `checkpointThreads` | - | Number of checkpoint writer threads |
+| `compactionThreads` | - | Number of compaction threads |
+
+```bash
+# Configure checkpoint interval to 2 minutes
+node config update ignite.storage.engines.aipersist.checkpoint.intervalMillis=120000
+```
 
 ## Write Throttling
 
-If a dirty page, scheduled for checkpointing, is updated before being written to disk, its previous state is copied to a special region called a checkpointing buffer. If the buffer overflows, Apache Ignite would have to stop processing all updates until the checkpointing is over. As a result, write performance would drop to zero until the checkpointing cycle is completed.
+When the checkpoint buffer reaches two-thirds capacity (66.7%), write throttling activates to prevent buffer overflow.
 
-To avoid the scenario where all updates are stopped, Apache Ignite always performs write throttling once the checkpoint buffer is two thirds full. Once the threshold is reached, checkpoint writer priority is increased, and more priority is given to checkpointing over new updates as the buffer fills more. This prevents buffer overflow while also slowing down update rate.
+```mermaid
+flowchart LR
+    subgraph "Checkpoint Buffer State"
+        direction TB
+        G[0-66%<br/>Normal]
+        Y[66-90%<br/>Throttled]
+        R[90-100%<br/>Heavy Throttling]
+    end
 
-In most cases, write throttling is caused by a slow drive, or a high update rate, and should not be a part of normal node operation. You can track write throttling by using [throttling metrics](/docs/3.1.0/configure-and-operate/monitoring/available-metrics).
+    G -->|"Buffer fills"| Y
+    Y -->|"Buffer fills"| R
+    R -->|"Checkpoint completes"| G
+```
 
-## Storage Configuration
+Throttling behavior:
 
-In Apache Ignite 3, all storage configuration is consolidated under `ignite.storage` [node configuration](/docs/3.1.0/configure-and-operate/reference/node-configuration). For more information on how storage is configured, see [Storage Profiles and Engines](/docs/3.1.0/understand/architecture/storage-architecture) documentation.
+- Below 66%: Normal operation, no throttling
+- 66% to 90%: Progressive throttling, checkpoint priority increases
+- Above 90%: Heavy throttling, updates significantly delayed
+
+Write throttling indicates either slow disk I/O or excessive write rate. Monitor throttling metrics to identify bottlenecks.
+
+## Profile Configuration
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `engine` | - | Must be `"aipersist"` |
+| `sizeBytes` | Dynamic | Storage size. Defaults to `max(256 MB, 20% of physical RAM)` |
+
+## Configuration Example
+
+```json
+{
+  "ignite": {
+    "storage": {
+      "profiles": [
+        {
+          "engine": "aipersist",
+          "name": "persistent_profile",
+          "sizeBytes": 2147483648
+        }
+      ]
+    }
+  }
+}
+```
+
+```bash
+# CLI equivalent
+node config update "ignite.storage.profiles:{persistent_profile{engine:aipersist,sizeBytes:2147483648}}"
+```
+
+## Usage
+
+The `default` profile uses aipersist automatically. For custom profiles:
+
+```sql
+-- Create a zone with the persistent profile
+CREATE ZONE transaction_zone
+    WITH PARTITIONS=25, REPLICAS=3,
+    STORAGE PROFILES ['persistent_profile'];
+
+-- Create a durable table
+CREATE TABLE orders (
+    order_id BIGINT PRIMARY KEY,
+    customer_id INT,
+    total DECIMAL(15,2),
+    created_at TIMESTAMP
+) ZONE transaction_zone STORAGE PROFILE 'persistent_profile';
+```

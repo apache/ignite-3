@@ -420,7 +420,7 @@ Keywords and parameters:
 
 ## DROP TABLE
 
-The `DROP TABLE` command drops an existing table. The table will be marked for deletion and will be removed by garbage collection after the [low watermark](../../../understand/architecture/data-partitioning#version-storage) point is reached. Until the data is removed, it will be available to [read-only transactions](../../../develop/work-with-data/transactions#read-only-transactions) that check the time before the table was marked for deletion.
+The `DROP TABLE` command drops an existing table. The table will be marked for deletion and will be removed by garbage collection after the [low watermark](../../../understand/core-concepts/data-partitioning#version-storage) point is reached. Until the data is removed, it will be available to [read-only transactions](../../../develop/work-with-data/transactions#read-only-transactions) that check the time before the table was marked for deletion.
 
 :::note
 This can also be done via the [Java API](../../../develop/work-with-data/java-to-tables).

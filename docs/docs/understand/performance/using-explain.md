@@ -4,18 +4,31 @@ title: Using EXPLAIN Command
 sidebar_position: 1
 ---
 
-# How to Improve Queries With EXPLAIN Command
+# Using EXPLAIN Command
 
-The SQL `EXPLAIN` command is a powerful tool used to analyze and understand the execution plan of a query without actually executing it.
+The `EXPLAIN` command displays the execution plan for a SQL query without running it. Use this to understand how the query optimizer processes your query and identify performance bottlenecks.
 
-When you use the EXPLAIN command, it returns the query execution plan, which includes details such as:
+```mermaid
+flowchart LR
+    subgraph "Query Processing"
+        SQL[SQL Query] --> Parser
+        Parser --> Optimizer
+        Optimizer --> Plan[Execution Plan]
+    end
 
-- The order in which tables are accessed.
-- The type of join operations used (for example, nested loops, hash joins, or merge joins).
-- Any indexes that are used to speed up data retrieval.
-- Estimated costs and row counts for different parts of the query.
+    subgraph "EXPLAIN Output"
+        Plan --> PLAN[EXPLAIN PLAN<br/>Operator Tree]
+        Plan --> MAP[EXPLAIN MAPPING<br/>Fragment Distribution]
+    end
+```
 
-This information is crucial for optimizing query performance, identifying bottlenecks, and making informed decisions about database schema design and indexing strategies.
+The execution plan reveals:
+
+- Table access order and methods (full scan vs index scan)
+- Join algorithms (hash join, merge join, nested loop)
+- Index usage and search bounds
+- Row count estimates at each stage
+- Data distribution across cluster nodes (with MAPPING)
 
 ## EXPLAIN Command Syntax
 
@@ -42,36 +55,59 @@ EXPLAIN MAPPING FOR SELECT * FROM lineitem;
 
 ## Understanding The Output
 
-Each query plan is represented as a tree-like structure composed of relational operators.
+Each query plan is a tree of relational operators. Data flows from leaf nodes (table scans) up through transformation nodes (joins, sorts) to the root node (final result).
 
-A node in the plan includes:
+```mermaid
+flowchart TB
+    subgraph "Query Plan Tree"
+        Root[Project<br/>fieldNames: result columns]
+        Join[HashJoin<br/>predicate: join condition]
+        Scan1[TableScan<br/>table: ORDERS]
+        Scan2[IndexScan<br/>table: CUSTOMERS<br/>index: IDX_CUST_ID]
+    end
 
-- A **name**, indicating the relational operator (e.g., `TableScan`, `IndexScan`, `Sort`, `Join` types)
-- A set of **attributes**, relevant to that specific operator
+    Root --> Join
+    Join --> Scan1
+    Join --> Scan2
+
+    subgraph "Data Flow"
+        direction TB
+        D1[Rows from ORDERS] --> D3[Joined Rows]
+        D2[Rows from CUSTOMERS] --> D3
+        D3 --> D4[Projected Result]
+    end
+```
+
+Each operator node includes:
+
+- **Name**: The algorithm used (TableScan, HashJoin, Sort, etc.)
+- **Attributes**: Operator-specific details (table name, predicate, field names)
+- **Estimate**: Expected row count at this stage (`est: (rows=N)`)
 
 ```text
 OperatorName
     attribute1: value1
     attribute2: value2
+    est: (rows=N)
 ```
 
-### Operator Naming
+### Operator Categories
 
-The operator name reflects the specific algorithm or strategy used. For example:
+| Category | Operators | Purpose |
+|----------|-----------|---------|
+| **Scan** | TableScan, IndexScan, SystemViewScan | Read data from tables |
+| **Join** | HashJoin, MergeJoin, NestedLoopJoin | Combine rows from multiple sources |
+| **Aggregate** | ColocatedHashAggregate, MapSortAggregate | GROUP BY operations |
+| **Transform** | Project, Filter, Sort, Limit | Shape and order results |
+| **Distribution** | Exchange, Sender, Receiver | Move data between nodes |
 
-- `TableScan` – Full scan of a base table.
-- `IndexScan` – Access via index, possibly sorted.
-- `Sort` – Explicit sorting step.
-- `HashJoin`, `MergeJoin`, `NestedLoopJoin` – Types of join algorithms.
-- `Limit`, `Project`, `Exchange` – Execution-related transformations and controls.
+See [EXPLAIN Operators Reference](./explain-operators) for the complete operator list.
 
-### Hierarchical Plan Structure
+### Plan Structure
 
-The plan is structured as a **tree**, where:
-
-- **Leaf nodes** represent data sources (e.g., `TableScan`)
-- **Internal nodes** represent data transformations (e.g., `Join`, `Sort`)
-- **The root node** (topmost) is the final operator that produces the result
+- **Leaf nodes**: Data sources (TableScan, IndexScan)
+- **Internal nodes**: Transformations (Join, Sort, Aggregate)
+- **Root node**: Final operator producing the query result
 
 ## Common Query Optimization Issues
 
@@ -463,7 +499,36 @@ We can see that **searchBounds** are present, thus more productive execution flo
 
 ## Colocation Usage
 
-As mentioned above, right colocated columns choice plays a significant role in query execution performance. For example, if initially tables are created without any thoughts about further usage columns colocation you can have the following scenario:
+Data colocation eliminates network transfers during joins by ensuring related rows reside on the same node. The EXPLAIN output shows this through Exchange operators.
+
+```mermaid
+flowchart TB
+    subgraph "Without Colocation"
+        direction TB
+        J1[HashJoin]
+        E1[Exchange<br/>distribution: single]
+        E2[Exchange<br/>distribution: single]
+        T1[TableScan: emp]
+        T2[TableScan: dept]
+
+        J1 --> E1 --> T1
+        J1 --> E2 --> T2
+    end
+
+    subgraph "With Colocation"
+        direction TB
+        J2[HashJoin]
+        T3[TableScan: emp]
+        T4[TableScan: dept]
+
+        J2 --> T3
+        J2 --> T4
+    end
+```
+
+Exchange operators indicate data movement between nodes. Fewer Exchange operators mean less network overhead.
+
+For example, if tables are created without colocation consideration:
 
 ```sql
 -- by default, the table is implicitly colocated by PRIMARY KEY
@@ -615,15 +680,15 @@ Project
 
 This execution plan represents a query that joins three tables: `USERS`, `REVIEWS`, and `PRODUCTS`, and selects four fields after filtering by product name.
 
-* **Project** (root node): Outputs the final selected fields (USERNAME, PRODUCTNAME, REVIEWTEXT, and RATING).
-* **HashJoins** (two levels): Perform the inner joins.
-  * The first (bottom-most) joins REVIEWS with PRODUCTS on PRODUCTID.
-  * The second joins the result with USERS on USERID.
-* **TableScans**: Each table is scanned:
-  * REVIEWS is fully scanned.
-  * PRODUCTS is scanned with a filter on PRODUCTNAME.
-  * USERS is fully scanned.
-* **Exchange** nodes: Indicate data redistribution between operators.
+- **Project** (root node): Outputs the final selected fields (USERNAME, PRODUCTNAME, REVIEWTEXT, and RATING).
+- **HashJoins** (two levels): Perform the inner joins.
+  - The first (bottom-most) joins REVIEWS with PRODUCTS on PRODUCTID.
+  - The second joins the result with USERS on USERID.
+- **TableScans**: Each table is scanned:
+  - REVIEWS is fully scanned.
+  - PRODUCTS is scanned with a filter on PRODUCTNAME.
+  - USERS is fully scanned.
+- **Exchange** nodes: Indicate data redistribution between operators.
 
 Each node includes:
 

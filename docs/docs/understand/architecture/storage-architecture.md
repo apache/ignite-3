@@ -6,100 +6,197 @@ sidebar_position: 1
 
 # Storage Architecture
 
-Apache Ignite 3 features a modern and highly configurable storage system that allows you to choose where and how your data is stored. This topic provides an overview of storage principles in Apache Ignite.
+Apache Ignite 3 separates logical data organization from physical storage implementation through a layered architecture. Tables define your data model, distribution zones control partitioning and replication, storage profiles configure engine parameters, and storage engines handle the physical read/write operations.
 
-The diagram below depicts the relationship between tables, distribution zones, storage profiles and storage engines:
+```mermaid
+flowchart TB
+    subgraph "Cluster-Wide Configuration"
+        T1[Table: accounts]
+        T2[Table: transactions]
+        T3[Table: audit_log]
 
-![Storage Architecture](/img/storage.png)
+        Z1[Zone: financial<br/>partitions: 25, replicas: 3]
+        Z2[Zone: logging<br/>partitions: 10, replicas: 2]
+    end
 
-In Apache Ignite, storage has both cluster-wide and node-specific components:
+    subgraph "Zone Storage Profiles"
+        SP1[Profile: default]
+        SP2[Profile: fast_storage]
+        SP3[Profile: large_storage]
+    end
 
-- **Cluster-wide Components**: Table definitions, Distribution Zone configurations, and Profile names/types are consistent across the entire cluster.
-- **Node-specific Components**: The actual implementation of a Storage Profile is configured locally on each node.
+    subgraph "Node-Local Implementation"
+        direction LR
+        subgraph "Node 1"
+            E1A[aipersist<br/>256 MB]
+            E1B[aimem<br/>512 MB]
+            E1C[rocksdb<br/>4 GB]
+        end
+        subgraph "Node 2"
+            E2A[aipersist<br/>512 MB]
+            E2B[aimem<br/>1 GB]
+            E2C[rocksdb<br/>8 GB]
+        end
+    end
 
-In Apache Ignite's architecture:
-
-- Tables contain your data and are assigned to distribution zones
-- Distribution zones determine how data is partitioned and distributed across the cluster
-- Storage profiles define which storage engine to use and how to configure it
-- Storage engines handle the actual storage and retrieval of data
-
-For example, all nodes using a profile named "fast_storage" must configure it with the same engine type (e.g., `aimem`), but can have different settings in storage profiles (like memory allocation) based on each node's capabilities.
-
-## What is a Storage Engine?
-
-Storage engines handle how your data is physically written to and read from storage media. Each engine has its own approach to organizing and accessing data, optimized for different usage patterns. It defines:
-
-- The binary format of stored data
-- Configuration properties for specific data formats
-
-Apache Ignite supports different storage engines that can be used interchangeably, depending on your expected database workload.
-
-## Available Storage Engines
-
-### AIMemory Storage (Volatile)
-
-Apache Ignite Volatile storage provides quick, in-memory storage without persistence guarantees. All data is stored in RAM and will be lost on cluster shutdown.
-
-### AIPersist Storage (B+ tree)
-
-Apache Ignite Persistence provides responsive persistent storage. It stores all data on disk, loading as much as possible into RAM for processing. Each partition is stored in a separate file, along with indexes and metadata.
-
-### RocksDB Storage (LSM tree)
-
-RocksDB is an experimental persistent storage engine based on LSM tree, optimized for environments with a high number of write requests.
-
-## Configuring Storage Engines
-
-Storage engine configuration applies to all profiles using that engine. All storage engines start with their respective default configuration. To change storage engine configuration, use the CLI tool:
-
-```bash
-node config show ignite.storage.engines
-node config update ignite.storage.engines.aipersist.checkpoint.intervalMillis = 16000
+    T1 --> Z1
+    T2 --> Z1
+    T3 --> Z2
+    Z1 --> SP1 & SP2
+    Z2 --> SP3
+    SP1 --> E1A & E2A
+    SP2 --> E1B & E2B
+    SP3 --> E1C & E2C
 ```
 
-After updating the configuration, restart the node for changes to take effect.
+This architecture separates concerns across two scopes:
 
-## What is a Storage Profile?
+- **Cluster-wide**: Table schemas, distribution zone configurations, and storage profile names are consistent across all nodes
+- **Node-local**: Storage profile implementations (memory sizes, file paths) are configured on each node independently
 
-A storage profile is the Apache Ignite node entity that defines the configuration parameters for a Storage Engine. A [Distribution Zone](/docs/3.1.0/sql/reference/language-definition/distribution-zones) must be configured to use a set of Storage Profiles declared in the node configuration. A table can only have a single primary storage profile defined.
+The separation allows heterogeneous clusters where nodes with different hardware capabilities can participate in the same distribution zone with appropriately sized storage allocations.
 
-Storage profiles define:
+## Storage Engines
 
-- Which storage engine is used to store data
-- Configuration values for that storage engine
+Storage engines implement the physical data operations: reading pages from storage, writing modified pages, and managing memory buffers. Each engine uses different data structures optimized for specific access patterns.
 
-You can declare any number of storage profiles on a node.
+```mermaid
+flowchart LR
+    subgraph "Storage Engine Interface"
+        SE[StorageEngine]
+    end
 
-## Default Storage Profile
+    subgraph "Implementations"
+        AI[aimem<br/>Volatile B+ Tree]
+        AP[aipersist<br/>Persistent B+ Tree]
+        RD[rocksdb<br/>LSM Tree]
+    end
 
-Apache Ignite creates a `default` storage profile that uses the persistent Apache Ignite storage engine (`aipersist`). Unless otherwise specified, distribution zones will use this storage profile. To check the currently available profiles on a node, use:
+    subgraph "Storage Medium"
+        RAM[(RAM Only)]
+        DISK[(Disk + RAM Cache)]
+    end
+
+    SE --> AI & AP & RD
+    AI --> RAM
+    AP --> DISK
+    RD --> DISK
+```
+
+| Engine | Data Structure | Persistence | Use Case |
+|--------|---------------|-------------|----------|
+| `aimem` | B+ Tree | None (volatile) | Caching, temporary data, lowest latency |
+| `aipersist` | B+ Tree | Checkpoint-based | General purpose, balanced read/write |
+| `rocksdb` | LSM Tree | Write-ahead log | Write-heavy workloads |
+
+### AIMemory (aimem)
+
+Stores all data in off-heap memory using B+ tree structures. Data is lost on node shutdown. Memory is allocated in segments (up to 16 segments per region) with on-demand expansion.
+
+See [AIMemory Storage Engine](./storage-engines/aimem) for configuration details.
+
+### AIPersist (aipersist)
+
+Stores data in partition files on disk with an in-memory page cache. Uses B+ trees for data and index storage. A checkpoint process periodically flushes dirty pages to disk for durability.
+
+See [AIPersist Storage Engine](./storage-engines/aipersist) for configuration details.
+
+### RocksDB (rocksdb)
+
+:::warning
+RocksDB support is experimental.
+:::
+
+Uses the RocksDB library with Log-Structured Merge (LSM) tree storage. Optimized for write-heavy workloads where sequential disk writes improve throughput.
+
+See [RocksDB Storage Engine](./storage-engines/rocksdb) for configuration details.
+
+## Engine Configuration
+
+Engine-level configuration applies to all profiles using that engine. These settings control engine-wide behavior such as checkpoint intervals or flush delays.
 
 ```bash
+# View current engine configuration
+node config show ignite.storage.engines
+
+# Configure checkpoint interval for aipersist (default: 180000ms)
+node config update ignite.storage.engines.aipersist.checkpoint.intervalMillis=180000
+```
+
+Restart the node after updating engine configuration.
+
+## Storage Profiles
+
+A storage profile binds a storage engine to specific configuration parameters. Distribution zones reference profiles by name, and each table in a zone uses the zone's assigned profile.
+
+```mermaid
+flowchart LR
+    subgraph "Profile Configuration"
+        P[Profile: fast_cache]
+        E[engine: aimem]
+        S[maxSizeBytes: 1073741824]
+    end
+
+    subgraph "Usage"
+        Z[Zone: hot_data]
+        T[Table: sessions]
+    end
+
+    P --> E
+    P --> S
+    Z --> P
+    T --> Z
+```
+
+Profile properties:
+
+- **engine**: The storage engine name (`aimem`, `aipersist`, or `rocksdb`)
+- **Engine-specific settings**: Memory sizes, buffer sizes, and other parameters
+
+### Default Profile
+
+Apache Ignite creates a `default` profile using `aipersist` on every node. Distribution zones use this profile unless configured otherwise.
+
+```bash
+# View configured profiles
 node config show ignite.storage.profiles
 ```
 
-## Creating and Using Storage Profiles
+### Creating Profiles
 
-While Apache Ignite creates the `default` storage profile automatically, you can create additional profiles as needed. To create a new profile, pass the profile configuration to the `storage.profiles` parameter:
+Create profiles through node configuration. Each node must have matching profile names with the same engine type, though sizes can differ.
 
 ```bash
-node config update "ignite.storage.profiles:{rocksProfile{engine:rocksdb,sizeBytes:10000}}"
+# Create an in-memory profile
+node config update "ignite.storage.profiles:{cache_profile{engine:aimem,maxSizeBytes:536870912}}"
+
+# Create a RocksDB profile
+node config update "ignite.storage.profiles:{rocks_profile{engine:rocksdb,sizeBytes:1073741824}}"
 ```
 
-After configuration is updated and the node restarted, the new storage profile becomes available for use by distribution zones.
+Restart the node after adding profiles.
 
-## Defining Tables With Storage Profiles
+## Using Profiles with Tables
 
-After defining storage profiles and [distribution zones](/docs/3.1.0/sql/reference/language-definition/distribution-zones), you can create tables using SQL or [from code](/docs/3.1.0/develop/work-with-data/table-api). Both zone and storage profile cannot be changed after table creation.
-
-To create a table with a specific storage profile:
+Create distribution zones with one or more storage profiles, then assign tables to those zones.
 
 ```sql
-CREATE ZONE IF NOT EXISTS exampleZone STORAGE PROFILES ['default, profile1'];
+-- Create a zone with multiple storage profiles
+CREATE ZONE financial_zone
+    WITH PARTITIONS=25, REPLICAS=3,
+    STORAGE PROFILES ['default', 'fast_cache'];
 
-CREATE TABLE exampleTable (key INT PRIMARY KEY, my_value VARCHAR)
-ZONE exampleZone STORAGE PROFILE 'profile1';
+-- Create a table using a specific profile
+CREATE TABLE accounts (
+    id INT PRIMARY KEY,
+    balance DECIMAL(15,2)
+) ZONE financial_zone STORAGE PROFILE 'default';
+
+-- Create a table using the in-memory profile
+CREATE TABLE rate_limits (
+    client_id INT PRIMARY KEY,
+    requests INT
+) ZONE financial_zone STORAGE PROFILE 'fast_cache';
 ```
 
-In this case, `exampleTable` uses the storage engine with parameters specified in the `profile1` storage profile. If a node doesn't have `profile1` configured, the table won't be stored on that node. Each node may have different configuration for `profile1`, and data will be stored according to local configuration.
+Tables cannot change their zone or storage profile after creation. If a node lacks the required profile, it will not store partitions for tables using that profile.

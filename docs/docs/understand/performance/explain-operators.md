@@ -4,9 +4,78 @@ title: EXPLAIN Operators Reference
 sidebar_position: 2
 ---
 
-# List Of Operators
+# EXPLAIN Operators Reference
 
-This section enumerates all operators for the `EXPLAIN` statement with their semantic and supported attributes.
+This reference documents all operators that appear in `EXPLAIN` output. Operators are organized by category based on their function in query execution.
+
+```mermaid
+flowchart TB
+    subgraph "Data Access"
+        TS[TableScan]
+        IS[IndexScan]
+        KVG[KeyValueGet]
+        SVS[SystemViewScan]
+        TFS[TableFunctionScan]
+    end
+
+    subgraph "Joins"
+        HJ[HashJoin]
+        MJ[MergeJoin]
+        NLJ[NestedLoopJoin]
+        CNLJ[CorrelatedNestedLoopJoin]
+    end
+
+    subgraph "Aggregation"
+        CHA[ColocatedHashAggregate]
+        CSA[ColocatedSortAggregate]
+        MHA[MapHashAggregate]
+        RHA[ReduceHashAggregate]
+    end
+
+    subgraph "Set Operations"
+        UA[UnionAll]
+        INT[Intersect]
+        MIN[Minus]
+    end
+
+    subgraph "Transform"
+        P[Project]
+        F[Filter]
+        S[Sort]
+        L[Limit]
+    end
+
+    subgraph "Distribution"
+        EX[Exchange]
+        TX[TrimExchange]
+        SND[Sender]
+        RCV[Receiver]
+    end
+
+    subgraph "DML"
+        TM[TableModify]
+        KVM[KeyValueModify]
+    end
+```
+
+## Quick Reference
+
+| Operator | Category | Description |
+|----------|----------|-------------|
+| TableScan | Access | Full table scan |
+| IndexScan | Access | Index-based scan with optional bounds |
+| KeyValueGet | Access | Direct key lookup |
+| HashJoin | Join | Hash-based join |
+| MergeJoin | Join | Sorted merge join |
+| NestedLoopJoin | Join | Nested iteration join |
+| ColocatedHashAggregate | Aggregate | Single-pass hash aggregation |
+| MapHashAggregate | Aggregate | First phase of distributed aggregation |
+| ReduceHashAggregate | Aggregate | Final phase of distributed aggregation |
+| Project | Transform | Column projection |
+| Filter | Transform | Row filtering |
+| Sort | Transform | Row ordering |
+| Exchange | Distribution | Data redistribution between nodes |
+| Sender/Receiver | Distribution | Inter-fragment communication |
 
 ## ColocatedHashAggregate
 
@@ -159,12 +228,12 @@ Redistribute rows according to specified distribution.
 **Attributes:**
 
 - `distribution`: A distribution strategy that describes how the rows are distributed across nodes. Possible values are:
-  * `single`: a single copy of data is available at single node.
-  * `broadcast`: every participating node has the its own copy of all the data.
-  * `random`: single copy of data is partitioned and spread randomly across all participating nodes.
-  * `hash`: single copy of data is partitioned and spread across nodes based on system-defined hash function of specified columns.
-  * `table`: single copy of data is partitioned and spread across nodes with regard of distribution of specified table.
-  * `identity`: data is distributed with regard to value of specified column.
+  - `single`: a single copy of data is available at single node.
+  - `broadcast`: every participating node has the its own copy of all the data.
+  - `random`: single copy of data is partitioned and spread randomly across all participating nodes.
+  - `hash`: single copy of data is partitioned and spread across nodes based on system-defined hash function of specified columns.
+  - `table`: single copy of data is partitioned and spread across nodes with regard of distribution of specified table.
+  - `identity`: data is distributed with regard to value of specified column.
 - `est`: Estimated number of output rows.
 
 ## TrimExchange
@@ -174,9 +243,9 @@ Filters rows according to specified distribution. This operator accept input tha
 **Attributes:**
 
 - `distribution`: A distribution strategy that describes how the rows are distributed across nodes. Possible values are:
-  * `random`: single copy of data is partitioned and spread randomly across all participating nodes.
-  * `hash`: single copy of data is partitioned and spread across nodes based on system-defined hash function of specified columns.
-  * `table`: single copy of data is partitioned and spread across nodes with regard of distribution of specified table.
+  - `random`: single copy of data is partitioned and spread randomly across all participating nodes.
+  - `hash`: single copy of data is partitioned and spread across nodes based on system-defined hash function of specified columns.
+  - `table`: single copy of data is partitioned and spread across nodes with regard of distribution of specified table.
 - `est`: Estimated number of output rows.
 
 ## Filter
@@ -322,12 +391,12 @@ Sends data to a `Receiver` during distributed query execution.
 
 - `targetFragmentId`: An identifier of target fragment, indicating the origin of a data flow edge between fragments.
 - `distribution`: A distribution strategy that describes how the rows are distributed across nodes. Possible values are:
-  * `single`: a single copy of data is available at single node.
-  * `broadcast`: every participating node has the its own copy of all the data.
-  * `random`: single copy of data is partitioned and spread randomly across all participating nodes.
-  * `hash`: single copy of data is partitioned and spread across nodes based on system-defined hash function of specified columns.
-  * `table`: single copy of data is partitioned and spread across nodes with regard of distribution of specified table.
-  * `identity`: data is distributed with regard to value of specified column.
+  - `single`: a single copy of data is available at single node.
+  - `broadcast`: every participating node has the its own copy of all the data.
+  - `random`: single copy of data is partitioned and spread randomly across all participating nodes.
+  - `hash`: single copy of data is partitioned and spread across nodes based on system-defined hash function of specified columns.
+  - `table`: single copy of data is partitioned and spread across nodes with regard of distribution of specified table.
+  - `identity`: data is distributed with regard to value of specified column.
 - `est`: Estimated number of output rows.
 
 ## SelectCount
