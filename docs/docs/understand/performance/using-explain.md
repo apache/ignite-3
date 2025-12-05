@@ -558,7 +558,7 @@ And the final plan will look like this:
 
 No **Exchange** operators are involved in the explanation, which means that no excessive rows transfer has occurred.
 
-## Comprehensive EXPLAIN Examples
+## Additional EXPLAIN Examples
 
 ### Example: Complex Join Query
 

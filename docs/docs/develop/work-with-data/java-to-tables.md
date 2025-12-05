@@ -5,7 +5,7 @@ title: Creating Tables from Java Classes
 
 ## Overview
 
-While [SQL DDL](/docs/3.1.0/sql/reference/language-definition/ddl) supports a comprehensive set of table manipulation commands, you can also create tables and build indexes directly from a POJO using a simple Java API.
+While [SQL DDL](/docs/3.1.0/sql/reference/language-definition/ddl) supports a full set of table manipulation commands, you can also create tables and build indexes directly from a POJO using a simple Java API.
 
 This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating [KeyValueView and RecordView](/docs/3.1.0/develop/work-with-data/table-api).
 
