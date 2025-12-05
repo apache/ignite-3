@@ -148,5 +148,25 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
                 return res;
             }
         }
+
+        protected internal class CarMapperKnownOrder : IMapper<Car>
+        {
+            public void Write(Car obj, ref RowWriter rowWriter, IMapperSchema schema)
+            {
+                rowWriter.WriteGuid(obj.Id);
+                rowWriter.WriteString(obj.BodyType);
+                rowWriter.WriteInt(obj.Seats);
+            }
+
+            public Car Read(ref RowReader rowReader, IMapperSchema schema)
+            {
+                return new Car
+                {
+                    Id = rowReader.ReadGuid()!.Value,
+                    BodyType = rowReader.ReadString()!,
+                    Seats = rowReader.ReadInt()!.Value
+                };
+            }
+        }
     }
 }
