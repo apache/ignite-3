@@ -55,7 +55,9 @@ public class QueryExample {
     }
 
     /**
-     * Demonstrates querying with an implicit transaction.
+     * Demonstrates querying with an explicit transaction.
+     *
+     * @param table  Table instance to query.
      */
     public static void performQueryWithoutTransaction(Table table) {
         System.out.println("[ Example 1 ] Performing query without transaction");
@@ -78,6 +80,9 @@ public class QueryExample {
 
     /**
      * Demonstrates querying with an explicit transaction.
+     *
+     * @param client Ignite client used to start the transaction.
+     * @param table  Table instance to query.
      */
     public static void performQueryWithTransaction(IgniteClient client, Table table) {
         System.out.println("[ Example 2 ] Performing query with transaction");

@@ -19,7 +19,6 @@ package org.apache.ignite.example.serialization;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 
 import org.apache.ignite.client.IgniteClient;
@@ -28,14 +27,26 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.marshalling.Marshaller;
 
+/**
+ * Example demonstrating custom POJO serialization using custom marshallers
+ * on both client and server side.
+ */
 public class CustomPojoSerializationExample {
 
+    /**
+     * Name of the deployment unit used in this example.
+     */
     public static final String DEPLOYMENT_UNIT_NAME = "customPojoSerializationExampleUnit";
+
+    /**
+     * Version of the deployment unit used in this example.
+     */
     public static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
     /**
-     * Using POJO with custom marshallers: job runs on the server and sets input/result marshallers, meanwhile client sets argument/result
-     * marshallers on descriptor.
+     * Runs the POJO job using custom JSON marshallers set on both client and server.
+     *
+     * @param client Ignite client instance.
      */
     static void runPojoCustomJsonSerialization(IgniteClient client) {
 
@@ -57,7 +68,9 @@ public class CustomPojoSerializationExample {
                 res.getOriginalWord(), res.getResultWord(), res.getLength());
     }
 
-
+    /**
+     * Marshaller for JSON result objects.
+     */
     private static class JsonResultMarshaller implements Marshaller<JsonResult, byte[]> {
         private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -80,6 +93,3 @@ public class CustomPojoSerializationExample {
         }
     }
 }
-
-
-

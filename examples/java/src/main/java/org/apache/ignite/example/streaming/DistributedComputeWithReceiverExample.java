@@ -51,8 +51,8 @@ import org.apache.ignite.table.Tuple;
  * This example demonstrates how to use the streaming API to simulate a fraud detection process, which typically involves intensive
  * processing of each transaction using ML models.
  *
- * <p>Find instructions on how to run the example in the <code>README.md</code>
- * file located in the "examples" directory root.</p>
+ * <p>Find instructions on how to run the example in the {@code README.md}
+ * file located in the {@code examples} directory root.</p>
  *
  * <h2>Execution Modes</h2>
  *
@@ -62,47 +62,51 @@ import org.apache.ignite.table.Tuple;
  *
  * <h4>1.1 With IDE</h4>
  * <ul>
- *     <li>
- *         <b>Run from an IDE</b><br>
- *         Launch the example directly from the IDE. If the required deployment
- *         unit is not present, the example automatically builds and deploys the
- *         necessary JAR.
- *     </li>
+ *   <li>
+ *     <b>Run from an IDE</b><br>
+ *     Launch the example directly from the IDE. If the required deployment
+ *     unit is not present, the example automatically builds and deploys the
+ *     necessary JAR.
+ *   </li>
  * </ul>
  *
- * <h4>1.2 Without IDE</h4>
+ * <h3>1.2 Without IDE</h3>
  * <ul>
- *     <li>
- *         <b>Run from the command line</b><br>
- *         Start the example using a Java command where the classpath includes all required
- *         dependencies:<br>
- *         {@code
- *         java -cp "{user.home}\.m2\repository\org\apache\ignite\ignite-core\3.1.0-SNAPSHOT\
- *         ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
- *         <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"}
- *         <br>
- *         In this mode, {@code runFromIDE=false} indicates command-line execution, and
- *         {@code jarPath} must reference the examples JAR used as the deployment unit.
- *     </li>
+ *   <li>
+ *     <b>Run from the command line</b><br>
+ *     Start the example using a Java command where the classpath includes
+ *     all required dependencies:
+ *
+ *     <pre>{@code
+ * java -cp "{user.home}\\.m2\\repository\\org\\apache\\ignite\\ignite-core\\3.1.0-SNAPSHOT\\
+ * ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
+ * <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"
+ *     }</pre>
+ *
+ *     In this mode, {@code runFromIDE=false} indicates command-line execution,
+ *     and {@code jarPath} must reference the examples JAR used as the
+ *     deployment unit.
+ *   </li>
  * </ul>
  *
- * <h3>2. Manual (with IDE) :  The JAR Deployment for  deployment unit is manual</h3>
+ * <h2>2. Manual (with IDE): The JAR deployment for the deployment unit is manual</h2>
  *
  * <p>Before running this example, complete the following steps related to
  * code deployment:</p>
  *
  * <ol>
- *     <li>
- *         Build the <code>ignite-examples-x.y.z.jar</code> file:<br>
- *         {@code ./gradlew :ignite-examples:jar}
- *     </li>
- *     <li>
- *         Deploy the generated JAR as a deployment unit using the CLI:<br>
- *         {@code
- *         cluster unit deploy computeExampleUnit \
- *         --version 1.0.0 \
- *         --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
- *     </li>
+ *   <li>
+ *     Build the {@code ignite-examples-x.y.z.jar} file:<br>
+ *     {@code ./gradlew :ignite-examples:jar}
+ *   </li>
+ *   <li>
+ *     Deploy the generated JAR as a deployment unit using the CLI:<br>
+ *     <pre>{@code
+ * cluster unit deploy computeExampleUnit \
+ *     --version 1.0.0 \
+ *     --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar
+ *     }</pre>
+ *   </li>
  * </ol>
  */
 
@@ -210,7 +214,7 @@ public class DistributedComputeWithReceiverExample extends AbstractDeploymentUni
         } finally {
 
             System.out.println("Cleaning up resources");
-         //   undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+            //   undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             /* Drop table */
             System.out.println("\nDropping the table...");
