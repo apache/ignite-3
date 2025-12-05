@@ -6,30 +6,61 @@ title: Streaming Data
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Data streaming provides a fast, efficient method for loading, organizing, and distributing large volumes of data across your cluster. Data streamer accepts a stream of data and distributes data entries across the cluster, where the processing takes place. Data streaming is available in all table views.
+Apache Ignite participates in streaming architectures as both a data consumer and data source. The Data Streamer API accepts entries from any Java Flow publisher, partitions them by key, and delivers batches to cluster nodes for processing. You can stream data into tables, use receivers to transform and route data across multiple tables, or return computed results to downstream systems.
 
-![Data Streaming](/img/data_streaming.png)
+```mermaid
+flowchart LR
+    subgraph Sources["Data Sources"]
+        S1[Message Queues]
+        S2[Batch Files]
+        S3[Applications]
+        S1 ~~~ S2 ~~~ S3
+    end
 
-Data streaming provides at-least-once delivery guarantee.
+    subgraph Pipeline["Streaming Pipeline"]
+        PUB[Flow.Publisher] --> STREAMER[Data Streamer]
+        STREAMER --> BUF[(Partition<br/>Buffers)]
+    end
+
+    subgraph Ignite["Apache Ignite"]
+        N1[Node 1]
+        N2[Node 2]
+        N3[Node N]
+        N1 ~~~ N2 ~~~ N3
+    end
+
+    subgraph Targets["Data Targets"]
+        T1[Tables]
+        T2[Receivers]
+        T3[Result Subscribers]
+        T1 ~~~ T2 ~~~ T3
+    end
+
+    Sources --> PUB
+    BUF --> Ignite
+    Ignite --> Targets
+```
+
+Data streaming provides at-least-once delivery guarantee. Under normal operation, each item is delivered exactly once. If a batch fails and is retried, some items in that batch may be delivered again. Design your data model to handle potential duplicates, either through idempotent operations (upsert) or by using primary keys that allow safe re-insertion.
 
 ## Using Data Streamer API
 
-The [Data Streamer API](https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerTarget.html) lets you load large amounts of data into your cluster quickly and reliably using a publisher–subscriber model, where you create a publisher that streams your data entries to a table view, and the system distributes these entries across the cluster. You can configure how the data is processed via a `DataStreamerOptions` object that allows to set batch sizes, auto-flush intervals, retry limits.
+The [Data Streamer API](../../api-reference/native-clients/java/data-streamer-api) uses the Java Flow API (`java.util.concurrent.Flow`) publisher-subscriber model. You create a publisher that streams data entries to a table view, and the streamer distributes these entries across the cluster. The `DataStreamerOptions` object configures batch sizes, parallelism, auto-flush intervals, and retry limits.
 
 ### Configuring Data Streamer
 
-`DataStreamerOptions` lets you fine-tune how data is streamed into your cluster by setting parameters for batching, retries, parallelism, and auto-flush timing:
+`DataStreamerOptions` controls how data flows into your cluster:
 
 <Tabs>
 <TabItem value="java" label="Java">
 
 ```java
 DataStreamerOptions options = DataStreamerOptions.builder()
-.pageSize(1000)
-.perPartitionParallelOperations(1)
-.autoFlushInterval(1000)
-.retryLimit(16)
-.build();
+    .pageSize(1000)
+    .perPartitionParallelOperations(1)
+    .autoFlushInterval(5000)
+    .retryLimit(16)
+    .build();
 ```
 
 </TabItem>
@@ -39,42 +70,55 @@ DataStreamerOptions options = DataStreamerOptions.builder()
 var options = new DataStreamerOptions
 {
     PageSize = 1000,
-    RetryLimit = 8,
-    AutoFlushInterval = TimeSpan.FromSeconds(3)
+    RetryLimit = 16,
+    AutoFlushInterval = TimeSpan.FromSeconds(5)
 };
 ```
 
 </TabItem>
 </Tabs>
 
-- `pageSize`: Specifies the number of entries to process in each page or chunk of data.
-- `perPartitionParallelOperations`: Determines the number of parallel operations allowed on each partition.
-- `autoFlushInterval`: Defines the time interval (in milliseconds) after which the system automatically flushes any incomplete buffers.
-- `retryLimit`: Specifies the maximum number of retry attempts for a failed data submission before giving up.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `pageSize` | 1000 | Number of entries per batch sent to the cluster. |
+| `perPartitionParallelOperations` | 1 | Concurrent batches allowed per partition. |
+| `autoFlushInterval` | 5000 ms | Time before incomplete buffers are flushed. |
+| `retryLimit` | 16 | Maximum retry attempts for failed submissions. |
+
+#### Memory and Throughput Considerations
+
+The streamer allocates buffers based on these settings. Client memory usage per partition:
+
+```text
+memoryPerPartition = pageSize × perPartitionParallelOperations × avgRecordSize
+```
+
+For a table with 25 partitions and 1KB average record size:
+
+| Configuration | Page Size | Parallel Ops | Memory |
+|---------------|-----------|--------------|--------|
+| Default | 1,000 | 1 | ~25 MB |
+| High throughput | 500 | 8 | ~100 MB |
+
+Smaller page sizes with higher parallelism create more frequent, smaller batches. This produces smoother I/O patterns that align with cluster checkpoint and replication cycles.
 
 ### Streaming Data
 
-Before data is streamed to the cluster, each entry must be wrapped in an instance of the `DataStreamerItem<T>` class. This wrapper allows you to perform `PUT` and `REMOVE` operations with data:
+Each entry must be wrapped in a `DataStreamerItem<T>` before streaming:
 
-- Use `DataStreamerItem.of(entry)` to insert new entries into the table.
+- `DataStreamerItem.of(entry)` performs an upsert: inserts the entry if the key does not exist, or updates it if the key already exists.
+- `DataStreamerItem.removed(entry)` deletes the entry by key. The entry object only needs to contain the primary key fields.
 
-- Use `DataStreamerItem.removed(entry)` to delete existing ones.
-
-Wrapped data then can be passed to a publisher and streamed to the table.
-
-The example below demonstrates how to use [`RecordView`](/docs/3.1.0/develop/work-with-data/table-api#record-view), create a publisher, configure the data streamer, insert account records into the existing `accounts` table and then delete them:
+The example below uses `SubmissionPublisher` to stream account records:
 
 <Tabs>
 <TabItem value="java" label="Java">
 
 ```java
-public class RecordViewPojoDataStreamerExample {
+public class DataStreamerExample {
     private static final int ACCOUNTS_COUNT = 1000;
 
     public static void main(String[] args) throws Exception {
-        /**
-         * Assuming the 'accounts' table already exists.
-         */
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
@@ -85,14 +129,11 @@ public class RecordViewPojoDataStreamerExample {
         }
     }
 
-    /**
-     * Streaming data using DataStreamerOperationType#PUT operation type.
-     */
     private static void streamAccountDataPut(RecordView<Account> view) {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1000)
                 .perPartitionParallelOperations(1)
-                .autoFlushInterval(1000)
+                .autoFlushInterval(5000)
                 .retryLimit(16)
                 .build();
 
@@ -108,14 +149,11 @@ public class RecordViewPojoDataStreamerExample {
         streamerFut.join();
     }
 
-    /**
-     * Streaming data using DataStreamerOperationType#REMOVE operation type
-     */
     private static void streamAccountDataRemove(RecordView<Account> view) {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1000)
                 .perPartitionParallelOperations(1)
-                .autoFlushInterval(1000)
+                .autoFlushInterval(5000)
                 .retryLimit(16)
                 .build();
 
@@ -177,125 +215,192 @@ public record Account(int Id, string Name);
 </TabItem>
 </Tabs>
 
-### Streaming with Receiver
+## High-Volume Streaming
 
-The Apache Ignite 3 streaming API supports advanced streaming scenarios by allowing you to create a custom receiver that defines server-side processing logic. Use a receiver when you need to process or transform data on the server, update multiple tables from a single data stream, or work with incoming data that does not match a table schema.
+The basic examples above work well for moderate data volumes. When streaming millions of records, the rate at which your application produces data typically exceeds the rate at which the cluster can persist it. This section covers flow control mechanisms that keep memory bounded and cluster load stable.
 
-With a receiver, you can stream data in any format, as it is schema-agnostic.
-The receiver also has access to the full Ignite 3 API through the [`DataStreamerReceiverContext`](https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerReceiverContext.html).
+### Understanding Backpressure
 
-The data streamer controls data flow by requesting items only when partition buffers have space. `DataStreamerOptions.perPartitionParallelOperations` controls how many buffers can be allocated per partition. When buffers are full, the streamer stops requesting more data until some items are processed.
-Additionally, if a `resultSubscriber` is specified, it also applies backpressure on the streamer. If the subscriber is slow at consuming results, the streamer reduces its request rate from the publisher accordingly.
+Backpressure is a flow control mechanism that allows a slower consumer to signal a faster producer to slow down. Without backpressure, a fast producer overwhelms a slow consumer, causing unbounded memory growth, increased latency, or dropped data.
 
-To use a receiver, you need to implement the [`DataStreamerReceiver`](https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerReceiver.html) interface. The receiver's `receive` method processes each batch of items streamed to the server, so you can apply custom logic and return results for each item as needed:
+In data streaming, three components operate at different speeds:
+
+```mermaid
+flowchart LR
+    subgraph Producer["Data Producer"]
+        GEN["Record Generation<br/>(CPU-bound)"]
+    end
+
+    subgraph Network["Network Layer"]
+        BUF["Partition Buffers<br/>(Memory-bound)"]
+    end
+
+    subgraph Storage["Cluster Storage"]
+        DISK["Disk Writes + Replication<br/>(I/O-bound)"]
+    end
+
+    GEN -->|"Fast"| BUF
+    BUF -->|"Varies"| DISK
+```
+
+- **Record generation** runs at CPU speed, potentially millions of records per second
+- **Network transmission** depends on bandwidth and batch size
+- **Cluster storage** involves disk writes, replication, and consensus protocols
+
+The Java Flow API provides backpressure through a request-based model. The consumer (data streamer) tells the producer (your publisher) exactly how many items it can accept by calling `subscription.request(n)`. The producer should deliver at most `n` items, then wait for the next request. This creates a pull-based flow where the slowest component controls the overall rate.
+
+When the streamer's partition buffers fill, it stops calling `request(n)`. A well-behaved publisher pauses generation until the next request arrives. This keeps memory bounded and prevents the producer from overwhelming downstream components.
+
+### Choosing a Publisher Approach
+
+How your publisher responds to backpressure signals determines memory usage and cluster load patterns. Two common approaches exist:
+
+**SubmissionPublisher** (shown in the basic example above) provides a ready-made implementation with an internal buffer (default 256 items). Records go into this buffer via `submit()`, and the streamer pulls from it. When the buffer fills, `submit()` blocks until space becomes available. This provides backpressure through blocking, which works well when your data source can tolerate pauses.
+
+**Demand-driven publishers** generate records only when the streamer requests them via `request(n)`. Instead of blocking on a full buffer, generation simply pauses when demand is zero and resumes when new requests arrive. This approach requires implementing `Flow.Publisher` and `Flow.Subscription`, but gives precise control over when data is created.
+
+| Consideration | SubmissionPublisher | Demand-Driven Publisher |
+|---------------|---------------------|------------------------|
+| Backpressure response | `submit()` blocks when buffer full | Generation pauses when demand is zero |
+| Memory profile | Publisher buffer + partition buffers | Partition buffers only |
+| Implementation effort | Minimal (JDK provided) | Custom implementation required |
+| Use case | Existing data sources, moderate volumes | Synthetic data, large volumes, controlled generation |
+
+For streaming from existing collections or external data sources, `SubmissionPublisher` offers simplicity. For generating or transforming millions of records, a demand-driven publisher provides predictable memory usage by creating data only when the cluster is ready to accept it.
+
+### Flow API Handshake
+
+The streaming lifecycle follows this sequence:
+
+1. `view.streamData(publisher, options)` initiates streaming
+2. The streamer calls `publisher.subscribe(subscriber)`
+3. Your publisher calls `subscriber.onSubscribe(subscription)`
+4. The streamer calls `subscription.request(n)` when ready for items
+5. Your publisher generates `n` items and calls `subscriber.onNext(item)` for each
+6. Steps 4-5 repeat until your publisher calls `subscriber.onComplete()`
+
+The streamer calculates how many items to request:
+
+```text
+desiredInFlight = Math.max(1, buffers.size()) × pageSize × perPartitionParallelOperations
+toRequest = desiredInFlight - inFlight - pending
+```
+
+When `toRequest` is zero or negative, the streamer applies backpressure by not requesting more items.
+
+### Demand-Driven Publisher
+
+A demand-driven publisher inverts the control flow. Instead of pushing records into a buffer and waiting for space, the publisher waits for the streamer to request records and generates them on demand. This requires implementing two interfaces:
+
+- **`Flow.Publisher<T>`**: The outer class that accepts a subscriber and creates a subscription
+- **`Flow.Subscription`**: The inner class that tracks demand and delivers items
+
+The subscription maintains an `AtomicLong` counter for outstanding demand. When the streamer calls `request(n)`, the subscription increments the counter and begins delivery. Each `onNext()` call decrements the counter. When demand reaches zero, the publisher pauses until the next `request(n)` call.
+
+```mermaid
+sequenceDiagram
+    participant Pub as DemandDrivenPublisher
+    participant Sub as Subscription
+    participant Str as StreamerSubscriber
+    participant Buf as Partition Buffers
+    participant Cluster as Ignite Cluster
+
+    Pub->>Str: subscribe(subscriber)
+    Str->>Sub: onSubscribe(subscription)
+
+    loop Until onComplete()
+        Str->>Sub: request(n)
+        Note over Sub: demand.addAndGet(n)
+
+        loop While demand > 0
+            Sub->>Sub: generateItem()
+            Sub->>Str: onNext(item)
+            Note over Sub: demand.decrementAndGet()
+        end
+
+        Str->>Buf: buffer by partition
+
+        alt Buffer reaches pageSize
+            Buf->>Cluster: send batch
+            Cluster-->>Str: batch complete
+        end
+    end
+
+    Sub->>Str: onComplete()
+```
+
+The following implementation demonstrates this pattern:
 
 <Tabs>
 <TabItem value="java" label="Java">
 
 ```java
-@Nullable CompletableFuture<List<R>> receive(
-List<T> page,
-DataStreamerReceiverContext ctx,
-@Nullable A arg);
+public class DemandDrivenPublisher implements Flow.Publisher<DataStreamerItem<Tuple>> {
 
-```
+    private final long totalRecords;
+    private final AtomicBoolean subscribed = new AtomicBoolean(false);
 
-</TabItem>
-<TabItem value="dotnet" label=".NET">
+    public DemandDrivenPublisher(long totalRecords) {
+        this.totalRecords = totalRecords;
+    }
 
-```csharp
-ValueTask<IList<TResult>?> ReceiveAsync(
-IList<TItem> page,
-TArg arg,
-IDataStreamerReceiverContext context,
-CancellationToken cancellationToken);
-```
-
-</TabItem>
-</Tabs>
-
-- `page`: The current batch of data items to process.
-- `ctx`: The receiver context, which lets you interact with Ignite 3 API.
-- `arg`: An optional argument that can be used to pass custom parameters to your receiver logic.
-
-### Examples
-
-#### Updating Multiple Tables
-
-The following example demonstrates how to implement a receiver that processes data containing customer and address information, and updates two separate tables on the server:
-
-1. First, create the custom receiver that will extract data from the provided source and write it into two separate tables: `customers` and `addresses`.
-
-<Tabs>
-<TabItem value="java" label="Java">
-
-```java
-private static class TwoTableReceiver implements DataStreamerReceiver<Tuple, Void, Void> {
-@Override
-public @Nullable CompletableFuture<List<Void>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, @Nullable Void arg) {
-// List<Tuple> is the source data. Those tuples do not conform to any table and can have arbitrary data.
-
-            RecordView<Tuple> customersTable = ctx.ignite().tables().table("customers").recordView();
-            RecordView<Tuple> addressesTable = ctx.ignite().tables().table("addresses").recordView();
-
-            for (Tuple sourceItem : page) {
-                // For each source item, receiver extracts customer and address data and upserts it into respective tables.
-                Tuple customer = Tuple.create()
-                        .set("id", sourceItem.intValue("customerId"))
-                        .set("name", sourceItem.stringValue("customerName"))
-                        .set("addressId", sourceItem.intValue("addressId"));
-
-                Tuple address = Tuple.create()
-                        .set("id", sourceItem.intValue("addressId"))
-                        .set("street", sourceItem.stringValue("street"))
-                        .set("city", sourceItem.stringValue("city"));
-
-                customersTable.upsert(null, customer);
-                addressesTable.upsert(null, address);
-            }
-
-            return null;
+    @Override
+    public void subscribe(Flow.Subscriber<? super DataStreamerItem<Tuple>> subscriber) {
+        // Flow.Publisher allows only one subscriber
+        if (subscribed.compareAndSet(false, true)) {
+            subscriber.onSubscribe(new DemandDrivenSubscription(subscriber));
+        } else {
+            subscriber.onError(new IllegalStateException("Publisher already has a subscriber"));
         }
     }
-```
 
-</TabItem>
-<TabItem value="dotnet" label=".NET">
+    private class DemandDrivenSubscription implements Flow.Subscription {
+        private final Flow.Subscriber<? super DataStreamerItem<Tuple>> subscriber;
+        private final AtomicLong demand = new AtomicLong(0);
+        private final AtomicLong generated = new AtomicLong(0);
+        private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
-```csharp
-class TwoTableReceiver : IDataStreamerReceiver<IIgniteTuple, object?, object>
-{
-    public async ValueTask<IList<object>?> ReceiveAsync(
-        IList<IIgniteTuple> page,
-        object? arg,
-        IDataStreamerReceiverContext context,
-        CancellationToken cancellationToken)
-    {
-        IRecordView<IIgniteTuple> customerTable = (await context.Ignite.Tables.GetTableAsync("customers"))!.RecordBinaryView;
-        IRecordView<IIgniteTuple> addressesTable = (await context.Ignite.Tables.GetTableAsync("addresses"))!.RecordBinaryView;
-
-        foreach (IIgniteTuple sourceItem in page)
-        {
-            // For each source item, the receiver extracts customer and address data and upserts it into respective tables.
-            var customer = new IgniteTuple
-            {
-                ["id"] = sourceItem["customerId"],
-                ["name"] = sourceItem["customerName"],
-                ["addressId"] = sourceItem["addressId"]
-            };
-
-            var address = new IgniteTuple
-            {
-                ["id"] = sourceItem["addressId"],
-                ["street"] = sourceItem["street"],
-                ["city"] = sourceItem["city"],
-            };
-
-            await customerTable.UpsertAsync(null, customer);
-            await addressesTable.UpsertAsync(null, address);
+        DemandDrivenSubscription(Flow.Subscriber<? super DataStreamerItem<Tuple>> subscriber) {
+            this.subscriber = subscriber;
         }
 
-        return null;
+        @Override
+        public void request(long n) {
+            if (n <= 0 || cancelled.get()) {
+                return;
+            }
+            // Accumulate demand from streamer
+            demand.addAndGet(n);
+            deliverItems();
+        }
+
+        @Override
+        public void cancel() {
+            cancelled.set(true);
+        }
+
+        private void deliverItems() {
+            // Generate items only while demand exists
+            while (demand.get() > 0 && !cancelled.get()) {
+                long index = generated.get();
+
+                if (index >= totalRecords) {
+                    // Signal completion when all records are generated
+                    subscriber.onComplete();
+                    return;
+                }
+
+                // Generate record on-demand (replace with your data source)
+                Tuple tuple = Tuple.create()
+                    .set("id", index)
+                    .set("data", "Record " + index);
+
+                subscriber.onNext(DataStreamerItem.of(tuple));
+                generated.incrementAndGet();
+                demand.decrementAndGet();
+            }
+            // Loop exits when demand reaches zero; publisher pauses until next request(n)
+        }
     }
 }
 ```
@@ -303,381 +408,382 @@ class TwoTableReceiver : IDataStreamerReceiver<IIgniteTuple, object?, object>
 </TabItem>
 </Tabs>
 
-2. Create a descriptor that refers to your receiver implementation. This descriptor will be passed later to a `SubmissionPublisher` when streaming data.
+Use the publisher with `streamData`:
 
 <Tabs>
 <TabItem value="java" label="Java">
 
 ```java
-DataStreamerReceiverDescriptor<Tuple, Void, Void> desc = DataStreamerReceiverDescriptor
-.builder(TwoTableReceiver.class)
-.build();
+RecordView<Tuple> view = client.tables().table("records").recordView();
+
+DataStreamerOptions options = DataStreamerOptions.builder()
+    .pageSize(500)
+    .perPartitionParallelOperations(8)
+    .autoFlushInterval(1000)
+    .build();
+
+DemandDrivenPublisher publisher = new DemandDrivenPublisher(20_000_000);
+CompletableFuture<Void> streamFuture = view.streamData(publisher, options);
+streamFuture.join();
+```
+
+</TabItem>
+</Tabs>
+
+### Configuration Tuning
+
+The `pageSize` and `perPartitionParallelOperations` settings control batch size and concurrency. Their interaction affects throughput and cluster load:
+
+| Configuration | Behavior | Tradeoff |
+|---------------|----------|----------|
+| Large `pageSize`, low parallelism (e.g., 1000 × 1) | Fewer, larger batches | Lower network overhead, but uneven I/O |
+| Small `pageSize`, high parallelism (e.g., 500 × 8) | More frequent, smaller batches | Higher network overhead, but steadier I/O |
+
+Cluster nodes periodically flush data to disk and synchronize replicas. Batch size and timing can affect how streaming interacts with these operations. Monitor your cluster's performance metrics and adjust settings based on observed behavior.
+
+## Streaming Results Out
+
+The previous sections covered streaming data into Ignite tables. To stream data through Ignite and forward results to downstream systems, use receivers with result subscribers. A receiver processes incoming batches on cluster nodes and returns results that flow back to your application for delivery to the next pipeline stage.
+
+Receivers execute on cluster nodes, not on the client. The receiver class must be deployed to all cluster nodes before streaming begins. See [Code Deployment](./code-deployment) for deployment options.
+
+Result delivery differs from input streaming: the streamer does not respect backpressure signals from `subscription.request(n)` on the result subscriber. Results arrive as fast as the cluster produces them, regardless of how many items your subscriber requests. Your subscriber must handle results without blocking or buffer them internally when downstream systems are slower than the cluster.
+
+```mermaid
+flowchart LR
+    subgraph Client["Client Application"]
+        PUB[Flow.Publisher]
+        SUB[Result Subscriber]
+    end
+
+    subgraph Ignite["Ignite Cluster"]
+        RCV[Receiver]
+    end
+
+    subgraph Downstream["Downstream"]
+        DS[Message Queue<br/>HTTP API<br/>Database]
+    end
+
+    PUB -->|"Data In"| RCV
+    RCV -->|"Results Out"| SUB
+    SUB -->|"Forward"| DS
+```
+
+### Understanding Receivers
+
+A receiver implements `DataStreamerReceiver<T, A, R>` with three type parameters:
+
+- **T** (payload type): The data type sent to cluster nodes for processing
+- **A** (argument type): Optional parameters passed to every receiver invocation
+- **R** (result type): The data type returned from cluster nodes to your subscriber
+
+The receiver's `receive()` method executes on cluster nodes, not on your client. Each invocation receives a batch of items that share the same partition, enabling data-local operations. The method returns a `CompletableFuture<List<R>>` containing results for each processed item, or `null` if no results are needed.
+
+The `DataStreamerReceiverContext` parameter provides access to the Ignite API within the receiver. Use `ctx.ignite()` to access tables, execute SQL, or perform other cluster operations during processing.
+
+### Enrichment Example
+
+The following example demonstrates data flowing through Ignite. Account events enter the stream, receive processing metadata on cluster nodes, and continue to a downstream system. This complements the account streaming example from the previous section.
+
+#### Step 1: Create an Enrichment Receiver
+
+The receiver transforms each incoming record by adding processing metadata. This pattern applies to any enrichment scenario: adding timestamps, looking up related data, validating against cluster state, or computing derived fields.
+
+The receiver class must be deployed to all cluster nodes before streaming begins. When the streamer sends a batch to a node, that node instantiates the receiver class and calls its `receive()` method.
+
+<Tabs>
+<TabItem value="java" label="Java">
+
+```java
+public class EnrichmentReceiver implements DataStreamerReceiver<Tuple, Void, Tuple> {
+    @Override
+    public CompletableFuture<List<Tuple>> receive(
+            List<Tuple> page,
+            DataStreamerReceiverContext ctx,
+            Void arg) {
+
+        String nodeName = ctx.ignite().name();
+        Instant processedAt = Instant.now();
+
+        List<Tuple> enriched = new ArrayList<>(page.size());
+
+        for (Tuple item : page) {
+            Tuple result = Tuple.create()
+                .set("accountId", item.intValue("accountId"))
+                .set("eventType", item.stringValue("eventType"))
+                .set("amount", item.longValue("amount"))
+                .set("processedAt", processedAt.toString())
+                .set("processedBy", nodeName);
+
+            enriched.add(result);
+        }
+
+        return CompletableFuture.completedFuture(enriched);
+    }
+}
 ```
 
 </TabItem>
 <TabItem value="dotnet" label=".NET">
 
 ```csharp
-ReceiverDescriptor<IIgniteTuple, object?, object> desc = ReceiverDescriptor.Of(new TwoTableReceiver());
+public class EnrichmentReceiver : IDataStreamerReceiver<IIgniteTuple, object?, IIgniteTuple>
+{
+    public ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
+        IList<IIgniteTuple> page,
+        object? arg,
+        IDataStreamerReceiverContext context,
+        CancellationToken cancellationToken)
+    {
+        var nodeName = context.Ignite.Name;
+        var processedAt = DateTime.UtcNow;
+
+        var enriched = new List<IIgniteTuple>(page.Count);
+
+        foreach (var item in page)
+        {
+            var result = new IgniteTuple
+            {
+                ["accountId"] = item["accountId"],
+                ["eventType"] = item["eventType"],
+                ["amount"] = item["amount"],
+                ["processedAt"] = processedAt.ToString("O"),
+                ["processedBy"] = nodeName
+            };
+
+            enriched.Add(result);
+        }
+
+        return ValueTask.FromResult<IList<IIgniteTuple>?>(enriched);
+    }
+}
 ```
 
 </TabItem>
 </Tabs>
 
-3. Next, obtain the target table to partition the data for streaming. In this example we partition by `customerId` to ensure the receiver is [colocated](/docs/3.1.0/understand/core-concepts/distribution-and-colocation) with the customer data, enabling local upserts. Then define how to extract keys and payloads from the source, and stream the data using a `SubmissionPublisher`.
+#### Step 2: Create a Forwarding Subscriber
+
+The result subscriber receives enriched records as they return from cluster nodes. Because the streamer ignores backpressure on the result side, your subscriber must keep pace with incoming results or buffer them internally.
+
+This subscriber implements a common pattern: buffer incoming results until a batch threshold is reached, then forward the batch to a downstream system. Batching amortizes the cost of downstream operations (network calls, disk writes) across multiple records.
+
+The `onSubscribe()` method requests `Long.MAX_VALUE` items because backpressure signals have no effect on result delivery. The `onNext()` method accumulates results and flushes when the buffer fills. The `onComplete()` and `onError()` methods flush any remaining buffered items before the stream ends.
 
 <Tabs>
 <TabItem value="java" label="Java">
 
 ```java
-// Example source data
-List<Tuple> sourceData = IntStream.range(1, 10)
-.mapToObj(i -> Tuple.create()
-.set("customerId", i)
-.set("customerName", "Customer " + i)
-.set("addressId", i)
-.set("street", "Street " + i)
-.set("city", "City " + i))
-.collect(Collectors.toList());
+class ForwardingSubscriber implements Flow.Subscriber<Tuple> {
+    private final int batchSize;
+    private final List<Tuple> buffer;
+    private final Consumer<List<Tuple>> downstream;
 
-CompletableFuture<Void> streamerFut;
+    ForwardingSubscriber(Consumer<List<Tuple>> downstream, int batchSize) {
+        this.downstream = downstream;
+        this.batchSize = batchSize;
+        this.buffer = new ArrayList<>(batchSize);
+    }
 
-RecordView<Tuple> customersTable = client.tables().table("customers").recordView();
+    @Override
+    public void onSubscribe(Flow.Subscription subscription) {
+        subscription.request(Long.MAX_VALUE);
+    }
 
-// Extract the target table key from each source item; since the source has "customerId" but the target table uses "id", the function maps customerId to id accordingly.
-Function<Tuple, Tuple> keyFunc = sourceItem -> Tuple.create().set("id", sourceItem.intValue("customerId"));
+    @Override
+    public void onNext(Tuple item) {
+        buffer.add(item);
 
-// Extract the data payload sent to the receiver. In this case, we use the entire source item as the payload.
+        if (buffer.size() >= batchSize) {
+            downstream.accept(new ArrayList<>(buffer));
+            buffer.clear();
+        }
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        if (!buffer.isEmpty()) {
+            downstream.accept(new ArrayList<>(buffer));
+            buffer.clear();
+        }
+    }
+
+    @Override
+    public void onComplete() {
+        if (!buffer.isEmpty()) {
+            downstream.accept(new ArrayList<>(buffer));
+            buffer.clear();
+        }
+    }
+}
+```
+
+</TabItem>
+<TabItem value="dotnet" label=".NET">
+
+In .NET, the `IAsyncEnumerable` pattern provides natural iteration over results. Buffering can be implemented inline:
+
+```csharp
+var buffer = new List<IIgniteTuple>(batchSize);
+
+await foreach (IIgniteTuple result in results)
+{
+    buffer.Add(result);
+
+    if (buffer.Count >= batchSize)
+    {
+        await downstream.SendBatchAsync(buffer);
+        buffer.Clear();
+    }
+}
+
+if (buffer.Count > 0)
+{
+    await downstream.SendBatchAsync(buffer);
+}
+```
+
+</TabItem>
+</Tabs>
+
+#### Step 3: Wire the Pipeline
+
+The `streamData()` overload for receivers accepts additional parameters that control how data flows through the pipeline:
+
+| Parameter | Purpose |
+|-----------|---------|
+| `publisher` | Source of input data (your `Flow.Publisher` or `SubmissionPublisher`) |
+| `receiverDesc` | Descriptor identifying the receiver class and deployment units |
+| `keyFunc` | Extracts a key from each input item for partition routing |
+| `payloadFunc` | Transforms input items into the payload type expected by the receiver |
+| `receiverArg` | Optional argument passed to every receiver invocation |
+| `resultSubscriber` | Receives results returned by the receiver (can be `null` if no results needed) |
+| `options` | Streaming configuration (batch size, parallelism, flush interval) |
+
+The `keyFunc` determines which cluster node processes each item. Items with keys that hash to the same partition are batched together and sent to that partition's primary node. This enables data-local operations when the receiver accesses tables that share the same partitioning scheme.
+
+The `payloadFunc` separates the key extraction concern from the data sent to receivers. Your input items might contain fields used only for routing, while the receiver needs a different shape. Use `Function.identity()` when the input and payload types are the same.
+
+<Tabs>
+<TabItem value="java" label="Java">
+
+```java
+// Source: account events from your data source
+List<Tuple> accountEvents = List.of(
+    Tuple.create().set("accountId", 1).set("eventType", "deposit").set("amount", 500L),
+    Tuple.create().set("accountId", 2).set("eventType", "withdrawal").set("amount", 200L),
+    Tuple.create().set("accountId", 3).set("eventType", "transfer").set("amount", 1000L)
+);
+
+// Downstream: where enriched events go next
+Consumer<List<Tuple>> downstream = batch -> {
+    // Send to Kafka, HTTP endpoint, another database, etc.
+    messageBroker.send("enriched-events", batch);
+};
+
+// Configure receiver
+DataStreamerReceiverDescriptor<Tuple, Void, Tuple> receiverDesc =
+    DataStreamerReceiverDescriptor.builder(EnrichmentReceiver.class).build();
+
+// Configure subscriber
+ForwardingSubscriber resultSubscriber = new ForwardingSubscriber(downstream, 100);
+
+// Use accounts table for partition routing
+RecordView<Tuple> accountsView = client.tables().table("accounts").recordView();
+
+Function<Tuple, Tuple> keyFunc = event -> Tuple.create().set("id", event.intValue("accountId"));
 Function<Tuple, Tuple> payloadFunc = Function.identity();
 
-// Stream data using a publisher.
+// Stream data through Ignite
 try (var publisher = new SubmissionPublisher<Tuple>()) {
-    streamerFut = customersTable.streamData(
-            publisher,
-            desc,
-            keyFunc,
-            payloadFunc,
-            null, // Optional receiver arguments
-            null, // Result subscriber
-            null // Options
+    CompletableFuture<Void> streamFuture = accountsView.streamData(
+        publisher,
+        receiverDesc,
+        keyFunc,
+        payloadFunc,
+        null,
+        resultSubscriber,
+        DataStreamerOptions.DEFAULT
     );
 
-    for (Tuple item : sourceData) {
-        publisher.submit(item);
-    }
+    accountEvents.forEach(publisher::submit);
 }
 
-streamerFut.join();
+streamFuture.join();
 ```
 
 </TabItem>
 <TabItem value="dotnet" label=".NET">
 
 ```csharp
-IAsyncEnumerable<IIgniteTuple> sourceData = GetSourceData();
-
-IRecordView<IIgniteTuple> customersTable = (await client.Tables.GetTableAsync("customers"))!.RecordBinaryView;
-
-IAsyncEnumerable<object> streamerResults = customersTable.StreamDataAsync(
-sourceData,
-desc,
-x => new IgniteTuple { ["id"] = x["customerId"] },
-x => x,
-null,
-DataStreamerOptions.Default,
-CancellationToken.None);
-
-await foreach (object result in streamerResults)
+// Source: account events from your data source
+async IAsyncEnumerable<IIgniteTuple> GetAccountEvents()
 {
-// ...
+    yield return new IgniteTuple
+        { ["accountId"] = 1, ["eventType"] = "deposit", ["amount"] = 500L };
+    yield return new IgniteTuple
+        { ["accountId"] = 2, ["eventType"] = "withdrawal", ["amount"] = 200L };
+    yield return new IgniteTuple
+        { ["accountId"] = 3, ["eventType"] = "transfer", ["amount"] = 1000L };
 }
 
-static async IAsyncEnumerable<IIgniteTuple> GetSourceData()
-{
-await Task.Yield(); // Simulate async enumeration.
+// Configure receiver
+var receiverDesc = ReceiverDescriptor.Of(new EnrichmentReceiver());
 
-    for (int i = 0; i < 10; i++)
+// Use accounts table for partition routing
+var accountsView = (await client.Tables.GetTableAsync("accounts"))!.RecordBinaryView;
+
+// Stream data through Ignite
+IAsyncEnumerable<IIgniteTuple> results = accountsView.StreamDataAsync(
+    GetAccountEvents(),
+    receiverDesc,
+    keySelector: e => new IgniteTuple { ["id"] = e["accountId"] },
+    payloadSelector: e => e,
+    receiverArg: null
+);
+
+// Forward to downstream
+var buffer = new List<IIgniteTuple>(100);
+
+await foreach (IIgniteTuple enrichedEvent in results)
+{
+    buffer.Add(enrichedEvent);
+
+    if (buffer.Count >= 100)
     {
-        yield return new IgniteTuple
-        {
-            ["customerId"] = i,
-            ["customerName"] = $"Customer {i}",
-            ["addressId"] = i,
-            ["street"] = $"Street {i}",
-            ["city"] = $"City {i}"
-        };
+        await messageBroker.SendAsync("enriched-events", buffer);
+        buffer.Clear();
     }
+}
+
+if (buffer.Count > 0)
+{
+    await messageBroker.SendAsync("enriched-events", buffer);
 }
 ```
 
 </TabItem>
 </Tabs>
 
-#### Distributed Computations
+### Managing Result Flow
 
-You can also use a streamer with a receiver to perform distributed computations, such as per-item calculations and [map-reduce](/docs/3.1.0/develop/work-with-data/compute#mapreduce-tasks) tasks on the returned results.
+For high-volume streams, the rate at which cluster nodes produce results may exceed the rate at which your downstream system can accept them. Unlike input streaming where backpressure signals control flow, result delivery continues regardless of subscriber readiness.
 
-This example demonstrates a simulated fraud detection process, which typically involves intensive processing of each transaction using ML models.
+Consider these patterns for managing result flow:
 
-1. First, create a custom receiver that will handle fraud detection computations on the results:
+- **Bounded queue**: Place a `BlockingQueue` between the subscriber and downstream operations. The subscriber adds to the queue (blocking if full), while a separate thread drains to downstream. This decouples cluster throughput from downstream latency.
 
-<Tabs>
-<TabItem value="java" label="Java">
+- **Async forwarding**: If your downstream client supports async operations, use `CompletableFuture` to pipeline multiple in-flight requests. This overlaps network latency with continued result processing.
 
-```java
-private static class FraudDetectorReceiver implements DataStreamerReceiver<Tuple, Void, Tuple> {
-@Override
-public @Nullable CompletableFuture<List<Tuple>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, @Nullable Void arg) {
-List<Tuple> results = new ArrayList<>(page.size());
+- **Batch size alignment**: Match the forwarding subscriber's batch size to your downstream system's optimal batch size. Mismatched sizes cause either too many small operations or memory pressure from oversized batches.
 
-            for (Tuple tx : page) {
-                results.add(detectFraud(tx));
-            }
+If results arrive faster than your subscriber can process them, memory usage grows until the JVM runs out of heap. Monitor result processing throughput relative to cluster output and adjust batch sizes or add buffering as needed.
 
-            return CompletableFuture.completedFuture(results);
-        }
+## Handling Failures
 
-        private static Tuple detectFraud(Tuple txInfo) {
-            // Simulate fraud detection processing.
-            double fraudRisk = Math.random();
+Whether streaming to tables or receivers, network failures, schema mismatches, or cluster issues can cause batch failures. The data streamer automatically retries failed batches up to `retryLimit` times (default 16). Items that exhaust all retry attempts are collected in a `DataStreamerException`.
 
-            // Add result to the tuple and return.
-            return txInfo.set("fraudRisk", fraudRisk);
-        }
-    }
-```
-
-</TabItem>
-<TabItem value="dotnet" label=".NET">
-
-```csharp
-class FraudDetectorReceiver : IDataStreamerReceiver<IIgniteTuple, object?, IIgniteTuple>
-{
-    public async ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
-        IList<IIgniteTuple> page,
-        object? arg,
-        IDataStreamerReceiverContext context,
-        CancellationToken cancellationToken)
-    {
-        var result = new List<IIgniteTuple>(page.Count);
-
-        foreach (var tx in page)
-        {
-            IIgniteTuple resTuple = await DetectFraud(tx);
-            result.Add(resTuple);
-        }
-
-        return result;
-    }
-
-    private static async Task<IIgniteTuple> DetectFraud(IIgniteTuple transaction)
-    {
-        // Simulate fraud detection logic - add a random risk score to the tuple.
-        await Task.Delay(10);
-        transaction["fraudRisk"] = Random.Shared.NextDouble();
-        return transaction;
-    }
-}
-```
-
-</TabItem>
-</Tabs>
-
-2. Next, stream a list of sample transactions across the cluster using a dummy table that partitions data by transaction ID and `FraudDetectorReceiver` for fraud detection. Subscribe to the results to log each processed transaction, handle errors, and confirm when streaming completes:
-
-<Tabs>
-<TabItem value="java" label="Java">
-
-```java
-public void runReceiverStreamProcessing() {
-
-    // Source data is a list of financial transactions.
-    // We distribute this processing across the cluster, then gather and return results.
-    List<Tuple> sourceData = IntStream.range(1, 10)
-                        .mapToObj(i -> Tuple.create()
-                        .set("txId", i)
-                        .set("txData", "{some-json-data}"))
-                        .collect(Collectors.toList());
-
-        DataStreamerReceiverDescriptor<Tuple, Void, Tuple> desc = DataStreamerReceiverDescriptor
-                .builder(FraudDetectorReceiver.class)
-                .build();
-
-        CompletableFuture<Void> streamerFut;
-
-        // Streaming requires a target table to partition data.
-        // Use a dummy table for this scenario, because we are not going to store any data.
-        TableDefinition txDummyTableDef = TableDefinition.builder("tx_dummy")
-                .columns(column("id", ColumnType.INTEGER))
-                .primaryKey("id")
-                .build();
-
-        Table dummyTable = client.catalog().createTable(txDummyTableDef);
-
-        // Source data has "txId" field, but target dummy table has "id" column, so keyFunc maps "txId" to "id".
-        Function<Tuple, Tuple> keyFunc = sourceItem -> Tuple.create().set("id", sourceItem.value("txId"));
-
-        // Payload function is used to extract the payload (data that goes to the receiver) from the source item.
-        // In our case, we want to use the whole source item as the payload.
-        Function<Tuple, Tuple> payloadFunc = Function.identity();
-
-        Flow.Subscriber<Tuple> resultSubscriber = new Flow.Subscriber<>() {
-            @Override
-            public void onSubscribe(Flow.Subscription subscription) {
-                subscription.request(Long.MAX_VALUE);
-            }
-
-            @Override
-            public void onNext(Tuple item) {
-                System.out.println("Transaction processed: " + item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                System.err.println("Error during streaming: " + throwable.getMessage());
-            }
-
-            @Override
-            public void onComplete() {
-                System.out.println("Streaming completed.");
-            }
-        };
-
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
-            streamerFut = dummyTable.recordView().streamData(
-                    publisher,
-                    desc,
-                    keyFunc,
-                    payloadFunc,
-                    null, // Arg
-                    resultSubscriber,
-                    null // Options
-            );
-
-            for (Tuple item : sourceData) {
-                publisher.submit(item);
-            }
-        }
-
-        streamerFut.join();
-    }
-```
-
-</TabItem>
-<TabItem value="dotnet" label=".NET">
-
-```csharp
-// Source data is a list of financial transactions.
-// We want to distribute this processing across the cluster, then gather and return results
-IAsyncEnumerable<IIgniteTuple> data = GetSourceData();
-
-ReceiverDescriptor<IIgniteTuple, object?, IIgniteTuple> fraudDetectorReceiverDesc = ReceiverDescriptor.Of(new FraudDetectorReceiver());
-
-// Streaming requires a target table to partition data.
-// Use a dummy table for this scenario, because we are not going to store any data.
-await client.Sql.ExecuteScriptAsync("CREATE TABLE IF NOT EXISTS TX_DUMMY (ID LONG)");
-
-ITable dummyTable = await client.Tables.GetTableAsync("TX_DUMMY");
-
-// Source data has "txId" field, but target dummy table has "id" column, so keyFunc maps "txId" to "id".
-Func<IIgniteTuple, IIgniteTuple> keyFunc = tuple => new IgniteTuple { ["id"] = tuple["txId"] };
-
-// Payload function is used to extract the payload (data that goes to the receiver) from the source item.
-// In our case, we want to use the whole source item as the payload.
-Func<IIgniteTuple, IIgniteTuple> payloadFunc = tuple => tuple;
-
-IAsyncEnumerable<IIgniteTuple> results = dummyTable.RecordBinaryView.StreamDataAsync(
-data,
-fraudDetectorReceiverDesc,
-keyFunc,
-payloadFunc,
-receiverArg: null);
-
-await foreach (IIgniteTuple processedTx in results)
-{
-Console.WriteLine("Transaction processed: " + processedTx);
-}
-
-async IAsyncEnumerable<IIgniteTuple> GetSourceData()
-{
-await Task.Yield(); // Simulate async data source.
-
-    for (int i = 0; i < 1000; i++)
-    {
-        yield return new IgniteTuple
-        {
-            ["txId"] = i,
-            ["txData"] = "{some-json-data}"
-        };
-    }
-}
-```
-
-</TabItem>
-</Tabs>
-
-#### Custom Marshallers in .NET
-
-In .NET, you can define custom marshallers by implementing the [`IMarshaller`](https://ignite.apache.org/releases/3.0.0/dotnetdoc/api/Apache.Ignite.Marshalling.IMarshaller-1.html) interface.
-
-For example, the code below demonstrates how to use `JsonMarshaller` to serialize data, arguments, and results.
-
-```csharp
-ITable? table = await client.Tables.GetTableAsync("my-table");
-
-ReceiverDescriptor<MyData, MyArg, MyResult> receiverDesc = ReceiverDescriptor.Of(new MyReceiver());
-
-IAsyncEnumerable<MyData> data = Enumerable
-    .Range(1, 100)
-    .Select(x => new MyData(x, $"Name {x}"))
-    .ToAsyncEnumerable();
-
-IAsyncEnumerable<MyResult> results = table!.RecordBinaryView.StreamDataAsync(
-    data: data,
-    receiver: receiverDesc,
-    keySelector: dataItem => new IgniteTuple { ["id"] = dataItem.Id },
-    payloadSelector: dataItem => dataItem,
-    receiverArg: new MyArg("Some info"));
-
-await foreach (MyResult result in results)
-{
-    Console.WriteLine(result);
-}
-
-public record MyData(int Id, string Name);
-
-public record MyArg(string Info);
-
-public record MyResult(MyData Data, MyArg Arg);
-
-public class MyReceiver : IDataStreamerReceiver<MyData, MyArg, MyResult>
-{
-    public IMarshaller<MyData> PayloadMarshaller =>
-        new JsonMarshaller<MyData>();
-
-    public IMarshaller<MyArg> ArgumentMarshaller =>
-        new JsonMarshaller<MyArg>();
-
-    public IMarshaller<MyResult> ResultMarshaller =>
-        new JsonMarshaller<MyResult>();
-
-    public ValueTask<IList<MyResult>?> ReceiveAsync(IList<MyData> page, MyArg arg, IDataStreamerReceiverContext context, CancellationToken cancellationToken)
-    {
-        IList<MyResult> results = page
-            .Select(data => new MyResult(data, arg))
-            .ToList();
-
-        return ValueTask.FromResult(results)!;
-    }
-}
-```
-
-
-## Tracking Failed Entries
-
-If the data streamer fails to process any entries, it collects the failed items in a `DataStreamerException`. You can catch this exception and access the failed entries using the `failedItems()` method, as shown in the example below.
-
-You can catch both asynchronous errors during background streaming and immediate submission errors:
+Access failed entries using the `failedItems()` method:
 
 <Tabs>
 <TabItem value="java" label="Java">
@@ -685,25 +791,36 @@ You can catch both asynchronous errors during background streaming and immediate
 ```java
 RecordView<Account> view = client.tables().table("accounts").recordView(Account.class);
 
+List<DataStreamerItem<Account>> failedItems = new ArrayList<>();
 CompletableFuture<Void> streamerFut;
 
 try (var publisher = new SubmissionPublisher<DataStreamerItem<Account>>()) {
-streamerFut = view.streamData(publisher, options)
-.exceptionally(e -> {
-System.out.println("Failed items during background streaming: " +
-((DataStreamerException)e.getCause()).failedItems());
-return null;
-});
+    streamerFut = view.streamData(publisher, options)
+        .exceptionally(e -> {
+            if (e.getCause() instanceof DataStreamerException dse) {
+                failedItems.addAll(dse.failedItems());
+            }
+            return null;
+        });
 
-    /** Trying to insert an account record. */
     Account entry = new Account(1, "Account name", rnd.nextLong(100_000), rnd.nextBoolean());
     publisher.submit(DataStreamerItem.of(entry));
 } catch (DataStreamerException e) {
-      /** Handle entries that failed during submission. */
-      System.out.println("Failed items during submission: " + e.failedItems());
+    failedItems.addAll(e.failedItems());
 }
 
 streamerFut.join();
+
+// Handle failed items after streaming completes
+if (!failedItems.isEmpty()) {
+    // Log failures for investigation
+    logger.error("Failed to stream {} items after {} retries",
+        failedItems.size(), options.retryLimit());
+
+    // Option 1: Write to dead-letter queue for later processing
+    // Option 2: Retry with different options (e.g., smaller batch size)
+    // Option 3: Use direct table operations for individual items
+}
 ```
 
 </TabItem>
@@ -716,54 +833,40 @@ IList<IIgniteTuple> data = [new IgniteTuple { ["key"] = 1L, ["val"] = "v" }];
 
 try
 {
-await view.StreamDataAsync(data.ToAsyncEnumerable());
+    await view.StreamDataAsync(data.ToAsyncEnumerable());
 }
 catch (DataStreamerException e)
 {
-Console.WriteLine("Failed items: " + string.Join(",", e.FailedItems));
+    Console.WriteLine("Failed items: " + string.Join(",", e.FailedItems));
+
+    // Items have exhausted retryLimit attempts
+    // Investigate failure cause before retrying
 }
 ```
 
 </TabItem>
 </Tabs>
 
-### Tuning Memory Usage
+### Handling Persistent Failures
 
-The data streamer may require a significant amount of memory to handle the requests in an orderly manner. Depending on your environment, you may want to increase or reduce the amount of memory reserved by the data streamer.
+Items fail after exhausting retries for reasons such as:
 
-For every node in the cluster, the streamer reserves an amount of memory equal to `pageSize` (1000 entries by default) multiplied by `perPartitionParallelOperations` (1 by default) setting. For example, a 10-partition table with default parameters and average entry size of 1KB will reserve 10MB for operations.
+- **Schema mismatch**: Entry fields do not match the table schema
+- **Constraint violations**: Duplicate keys or foreign key violations
+- **Cluster unavailability**: Partition leader unavailable during all retry attempts
 
-You can change these options while creating a `DataStreamerOptions` object:
+Before retrying failed items:
 
-<Tabs>
-<TabItem value="java" label="Java">
+1. Examine the exception cause to determine the failure reason
+2. Fix data issues (schema mismatches, constraint violations)
+3. Verify cluster health if failures were caused by unavailability
+4. Consider using direct table operations (`upsert`, `insert`) for small numbers of failed items rather than restarting the streamer
 
-```java
-RecordView<Tuple> view = client.tables().table("accounts").recordView();
-var publisher = new SubmissionPublisher<Tuple>();
+## Tuning Flush Behavior
 
-var options = DataStreamerOptions.builder()
-        .pageSize(10_000)
-        .perPartitionParallelOperations(10)
-        .build();
+The `autoFlushInterval` setting (default 5000ms) controls how long the streamer waits before sending incomplete batches. This addresses two scenarios:
 
-streamerFut = view.streamData(publisher, options);
-```
+- **Slow data sources**: When your publisher produces data slowly, buffers may not fill to `pageSize` within a reasonable time. The auto-flush ensures data reaches the cluster without waiting for a full batch.
+- **Uneven partition distribution**: If your data keys cluster into a few partitions, some partition buffers fill while others remain nearly empty. Auto-flush sends partial batches from slow-filling partitions.
 
-</TabItem>
-<TabItem value="dotnet" label=".NET">
-
-```csharp
-// .NET streamer does not have a perPartitionParallelOperations option yet.
-var options = new DataStreamerOptions
-{
-PageSize = 10_000
-};
-```
-
-</TabItem>
-</Tabs>
-
-Additionally, the data streamer periodically flushes incomplete buffers to ensure that messages are not delayed indefinitely. This is especially useful when a buffer fills slowly or never completely fills due to uneven data distribution.
-
-This behavior is controlled by the `autoFlushInterval` property, which is set to 5000 ms by default. You can also configure the `retryLimit` parameter to define the maximum number of retry attempts for failed submissions, with a default value of 16.
+Set a shorter interval for latency-sensitive workloads. Set a longer interval (or increase `pageSize`) for throughput-focused bulk loads where latency is less critical.
