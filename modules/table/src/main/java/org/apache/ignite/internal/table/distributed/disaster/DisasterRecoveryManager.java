@@ -774,7 +774,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                 futures[i++] = invokeFuture.thenAccept(networkMessage -> {
                     inBusyLock(busyLock, () -> {
-                        LOG.debug("Received local partition states response [networkMessage={}]", networkMessage);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Received local partition states response [networkMessage={}]", networkMessage);
+                        }
 
                         assert networkMessage instanceof LocalPartitionStatesResponse : networkMessage;
 
@@ -792,7 +794,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             });
                         }
 
-                        LOG.debug("Combined partition state result for node [node={}, result={}]", node, result);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Combined partition state result for node [node={}, result={}]", node, result);
+                        }
                     });
                 });
             }
@@ -802,7 +806,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     throw new DisasterRecoveryException(PARTITION_STATE_ERR, err);
                 }
 
-                LOG.debug("Returning total result for local partition states [result={}]", result);
+                if (LOG.isInfoEnabled()) {
+                    LOG.debug("Returning total result for local partition states [result={}]", result);
+                }
 
                 return result;
             });
@@ -950,7 +956,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String node,
             Set<ZonePartitionId> zones
     ) {
-        LOG.debug("Sending LocalTablePartitionStateRequest to node [nodeName={}, zones={}]", node, zones);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Sending LocalTablePartitionStateRequest to node [nodeName={}, zones={}]", node, zones);
+        }
 
         Set<ZonePartitionIdMessage> zoneMessage = zones.stream()
                 .map(zonePartitionId -> toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
@@ -962,7 +970,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
                 .thenApply(networkMessage -> {
-                    LOG.debug("Got response from node [nodeName={}, networkMessage={}]", node, networkMessage);
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Got response from node [nodeName={}, networkMessage={}]", node, networkMessage);
+                    }
 
                     assert networkMessage instanceof LocalTablePartitionStateResponse : networkMessage;
 
@@ -1288,11 +1298,15 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof LocalPartitionStatesRequest) {
-            LOG.debug("Received local partition states request [request={}]", message);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Received local partition states request [request={}]", message);
+            }
 
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
         } else if (message instanceof LocalTablePartitionStateRequest) {
-            LOG.debug("Received local table partition states request [request={}]", message);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Received local table partition states request [request={}]", message);
+            }
 
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
@@ -1374,7 +1388,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     .states(statesList)
                     .build();
 
-            LOG.debug("Responding with state for local table partitions [response={}]", response);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Responding with state for local table partitions [response={}]", response);
+            }
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
@@ -1422,7 +1438,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     .states(statesList)
                     .build();
 
-            LOG.debug("Responding with state for local partitions [response={}]", response);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Responding with state for local partitions [response={}]", response);
+            }
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
