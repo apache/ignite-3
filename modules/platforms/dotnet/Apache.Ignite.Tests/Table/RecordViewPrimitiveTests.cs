@@ -195,6 +195,8 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
                 ColumnType.Timestamp => (T)(object)rowReader.ReadTimestamp()!,
                 ColumnType.Uuid => (T)(object)rowReader.ReadGuid()!,
                 ColumnType.ByteArray => (T)(object)rowReader.ReadBytes()!,
+
+                // ReSharper disable PatternIsRedundant
                 ColumnType.Null or ColumnType.Period or ColumnType.Duration or _ => default!
             };
         }
