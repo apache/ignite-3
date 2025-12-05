@@ -61,6 +61,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly IRecordSerializerHandler<Car> MapperSerializerHandler = new MapperSerializerHandler<Car>(new CarMapper());
 
+        internal static readonly IRecordSerializerHandler<Car> MapperKnownOrderSerializerHandler = new MapperSerializerHandler<Car>(new CarMapperKnownOrder());
+
         protected Consumer Consumer { get; } = new();
 
         internal static void VerifyWritten(PooledArrayBuffer pooledWriter)

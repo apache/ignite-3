@@ -75,6 +75,15 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         }
 
         [Benchmark]
+        public void ReadObjectWithMapperKnownOrder()
+        {
+            var reader = new MsgPackReader(SerializedData);
+            Car res = MapperKnownOrderSerializerHandler.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
+        }
+
+        [Benchmark]
         public void ReadTuple()
         {
             var reader = new MsgPackReader(SerializedData);
