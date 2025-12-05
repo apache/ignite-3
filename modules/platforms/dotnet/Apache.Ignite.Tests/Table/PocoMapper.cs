@@ -17,51 +17,23 @@
 
 namespace Apache.Ignite.Tests.Table;
 
-using System;
 using Ignite.Table.Mapper;
 
 public class PocoMapper : IMapper<Poco>
 {
     public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
-        foreach (var col in schema.Columns)
-        {
-            switch (col.Name)
-            {
-                case "KEY":
-                    rowWriter.WriteLong(obj.Key);
-                    break;
-
-                case "VAL":
-                    rowWriter.WriteString(obj.Val);
-                    break;
-
-                default:
-                    throw new InvalidOperationException("Unexpected column: " + col.Name);
-            }
-        }
+        rowWriter.WriteLong(obj.Key);
+        rowWriter.WriteString(obj.Val);
     }
 
     public Poco Read(ref RowReader rowReader, IMapperSchema schema)
     {
-        var obj = new Poco();
-
-        foreach (var col in schema.Columns)
+        var obj = new Poco
         {
-            switch (col.Name)
-            {
-                case "KEY":
-                    obj.Key = rowReader.ReadLong()!.Value;
-                    break;
-
-                case "VAL":
-                    obj.Val = rowReader.ReadString();
-                    break;
-
-                default:
-                    throw new InvalidOperationException("Unexpected column: " + col.Name);
-            }
-        }
+            Key = rowReader.ReadLong()!.Value,
+            Val = rowReader.ReadString()
+        };
 
         return obj;
     }
