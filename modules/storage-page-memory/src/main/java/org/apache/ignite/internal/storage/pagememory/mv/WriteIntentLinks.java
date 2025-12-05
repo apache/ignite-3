@@ -15,15 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
+/**
+ * Links to the neighbors of a {@link RowVersion} (which is a write intent) in the write intents list.
+ */
+class WriteIntentLinks {
+    private final long nextWriteIntentLink;
+    private final long prevWriteIntentLink;
 
-/** Storage partition meta I/O versions. */
-public class StoragePartitionMetaIoVersions {
-    /** I/O versions. */
-    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
-            new StoragePartitionMetaIo(),
-            new StoragePartitionMetaIoV2()
-    );
+    WriteIntentLinks(long nextWriteIntentLink, long prevWriteIntentLink) {
+        this.nextWriteIntentLink = nextWriteIntentLink;
+        this.prevWriteIntentLink = prevWriteIntentLink;
+    }
+
+    long nextWriteIntentLink() {
+        return nextWriteIntentLink;
+    }
+
+    long prevWriteIntentLink() {
+        return prevWriteIntentLink;
+    }
 }

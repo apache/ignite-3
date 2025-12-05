@@ -15,15 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
-/** Storage partition meta I/O versions. */
-public class StoragePartitionMetaIoVersions {
-    /** I/O versions. */
-    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
-            new StoragePartitionMetaIo(),
-            new StoragePartitionMetaIoV2()
-    );
+class WiLinkableCommittedVersionReader extends WiLinkableRowVersionReader {
+    WiLinkableCommittedVersionReader(long link, int partitionId) {
+        super(link, partitionId);
+    }
+
+    @Override
+    public WiLinkableRowVersion createRowVersion(int valueSize, @Nullable BinaryRow value) {
+        return new WiLinkableRowVersion(
+                null,
+                partitionId,
+                link,
+                timestamp,
+                nextLink,
+                prevWiLink,
+                nextWiLink,
+                valueSize,
+                value
+        );
+    }
 }

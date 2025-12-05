@@ -17,25 +17,23 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-/**
- * Provides offsets of value bytes of {@link RowVersion}s of different versions.
- *
- * <p>Implementations are stateless and can be reused.
- */
-interface RowVersionValueOffsets {
-    static RowVersionValueOffsets offsetsFor(byte dataType) {
-        switch (dataType) {
-            case RowVersion.DATA_TYPE:
-                return PlainRowVersionValueOffsets.INSTANCE;
-            case WiLinkableRowVersion.WRITE_INTENT_DATA_TYPE:
-            case WiLinkableRowVersion.COMMITTED_DATA_TYPE:
-                return WiLinkableRowVersionValueOffsets.INSTANCE;
-            default:
-                throw new IllegalStateException("Unsupported data type: " + dataType);
-        }
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+
+import org.apache.ignite.internal.pagememory.io.DataPagePayload;
+
+abstract class WiLinkableRowVersionReader extends PlainRowVersionReader {
+    protected long prevWiLink;
+    protected long nextWiLink;
+
+    WiLinkableRowVersionReader(long link, int partitionId) {
+        super(link, partitionId);
     }
 
-    int valueSizeOffsetInFirstSlot();
+    @Override
+    public void readFromPage(long pageAddr, DataPagePayload payload) {
+        super.readFromPage(pageAddr, payload);
 
-    int valueOffsetInFirstSlot();
+        prevWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);
+        nextWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
+    }
 }
