@@ -1133,9 +1133,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             InternalTable internalTable = table(node, tableName).internalTable();
 
             TxStatePartitionStorage txStatePartitionStorage =
-                    colocationEnabled()
-                    ? node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), partId)
-                    : internalTable.txStateStorage().getPartitionStorage(partId);
+                    node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), partId);
 
             assertNotNull(txStatePartitionStorage);
 

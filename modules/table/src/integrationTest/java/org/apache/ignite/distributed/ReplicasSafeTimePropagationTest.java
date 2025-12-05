@@ -391,7 +391,6 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             txManagerMock,
                             mock(PartitionDataStorage.class),
                             mock(StorageUpdateHandler.class),
-                            mock(TxStatePartitionStorage.class),
                             safeTs,
                             mock(CatalogService.class),
                             mock(SchemaRegistry.class),

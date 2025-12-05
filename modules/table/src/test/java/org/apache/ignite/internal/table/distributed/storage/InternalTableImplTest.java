@@ -234,7 +234,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                mock(TxStateStorage.class),
                 replicaService,
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),

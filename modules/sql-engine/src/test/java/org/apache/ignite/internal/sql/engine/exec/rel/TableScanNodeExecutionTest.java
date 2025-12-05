@@ -327,7 +327,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new SingleClusterNodeResolver(mock(InternalClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
-                    mock(TxStateStorage.class),
                     replicaSvc,
                     clockService,
                     timestampTracker,

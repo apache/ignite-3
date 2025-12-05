@@ -1830,10 +1830,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         doAnswer(answer -> CompletableFuture.failedFuture(new StorageException("From test")))
                 .when(internalTable.storage())
                 .destroyPartition(partitionId);
-
-        doAnswer(answer -> CompletableFuture.failedFuture(new IgniteInternalException("From test")))
-                .when(internalTable.txStateStorage())
-                .destroyPartitionStorage(partitionId);
     }
 
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {

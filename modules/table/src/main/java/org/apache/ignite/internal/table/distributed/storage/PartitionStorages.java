@@ -34,6 +34,7 @@ public class PartitionStorages {
      * @param mvPartitionStorage Multi-versioned storage.
      * @param txStatePartitionStorage Transaction state storage.
      */
+    // TODO sanpwc refactor since we do not propagate txStatePartitionStorage any longer.
     public PartitionStorages(MvPartitionStorage mvPartitionStorage, TxStatePartitionStorage txStatePartitionStorage) {
         this.mvPartitionStorage = mvPartitionStorage;
         this.txStatePartitionStorage = txStatePartitionStorage;
