@@ -150,17 +150,16 @@ class FileSender {
      */
     private CompletableFuture<Void> processTransferWithNextAsync(FileTransfer transfer) {
         return sendTransfer(transfer)
-                .thenComposeAsync(v -> {
+                .whenCompleteAsync((v, e) -> {
                     synchronized (lock) {
                         FileTransfer nextTransfer = queue.poll();
 
                         // If there is a next transfer, process it.
                         // Otherwise, release the rate limiter.
                         if (nextTransfer != null) {
-                            return processTransferWithNextAsync(nextTransfer);
+                            processTransferWithNextAsync(nextTransfer);
                         } else {
                             rateLimiter.release();
-                            return nullCompletedFuture();
                         }
                     }
                 }, executorService);
