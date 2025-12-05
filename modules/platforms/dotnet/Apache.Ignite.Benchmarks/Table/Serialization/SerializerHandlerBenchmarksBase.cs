@@ -129,15 +129,15 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
                     switch (column.Name)
                     {
                         case nameof(Car.Id):
-                            res.Id = rowReader.Read<Guid>();
+                            res.Id = rowReader.ReadGuid()!.Value;
                             break;
 
                         case nameof(Car.BodyType):
-                            res.BodyType = rowReader.Read<string>()!;
+                            res.BodyType = rowReader.ReadString()!;
                             break;
 
                         case nameof(Car.Seats):
-                            res.Seats = rowReader.Read<int>();
+                            res.Seats = rowReader.ReadInt()!.Value;
                             break;
 
                         default:

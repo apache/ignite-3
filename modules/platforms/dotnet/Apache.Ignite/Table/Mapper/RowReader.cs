@@ -54,13 +54,7 @@ public ref struct RowReader
     /// <returns>Column value.</returns>
     public T? Read<T>()
     {
-        var pos = _position++;
-
-        if (pos >= _schema.Length)
-        {
-            throw new InvalidOperationException($"No more columns to read. Total columns: {_schema.Length}.");
-        }
-
+        var pos = GetNextPos();
         var col = _schema[pos];
         var ordinal = _keyOnly ? col.KeyIndex : col.SchemaIndex;
         var obj = _reader.GetObject(ordinal, col.Type, col.Scale);
@@ -78,7 +72,37 @@ public ref struct RowReader
     }
 
     /// <summary>
+    /// Reads the next column as a GUID.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public Guid? ReadGuid() => _reader.GetGuidNullable(GetNextPos());
+
+    /// <summary>
+    /// Reads the next column as a string.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public string? ReadString() => _reader.GetStringNullable(GetNextPos());
+
+    /// <summary>
+    /// Reads the next column as an int.
+    /// </summary>
+    /// <returns>Column value.</returns>
+    public int? ReadInt() => _reader.GetByteNullable(GetNextPos());
+
+    /// <summary>
     /// Skips the current column.
     /// </summary>
     public void Skip() => _position++;
+
+    private int GetNextPos()
+    {
+        var pos = _position++;
+
+        if (pos >= _schema.Length)
+        {
+            throw new InvalidOperationException($"No more columns to read. Total columns: {_schema.Length}.");
+        }
+
+        return pos;
+    }
 }
