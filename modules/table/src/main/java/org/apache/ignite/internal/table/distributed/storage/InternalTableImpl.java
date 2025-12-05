@@ -138,7 +138,6 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage of table rows.
@@ -1618,33 +1617,25 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    @TestOnly
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx
     ) {
-        validatePartitionIndex(partId);
-
-        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
-
-        return readWriteScan(partId, actualTx, null, null);
+        return scan(partId, tx, null, null);
     }
 
-    @TestOnly
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            int indexId,
+            Integer indexId,
             IndexScanCriteria.Range criteria
     ) {
 
         validatePartitionIndex(partId);
 
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
-
-        assert !actualTx.isReadOnly();
 
         return readWriteScan(partId, actualTx, indexId, criteria);
     }
@@ -1775,7 +1766,6 @@ public class InternalTableImpl implements InternalTable {
         };
     }
 
-    @TestOnly
     private Publisher<BinaryRow> readWriteScan(
             int partId,
             InternalClusterNode recipient,

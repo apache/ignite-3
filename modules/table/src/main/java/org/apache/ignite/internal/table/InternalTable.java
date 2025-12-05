@@ -39,7 +39,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Internal table facade provides low-level methods for table operations. The facade hides TX/replication protocol over table storage
@@ -318,16 +317,20 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
+     * Scans given partition within a read-write transaction without specifying an index or range criteria, providing {@link Publisher}
+     * that reactively notifies about partition rows.
+     *
+     * <p>This is a simplified scan method that retrieves all rows from the partition without using an index or applying range filtering.
+     * For scans that need to specify which index to use or apply range boundaries, use
+     * {@link #scan(int, InternalTransaction, Integer, IndexScanCriteria.Range)} instead.
      *
      * @param partId The partition.
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
+     * @throws TransactionException If proposed {@code tx} is read-only.
+     * @see #scan(int, InternalTransaction, Integer, IndexScanCriteria.Range)
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-26846 Drop the method.
-    @TestOnly
-    @Deprecated(forRemoval = true)
     Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx);
 
     /**
@@ -366,21 +369,31 @@ public interface InternalTable extends ManuallyCloseable {
     );
 
     /**
-     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     * Scans given partition within a read-write transaction with explicit index and range criteria specification, providing
+     * {@link Publisher} that reactively notifies about partition rows.
+     *
+     * <p>This method extends the basic scan operation by accepting additional parameters:
+     * <ul>
+     *   <li>{@code indexId} - specifies which index to use for the scan operation. This enables the scan to leverage index structures
+     *       (hash or sorted) for data retrieval.</li>
+     *   <li>{@code criteria} - defines range boundaries (lower/upper bounds and flags) to filter the rows returned by the scan.</li>
+     * </ul>
+     *
+     * <p>Use this method when you need to control which index is used or when you need to apply range filtering to limit the result set.
+     * For simple scans without these requirements, {@link #scan(int, InternalTransaction)} provides a simpler interface.
      *
      * @param partId The partition.
      * @param tx The transaction.
-     * @param indexId Index id.
-     * @param criteria Index scan criteria.
-     * @return {@link Publisher} that reactively notifies about partition rows.
+     * @param indexId Index id to use for the scan operation.
+     * @param criteria Range criteria defining the lower and upper bounds for filtering rows.
+     * @return {@link Publisher} that reactively notifies about partition rows matching the criteria.
+     * @throws TransactionException If proposed {@code tx} is read-only.
+     * @see #scan(int, InternalTransaction)
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-26846 Drop the method.
-    @TestOnly
-    @Deprecated(forRemoval = true)
     Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            int indexId,
+            Integer indexId,
             IndexScanCriteria.Range criteria
     );
 
