@@ -104,7 +104,7 @@ Sort
                     index: PS_PK
                     type: SORTED
                     predicate: =($cor1.P_PARTKEY, PS_PARTKEY)
-                    searchBounds: [ExactBounds [bound=$cor1.P_PARTKEY]]
+                    searchBounds: <$cor1.P_PARTKEY>
                     fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST]
                     collation: [PS_PARTKEY ASC]
                     est: (rows=266400)

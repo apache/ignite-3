@@ -103,7 +103,7 @@ Sort
                         index: L_OK
                         type: SORTED
                         predicate: AND(=(L_ORDERKEY, $cor6.L_ORDERKEY), <>(L_SUPPKEY, $cor6.L_SUPPKEY))
-                        searchBounds: [ExactBounds [bound=$cor6.L_ORDERKEY]]
+                        searchBounds: <$cor6.L_ORDERKEY>
                         fieldNames: [i]
                         projection: [true]
                         collation: []
@@ -126,7 +126,7 @@ Sort
                     index: L_OK
                     type: SORTED
                     predicate: AND(=(L_ORDERKEY, $cor5.L_ORDERKEY), <>(L_SUPPKEY, $cor5.L_SUPPKEY), >(L_RECEIPTDATE, L_COMMITDATE))
-                    searchBounds: [ExactBounds [bound=$cor5.L_ORDERKEY]]
+                    searchBounds: <$cor5.L_ORDERKEY>
                     fieldNames: [i]
                     projection: [true]
                     collation: []

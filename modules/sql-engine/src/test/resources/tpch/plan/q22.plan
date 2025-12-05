@@ -80,7 +80,7 @@ Sort
                     index: O_CK
                     type: SORTED
                     predicate: =(O_CUSTKEY, $cor1.C_CUSTKEY)
-                    searchBounds: [ExactBounds [bound=$cor1.C_CUSTKEY]]
+                    searchBounds: <$cor1.C_CUSTKEY>
                     fieldNames: [i]
                     projection: [true]
                     collation: []

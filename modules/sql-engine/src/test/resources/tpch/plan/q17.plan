@@ -80,7 +80,7 @@ Project
                           index: L_PK_SK
                           type: SORTED
                           predicate: =(L_PARTKEY, $cor1.P_PARTKEY)
-                          searchBounds: [ExactBounds [bound=$cor1.P_PARTKEY]]
+                          searchBounds: <$cor1.P_PARTKEY>
                           fieldNames: [L_QUANTITY]
                           collation: []
                           est: (rows=1998405)

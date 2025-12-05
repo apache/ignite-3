@@ -145,7 +145,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 .disableRules("LogicalTableScanConverterRule")
                 .matches(not(containsUnion()))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .matches(containsString("searchBounds: [MultiBounds"))
+                .matches(containsString("searchBounds: <_UTF-8'Camera Lens'>, <_UTF-8'Other'>"))
                 .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
                 .returns(4, "Photo", 1, "Other", 12, "Charger 1")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
