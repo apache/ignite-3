@@ -59,7 +59,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
         Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
-        var mapperWriter = new RowWriter(ref tupleBuilder, noValueSetRef);
+        var mapperWriter = new RowWriter(ref tupleBuilder, noValueSetRef, schema.GetColumnsFor(keyOnly));
 
         _mapper.Write(record, ref mapperWriter, schema.GetMapperSchema(keyOnly));
 

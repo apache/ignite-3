@@ -19,6 +19,7 @@ namespace Apache.Ignite.Table.Mapper;
 
 using System;
 using Internal.Proto.BinaryTuple;
+using Internal.Table;
 using Internal.Table.Serialization;
 using NodaTime;
 
@@ -29,6 +30,8 @@ public ref struct RowWriter
 {
     private readonly Span<byte> _noValueSet;
 
+    private readonly Column[] _columns;
+
     private BinaryTupleBuilder _builder;
 
     /// <summary>
@@ -36,16 +39,20 @@ public ref struct RowWriter
     /// </summary>
     /// <param name="builder">Builder.</param>
     /// <param name="noValueSet">No-value set.</param>
-    internal RowWriter(ref BinaryTupleBuilder builder, Span<byte> noValueSet)
+    /// <param name="columns">Columns.</param>
+    internal RowWriter(ref BinaryTupleBuilder builder, Span<byte> noValueSet, Column[] columns)
     {
         _builder = builder;
         _noValueSet = noValueSet;
+        _columns = columns;
     }
 
     /// <summary>
     /// Gets the builder.
     /// </summary>
     internal readonly BinaryTupleBuilder Builder => _builder;
+
+    private Column Column => _columns[_builder.ElementIndex];
 
     /// <summary>
     /// Writes a byte value.
@@ -112,15 +119,13 @@ public ref struct RowWriter
     /// Writes a decimal value.
     /// </summary>
     /// <param name="value">Value.</param>
-    /// <param name="scale">Decimal scale from schema.</param>
-    public void WriteDecimal(decimal? value, int scale) => _builder.AppendDecimalNullable(value, scale);  // TODO: Remove scale.
+    public void WriteDecimal(decimal? value) => _builder.AppendDecimalNullable(value, Column.Scale);
 
     /// <summary>
     /// Writes a big decimal value.
     /// </summary>
     /// <param name="value">Value.</param>
-    /// <param name="scale">Decimal scale from schema.</param>
-    public void WriteBigDecimal(BigDecimal? value, int scale) => _builder.AppendBigDecimalNullable(value, scale);
+    public void WriteBigDecimal(BigDecimal? value) => _builder.AppendBigDecimalNullable(value, Column.Scale);
 
     /// <summary>
     /// Writes a date value.
@@ -132,22 +137,19 @@ public ref struct RowWriter
     /// Writes a time value.
     /// </summary>
     /// <param name="value">Value.</param>
-    /// <param name="precision">Precision.</param>
-    public void WriteTime(LocalTime? value, int precision) => _builder.AppendTimeNullable(value, precision);
+    public void WriteTime(LocalTime? value) => _builder.AppendTimeNullable(value, Column.Precision);
 
     /// <summary>
     /// Writes a date and time value.
     /// </summary>
     /// <param name="value">Value.</param>
-    /// <param name="precision">Precision.</param>
-    public void WriteDateTime(LocalDateTime? value, int precision) => _builder.AppendDateTimeNullable(value, precision);
+    public void WriteDateTime(LocalDateTime? value) => _builder.AppendDateTimeNullable(value, Column.Precision);
 
     /// <summary>
     /// Writes a timestamp (instant) value.
     /// </summary>
     /// <param name="value">Value.</param>
-    /// <param name="precision">Precision.</param>
-    public void WriteTimestamp(Instant? value, int precision) => _builder.AppendTimestampNullable(value, precision);
+    public void WriteTimestamp(Instant? value) => _builder.AppendTimestampNullable(value, Column.Precision);
 
     /// <summary>
     /// Writes a duration value.
