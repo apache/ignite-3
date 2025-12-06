@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -126,7 +127,10 @@ class ClientTableMapUtils {
             }
             Transaction tx0 = txns.get(i);
             tx0.rollbackAsync().exceptionally(e -> {
-                log.error("Failed to rollback a transactional batch: [tx=" + tx0 + ']', e);
+                Throwable cause = unwrapCause(e);
+                if (!(cause instanceof IgniteClientConnectionException)) {
+                    log.error("Failed to rollback a transactional batch: [tx=" + tx0 + ']', cause);
+                }
                 return null;
             });
         }
@@ -141,7 +145,10 @@ class ClientTableMapUtils {
         for (Transaction txn : txns) {
             ClientLazyTransaction tx0 = (ClientLazyTransaction) txn;
             CompletableFuture<Void> fut = tx0.commitAsync().exceptionally(e -> {
-                log.error("Failed to commit a transactional batch: [tx=" + tx0 + ']', e);
+                Throwable cause = unwrapCause(e);
+                if (!(cause instanceof IgniteClientConnectionException)) {
+                    log.error("Failed to commit a transactional batch: [tx=" + tx0 + ']', cause);
+                }
                 return null;
             });
             // Enforce sync commit to avoid lock conflicts then working in compatibility mode.

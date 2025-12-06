@@ -35,12 +35,17 @@ import java.util.Objects;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Key-value view test utilities.
  */
 public class KeyValueTestUtils {
+    public static final QualifiedName TEST_TABLE_NAME = QualifiedName.of("default", "table");
+
     public static final Column[] ALL_TYPES_COLUMNS = {
             new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false),
             new Column("primitiveByteCol".toUpperCase(), INT8, false),
@@ -81,6 +86,10 @@ public class KeyValueTestUtils {
 
     static TestObjectWithAllTypes newValue(Random rnd) {
         return TestObjectWithAllTypes.randomObject(rnd);
+    }
+
+    public static TupleMarshallerImpl createMarshaller(SchemaDescriptor schema) {
+        return new TupleMarshallerImpl(() -> TEST_TABLE_NAME, schema);
     }
 
     /**

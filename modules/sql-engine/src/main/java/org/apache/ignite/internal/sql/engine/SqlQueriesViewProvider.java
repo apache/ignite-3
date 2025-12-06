@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Provider that creates system view exposing queries running on a node. */
 public class SqlQueriesViewProvider {
-    public static final String SCRIPT_QUERY_TYPE = "SCRIPT";
+    public static final String SCRIPT_QUERY_TYPE = "Script";
 
     private static final NativeType TIMESTAMP_TYPE = NativeTypes.timestamp(NativeTypes.MAX_TIME_PRECISION);
 
@@ -154,7 +154,7 @@ public class SqlQueriesViewProvider {
     }
 
     private static String mapQueryType(SqlQueryType type) {
-        return type.toString();
+        return type.displayName();
     }
 
     private static @Nullable String mapQueryPlan(QueryPlan plan) {

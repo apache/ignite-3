@@ -22,7 +22,11 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 
-/** Message for transferring a {@link TxStateMetaFinishing}. */
+/**
+ * Message for transferring a {@link TxStateMetaFinishing}.
+ * Shouln't be transferred over the network.
+ */
+@Deprecated(forRemoval = true)
 @Transferable(TxMessageGroup.TX_STATE_META_FINISHING_MESSAGE)
 public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
     /** Converts to {@link TxStateMetaFinishing}. */
@@ -32,8 +36,8 @@ public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
         return new TxStateMetaFinishing(
                 txCoordinatorId(),
                 commitPartitionId == null ? null : commitPartitionId.asReplicationGroupId(),
-                isFinishedDueToTimeout()
-
+                isFinishedDueToTimeout(),
+                null
         );
     }
 

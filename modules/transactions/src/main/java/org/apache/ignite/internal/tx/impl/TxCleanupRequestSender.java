@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
@@ -142,18 +143,11 @@ public class TxCleanupRequestSender {
             commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
         }
 
-        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                new TxStateMeta(
-                        oldMeta == null ? state : oldMeta.txState(),
-                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                        commitPartitionId,
-                        oldMeta == null ? commitTimestamp : oldMeta.commitTimestamp(),
-                        oldMeta == null ? null : oldMeta.tx(),
-                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                        cleanupCompletionTimestamp,
-                        oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
-                )
-                )
+        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                .commitPartitionId(commitPartitionId)
+                .commitTimestamp(commitTimestamp)
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .build())
         );
     }
 

@@ -49,7 +49,9 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.tx.test.TxStateMetaTestUtils.assertTxStateMetaIsSame;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -67,6 +69,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -224,6 +227,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -855,7 +859,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null, null, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNode.id(), commitPartitionId, null, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -1347,6 +1351,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doSingleRowRequest(UUID txId, BinaryRow binaryRow, RequestType requestType, boolean full) {
+        return doSingleRowRequest(txId, binaryRow, requestType, full, null);
+    }
+
+    private CompletableFuture<?> doSingleRowRequest(
+            UUID txId,
+            BinaryRow binaryRow,
+            RequestType requestType,
+            boolean full,
+            @Nullable String txLabel
+    ) {
         return partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(zonePartitionIdMessage(grpId))
                         .tableId(TABLE_ID)
@@ -1359,6 +1373,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .coordinatorId(localNode.id())
                         .full(full)
                         .timestamp(clock.now())
+                        .txLabel(txLabel)
                         .build(),
                 localNode.id()
         );
@@ -1369,6 +1384,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doSingleRowPkRequest(UUID txId, BinaryRow binaryRow, RequestType requestType, boolean full) {
+        return doSingleRowPkRequest(txId, binaryRow, requestType, full, null);
+    }
+
+    private CompletableFuture<?> doSingleRowPkRequest(
+            UUID txId,
+            BinaryRow binaryRow,
+            RequestType requestType,
+            boolean full,
+            @Nullable String txLabel
+    ) {
         return partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(zonePartitionIdMessage(grpId))
                         .tableId(TABLE_ID)
@@ -1381,6 +1406,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .coordinatorId(localNode.id())
                         .full(full)
                         .timestamp(clock.now())
+                        .txLabel(txLabel)
                         .build(),
                 localNode.id()
         );
@@ -1402,6 +1428,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doMultiRowRequest(UUID txId, Collection<BinaryRow> binaryRows, RequestType requestType, boolean full) {
+        return doMultiRowRequest(txId, binaryRows, requestType, full, null);
+    }
+
+    private CompletableFuture<?> doMultiRowRequest(
+            UUID txId,
+            Collection<BinaryRow> binaryRows,
+            RequestType requestType,
+            boolean full,
+            @Nullable String txLabel
+    ) {
         return partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                         .groupId(zonePartitionIdMessage(grpId))
                         .tableId(TABLE_ID)
@@ -1414,6 +1450,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .coordinatorId(localNode.id())
                         .full(full)
                         .timestamp(clock.now())
+                        .txLabel(txLabel)
                         .build(),
                 localNode.id()
         );
@@ -1428,6 +1465,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doMultiRowPkRequest(UUID txId, Collection<BinaryRow> binaryRows, RequestType requestType, boolean full) {
+        return doMultiRowPkRequest(txId, binaryRows, requestType, full, null);
+    }
+
+    private CompletableFuture<?> doMultiRowPkRequest(
+            UUID txId,
+            Collection<BinaryRow> binaryRows,
+            RequestType requestType,
+            boolean full,
+            @Nullable String txLabel
+    ) {
         return partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                         .groupId(zonePartitionIdMessage(grpId))
                         .tableId(TABLE_ID)
@@ -1440,6 +1487,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .coordinatorId(localNode.id())
                         .full(full)
                         .timestamp(clock.now())
+                        .txLabel(txLabel)
                         .build(),
                 localNode.id()
         );
@@ -1822,6 +1870,80 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void failsWhenScanReadsTupleWithIncompatibleSchemaFromFuture() {
         testFailsWhenReadingFromFutureIncompatibleSchema(
                 (targetTxId, key) -> doRwScanRetrieveBatchRequest(targetTxId)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("txLabelParameters")
+    public void testTxLabelAfterRequest(boolean readOnly, boolean pk, boolean full, boolean multiRow, boolean txLabelShouldBePresent) {
+        UUID txId = newTxId();
+        BinaryRow br = binaryRow(1);
+        String txLabel = "my-tx-label";
+
+        CompletableFuture<?> rrFut;
+
+        if (readOnly) {
+            rrFut = doReadOnlySingleGet(br);
+        } else if (pk) {
+            if (multiRow) {
+                rrFut = doMultiRowPkRequest(txId, List.of(br), RW_DELETE_ALL, full, txLabel);
+            } else {
+                rrFut = doSingleRowPkRequest(txId, br, RW_DELETE, full, txLabel);
+            }
+        } else {
+            if (multiRow) {
+                rrFut = doMultiRowRequest(txId, List.of(br), RW_UPSERT_ALL, full, txLabel);
+            } else {
+                rrFut = doSingleRowRequest(txId, br, RW_UPSERT, full, txLabel);
+            }
+        }
+
+        assertThat(rrFut, willCompleteSuccessfully());
+
+        TxStateMeta txMeta = txManager.stateMeta(txId);
+
+        if (txLabelShouldBePresent) {
+            assertEquals(txLabel, txMeta.txLabel());
+        } else {
+            if (txMeta != null) {
+                assertNull(txMeta.txLabel());
+            }
+        }
+    }
+
+    private static Stream<Arguments> txLabelParameters() {
+        return Stream.of(
+                argumentSet("read-only", true, false, false, false, false),
+                argumentSet("rw pk full multi-row", false, true, true, true, false),
+                argumentSet("rw pk full single-row", false, true, true, false, false),
+                argumentSet("rw pk non-full multi-row", false, true, false, true, true),
+                argumentSet("rw pk non-full single-row", false, true, false, false, true),
+                argumentSet("rw non-pk full multi-row", false, false, true, true, false),
+                argumentSet("rw non-pk full single-row", false, false, true, false, false),
+                argumentSet("rw non-pk non-full multi-row", false, false, false, true, true),
+                argumentSet("rw non-pk non-full single-row", false, false, false, false, true)
+        );
+    }
+
+    @Test
+    public void txStateMessageConversion() {
+        TxStateMeta txStateMeta = TxStateMeta.builder(PENDING)
+                .txCoordinatorId(UUID.randomUUID())
+                .commitPartitionId(new ZonePartitionId(1, 1))
+                .commitTimestamp(hybridTimestamp(1))
+                .txLabel("test-tx-label")
+                .build();
+
+        assertTxStateMetaIsSame(
+                txStateMeta,
+                txStateMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY).asTxStateMeta()
+        );
+
+        TxStateMetaAbandoned txStateMetaAbandoned = txStateMeta.abandoned();
+
+        assertTxStateMetaIsSame(
+                txStateMetaAbandoned,
+                txStateMetaAbandoned.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY).asTxStateMeta()
         );
     }
 

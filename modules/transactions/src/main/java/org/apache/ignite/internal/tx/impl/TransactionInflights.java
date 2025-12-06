@@ -170,7 +170,26 @@ public class TransactionInflights {
 
         // Avoid completion under lock.
         if (tuple != null) {
-            tuple.onInflightsRemoved();
+            tuple.onInflightRemoved(tuple.err);
+        }
+    }
+
+    void removeInflight(UUID txId, Throwable cause) {
+        // Can be null if tx was aborted and inflights were removed from the collection.
+        TxContext tuple = txCtxMap.computeIfPresent(txId, (uuid, ctx) -> {
+            if (cause != null && ctx.err == null) {
+                ctx.err = cause; // Retain only first exception.
+            }
+
+            // Update inflight counter after assigning error value to avoid issues with visibility.
+            ctx.removeInflight(txId);
+
+            return ctx;
+        });
+
+        // Avoid completion under lock.
+        if (tuple != null) {
+            tuple.onInflightRemoved(tuple.err);
         }
     }
 
@@ -251,6 +270,7 @@ public class TransactionInflights {
 
     abstract static class TxContext {
         volatile long inflights = 0; // Updated under lock.
+        Throwable err;
 
         boolean addInflight() {
             if (isTxFinishing()) {
@@ -269,7 +289,7 @@ public class TransactionInflights {
             inflights--;
         }
 
-        abstract void onInflightsRemoved();
+        abstract void onInflightRemoved(@Nullable Throwable t);
 
         abstract void finishTx(@Nullable Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups);
 
@@ -293,7 +313,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void onInflightsRemoved() {
+        void onInflightRemoved(Throwable t) {
             // No-op.
         }
 
@@ -337,12 +357,29 @@ public class TransactionInflights {
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
-            waitReadyToFinish(commit).whenComplete((ignoredReadyToFinish, readyException) -> {
+            waitReadyToFinish(commit).whenComplete((ignored, readyException) -> {
                 try {
-                    CompletableFuture<Void> actionFut = finishAction.apply(commit && readyException == null);
+                    if (commit) {
+                        if (readyException == null) {
+                            CompletableFuture<Void> actionFut = finishAction.apply(true);
+
+                            actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
+                                    completeFinishInProgressFuture(true, null, finishException));
+                        } else {
+                            // If we got ready exception, that means some of enlisted partitions could be broken/unavailable.
+                            // Respond to caller with the commit failure immediately to reduce potential unavailability window.
+                            completeFinishInProgressFuture(true, readyException, null);
+
+                            finishAction.apply(false);
+                        }
+
+                        return;
+                    }
+
+                    CompletableFuture<Void> actionFut = finishAction.apply(false);
 
                     actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
-                            completeFinishInProgressFuture(commit, readyException, finishException));
+                            completeFinishInProgressFuture(false, readyException, finishException));
                 } catch (Throwable err) {
                     completeFinishInProgressFuture(commit, readyException, err);
                 }
@@ -407,8 +444,13 @@ public class TransactionInflights {
         }
 
         private CompletableFuture<Void> waitNoInflights() {
+            // no new inflights are possible due to locked tx for update.
             if (inflights == 0) {
-                waitRepFut.complete(null);
+                if (err != null) {
+                    waitRepFut.completeExceptionally(err);
+                } else {
+                    waitRepFut.complete(null);
+                }
             }
             return waitRepFut;
         }
@@ -418,9 +460,13 @@ public class TransactionInflights {
         }
 
         @Override
-        public void onInflightsRemoved() {
+        void onInflightRemoved(@Nullable Throwable t) {
             if (inflights == 0 && finishInProgressFuture != null) {
-                waitRepFut.complete(null);
+                if (t == null) {
+                    waitRepFut.complete(null);
+                } else {
+                    waitRepFut.completeExceptionally(t);
+                }
             }
         }
 

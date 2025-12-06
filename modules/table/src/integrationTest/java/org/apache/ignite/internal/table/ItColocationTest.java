@@ -478,7 +478,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         tbl = new TableImpl(intTable, schemaRegistry, lockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
-        marshaller = new TupleMarshallerImpl(schema);
+        marshaller = new TupleMarshallerImpl(tbl::qualifiedName, schema);
     }
 
     private static LockManager lockManager() {

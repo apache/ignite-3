@@ -460,6 +460,12 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+
+            if (javaStackTrace != null)
+            {
+                javaStackTrace += $"{Environment.NewLine}---- End of server-side stack trace ----{Environment.NewLine}";
+            }
+
             var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();

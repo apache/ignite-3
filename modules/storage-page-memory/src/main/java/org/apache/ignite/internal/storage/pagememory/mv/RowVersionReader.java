@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +32,10 @@ interface RowVersionReader {
         switch (dataType) {
             case RowVersion.DATA_TYPE:
                 return new PlainRowVersionReader(link, partitionId);
+            case WiLinkableRowVersion.WRITE_INTENT_DATA_TYPE:
+                return new WiLinkableWriteIntentReader(link, partitionId);
+            case WiLinkableRowVersion.COMMITTED_DATA_TYPE:
+                return new WiLinkableCommittedVersionReader(link, partitionId);
             default:
                 throw new IllegalStateException("Unsupported data type: " + dataType);
         }
@@ -42,22 +47,22 @@ interface RowVersionReader {
      * <p>This is executed under a read lock over the corresponding page.
      *
      * @param pageAddr Page address.
-     * @param offset Row version offset within the page.
+     * @param payload Data page payload.
      */
-    void readFromPage(long pageAddr, int offset);
+    void readFromPage(long pageAddr, DataPagePayload payload);
 
-    /** Returns the timestamp of the row version that was read by {@link #readFromPage(long, int)}. */
+    /** Returns the timestamp of the row version that was read by {@link #readFromPage(long, DataPagePayload)}. */
     @Nullable
     HybridTimestamp timestamp();
 
-    /** Returns the schema version of the row version that was read by {@link #readFromPage(long, int)}. */
+    /** Returns the schema version of the row version that was read by {@link #readFromPage(long, DataPagePayload)}. */
     int schemaVersion();
 
-    /** Returns value size of the row version that was read by {@link #readFromPage(long, int)}. */
+    /** Returns value size of the row version that was read by {@link #readFromPage(long, DataPagePayload)}. */
     int valueSize();
 
     /**
-     * Creates a {@link RowVersion} instance using the data read by {@link #readFromPage(long, int)}.
+     * Creates a {@link RowVersion} instance using the data read by {@link #readFromPage(long, DataPagePayload)}.
      *
      * @param valueSize Value size.
      * @param value Binary value (can be {@code null} if not loaded).

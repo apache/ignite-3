@@ -20,11 +20,12 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -63,8 +64,8 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         sql.execute(null, "ALTER TABLE " + tableName + " DROP COLUMN NAME");
 
         Tuple rec2 = Tuple.create().set("ID", id).set("NAME", "name2");
-        Throwable ex = assertThrowsWithCause(() -> recordView.upsert(null, rec2), IllegalArgumentException.class);
-        assertEquals("Tuple doesn't match schema: schemaVersion=2, extraColumns=[NAME]", ex.getMessage());
+        assertThrowsWithCause(() -> recordView.upsert(null, rec2), MarshallerException.class,
+                "Tuple doesn't match schema: schemaVersion=2, extraColumns=[NAME]");
     }
 
     @Test
@@ -145,8 +146,8 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
                 : () -> recordView.insert(null, rec);
 
         // Insert fails, because there is no NAME column.
-        var ex = assertThrows(IgniteException.class, action::run);
-        assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
+        IgniteTestUtils.assertThrows(IgniteException.class, action::run,
+                "Tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]");
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
@@ -175,8 +176,8 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
                 ? () -> kvView.getAndPut(null, key, val)
                 : () -> kvView.put(null, key, val);
 
-        var ex = assertThrows(IgniteException.class, action::run);
-        assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
+        IgniteTestUtils.assertThrows(IgniteException.class, action::run,
+                "Value tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]");
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
@@ -203,11 +204,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
                 ? () -> recordView.getAndUpsert(null, rec)
                 : () -> recordView.insert(null, rec);
 
-        var ex = assertThrows(IgniteException.class, action::run);
-        assertEquals(
+        IgniteTestUtils.assertThrows(IgniteException.class, action::run,
                 "Fields [name] of type org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$Pojo "
-                        + "are not mapped to columns",
-                ex.getMessage());
+                        + "are not mapped to columns");
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
@@ -237,12 +236,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
                 ? () -> kvView.getAndPut(null, key, val)
                 : () -> kvView.put(null, key, val);
 
-        var ex = assertThrows(IgniteException.class, action::run);
-        assertEquals(
-                "Fields [name] of type "
+        IgniteTestUtils.assertThrows(IgniteException.class, action::run, "Fields [name] of type "
                         + "org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$ValPojo "
-                        + "are not mapped to columns",
-                ex.getMessage());
+                        + "are not mapped to columns");
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
