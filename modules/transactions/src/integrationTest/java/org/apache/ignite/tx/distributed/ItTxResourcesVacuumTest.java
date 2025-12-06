@@ -306,9 +306,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
 
-        PartitionGroupId groupId = colocationEnabled()
-                ? new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId)
-                : new TablePartitionId(tableId(anyNode(), TABLE_NAME), partId);
+        ZonePartitionId groupId = new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(anyNode(), groupId);
         assertNotNull(replicaMeta);
@@ -393,18 +391,14 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
-        PartitionGroupId commitPartGrpId = colocationEnabled()
-                ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
-                : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
+        ZonePartitionId commitPartGrpId = new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, commitPartGrpId);
         IgniteImpl commitPartitionLeaseholder = findNode(n -> n.id().equals(replicaMeta.getLeaseholderId()));
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                colocationEnabled()
-                        ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
-                        : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
+                new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
         );
 
         log.info("Test: Commit partition [part={}, leaseholder={}, hostingNodes={}].", commitPartGrpId, commitPartitionLeaseholder.name(),
@@ -506,18 +500,14 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        PartitionGroupId commitPartGrpId = colocationEnabled()
-                ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
-                : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
+        ZonePartitionId commitPartGrpId = new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, commitPartGrpId);
         IgniteImpl commitPartitionLeaseholder = findNode(n -> n.id().equals(replicaMeta.getLeaseholderId()));
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                colocationEnabled()
-                        ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
-                        : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
+                new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
         );
 
         log.info("Test: Commit partition [leaseholder={}, hostingNodes={}].", commitPartitionLeaseholder.name(), commitPartNodes);
@@ -604,18 +594,14 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        PartitionGroupId commitPartGrpId = colocationEnabled()
-                ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
-                : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
+        ZonePartitionId commitPartGrpId = new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, commitPartGrpId);
         IgniteImpl commitPartitionLeaseholder = findNode(n -> n.id().equals(replicaMeta.getLeaseholderId()));
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                colocationEnabled()
-                        ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
-                        : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
+                new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
         );
 
         log.info("Test: Commit partition [part={}, leaseholder={}, hostingNodes={}].", commitPartGrpId, commitPartitionLeaseholder.name(),
