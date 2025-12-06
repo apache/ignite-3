@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 
 import java.util.ArrayList;
@@ -33,7 +32,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
@@ -105,7 +103,7 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
                         .tableIds(partition.tableIds())
                         .timestamp(clockService.now())
                         .txId(txId)
@@ -194,13 +192,13 @@ public class TxMessageSender {
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                         .txId(txId)
                         .enlistmentConsistencyToken(consistencyToken)
                         .build()
@@ -241,11 +239,11 @@ public class TxMessageSender {
      * @param replicationGroupId Replication group ID corresponding to a partition.
      * @return Completable future of ReplicaResponse.
      */
-    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ReplicationGroupId replicationGroupId) {
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ZonePartitionId replicationGroupId) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupRecoveryRequest()
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
                         .build()
         );
     }
@@ -266,7 +264,7 @@ public class TxMessageSender {
         for (EnlistedPartitionGroup partition : enlistedPartitionGroups) {
             messages.add(
                     TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
-                            .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
+                            .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
                             .tableIds(partition.tableIds())
                             .build()
             );
@@ -284,7 +282,7 @@ public class TxMessageSender {
             PartitionEnlistment enlistedPartition = e.getValue();
 
             messages.put(
-                    toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, e.getKey()),
+                    toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, e.getKey()),
                     TX_MESSAGES_FACTORY.partitionEnlistmentMessage()
                             .primaryConsistentId(enlistedPartition.primaryNodeConsistentId())
                             .tableIds(enlistedPartition.tableIds())
