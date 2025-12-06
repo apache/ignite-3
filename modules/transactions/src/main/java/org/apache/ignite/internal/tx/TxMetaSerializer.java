@@ -22,9 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -34,7 +31,6 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link TxMeta} instances.
  */
-// TODO remove support of v1
 public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     /** Serializer instance. */
     public static final TxMetaSerializer INSTANCE = new TxMetaSerializer();
@@ -46,18 +42,15 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
 
     @Override
     protected void writeExternalData(TxMeta meta, IgniteDataOutput out) throws IOException {
-        boolean hasAnyZonePartitionIds = hasAnyZonePartitionIds(meta);
-        if (hasAnyZonePartitionIds) {
-            assert hasNoTablePartitionIds(meta) : "Both table-based and zone-based partition IDs: " + meta.enlistedPartitions();
-        }
-
+        // Write this boolean flag (which is always true) due to compatibility reasons.
+        boolean hasAnyZonePartitionIds = true;
         out.writeBoolean(hasAnyZonePartitionIds);
 
         out.writeVarInt(meta.txState().id());
 
         out.writeVarInt(meta.enlistedPartitions().size());
         for (EnlistedPartitionGroup enlistedPartitionGroup : meta.enlistedPartitions()) {
-            PartitionGroupId partitionGroupId = (PartitionGroupId) enlistedPartitionGroup.groupId();
+            ZonePartitionId partitionGroupId = enlistedPartitionGroup.groupId();
 
             out.writeVarInt(partitionGroupId.objectId());
             out.writeVarInt(partitionGroupId.partitionId());
@@ -67,36 +60,28 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
         HybridTimestamp.write(meta.commitTimestamp(), out);
     }
 
-    private static boolean hasAnyZonePartitionIds(TxMeta meta) {
-        return meta.enlistedPartitions().stream()
-                .anyMatch(partition -> partition.groupId() instanceof ZonePartitionId);
-    }
-
-    private static boolean hasNoTablePartitionIds(TxMeta meta) {
-        // TODO
-        return true;
-//        return meta.enlistedPartitions().stream()
-//                .noneMatch(partition -> partition.groupId() instanceof TablePartitionId);
-    }
-
     @Override
     protected TxMeta readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-        boolean usesZonePartitionIds;
+        // V1 version is not supported anymore.
+        if (protoVer == 1) {
+            throw new IllegalArgumentException("Transaction meta v1 is not supported.");
+        }
+
         if (protoVer >= 2) {
-            usesZonePartitionIds = in.readBoolean();
-        } else {
-            usesZonePartitionIds = false;
+            boolean usesZonePartitionIds = in.readBoolean();
+            assert usesZonePartitionIds : "Transaction meta relies on table partition IDs.";
         }
 
         TxState state = TxState.fromId(in.readVarIntAsInt());
-        List<EnlistedPartitionGroup> enlistedPartitions = readEnlistedPartitions(in, protoVer, usesZonePartitionIds);
+        List<EnlistedPartitionGroup> enlistedPartitions = readEnlistedPartitions(in, protoVer);
         HybridTimestamp commitTimestamp = HybridTimestamp.readNullableFrom(in);
 
         return new TxMeta(state, enlistedPartitions, commitTimestamp);
     }
 
-    private static List<EnlistedPartitionGroup> readEnlistedPartitions(IgniteDataInput in, byte protoVer, boolean usesZonePartitionIds)
-            throws IOException {
+    private static List<EnlistedPartitionGroup> readEnlistedPartitions(IgniteDataInput in, byte protoVer) throws IOException {
+        assert protoVer >= 2 : "Unsupported protocol version [ver=" + protoVer + "].";
+
         int length = in.readVarIntAsInt();
 
         List<EnlistedPartitionGroup> enlistedPartitions = new ArrayList<>(length);
@@ -104,29 +89,15 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
             int objectId = in.readVarIntAsInt();
             int partitionId = in.readVarIntAsInt();
 
-            Set<Integer> tableIds;
-            if (protoVer >= 2) {
-                tableIds = readVarIntSet(in);
-            } else {
-                // In version 1 only table-based partitions were supported, so tableIds will be a singleton.
-                tableIds = Set.of(objectId);
-            }
+            Set<Integer> tableIds = readVarIntSet(in);
 
             enlistedPartitions.add(
                     new EnlistedPartitionGroup(
-                            (ZonePartitionId) replicationGroupId(objectId, partitionId, usesZonePartitionIds),
+                            new ZonePartitionId(objectId, partitionId),
                             tableIds
                     ));
         }
 
         return enlistedPartitions;
-    }
-
-    private static ReplicationGroupId replicationGroupId(int objectId, int partitionId, boolean usesZonePartitionIds) {
-        if (usesZonePartitionIds) {
-            return new ZonePartitionId(objectId, partitionId);
-        } else {
-            return new TablePartitionId(objectId, partitionId);
-        }
     }
 }

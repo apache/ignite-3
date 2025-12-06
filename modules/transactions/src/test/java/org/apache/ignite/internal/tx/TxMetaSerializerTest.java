@@ -30,7 +30,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class TxMetaSerializerTest {
@@ -74,8 +73,7 @@ class TxMetaSerializerTest {
     }
 
     @Test
-    @Disabled("TODO")
-    void v1CannotBeDeserialized() {
+    void v1IsNotSupported() {
         byte[] bytes = Base64.getDecoder().decode(V1_SERIALIZED_BASE64);
 
         assertThrows(IllegalArgumentException.class, () -> VersionedSerialization.fromBytes(bytes, serializer));
