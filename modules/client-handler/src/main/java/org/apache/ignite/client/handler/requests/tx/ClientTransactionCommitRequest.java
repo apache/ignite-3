@@ -31,8 +31,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteTuple3;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -161,7 +161,7 @@ public class ClientTransactionCommitRequest {
      * @return {@code True} if merged.
      */
     public static boolean merge(InternalTable table, int partId, String consistentId, long token, InternalTransaction tx, boolean commit) {
-        ReplicationGroupId replicationGroupId = table.targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = table.targetReplicationGroupId(partId);
         PendingTxPartitionEnlistment existing = tx.enlistedPartition(replicationGroupId);
         if (existing == null) {
             tx.enlist(replicationGroupId, table.tableId(), consistentId, token);

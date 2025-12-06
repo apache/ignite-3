@@ -56,7 +56,6 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -92,7 +91,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
     private static final int TABLE_ID_2 = 20;
     private static final int TABLE_ID_3 = 30;
 
-    private static final Map<ReplicationGroupId, PartitionEnlistment> PARTITIONS = Map.of(
+    private static final Map<ZonePartitionId, PartitionEnlistment> PARTITIONS = Map.of(
             ZONE_PARTITION_ID_1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(TABLE_ID_1)),
             ZONE_PARTITION_ID_2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(TABLE_ID_2)),
             ZONE_PARTITION_ID_3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(TABLE_ID_3))

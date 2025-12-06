@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -47,7 +47,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      */
     public TxStateMetaAbandoned(
             UUID txCoordinatorId,
-            ReplicationGroupId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             @Nullable String txLabel
     ) {
         super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null, null, null, txLabel);
@@ -69,13 +69,13 @@ public class TxStateMetaAbandoned extends TxStateMeta {
             ReplicaMessagesFactory replicaMessagesFactory,
             TxMessagesFactory txMessagesFactory
     ) {
-        ReplicationGroupId commitPartitionId = commitPartitionId();
+        ZonePartitionId commitPartitionId = commitPartitionId();
 
         return txMessagesFactory.txStateMetaAbandonedMessage()
                 .txState(txState())
                 .txCoordinatorId(txCoordinatorId())
                 .commitPartitionId(
-                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                        commitPartitionId == null ? null : toZonePartitionIdMessage(replicaMessagesFactory, commitPartitionId)
                 )
                 .commitTimestamp(commitTimestamp())
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())

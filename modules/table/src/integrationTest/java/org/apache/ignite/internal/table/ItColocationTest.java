@@ -227,11 +227,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    ReplicationGroupId commitPartition,
+                    ZonePartitionId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
                     boolean recovery,
-                    Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+                    Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
@@ -367,7 +367,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                true,
                 new TableMetricSource(QualifiedName.fromSimple("TEST"))
         );
     }

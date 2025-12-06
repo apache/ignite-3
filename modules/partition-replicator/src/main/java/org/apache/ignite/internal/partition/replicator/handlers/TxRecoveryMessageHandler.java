@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -36,13 +36,13 @@ public class TxRecoveryMessageHandler {
     private static final IgniteLogger LOG = Loggers.forClass(TxRecoveryMessageHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
     private final TxRecoveryEngine txRecoveryEngine;
 
     /** Constructor. */
     public TxRecoveryMessageHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             TxRecoveryEngine txRecoveryEngine
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;

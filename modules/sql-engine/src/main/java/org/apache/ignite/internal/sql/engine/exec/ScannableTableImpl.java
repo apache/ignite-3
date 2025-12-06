@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -218,7 +218,7 @@ public class ScannableTableImpl implements ScannableTable {
             return TxContext.readOnly(txAttributes.id(), txAttributes.coordinatorId(), timestamp);
         }
 
-        ReplicationGroupId commitPartition = txAttributes.commitPartition();
+        ZonePartitionId commitPartition = txAttributes.commitPartition();
 
         assert commitPartition != null;
 

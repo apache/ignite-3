@@ -23,7 +23,6 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
@@ -79,15 +78,15 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         InternalTransaction tx = internalTbl.txManager().beginExplicitRw(HYBRID_TIMESTAMP_TRACKER, InternalTxOptions.defaults());
 
         int partId = ((PartitionGroupId) internalTbl.groupId()).partitionId();
-        ReplicationGroupId tblPartId = new ZonePartitionId(zoneId, partId);
+        var zonePartitionId = new ZonePartitionId(zoneId, partId);
 
         long term = 1L;
 
-        tx.assignCommitPartition(tblPartId);
+        tx.assignCommitPartition(zonePartitionId);
 
-        InternalClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
+        InternalClusterNode primaryReplicaNode = getPrimaryReplica(zonePartitionId);
 
-        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode.name(), term);
+        tx.enlist(zonePartitionId, internalTbl.tableId(), primaryReplicaNode.name(), term);
 
         return tx;
     }

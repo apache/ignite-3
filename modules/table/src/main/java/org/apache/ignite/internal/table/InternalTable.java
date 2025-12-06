@@ -27,7 +27,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -460,7 +460,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId Partition id.
      * @return The id.
      */
-    ReplicationGroupId targetReplicationGroupId(int partId);
+    ZonePartitionId targetReplicationGroupId(int partId);
 
     /**
      * Returns a metric source for this table.

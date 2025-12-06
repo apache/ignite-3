@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 
@@ -31,7 +31,7 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
     /** Converts to {@link TxStateMetaFinishing}. */
     default TxStateMetaFinishing asTxStateMetaFinishing() {
-        ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
+        ZonePartitionIdMessage commitPartitionId = commitPartitionId();
 
         return new TxStateMetaFinishing(
                 txCoordinatorId(),

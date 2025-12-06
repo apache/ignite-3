@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -45,7 +45,7 @@ public class TxStateMeta implements TransactionMeta {
     private final @Nullable UUID txCoordinatorId;
 
     /** ID of the replication group that manages a transaction state. */
-    private final @Nullable ReplicationGroupId commitPartitionId;
+    private final @Nullable ZonePartitionId commitPartitionId;
 
     private final @Nullable HybridTimestamp commitTimestamp;
 
@@ -78,8 +78,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
-            // TODO Ignite-22522 Use partition instead.
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,
             @Nullable Boolean isFinishedDueToTimeout
@@ -103,7 +102,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp,
@@ -165,7 +164,7 @@ public class TxStateMeta implements TransactionMeta {
         return txCoordinatorId;
     }
 
-    public @Nullable ReplicationGroupId commitPartitionId() {
+    public @Nullable ZonePartitionId commitPartitionId() {
         return commitPartitionId;
     }
 
@@ -199,7 +198,7 @@ public class TxStateMeta implements TransactionMeta {
                 .txState(txState)
                 .txCoordinatorId(txCoordinatorId)
                 .commitPartitionId(
-                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                        commitPartitionId == null ? null : toZonePartitionIdMessage(replicaMessagesFactory, commitPartitionId)
                 )
                 .commitTimestamp(commitTimestamp)
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
@@ -250,7 +249,7 @@ public class TxStateMeta implements TransactionMeta {
     public static class TxStateMetaBuilder {
         protected TxState txState;
         protected @Nullable UUID txCoordinatorId;
-        protected @Nullable ReplicationGroupId commitPartitionId;
+        protected @Nullable ZonePartitionId commitPartitionId;
         private @Nullable HybridTimestamp commitTimestamp;
         private @Nullable Long initialVacuumObservationTimestamp;
         private @Nullable Long cleanupCompletionTimestamp;
@@ -301,7 +300,7 @@ public class TxStateMeta implements TransactionMeta {
          * @param commitPartitionId Commit partition replication group id.
          * @return Builder.
          */
-        public TxStateMetaBuilder commitPartitionId(@Nullable ReplicationGroupId commitPartitionId) {
+        public TxStateMetaBuilder commitPartitionId(@Nullable ZonePartitionId commitPartitionId) {
             if (commitPartitionId != null) {
                 this.commitPartitionId = commitPartitionId;
             }

@@ -624,7 +624,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
     }
@@ -692,7 +691,6 @@ public class ItTxTestCluster {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -1339,7 +1337,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
 

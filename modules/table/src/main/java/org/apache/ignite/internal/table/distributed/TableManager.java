@@ -1263,7 +1263,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                nodeProperties.colocationEnabled(),
                 createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
@@ -2154,7 +2153,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void destroyTxStateStoragesForTablesNotIn(Set<Integer> aliveTableIds) {
-        Set<Integer> tableIdsOnDisk = sharedTxStateStorage.tableOrZoneIdsOnDisk();
+        Set<Integer> tableIdsOnDisk = sharedTxStateStorage.zoneIdsOnDisk();
 
         for (int tableId : difference(tableIdsOnDisk, aliveTableIds)) {
             sharedTxStateStorage.destroyStorage(tableId);

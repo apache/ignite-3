@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTA
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V3;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V1;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
@@ -61,7 +59,6 @@ import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
-import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
@@ -206,18 +203,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V3, buildIndexCommandHandler);
 
         if (!nodeProperties.colocationEnabled()) {
-            commandHandlersBuilder.addHandler(
-                    GROUP_TYPE,
-                    FINISH_TX_V1,
-                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
-            );
-
-            commandHandlersBuilder.addHandler(
-                    GROUP_TYPE,
-                    FINISH_TX_V2,
-                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
-            );
-
             commandHandlersBuilder.addHandler(
                     TxMessageGroup.GROUP_TYPE,
                     VACUUM_TX_STATE_COMMAND,

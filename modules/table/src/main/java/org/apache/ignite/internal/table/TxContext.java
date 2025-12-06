@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -53,7 +53,7 @@ public abstract class TxContext {
     public static TxContext readWrite(
             UUID txId,
             UUID txCoordinatorId,
-            ReplicationGroupId commitPartition,
+            ZonePartitionId commitPartition,
             long enlistmentConsistencyToken
     ) {
         return new ReadWrite(txId, txCoordinatorId, commitPartition, enlistmentConsistencyToken);
@@ -136,10 +136,10 @@ public abstract class TxContext {
 
     /** Read-write transaction context. */
     public static class ReadWrite extends TxContext {
-        private final ReplicationGroupId commitPartition;
+        private final ZonePartitionId commitPartition;
         private final long enlistmentConsistencyToken;
 
-        private ReadWrite(UUID txId, UUID txCoordinatorId, ReplicationGroupId commitPartition, long enlistmentConsistencyToken) {
+        private ReadWrite(UUID txId, UUID txCoordinatorId, ZonePartitionId commitPartition, long enlistmentConsistencyToken) {
             super(txId, txCoordinatorId);
 
             Objects.requireNonNull(commitPartition, "Commit partition is mandatory for RW transaction");
@@ -170,7 +170,7 @@ public abstract class TxContext {
         }
 
         /** Returns transaction commit partition. */
-        public ReplicationGroupId commitPartition() {
+        public ZonePartitionId commitPartition() {
             return commitPartition;
         }
 

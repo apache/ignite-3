@@ -53,7 +53,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -73,29 +73,31 @@ import org.junit.jupiter.api.function.Executable;
 public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbstractTest {
     protected static final int TABLE_ID = 1;
 
+    protected static final int ZONE_ID = 2;
+
     protected static final byte[] GROUP_CONFIGURATION = {1, 2, 3};
 
     protected static final byte[] SNAPSHOT_INFO = {4, 5, 6};
 
     protected static final LeaseInfo LEASE_INFO = new LeaseInfo(1, UUID.randomUUID(), "node");
 
-    protected TxStateStorage tableStorage;
+    protected TxStateStorage txStateStorage;
 
     /**
      * Creates {@link TxStatePartitionStorage} to test.
      */
-    protected abstract TxStateStorage createTableOrZoneStorage();
+    protected abstract TxStateStorage createZoneStorage();
 
     @BeforeEach
     protected void beforeTest() {
-        tableStorage = createTableOrZoneStorage();
+        txStateStorage = createZoneStorage();
 
-        tableStorage.start();
+        txStateStorage.start();
     }
 
     @AfterEach
     protected void afterTest() throws Exception {
-        tableStorage.close();
+        txStateStorage.close();
     }
 
     @Test
@@ -115,7 +117,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     }
 
     private void testPutGetRemove0(BiConsumer<TxStatePartitionStorage, Set<UUID>> removeOp) {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         List<UUID> txIds = new ArrayList<>();
 
@@ -163,7 +165,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     private static List<EnlistedPartitionGroup> generateEnlistedPartitions(int c) {
         return IntStream.range(0, c)
-                .mapToObj(partitionNumber -> new EnlistedPartitionGroup(new TablePartitionId(TABLE_ID, partitionNumber), Set.of(TABLE_ID)))
+                .mapToObj(partitionNumber -> new EnlistedPartitionGroup(new ZonePartitionId(ZONE_ID, partitionNumber), Set.of(TABLE_ID)))
                 .collect(toList());
     }
 
@@ -179,7 +181,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testRemoveAll() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         List<UUID> txIds = new ArrayList<>();
 
@@ -227,7 +229,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testCas() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         UUID txId = UUID.randomUUID();
 
@@ -270,9 +272,9 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testScan() {
-        TxStatePartitionStorage storage0 = tableStorage.getOrCreatePartitionStorage(0);
-        TxStatePartitionStorage storage1 = tableStorage.getOrCreatePartitionStorage(1);
-        TxStatePartitionStorage storage2 = tableStorage.getOrCreatePartitionStorage(2);
+        TxStatePartitionStorage storage0 = txStateStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage1 = txStateStorage.getOrCreatePartitionStorage(1);
+        TxStatePartitionStorage storage2 = txStateStorage.getOrCreatePartitionStorage(2);
 
         Map<UUID, TxMeta> txs = new HashMap<>();
 
@@ -303,8 +305,8 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testDestroy() {
-        TxStatePartitionStorage storage0 = tableStorage.getOrCreatePartitionStorage(0);
-        TxStatePartitionStorage storage1 = tableStorage.getOrCreatePartitionStorage(1);
+        TxStatePartitionStorage storage0 = txStateStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage1 = txStateStorage.getOrCreatePartitionStorage(1);
 
         UUID txId0 = UUID.randomUUID();
         storage0.putForRebalance(txId0, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
@@ -319,7 +321,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void scansInOrderDefinedByTxIds() {
-        TxStatePartitionStorage partitionStorage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage partitionStorage = txStateStorage.getOrCreatePartitionStorage(0);
 
         for (int i = 0; i < 100; i++) {
             putRandomTxMetaWithCommandIndex(partitionStorage, i, i);
@@ -340,7 +342,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void scanOnlySeesDataExistingAtTheMomentOfCreation() {
-        TxStatePartitionStorage partitionStorage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage partitionStorage = txStateStorage.getOrCreatePartitionStorage(0);
 
         UUID existingBeforeScan = new UUID(2, 0);
         partitionStorage.putForRebalance(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
@@ -361,7 +363,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void lastAppliedIndexGetterIsConsistentWithSetter() {
-        TxStatePartitionStorage partitionStorage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage partitionStorage = txStateStorage.getOrCreatePartitionStorage(0);
 
         partitionStorage.lastApplied(10, 2);
 
@@ -370,7 +372,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void compareAndSetMakesLastAppliedChangeVisible() {
-        TxStatePartitionStorage partitionStorage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage partitionStorage = txStateStorage.getOrCreatePartitionStorage(0);
 
         UUID txId = UUID.randomUUID();
         partitionStorage.compareAndSet(txId, null, randomTxMeta(1, txId), 10, 2);
@@ -381,7 +383,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testSuccessRebalance() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         MvPartitionMeta partitionMeta = saneMvPartitionMeta(30, 50);
 
@@ -416,7 +418,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testFailRebalance() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         // Nothing will happen because rebalance has not started.
         assertThat(storage.abortRebalance(), willCompleteSuccessfully());
@@ -449,8 +451,8 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     public void testStartRebalanceForClosedOrDestroyedPartition() {
-        TxStatePartitionStorage storage0 = tableStorage.getOrCreatePartitionStorage(0);
-        TxStatePartitionStorage storage1 = tableStorage.getOrCreatePartitionStorage(1);
+        TxStatePartitionStorage storage0 = txStateStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage1 = txStateStorage.getOrCreatePartitionStorage(1);
 
         storage0.close();
         storage1.destroy();
@@ -461,7 +463,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void testClear() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         // Cleaning up on empty storage should not generate errors.
         assertThat(storage.clear(), willCompleteSuccessfully());
@@ -485,9 +487,9 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void testCleanOnClosedDestroyedAndRebalancedStorages() {
-        TxStatePartitionStorage storage0 = tableStorage.getOrCreatePartitionStorage(0);
-        TxStatePartitionStorage storage1 = tableStorage.getOrCreatePartitionStorage(1);
-        TxStatePartitionStorage storage2 = tableStorage.getOrCreatePartitionStorage(2);
+        TxStatePartitionStorage storage0 = txStateStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage1 = txStateStorage.getOrCreatePartitionStorage(1);
+        TxStatePartitionStorage storage2 = txStateStorage.getOrCreatePartitionStorage(2);
 
         storage0.close();
         storage1.destroy();
@@ -504,7 +506,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void testSetAndReadMeta() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         storage.lastApplied(1, 15);
 
@@ -530,7 +532,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void testCloseStartedRebalance() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         assertThat(storage.startRebalance(), willCompleteSuccessfully());
 
@@ -541,7 +543,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
     @Test
     void testDestroyStartedRebalance() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         assertThat(storage.startRebalance(), willCompleteSuccessfully());
 

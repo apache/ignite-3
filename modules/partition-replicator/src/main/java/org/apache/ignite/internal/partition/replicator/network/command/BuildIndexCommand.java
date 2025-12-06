@@ -31,6 +31,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
  *
  * <p>This command is replaced with {@link BuildIndexCommandV2} and only exists in the source code for backward compatibility.</p>
  */
+@Deprecated(forRemoval = true)
 @Transferable(Commands.BUILD_INDEX_V1)
 public interface BuildIndexCommand extends WriteCommand, CatalogVersionAware {
     /** Returns index ID. */
