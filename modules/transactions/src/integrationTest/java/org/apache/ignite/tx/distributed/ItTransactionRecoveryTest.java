@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -1154,10 +1153,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return colocationEnabled()
-                ? bypassingThreadAssertions(
-                    () -> node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), 0).get(txId))
-                : bypassingThreadAssertions(() -> internalTable.txStateStorage().getPartitionStorage(0).get(txId));
+        return bypassingThreadAssertions(
+                () -> node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), 0).get(txId));
     }
 
     /**
