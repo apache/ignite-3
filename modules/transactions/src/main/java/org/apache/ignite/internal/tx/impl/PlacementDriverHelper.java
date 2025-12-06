@@ -40,7 +40,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.TransactionException;
 
@@ -70,7 +69,6 @@ public class PlacementDriverHelper {
         this.clockService = clockService;
     }
 
-    // TODO
     /**
      * Wait for primary replica to appear for the provided partition.
      *
@@ -78,11 +76,10 @@ public class PlacementDriverHelper {
      * @return Future that completes with node id that is a primary for the provided partition, or completes with exception if no primary
      *         appeared during the await timeout.
      */
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(ReplicationGroupId partitionId) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(ZonePartitionId partitionId) {
         return awaitPrimaryReplicaWithExceptionHandling(partitionId, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
     }
 
-    // TODO
     /**
      * Wait for primary replica to appear for the provided partition.
      *
@@ -93,7 +90,7 @@ public class PlacementDriverHelper {
      *         appeared during the await timeout.
      */
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
-            ReplicationGroupId partitionId,
+            ZonePartitionId partitionId,
             long timeout,
             TimeUnit timeUnit
     ) {
@@ -103,7 +100,7 @@ public class PlacementDriverHelper {
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
-            ReplicationGroupId partitionId,
+            ZonePartitionId partitionId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit timeUnit
@@ -115,7 +112,7 @@ public class PlacementDriverHelper {
 
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
                                 "Failed to get the primary replica"
-                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + timestamp + ']', e);
+                                        + " [zonePartitionId=" + partitionId + ", awaitTimestamp=" + timestamp + ']', e);
                     }
 
                     return primaryReplica;
