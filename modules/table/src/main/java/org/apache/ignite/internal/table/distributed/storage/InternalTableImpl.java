@@ -212,8 +212,6 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-only transaction timeout. */
     private final Supplier<Long> defaultReadTxTimeout;
 
-    private final boolean colocationEnabled;
-
     private final TableMetricSource metrics;
 
     /**
@@ -254,7 +252,6 @@ public class InternalTableImpl implements InternalTable {
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
             Supplier<Long> defaultReadTxTimeout,
-            boolean colocationEnabled,
             TableMetricSource metrics
     ) {
         this.tableName = tableName;
@@ -274,7 +271,6 @@ public class InternalTableImpl implements InternalTable {
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
         this.defaultReadTxTimeout = defaultReadTxTimeout;
-        this.colocationEnabled = colocationEnabled;
         this.metrics = metrics;
     }
 

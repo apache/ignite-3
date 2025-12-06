@@ -1263,7 +1263,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                nodeProperties.colocationEnabled(),
                 createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
