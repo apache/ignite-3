@@ -36,11 +36,11 @@ import org.rocksdb.WriteBatch;
  * A wrapper around a RocksDB column family to store TX storage meta information.
  */
 class TxStateMetaRocksDbPartitionStorage {
-    /** Prefix of the meta keys including table/zone ID. Consists of a 1-byte prefix, and tableId/zoneId (4 bytes), in Big Endian. */
-    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = 1 + ZONE_ID_SIZE_BYTES;
+    /** Prefix of the meta keys including zone ID. Consists of a 1-byte prefix, and zoneId (4 bytes), in Big Endian. */
+    static final int ZONE_PREFIX_SIZE_BYTES = 1 + ZONE_ID_SIZE_BYTES;
 
-    /** Key length for the payload. Consists of a 1-byte prefix, tableId/zoneId (4 bytes) and partitionId (2 bytes), in Big Endian. */
-    private static final int KEY_SIZE_BYTES = TABLE_OR_ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
+    /** Key length for the payload. Consists of a 1-byte prefix, zoneId (4 bytes) and partitionId (2 bytes), in Big Endian. */
+    private static final int KEY_SIZE_BYTES = ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
 
     /**
      * Prefix to store meta information, such as last applied index and term.
@@ -64,7 +64,7 @@ class TxStateMetaRocksDbPartitionStorage {
 
     private final ColumnFamily columnFamily;
 
-    private final int tableOrZoneId;
+    private final int zoneId;
 
     private final int partitionId;
 
@@ -85,10 +85,10 @@ class TxStateMetaRocksDbPartitionStorage {
     @Nullable
     private volatile LeaseInfo leaseInfo;
 
-    TxStateMetaRocksDbPartitionStorage(ColumnFamily columnFamily, int tableOrZoneId, int partitionId) {
+    TxStateMetaRocksDbPartitionStorage(ColumnFamily columnFamily, int zoneId, int partitionId) {
         this.columnFamily = columnFamily;
         this.partitionId = partitionId;
-        this.tableOrZoneId = tableOrZoneId;
+        this.zoneId = zoneId;
 
         lastAppliedKey = createKey(LAST_APPLIED_PREFIX);
         confKey = createKey(CONF_PREFIX);
@@ -100,16 +100,16 @@ class TxStateMetaRocksDbPartitionStorage {
         return ByteBuffer.allocate(KEY_SIZE_BYTES)
                 .order(BYTE_ORDER)
                 .put(prefix)
-                .putInt(tableOrZoneId)
+                .putInt(zoneId)
                 .putShort((short) partitionId)
                 .array();
     }
 
-    private static byte[] createKeyPrefixForTableOrZone(byte prefix, int tableOrZoneId) {
-        return ByteBuffer.allocate(TABLE_OR_ZONE_PREFIX_SIZE_BYTES)
+    private static byte[] createKeyPrefixForZone(byte prefix, int zoneId) {
+        return ByteBuffer.allocate(ZONE_PREFIX_SIZE_BYTES)
                 .order(BYTE_ORDER)
                 .put(prefix)
-                .putInt(tableOrZoneId)
+                .putInt(zoneId)
                 .array();
     }
 
@@ -121,33 +121,6 @@ class TxStateMetaRocksDbPartitionStorage {
 
             lastAppliedIndex = buf.getLong();
             lastAppliedTerm = buf.getLong();
-        }
-
-        config = columnFamily.get(confKey);
-
-        byte[] leaseBytes = columnFamily.get(leaseInfoKey);
-
-        if (leaseBytes != null) {
-            leaseInfo = VersionedSerialization.fromBytes(leaseBytes, LeaseInfoSerializer.INSTANCE);
-        }
-    }
-
-    /**
-     * Special method to be used with TX storages using a legacy format. Such storages saved last applied index and term inside a
-     * different column family.
-     */
-    // TODO: remove this method after the colocation track migration, see https://issues.apache.org/jira/browse/IGNITE-22522.
-    void startInCompatibilityMode(long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
-        byte[] lastAppliedBytes = columnFamily.get(lastAppliedKey);
-
-        if (lastAppliedBytes != null) {
-            ByteBuffer buf = ByteBuffer.wrap(lastAppliedBytes).order(BYTE_ORDER);
-
-            this.lastAppliedIndex = buf.getLong();
-            this.lastAppliedTerm = buf.getLong();
-        } else {
-            this.lastAppliedIndex = lastAppliedIndex;
-            this.lastAppliedTerm = lastAppliedTerm;
         }
 
         config = columnFamily.get(confKey);
@@ -222,9 +195,9 @@ class TxStateMetaRocksDbPartitionStorage {
         leaseInfo = null;
     }
 
-    static void clearForTableOrZone(WriteBatch writeBatch, ColumnFamilyHandle cf, int tableOrZoneId) throws RocksDBException {
+    static void clearForZone(WriteBatch writeBatch, ColumnFamilyHandle cf, int zoneId) throws RocksDBException {
         for (byte prefixByte : List.of(LAST_APPLIED_PREFIX, CONF_PREFIX, LEASE_INFO_PREFIX, SNAPSHOT_INFO_PREFIX)) {
-            byte[] start = createKeyPrefixForTableOrZone(prefixByte, tableOrZoneId);
+            byte[] start = createKeyPrefixForZone(prefixByte, zoneId);
             byte[] end = incrementPrefix(start);
 
             writeBatch.deleteRange(cf, start, end);

@@ -64,9 +64,9 @@ import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 /**
- * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make createTable/createZone operations faster,
+ * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make createZone operations faster,
  * as well as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed
- * on per-table/per-zone basis.
+ * on per-zone basis.
  */
 public class TxStateRocksDbSharedStorage implements IgniteComponent {
     static {
@@ -295,34 +295,34 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /**
      * Destroys tx state storage for table or zone by its ID.
      *
-     * @param tableOrZoneId ID of the table or zone.
+     * @param zoneId ID of the zone.
      */
-    public void destroyStorage(int tableOrZoneId) {
+    public void destroyStorage(int zoneId) {
         byte[] dataStart = ByteBuffer.allocate(TxStateRocksDbStorage.ZONE_PREFIX_SIZE_BYTES)
                 .order(BYTE_ORDER)
-                .putInt(tableOrZoneId)
+                .putInt(zoneId)
                 .array();
         byte[] dataEnd = incrementPrefix(dataStart);
 
         try (WriteBatch writeBatch = new WriteBatch()) {
             writeBatch.deleteRange(txStateColumnFamily.handle(), dataStart, dataEnd);
 
-            TxStateMetaRocksDbPartitionStorage.clearForTableOrZone(writeBatch, txStateMetaColumnFamily().handle(), tableOrZoneId);
+            TxStateMetaRocksDbPartitionStorage.clearForZone(writeBatch, txStateMetaColumnFamily().handle(), zoneId);
 
             db.write(writeOptions, writeBatch);
         } catch (Exception e) {
-            throw new TxStateStorageException("Failed to destroy the transaction state storage [tableOrZoneId={}]", e, tableOrZoneId);
+            throw new TxStateStorageException("Failed to destroy the transaction state storage [zoneId={}]", e, zoneId);
         }
     }
 
     /**
-     * Returns IDs of tables/zones for which there are tx state partition storages on disk. Those were created and flushed to disk; either
+     * Returns IDs of zones for which there are tx state partition storages on disk. Those were created and flushed to disk; either
      * destruction was not started for them, or it failed.
      *
      * <p>This method should only be called when the tx state storage is not accessed otherwise (so no storages in it can appear or
      * be destroyed in parallel with this call).
      */
-    public Set<Integer> tableOrZoneIdsOnDisk() {
+    public Set<Integer> zoneIdsOnDisk() {
         Set<Integer> ids = new HashSet<>();
 
         byte[] lastAppliedGlobalPrefix = {TxStateMetaRocksDbPartitionStorage.LAST_APPLIED_PREFIX};
@@ -336,8 +336,8 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
             while (it.isValid()) {
                 byte[] key = it.key();
-                int tableOrZoneId = ByteUtils.bytesToInt(key, lastAppliedGlobalPrefix.length);
-                ids.add(tableOrZoneId);
+                int zoneId = ByteUtils.bytesToInt(key, lastAppliedGlobalPrefix.length);
+                ids.add(zoneId);
 
                 it.next();
             }
@@ -346,7 +346,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
             // the iteration space.
             it.status();
         } catch (RocksDBException e) {
-            throw new TxStateStorageException(INTERNAL_ERR, "Cannot get table/zone IDs", e);
+            throw new TxStateStorageException(INTERNAL_ERR, "Cannot get zone IDs", e);
         }
 
         return unmodifiableSet(ids);

@@ -72,8 +72,8 @@ class TxStateMetaRocksDbPartitionStorageTest extends IgniteAbstractTest {
         assertThat(sharedStorage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
-    private TxStateMetaRocksDbPartitionStorage createMetaStorage(int tableId, int partitionId) {
-        return new TxStateMetaRocksDbPartitionStorage(sharedStorage.txStateMetaColumnFamily(), tableId, partitionId);
+    private TxStateMetaRocksDbPartitionStorage createMetaStorage(int zoneId, int partitionId) {
+        return new TxStateMetaRocksDbPartitionStorage(sharedStorage.txStateMetaColumnFamily(), zoneId, partitionId);
     }
 
     @Test
@@ -132,36 +132,6 @@ class TxStateMetaRocksDbPartitionStorageTest extends IgniteAbstractTest {
         assertThat(storage.lastAppliedTerm(), is(15L));
         assertThat(storage.configuration(), is(new byte[] {1, 2, 3}));
         assertThat(storage.leaseInfo(), is(leaseInfo));
-    }
-
-    @Test
-    void testStartInCompatibilityMode() throws RocksDBException {
-        TxStateMetaRocksDbPartitionStorage storage = createMetaStorage(1, 2);
-
-        storage.startInCompatibilityMode(5, 6);
-
-        assertThat(storage.lastAppliedIndex(), is(5L));
-        assertThat(storage.lastAppliedTerm(), is(6L));
-        assertThat(storage.configuration(), is(nullValue()));
-        assertThat(storage.leaseInfo(), is(nullValue()));
-
-        try (
-                var writeBatch = new WriteBatch();
-                var options = new WriteOptions()
-        ) {
-            storage.updateLastApplied(writeBatch, 10, 20);
-
-            sharedStorage.db().write(options, writeBatch);
-        }
-
-        storage = createMetaStorage(1, 2);
-
-        storage.startInCompatibilityMode(5, 6);
-
-        assertThat(storage.lastAppliedIndex(), is(10L));
-        assertThat(storage.lastAppliedTerm(), is(20L));
-        assertThat(storage.configuration(), is(nullValue()));
-        assertThat(storage.leaseInfo(), is(nullValue()));
     }
 
     @Test

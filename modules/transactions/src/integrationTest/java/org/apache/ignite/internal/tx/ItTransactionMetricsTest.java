@@ -63,7 +63,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @BeforeAll
-    void createTable() throws Exception {
+    void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
     }
 
