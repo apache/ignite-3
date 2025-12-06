@@ -58,17 +58,39 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty schema = new StringProperty(PROP_SCHEMA,
             "Schema name of the connection", "PUBLIC", null, false, null);
 
-    /** Query timeout. */
+    /**
+     * Query timeout.
+     *
+     * @deprecated Use {@link #qryTimeoutSeconds} instead.
+     */
+    @Deprecated
     private final IntegerProperty qryTimeout = new IntegerProperty("queryTimeout",
+            "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute."
+                    + " Zero means there is no limits.",
+            0, false, 0, Integer.MAX_VALUE);
+
+    /** Query timeout. */
+    private final IntegerProperty qryTimeoutSeconds = new IntegerProperty("queryTimeoutSeconds",
             "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute."
                     + " Zero means there is no limits.",
             null, false, 0, Integer.MAX_VALUE);
 
-    /** JDBC connection timeout. */
+    /**
+     * JDBC connection timeout.
+     *
+     * @deprecated Use {@link #connTimeoutMillis} instead.
+     */
+    @Deprecated
     private final IntegerProperty connTimeout = new IntegerProperty("connectionTimeout",
-            "Sets the number of milliseconds JDBC client will waits for server to response."
+            "Sets the number of milliseconds JDBC client will wait for server to respond."
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
+
+    /** JDBC connection timeout. */
+    private final IntegerProperty connTimeoutMillis = new IntegerProperty("connectionTimeoutMillis",
+            "Sets the number of milliseconds JDBC client will wait for server to respond."
+                    + " Zero means there is no limits.",
+            null, false, 0, Integer.MAX_VALUE);
 
     /** JDBC background reconnect interval. */
     private final LongProperty backgroundReconnectInterval = new LongProperty("backgroundReconnectIntervalMillis",
@@ -119,8 +141,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
-            qryTimeout, connTimeout, trustStorePath, trustStorePassword,
-            sslEnabled, ciphers, keyStorePath, keyStorePassword,
+            qryTimeout, qryTimeoutSeconds, connTimeout, connTimeoutMillis, trustStorePath,
+            trustStorePassword, sslEnabled, ciphers, keyStorePath, keyStorePassword,
             username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize,
             backgroundReconnectInterval
     };
@@ -189,26 +211,38 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public Integer getQueryTimeout() {
+    public int getQueryTimeout() {
+        Integer value = qryTimeoutSeconds.value();
+
+        if (value != null) {
+            return value;
+        }
+
         return qryTimeout.value();
     }
 
     /** {@inheritDoc} */
     @Override
     public void setQueryTimeout(@Nullable Integer timeout) throws SQLException {
-        qryTimeout.setValue(timeout);
+        qryTimeoutSeconds.setValue(timeout);
     }
 
     /** {@inheritDoc} */
     @Override
     public int getConnectionTimeout() {
+        Integer value = connTimeoutMillis.value();
+
+        if (value != null) {
+            return value;
+        }
+
         return connTimeout.value();
     }
 
     /** {@inheritDoc} */
     @Override
     public void setConnectionTimeout(@Nullable Integer timeout) throws SQLException {
-        connTimeout.setValue(timeout);
+        connTimeoutMillis.setValue(timeout);
     }
 
     /** {@inheritDoc} */

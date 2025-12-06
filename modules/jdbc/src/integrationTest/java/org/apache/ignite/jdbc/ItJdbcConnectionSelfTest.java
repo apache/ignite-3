@@ -28,6 +28,7 @@ import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -1047,6 +1048,96 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
         assertInvalid(urlPrefix + "=9223372036854775808",
                 format("Failed to parse int property [name={}, value=9223372036854775808]", propertyName));
+    }
+
+    @Test
+    public void testQueryTimeoutProperty() throws SQLException {
+        String propertyName = "queryTimeoutSeconds";
+        String urlPrefix = URL + "?" + propertyName;
+
+        SqlThrowingFunction<String, Number> valueGetter = url -> {
+            try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(url)) {
+                try (Statement stmt = conn.createStatement();
+                        PreparedStatement pstmt = conn.prepareStatement("SELECT 1")) {
+
+                    assertThat(stmt.getQueryTimeout(), is(pstmt.getQueryTimeout()));
+
+                    return stmt.getQueryTimeout();
+                }
+            }
+        };
+
+        assertThat(valueGetter.apply(URL), is(0));
+        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
+
+        assertInvalid(urlPrefix + "=A",
+                format("Failed to parse int property [name={}, value=A]", propertyName));
+
+        assertInvalid(urlPrefix + "=-1",
+                format("Property cannot be lower than 0 [name={}, value=-1]", propertyName));
+
+        assertInvalid(urlPrefix + "=2147483648",
+                format("Failed to parse int property [name={}, value=2147483648]", propertyName));
+
+        try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(urlPrefix + "=1")) {
+            try (Statement stmt0 = conn.createStatement()) {
+                // Catch both execution and planning timeouts.
+                assertThrowsSqlException(SQLException.class,
+                        "timeout", () -> {
+                            try (ResultSet rs = stmt0.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100000000))")) {
+                                while (rs.next()) {
+                                    rs.getLong(1);
+                                }
+                            }
+                        });
+            }
+        }
+
+        // Check deprecated name "queryTimeout".
+        try (Connection conn = DriverManager.getConnection(URL + "?queryTimeout=100")) {
+            assertThat(((JdbcConnection) conn).properties().getQueryTimeout(), is(100));
+        }
+
+        // If both are specified, the deprecated property name should be ignored
+        try (Connection conn = DriverManager.getConnection(URL + "?queryTimeout=100&queryTimeoutSeconds=50")) {
+            assertThat(((JdbcConnection) conn).properties().getQueryTimeout(), is(50));
+        }
+    }
+
+    @Test
+    public void testConnectionTimeoutProperty() throws SQLException {
+        String propertyName = "connectionTimeoutMillis";
+        String urlPrefix = URL + "?" + propertyName;
+
+        SqlThrowingFunction<String, Number> valueGetter = url -> {
+            try (JdbcConnection conn = (JdbcConnection) DriverManager.getConnection(url)) {
+                return conn.properties().getConnectionTimeout();
+            }
+        };
+
+        assertThat(valueGetter.apply(URL), is(0));
+        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
+
+        assertInvalid(urlPrefix + "=A",
+                format("Failed to parse int property [name={}, value=A]", propertyName));
+
+        assertInvalid(urlPrefix + "=-1",
+                format("Property cannot be lower than 0 [name={}, value=-1]", propertyName));
+
+        assertInvalid(urlPrefix + "=2147483648",
+                format("Failed to parse int property [name={}, value=2147483648]", propertyName));
+
+        // Check deprecated name "connectionTimeout"
+        try (Connection conn = DriverManager.getConnection(URL + "?connectionTimeout=100")) {
+            assertThat(((JdbcConnection) conn).properties().getConnectionTimeout(), is(100));
+        }
+
+        // If both names are specified, the deprecated property name should be ignored
+        try (Connection conn = DriverManager.getConnection(URL + "?connectionTimeoutMillis=50&connectionTimeout=100")) {
+            assertThat(((JdbcConnection) conn).properties().getConnectionTimeout(), is(50));
+        }
     }
 
     /**
