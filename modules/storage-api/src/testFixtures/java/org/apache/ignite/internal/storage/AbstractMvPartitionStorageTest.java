@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.storage.AbortResultMatcher.equalsToAbortResult;
 import static org.apache.ignite.internal.storage.AddWriteCommittedResultMatcher.equalsToAddWriteCommittedResult;
@@ -77,8 +78,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     private final TestValue value = new TestValue(20, "bar");
     protected final BinaryRow binaryRow = binaryRow(key, value);
     private final TestValue value2 = new TestValue(21, "bar2");
-    private final BinaryRow binaryRow2 = binaryRow(key, value2);
-    private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
+    protected final BinaryRow binaryRow2 = binaryRow(key, value2);
+    protected final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
     /**
      * Tests that reads from empty storage return empty results.
@@ -2123,6 +2124,19 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 3), contains(expGcEntry0, expGcEntry1));
     }
 
+    @Test
+    protected void writeIntentsCursorIsEmptyEvenWhenHavingWriteIntents() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), is(empty()));
+        }
+    }
+
+    protected static <T> List<T> drain(Cursor<T> cursor) {
+        return cursor.stream().collect(toUnmodifiableList());
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
@@ -2142,6 +2156,20 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         return new RowId(value.partitionId(), msb, lsb);
     }
 
+    protected static Matcher<GcEntry> eqGcEntry(GcEntry gcEntry) {
+        return new TypeSafeMatcher<>() {
+            @Override
+            protected boolean matchesSafely(GcEntry item) {
+                return gcEntry.getRowId().equals(item.getRowId()) && gcEntry.getTimestamp().equals(item.getTimestamp());
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendValue(gcEntry);
+            }
+        };
+    }
+
     private enum ScanTimestampProvider {
         NOW {
             @Override
@@ -2157,20 +2185,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         };
 
         abstract HybridTimestamp scanTimestamp(HybridClock clock);
-    }
-
-    protected static Matcher<GcEntry> eqGcEntry(GcEntry gcEntry) {
-        return new TypeSafeMatcher<>() {
-            @Override
-            protected boolean matchesSafely(GcEntry item) {
-                return gcEntry.getRowId().equals(item.getRowId()) && gcEntry.getTimestamp().equals(item.getTimestamp());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendValue(gcEntry);
-            }
-        };
     }
 
     /** Implementation for tests. */

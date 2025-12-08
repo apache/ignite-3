@@ -349,13 +349,13 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Invalid SQL statement type. Expected [QUERY] but got DML.",
+                "Statement of type \"DML\" is not allowed in current context",
                 () -> runner.apply(properties, "UPDATE xxx SET id = 1; SELECT 1;")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Invalid SQL statement type. Expected [QUERY] but got TX_CONTROL.",
+                "Statement of type \"Transaction control statement\" is not allowed in current context",
                 () -> runner.apply(properties, "START TRANSACTION; SELECT 1; COMMIT;")
         );
 

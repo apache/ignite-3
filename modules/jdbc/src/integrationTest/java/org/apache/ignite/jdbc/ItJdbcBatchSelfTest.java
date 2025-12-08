@@ -251,7 +251,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            assertThat(e.getMessage(), containsString("Invalid SQL statement type"));
+            assertThat(e.getMessage(), containsString("Statement of type \"Query\" is not allowed in current context"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -310,7 +310,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         BatchUpdateException e = assertThrowsSqlException(
                 BatchUpdateException.class,
-                "Invalid SQL statement type",
+                "Statement of type \"Query\" is not allowed in current context",
                 stmt::executeBatch);
 
         int[] updCnts = e.getUpdateCounts();
@@ -941,19 +941,19 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     private static List<Arguments> forbiddenStatements() {
         return List.of(
                 Arguments.of("SELECT * FROM Person",
-                        "Invalid SQL statement type."),
+                        "Statement of type \"Query\" is not allowed in current context"),
 
                 Arguments.of("EXPLAIN PLAN FOR DELETE FROM Person",
-                        "Invalid SQL statement type."),
+                        "Statement of type \"Explain\" is not allowed in current context"),
 
                 Arguments.of("START TRANSACTION",
-                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL."),
+                        "Statement of type \"Transaction control statement\" is not allowed in current context"),
 
                 Arguments.of("COMMIT",
-                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL."),
+                        "Statement of type \"Transaction control statement\" is not allowed in current context"),
 
                 Arguments.of("START TRANSACTION; COMMIT",
-                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL.")
+                        "Statement of type \"Transaction control statement\" is not allowed in current context")
         );
     }
 }
