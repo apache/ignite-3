@@ -24,7 +24,11 @@ public class PocoMapper : IMapper<Poco>
     public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
         rowWriter.WriteLong(obj.Key);
-        rowWriter.WriteString(obj.Val);
+
+        if (schema.Columns.Count > 1)
+        {
+            rowWriter.WriteString(obj.Val);
+        }
     }
 
     public Poco Read(ref RowReader rowReader, IMapperSchema schema)
@@ -32,7 +36,7 @@ public class PocoMapper : IMapper<Poco>
         var obj = new Poco
         {
             Key = rowReader.ReadLong()!.Value,
-            Val = rowReader.ReadString()
+            Val = schema.Columns.Count > 1 ? rowReader.ReadString() : null
         };
 
         return obj;

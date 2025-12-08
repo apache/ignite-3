@@ -273,6 +273,9 @@ public ref struct RowWriter
     /// </summary>
     public void Skip() => _builder.AppendNoValue(_noValueSet);
 
+    /// <inheritdoc/>
+    public readonly override string ToString() => IgniteToStringBuilder.Build(typeof(RowWriter));
+
     private void CheckColumnType(ColumnType provided)
     {
         var col = Column;

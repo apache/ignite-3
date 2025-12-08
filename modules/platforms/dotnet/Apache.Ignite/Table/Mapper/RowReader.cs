@@ -265,6 +265,9 @@ public ref struct RowReader
     /// </summary>
     public void Skip() => ++_position;
 
+    /// <inheritdoc/>
+    public readonly override string ToString() => IgniteToStringBuilder.Build(typeof(RowReader));
+
     private void AdvanceAndCheckColumnType(ColumnType provided)
     {
         ++_position;
