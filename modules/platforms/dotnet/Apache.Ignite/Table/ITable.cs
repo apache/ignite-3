@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Table
 {
+    using System.Collections.Generic;
     using Mapper;
 
     /// <summary>
@@ -90,12 +91,11 @@ namespace Apache.Ignite.Table
         /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
         /// including private and readonly.
         /// </summary>
-        /// <param name="keyMapper">Key mapper.</param>
-        /// <param name="valueMapper">Value mapper.</param>
+        /// <param name="mapper">Mapper.</param>
         /// <typeparam name="TK">Key type.</typeparam>
         /// <typeparam name="TV">Value type.</typeparam>
         /// <returns>Key-value view.</returns>
-        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<TK> keyMapper, IMapper<TV> valueMapper)
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
             where TK : notnull;
     }
 }

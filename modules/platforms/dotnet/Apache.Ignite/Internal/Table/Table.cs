@@ -160,11 +160,14 @@ namespace Apache.Ignite.Internal.Table
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
 
         /// <inheritdoc/>
-        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<TK> keyMapper, IMapper<TV> valueMapper)
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
             where TK : notnull
         {
-            // TODO
-            throw new NotImplementedException();
+            var handler = new MapperPairSerializerHandler<TK, TV>(mapper);
+            var recordSerializer = new RecordSerializer<KvPair<TK, TV>>(this, handler);
+            var recordView = new RecordView<KvPair<TK, TV>>(this, recordSerializer, _sql);
+
+            return new KeyValueView<TK, TV>(recordView);
         }
 
         /// <inheritdoc/>

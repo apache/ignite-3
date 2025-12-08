@@ -19,6 +19,7 @@
 namespace Apache.Ignite.Tests.Table.Serialization;
 
 using System;
+using System.Collections.Generic;
 using Ignite.Sql;
 using Ignite.Table;
 using Ignite.Table.Mapper;
@@ -53,7 +54,7 @@ public class SerializerHandlerConsistencyTests
         var objectHandler = new ObjectSerializerHandler<Poco>();
         var objectKvHandler = new ObjectSerializerHandler<KvPair<PocoKey, PocoVal>>();
         var mapperHandler = new MapperSerializerHandler<Poco>(new PocoMapper());
-        var mapperKvHandler = new MapperPairSerializerHandler<PocoKey, PocoVal>(new PocoKeyMapper(), new PocoValMapper());
+        var mapperKvHandler = new MapperPairSerializerHandler<PocoKey, PocoVal>(new PocoKeyValMapper());
 
         var poco = new Poco
         {
@@ -108,17 +109,20 @@ public class SerializerHandlerConsistencyTests
         var (pocoBuf, pocoHash) = Serialize(objectHandler, poco, keyOnly);
         var (pocoKvBuf, pocoKvHash) = Serialize(objectKvHandler, pocoKv, keyOnly);
         var (mapperBuf, mapperHash) = Serialize(mapperHandler, poco, keyOnly);
+        var (mapperKvBuf, mapperKvHash) = Serialize(mapperKvHandler, pocoKv, keyOnly);
 
         Assert.AreEqual(ExpectedColocationHash, tupleHash);
         Assert.AreEqual(ExpectedColocationHash, tupleKvHash);
         Assert.AreEqual(ExpectedColocationHash, pocoHash);
         Assert.AreEqual(ExpectedColocationHash, pocoKvHash);
         Assert.AreEqual(ExpectedColocationHash, mapperHash);
+        Assert.AreEqual(ExpectedColocationHash, mapperKvHash);
 
         CollectionAssert.AreEqual(tupleBuf, tupleKvBuf);
         CollectionAssert.AreEqual(tupleBuf, pocoBuf);
         CollectionAssert.AreEqual(tupleBuf, pocoKvBuf);
         CollectionAssert.AreEqual(tupleBuf, mapperBuf);
+        CollectionAssert.AreEqual(tupleBuf, mapperKvBuf);
     }
 
     private static (byte[] Buf, int Hash) Serialize<T>(IRecordSerializerHandler<T> handler, T obj, bool keyOnly = false)
@@ -270,20 +274,28 @@ public class SerializerHandlerConsistencyTests
         }
     }
 
-    private class PocoValMapper : IMapper<PocoVal>
+    private class PocoKeyValMapper : IMapper<KeyValuePair<PocoKey, PocoVal>>
     {
-        public void Write(PocoVal obj, ref RowWriter rowWriter, IMapperSchema schema)
+        public void Write(KeyValuePair<PocoKey, PocoVal> obj, ref RowWriter rowWriter, IMapperSchema schema)
         {
             foreach (var column in schema.Columns)
             {
                 switch (column.Name)
                 {
+                    case "key1":
+                        rowWriter.WriteInt(obj.Key.Key1);
+                        break;
+
+                    case "key2":
+                        rowWriter.WriteString(obj.Key.Key2);
+                        break;
+
                     case "val1":
-                        rowWriter.WriteString(obj.Val1);
+                        rowWriter.WriteString(obj.Value.Val1);
                         break;
 
                     case "val2":
-                        rowWriter.WriteGuid(obj.Val2);
+                        rowWriter.WriteGuid(obj.Value.Val2);
                         break;
 
                     default:
@@ -293,20 +305,29 @@ public class SerializerHandlerConsistencyTests
             }
         }
 
-        public PocoVal Read(ref RowReader rowReader, IMapperSchema schema)
+        public KeyValuePair<PocoKey, PocoVal> Read(ref RowReader rowReader, IMapperSchema schema)
         {
-            var res = new PocoVal();
+            var key = new PocoKey();
+            var val = new PocoVal();
 
             foreach (var column in schema.Columns)
             {
                 switch (column.Name)
                 {
+                    case "key1":
+                        key.Key1 = rowReader.ReadInt()!.Value;
+                        break;
+
+                    case "key2":
+                        key.Key2 = rowReader.ReadString()!;
+                        break;
+
                     case "val1":
-                        res.Val1 = rowReader.ReadString();
+                        val.Val1 = rowReader.ReadString();
                         break;
 
                     case "val2":
-                        res.Val2 = rowReader.ReadGuid()!.Value;
+                        val.Val2 = rowReader.ReadGuid()!.Value;
                         break;
 
                     default:
@@ -315,7 +336,7 @@ public class SerializerHandlerConsistencyTests
                 }
             }
 
-            return res;
+            return new KeyValuePair<PocoKey, PocoVal>(key, val);
         }
     }
 }
