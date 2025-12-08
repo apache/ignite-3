@@ -48,6 +48,14 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
         Assert.AreEqual("Can't write a value of type 'Uuid' to column 'Key' of type 'Int64'.", ex!.Message);
     }
 
+    [Test]
+    public void TestWriteLessColumnsThanSchemaThrowsException()
+    {
+        var ex = Assert.Throws<IgniteClientException>(() => Write(new Poco { Key = 1234, Val = "skip-me"}));
+
+        Assert.AreEqual("Not all columns were written by the mapper. Expected: 2, written: 1.", ex!.Message);
+    }
+
     protected override IRecordSerializerHandler<T> GetHandler<T>()
     {
         if (typeof(T) == typeof(Poco))
@@ -76,7 +84,11 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                         break;
 
                     case "Val":
-                        rowWriter.WriteString(obj.Val);
+                        if (obj.Val != "skip-me")
+                        {
+                            rowWriter.WriteString(obj.Val);
+                        }
+
                         break;
 
                     default:
