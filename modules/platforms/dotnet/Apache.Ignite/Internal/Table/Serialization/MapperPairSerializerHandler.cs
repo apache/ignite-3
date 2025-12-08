@@ -31,19 +31,26 @@ internal sealed class MapperPairSerializerHandler<TK, TV> : IRecordSerializerHan
 {
     private readonly IMapper<TK> _keyMapper;
 
-    private readonly IMapper<TK> _valMapper;
+    private readonly IMapper<TV> _valMapper;
 
-    public MapperPairSerializerHandler(IMapper<TK> keyMapper, IMapper<TK> valMapper)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MapperPairSerializerHandler{TK, TV}"/> class.
+    /// </summary>
+    /// <param name="keyMapper">Key mapper.</param>
+    /// <param name="valMapper">Val mapper.</param>
+    public MapperPairSerializerHandler(IMapper<TK> keyMapper, IMapper<TV> valMapper)
     {
         _keyMapper = keyMapper;
         _valMapper = valMapper;
     }
 
+    /// <inheritdoc/>
     public KvPair<TK, TV> Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
         throw new NotImplementedException();
     }
 
+    /// <inheritdoc/>
     public void Write(ref BinaryTupleBuilder tupleBuilder, KvPair<TK, TV> record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
         throw new NotImplementedException();

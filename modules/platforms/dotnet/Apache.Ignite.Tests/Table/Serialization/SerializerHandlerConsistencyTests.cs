@@ -53,7 +53,7 @@ public class SerializerHandlerConsistencyTests
         var objectHandler = new ObjectSerializerHandler<Poco>();
         var objectKvHandler = new ObjectSerializerHandler<KvPair<PocoKey, PocoVal>>();
         var mapperHandler = new MapperSerializerHandler<Poco>(new PocoMapper());
-        var mapperKvHandler = new MapperSerializerHandler<KvPair<PocoKey, PocoVal>>(new PocoKvMapper());
+        var mapperKvHandler = new MapperPairSerializerHandler<PocoKey, PocoVal>(new PocoKeyMapper(), new PocoValMapper());
 
         var poco = new Poco
         {
@@ -209,6 +209,104 @@ public class SerializerHandlerConsistencyTests
 
                     case "key2":
                         res.Key2 = rowReader.ReadString()!;
+                        break;
+
+                    default:
+                        rowReader.Skip();
+                        break;
+                }
+            }
+
+            return res;
+        }
+    }
+
+    private class PocoKeyMapper : IMapper<PocoKey>
+    {
+        public void Write(PocoKey obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "key1":
+                        rowWriter.WriteInt(obj.Key1);
+                        break;
+
+                    case "key2":
+                        rowWriter.WriteString(obj.Key2);
+                        break;
+
+                    default:
+                        rowWriter.Skip();
+                        break;
+                }
+            }
+        }
+
+        public PocoKey Read(ref RowReader rowReader, IMapperSchema schema)
+        {
+            var res = new PocoKey();
+
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "key1":
+                        res.Key1 = rowReader.ReadInt()!.Value;
+                        break;
+
+                    case "key2":
+                        res.Key2 = rowReader.ReadString()!;
+                        break;
+
+                    default:
+                        rowReader.Skip();
+                        break;
+                }
+            }
+
+            return res;
+        }
+    }
+
+    private class PocoValMapper : IMapper<PocoVal>
+    {
+        public void Write(PocoVal obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "val1":
+                        rowWriter.WriteString(obj.Val1);
+                        break;
+
+                    case "val2":
+                        rowWriter.WriteGuid(obj.Val2);
+                        break;
+
+                    default:
+                        rowWriter.Skip();
+                        break;
+                }
+            }
+        }
+
+        public PocoVal Read(ref RowReader rowReader, IMapperSchema schema)
+        {
+            var res = new PocoVal();
+
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "val1":
+                        res.Val1 = rowReader.ReadString();
+                        break;
+
+                    case "val2":
+                        res.Val2 = rowReader.ReadGuid()!.Value;
                         break;
 
                     default:
