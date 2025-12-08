@@ -53,7 +53,15 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
     {
         var ex = Assert.Throws<IgniteClientException>(() => Write(new Poco { Key = 1234, Val = "skip-me"}));
 
-        Assert.AreEqual("Not all columns were written by the mapper. Expected: 2, written: 1.", ex!.Message);
+        StringAssert.StartsWith("Not all columns were written by the mapper. Expected: 2, written: 1, schema: : [Column { Name = Key, Type = Int64", ex!.Message);
+    }
+
+    [Test]
+    public void TestWriteMoreColumnsThanSchemaThrowsException()
+    {
+        var ex = Assert.Throws<IgniteClientException>(() => Write(new Poco { Key = 1234, Val = "write-more"}));
+
+        StringAssert.StartsWith("Attempted to write more columns than defined in the schema: [Column { Name = Key, Type = Int64", ex.Message);
     }
 
     protected override IRecordSerializerHandler<T> GetHandler<T>()
@@ -95,6 +103,11 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
                         rowWriter.Skip();
                         break;
                 }
+            }
+
+            if (obj.Val == "write-more")
+            {
+                rowWriter.WriteString("extra-value");
             }
         }
 

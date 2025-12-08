@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table.Mapper;
 
 using System;
+using Internal.Common;
 using Internal.Proto.BinaryTuple;
 using Internal.Table;
 using NodaTime;
@@ -53,7 +54,7 @@ public ref struct RowReader
             {
                 throw new IgniteClientException(
                     ErrorGroups.Client.Configuration,
-                    "Attempted to read more columns than defined in the schema.");
+                    $"Attempted to read more columns than defined in the schema: [{_columns.StringJoin()}]");
             }
 
             return _columns[_position];

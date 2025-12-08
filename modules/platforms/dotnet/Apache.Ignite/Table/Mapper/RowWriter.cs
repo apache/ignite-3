@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table.Mapper;
 
 using System;
+using Internal.Common;
 using Internal.Proto.BinaryTuple;
 using Internal.Table;
 using Internal.Table.Serialization;
@@ -61,7 +62,7 @@ public ref struct RowWriter
             {
                 throw new IgniteClientException(
                     ErrorGroups.Client.Configuration,
-                    "Attempted to write more columns than defined in the schema.");
+                    $"Attempted to write more columns than defined in the schema: [{_columns.StringJoin()}]");
             }
 
             return _columns[_builder.ElementIndex];

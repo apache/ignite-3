@@ -67,7 +67,8 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         // Use MemoryMarshal to overcome the 'scoped' restriction.
         // We know that noValueSet will not outlive this method but cannot express this to the compiler.
         Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
-        var mapperWriter = new RowWriter(ref tupleBuilder, noValueSetRef, schema.GetColumnsFor(keyOnly));
+        Column[] columns = schema.GetColumnsFor(keyOnly);
+        var mapperWriter = new RowWriter(ref tupleBuilder, noValueSetRef, columns);
 
         _mapper.Write(record, ref mapperWriter, schema.GetMapperSchema(keyOnly));
 
@@ -75,7 +76,9 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         if (mapperWriter.Builder.ElementIndex < mapperWriter.Builder.NumElements)
         {
             var message = $"Not all columns were written by the mapper. " +
-                          $"Expected: {tupleBuilder.NumElements}, written: {mapperWriter.Builder.ElementIndex}.";
+                          $"Expected: {tupleBuilder.NumElements}, " +
+                          $"written: {mapperWriter.Builder.ElementIndex}, " +
+                          $"schema: {columns.StringJoin()}.";
 
             throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
         }
