@@ -71,103 +71,188 @@ public ref struct RowWriter
     /// Writes a boolean value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteBool(bool? value) => _builder.AppendBoolNullable(value);
+    public void WriteBool(bool? value)
+    {
+        CheckColumnType(ColumnType.Boolean);
+
+        _builder.AppendBoolNullable(value);
+    }
 
     /// <summary>
     /// Writes a short value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteShort(short? value) => _builder.AppendShortNullable(value);
+    public void WriteShort(short? value)
+    {
+        CheckColumnType(ColumnType.Int16);
+
+        _builder.AppendShortNullable(value);
+    }
 
     /// <summary>
     /// Writes an integer value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteInt(int? value) => _builder.AppendIntNullable(value);
+    public void WriteInt(int? value)
+    {
+        CheckColumnType(ColumnType.Int32);
+
+        _builder.AppendIntNullable(value);
+    }
 
     /// <summary>
     /// Writes a long value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteLong(long? value) => _builder.AppendLongNullable(value);
+    public void WriteLong(long? value)
+    {
+        CheckColumnType(ColumnType.Int64);
+
+        _builder.AppendLongNullable(value);
+    }
 
     /// <summary>
     /// Writes a float value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteFloat(float? value) => _builder.AppendFloatNullable(value);
+    public void WriteFloat(float? value)
+    {
+        CheckColumnType(ColumnType.Float);
+
+        _builder.AppendFloatNullable(value);
+    }
 
     /// <summary>
     /// Writes a double value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteDouble(double? value) => _builder.AppendDoubleNullable(value);
+    public void WriteDouble(double? value)
+    {
+        CheckColumnType(ColumnType.Double);
+
+        _builder.AppendDoubleNullable(value);
+    }
 
     /// <summary>
     /// Writes a string value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteString(string? value) => _builder.AppendStringNullable(value);
+    public void WriteString(string? value)
+    {
+        CheckColumnType(ColumnType.String);
+
+        _builder.AppendStringNullable(value);
+    }
 
     /// <summary>
     /// Writes a byte array value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteBytes(byte[]? value) => _builder.AppendBytesNullable(value);
+    public void WriteBytes(byte[]? value)
+    {
+        CheckColumnType(ColumnType.ByteArray);
+
+        _builder.AppendBytesNullable(value);
+    }
 
     /// <summary>
     /// Writes a GUID value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteGuid(Guid? value) => _builder.AppendGuidNullable(value);
+    public void WriteGuid(Guid? value)
+    {
+        CheckColumnType(ColumnType.Uuid);
+
+        _builder.AppendGuidNullable(value);
+    }
 
     /// <summary>
     /// Writes a decimal value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteDecimal(decimal? value) => _builder.AppendDecimalNullable(value, Column.Scale);
+    public void WriteDecimal(decimal? value)
+    {
+        CheckColumnType(ColumnType.Decimal);
+
+        _builder.AppendDecimalNullable(value, Column.Scale);
+    }
 
     /// <summary>
     /// Writes a big decimal value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteBigDecimal(BigDecimal? value) => _builder.AppendBigDecimalNullable(value, Column.Scale);
+    public void WriteBigDecimal(BigDecimal? value)
+    {
+        CheckColumnType(ColumnType.Decimal);
+
+        _builder.AppendBigDecimalNullable(value, Column.Scale);
+    }
 
     /// <summary>
     /// Writes a date value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteDate(LocalDate? value) => _builder.AppendDateNullable(value);
+    public void WriteDate(LocalDate? value)
+    {
+        CheckColumnType(ColumnType.Date);
+
+        _builder.AppendDateNullable(value);
+    }
 
     /// <summary>
     /// Writes a time value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteTime(LocalTime? value) => _builder.AppendTimeNullable(value, Column.Precision);
+    public void WriteTime(LocalTime? value)
+    {
+        CheckColumnType(ColumnType.Time);
+
+        _builder.AppendTimeNullable(value, Column.Precision);
+    }
 
     /// <summary>
     /// Writes a date and time value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteDateTime(LocalDateTime? value) => _builder.AppendDateTimeNullable(value, Column.Precision);
+    public void WriteDateTime(LocalDateTime? value)
+    {
+        CheckColumnType(ColumnType.Datetime);
+
+        _builder.AppendDateTimeNullable(value, Column.Precision);
+    }
 
     /// <summary>
     /// Writes a timestamp (instant) value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteTimestamp(Instant? value) => _builder.AppendTimestampNullable(value, Column.Precision);
+    public void WriteTimestamp(Instant? value)
+    {
+        CheckColumnType(ColumnType.Timestamp);
+
+        _builder.AppendTimestampNullable(value, Column.Precision);
+    }
 
     /// <summary>
     /// Writes a duration value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WriteDuration(Duration? value) => _builder.AppendDurationNullable(value);
+    public void WriteDuration(Duration? value)
+    {
+        CheckColumnType(ColumnType.Duration);
+
+        _builder.AppendDurationNullable(value);
+    }
 
     /// <summary>
     /// Writes a period value.
     /// </summary>
     /// <param name="value">Value.</param>
-    public void WritePeriod(Period? value) => _builder.AppendPeriodNullable(value);
+    public void WritePeriod(Period? value)
+    {
+        CheckColumnType(ColumnType.Period);
+
+        _builder.AppendPeriodNullable(value);
+    }
 
     /// <summary>
     /// Skips writing the next column (marks as not set, so that the default column value can be applied by the server).
