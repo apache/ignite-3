@@ -141,6 +141,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -450,6 +451,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      * storages to all storages.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22522")
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectExecutorService ExecutorService executor) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
 

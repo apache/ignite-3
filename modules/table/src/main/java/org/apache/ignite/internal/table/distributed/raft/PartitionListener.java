@@ -152,8 +152,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.clockService = clockService;
         this.realReplicationGroupId = realReplicationGroupId;
 
-        // TODO sanpwc do we need the handler here?
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(null, partitionOperationsExecutor);
+        // TODO sanpwc simplify, e.g. use NoOp handler
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(null, null);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
@@ -577,26 +577,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(snapshotInfo(), List.of(this))
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
-    }
+        throw new UnsupportedOperationException("!!! It's not expected that PartitionListener onSnapshotSave will be called.");
 
-    // TODO sanpwc consider removing the method.
-    private PartitionSnapshotInfo snapshotInfo() {
-        long maxAppliedIndex = storage.lastAppliedIndex();
-        long maxAppliedTerm = storage.lastAppliedTerm();
-
-        byte[] configuration = storage.getStorage().committedGroupConfiguration();
-
-        assert configuration != null : "Trying to create a snapshot without Raft group configuration";
-
-        return new PartitionSnapshotInfo(
-                maxAppliedIndex,
-                maxAppliedTerm,
-                storage.leaseInfo(),
-                configuration,
-                Set.of(storage.tableId())
-        );
     }
 
     @Override
