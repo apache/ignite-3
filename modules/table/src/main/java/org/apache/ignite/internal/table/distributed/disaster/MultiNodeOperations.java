@@ -74,11 +74,15 @@ class MultiNodeOperations {
 
     /** Completes all tracked operations with a given exception. */
     void exceptionally(Throwable ex) {
-        for (CompletableFuture<Void> fut : operationsById.values()) {
-            fut.completeExceptionally(new DisasterRecoveryException(
+        Set<UUID> operationIds = Set.copyOf(operationsById.keySet());
+
+        for (UUID operationId : operationIds) {
+            operationsById.get(operationId).completeExceptionally(new DisasterRecoveryException(
                     LOCAL_NODE_ERR,
                     "Couldn't get multi node operation status: " + ex.getMessage()
             ));
+
+            operationsById.remove(operationId);
         }
     }
 }

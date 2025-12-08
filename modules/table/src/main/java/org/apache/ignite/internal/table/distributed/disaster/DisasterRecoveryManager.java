@@ -64,6 +64,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -1204,10 +1205,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             .operationIds(operations.operationsIds())
                             .build();
 
-            messagingService.invoke(nodeName, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+            messagingService.invoke(nodeName, request, TimeUnit.SECONDS.toMillis(1))
                     .whenComplete((message, ex) -> {
                         if (ex != null) {
-                            operations.exceptionally(ex);
+                            if (hasCause(ex, TimeoutException.class)) {
+                                operations.shouldSendNewRequest();
+                            } else {
+                                operations.exceptionally(ex);
+                            }
+
+                            return;
                         }
 
                         DisasterRecoveryStatusResponseMessage responseMessage = (DisasterRecoveryStatusResponseMessage) message;
