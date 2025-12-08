@@ -69,7 +69,7 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
 
         if (protoVer >= 2) {
             boolean usesZonePartitionIds = in.readBoolean();
-            assert usesZonePartitionIds : "Transaction meta relies on table partition IDs.";
+            assert usesZonePartitionIds : "Transaction meta cannot be deserialized. V1 is not supported anymore.";
         }
 
         TxState state = TxState.fromId(in.readVarIntAsInt());
