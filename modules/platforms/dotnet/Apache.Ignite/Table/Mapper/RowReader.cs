@@ -45,7 +45,20 @@ public ref struct RowReader
         _columns = columns;
     }
 
-    private readonly Column Column => _columns[_position];
+    private readonly Column Column
+    {
+        get
+        {
+            if (_position >= _columns.Length)
+            {
+                throw new IgniteClientException(
+                    ErrorGroups.Client.Configuration,
+                    "Attempted to read more columns than defined in the schema.");
+            }
+
+            return _columns[_position];
+        }
+    }
 
     /// <summary>
     /// Reads the next column as a byte.
