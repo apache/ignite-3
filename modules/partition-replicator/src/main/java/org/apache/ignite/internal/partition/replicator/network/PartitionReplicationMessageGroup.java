@@ -230,6 +230,7 @@ public interface PartitionReplicationMessageGroup {
          *
          * @see #FINISH_TX_V2
          */
+        @Deprecated
         short FINISH_TX_V1 = 40;
 
         /**
@@ -237,6 +238,7 @@ public interface PartitionReplicationMessageGroup {
          *
          * @see #WRITE_INTENT_SWITCH_V2
          */
+        @Deprecated
         short WRITE_INTENT_SWITCH_V1 = 41;
 
         /**
@@ -258,6 +260,7 @@ public interface PartitionReplicationMessageGroup {
          *
          * @see #UPDATE_V2
          */
+        @Deprecated
         short BUILD_INDEX_V1 = 44;
 
         /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */

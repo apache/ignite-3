@@ -23,8 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
@@ -109,7 +108,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     @Override
     public void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken
@@ -118,17 +117,17 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return null;
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+    public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
         return true;
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ZonePartitionId commitPartition() {
         return null;
     }
 

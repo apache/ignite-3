@@ -46,8 +46,8 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
@@ -245,11 +245,11 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testFinishTxCommand() {
-        ArrayList<ReplicationGroupIdMessage> grps = new ArrayList<>(10);
+        ArrayList<ZonePartitionIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {
-            grps.add(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
-                    .tableId(1)
+            grps.add(REPLICA_MESSAGES_FACTORY.zonePartitionIdMessage()
+                    .zoneId(1)
                     .partitionId(i)
                     .build());
         }
@@ -269,7 +269,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         assertEquals(cmd.commitTimestamp(), readCmd.commitTimestamp());
     }
 
-    private static EnlistedPartitionGroupMessage partitionGroupMessage(ReplicationGroupIdMessage groupIdMessage, Set<Integer> tableIds) {
+    private static EnlistedPartitionGroupMessage partitionGroupMessage(ZonePartitionIdMessage groupIdMessage, Set<Integer> tableIds) {
         return TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
                 .groupId(groupIdMessage)
                 .tableIds(tableIds)
