@@ -53,7 +53,7 @@ void tcp_client_channel::receive_next_packet() {
     int received = ::recv(m_cl_fd, m_buf, sizeof(m_buf), 0);
 
     if (received == 0) {
-        std::cout << "connection was closed" << std::endl;
+        m_logger->log_debug( "connection was closed");
 
         m_stopped.store(true);
     }
@@ -74,7 +74,7 @@ void tcp_client_channel::start() {
 
     socklen_t addr_len = sizeof(cl_addr);
 
-    std::cout << "waiting for client to connect srv_fd = " << m_srv_fd << std::endl;
+    m_logger->log_debug("waiting for client to connect srv_fd = " +  std::to_string(m_srv_fd));
 
     m_cl_fd = accept(m_srv_fd, reinterpret_cast<sockaddr *>(&cl_addr), &addr_len);
 
@@ -84,7 +84,7 @@ void tcp_client_channel::start() {
         throw std::runtime_error(ss.str());
     }
 
-    std::cout << "Client connected\n";
+    m_logger->log_debug("Client connected");
 }
 
 void tcp_client_channel::stop() {

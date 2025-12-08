@@ -81,7 +81,7 @@ void fake_server::start_socket_listen() const {
 }
 
 void fake_server::accept_client_connection() {
-    m_client_channel = std::make_unique<tcp_client_channel>(m_srv_fd);
+    m_client_channel = std::make_unique<tcp_client_channel>(m_srv_fd, m_logger);
     m_client_channel->start();
 }
 

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ignite/client/ignite_logger.h"
+
 #include <atomic>
 #include <cstddef>
 #include <ignite/common/ignite_error.h>
@@ -29,8 +31,9 @@ namespace ignite {
  */
 class tcp_client_channel {
 public:
-    explicit tcp_client_channel(int srv_socket_fd)
-        : m_srv_fd(srv_socket_fd) {}
+    explicit tcp_client_channel(int srv_socket_fd, std::shared_ptr<ignite_logger> logger)
+        : m_srv_fd(srv_socket_fd)
+        , m_logger(std::move(logger)) {}
 
     void start();
     void stop();
@@ -51,6 +54,8 @@ private:
     size_t m_remaining = 0;
     /** If @code true then channel is stopped. */
     std::atomic_bool m_stopped{false};
+    /** Logger. */
+    std::shared_ptr<ignite_logger> m_logger;
 
 
 };
