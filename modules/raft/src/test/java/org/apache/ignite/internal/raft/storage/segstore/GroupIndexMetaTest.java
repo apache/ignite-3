@@ -236,7 +236,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         assertThat(groupMeta.lastLogIndexExclusive(), is(200L));
 
         assertThat(groupMeta.indexMeta(10), is(meta1));
-        assertThat(groupMeta.indexMeta(43), is(meta2));
+        assertThat(groupMeta.indexMeta(42), is(meta2));
         assertThat(groupMeta.indexMeta(100), is(meta3));
         assertThat(groupMeta.indexMeta(110), is(meta4));
 

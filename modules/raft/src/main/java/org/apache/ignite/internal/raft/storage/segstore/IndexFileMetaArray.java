@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.lang.Math.toIntExact;
+import static org.apache.ignite.internal.raft.storage.segstore.IndexFileManager.SEGMENT_FILE_OFFSET_SIZE;
 
 import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
@@ -139,7 +140,7 @@ class IndexFileMetaArray {
         );
 
         // Move the payload offset pointer to skip truncated entries (each entry is 4 bytes).
-        int adjustedPayloadOffset = metaToUpdate.indexFilePayloadOffset() + numEntriesToSkip * Integer.BYTES;
+        int adjustedPayloadOffset = metaToUpdate.indexFilePayloadOffset() + numEntriesToSkip * SEGMENT_FILE_OFFSET_SIZE;
 
         var trimmedMeta = new IndexFileMeta(
                 firstLogIndexKept,
@@ -148,6 +149,8 @@ class IndexFileMetaArray {
                 metaToUpdate.indexFileOrdinal()
         );
 
+        // Create a new array: the trimmed meta becomes the first element, other elements with "firstLogIndexInclusive" larger
+        // than "firstLogIndexKept" are copied from the old array.
         IndexFileMeta[] newArray = new IndexFileMeta[array.length];
 
         newArray[0] = trimmedMeta;

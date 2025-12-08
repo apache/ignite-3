@@ -140,9 +140,10 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
                     EntrySearchResult searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
                     if (groupId == logIndex) {
-                        assertThat(searchResult != null && !searchResult.isEmpty(), is(true));
-                    } else {
-                        assertThat(searchResult == null || searchResult.isEmpty(), is(true));
+                        assertThat(searchResult, is(notNullValue()));
+                        assertThat(!searchResult.isEmpty(), is(true));
+                    } else if (searchResult != null) {
+                        assertThat(searchResult.isEmpty(), is(true));
                     }
                 }
             }
@@ -170,12 +171,13 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
             long groupId = 2;
             long logIndex = 5;
 
-            SegmentInfo mockSegmentInfo = mock(SegmentInfo.class);
+            var segmentInfo = new SegmentInfo(1);
 
-            when(mockMemTable.segmentInfo(groupId)).thenReturn(mockSegmentInfo);
-            when(mockSegmentInfo.lastLogIndexExclusive()).thenReturn(10L);
-            when(mockSegmentInfo.firstIndexKept()).thenReturn(0L);
-            when(mockSegmentInfo.getOffset(logIndex)).thenReturn(2);
+            for (int i = 1; i <= 10; i++) {
+                segmentInfo.addOffset(i, i);
+            }
+
+            when(mockMemTable.segmentInfo(groupId)).thenReturn(segmentInfo);
 
             checkpointer.onRollover(mockFile, mockMemTable);
 

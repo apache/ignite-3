@@ -109,11 +109,11 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
     public void firstAndLastLogIndexAfterPrefixTruncateAndRestart(int numEntries) throws Exception {
         logStorage.appendEntries(TestUtils.mockEntries(numEntries));
 
-        long lastIndexKept = numEntries / 2;
+        long firstIndexKept = numEntries / 2;
 
-        logStorage.truncatePrefix(lastIndexKept);
+        logStorage.truncatePrefix(firstIndexKept);
 
-        assertThat(logStorage.getFirstLogIndex(), is(lastIndexKept));
+        assertThat(logStorage.getFirstLogIndex(), is(firstIndexKept));
         assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
 
         logStorage.shutdown();
@@ -122,7 +122,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
 
-        assertThat(logStorage.getFirstLogIndex(), is(lastIndexKept));
+        assertThat(logStorage.getFirstLogIndex(), is(firstIndexKept));
         assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
     }
 }

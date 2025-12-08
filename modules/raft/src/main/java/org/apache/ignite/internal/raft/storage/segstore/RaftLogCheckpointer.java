@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Marshalling.COMMON_ERR;
 
@@ -117,18 +118,18 @@ class RaftLogCheckpointer {
                 continue;
             }
 
-            if (segmentInfo.lastLogIndexExclusive() <= logIndex) {
+            if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
                 return EntrySearchResult.empty();
             }
 
-            if (segmentInfo.firstIndexKept() > logIndex) {
+            if (logIndex < segmentInfo.firstIndexKept()) {
                 // This is a prefix tombstone and it cuts off the log index we search for.
                 return EntrySearchResult.empty();
             }
 
             int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
 
-            if (segmentPayloadOffset != 0) {
+            if (segmentPayloadOffset != MISSING_SEGMENT_FILE_OFFSET) {
                 ByteBuffer entryBuffer = e.segmentFile().buffer().position(segmentPayloadOffset);
 
                 return new EntrySearchResult(entryBuffer);

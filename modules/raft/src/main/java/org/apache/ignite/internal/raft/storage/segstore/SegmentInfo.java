@@ -28,6 +28,8 @@ import java.util.Arrays;
  * Information about a segment file for single Raft Group stored in a {@link IndexMemTable}.
  */
 class SegmentInfo {
+    static int MISSING_SEGMENT_FILE_OFFSET = 0;
+
     private static class ArrayWithSize {
         private static final int INITIAL_CAPACITY = 10;
 
@@ -72,6 +74,8 @@ class SegmentInfo {
             assert newSize <= size
                     : String.format("Array must shrink on truncation, current size: %d, size after truncation: %d", size, newSize);
 
+            // We use the original array's size, not "newSize" here, because new entries are expected to be added at the end anyway,
+            // so we can use the larger size to avoid unnecessary array copies.
             int[] newArray = new int[array.length];
 
             System.arraycopy(array, srcPos, newArray, 0, newSize);
@@ -134,6 +138,8 @@ class SegmentInfo {
      * Puts the given segment file offset under the given log index.
      */
     void addOffset(long logIndex, int segmentFileOffset) {
+        assert segmentFileOffset != MISSING_SEGMENT_FILE_OFFSET : "Segment file offset cannot be 0";
+
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
         // Check that log indexes are monotonically increasing.
@@ -145,19 +151,19 @@ class SegmentInfo {
     }
 
     /**
-     * Returns the segment file offset for the given log index or {@code 0} if the log index was not found.
+     * Returns the segment file offset for the given log index or {@link #MISSING_SEGMENT_FILE_OFFSET} if the log index was not found.
      */
     int getOffset(long logIndex) {
         long offsetIndex = logIndex - logIndexBase;
 
         if (offsetIndex < 0) {
-            return 0;
+            return MISSING_SEGMENT_FILE_OFFSET;
         }
 
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
         if (offsetIndex >= segmentFileOffsets.size()) {
-            return 0;
+            return MISSING_SEGMENT_FILE_OFFSET;
         }
 
         return segmentFileOffsets.get((int) offsetIndex);
@@ -237,7 +243,7 @@ class SegmentInfo {
      */
     SegmentInfo truncatePrefix(long firstIndexKept) {
         if (isPrefixTombstone()) {
-            if (this.firstIndexKept >= firstIndexKept) {
+            if (firstIndexKept <= this.firstIndexKept) {
                 throw new IllegalStateException(String.format(
                         "Trying to truncate an already truncated prefix [curFirstIndexKept=%d, newFirstIndexKept=%d]",
                         this.firstIndexKept, firstIndexKept
@@ -250,6 +256,7 @@ class SegmentInfo {
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
         if (firstIndexKept < logIndexBase) {
+            // Add the prefix tombstone property for the current SegmentInfo.
             return new SegmentInfo(logIndexBase, firstIndexKept, segmentFileOffsets);
         }
 

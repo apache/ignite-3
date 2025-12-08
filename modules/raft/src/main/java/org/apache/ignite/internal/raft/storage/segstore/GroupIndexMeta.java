@@ -78,6 +78,19 @@ class GroupIndexMeta {
         }
     }
 
+    /**
+     * A deque of index file meta blocks.
+     *
+     * <p>When a new index file is created, its meta is appended to the last block (represented by a {@link IndexMetaArrayHolder} of the
+     * deque if its {@link IndexFileMeta#firstLogIndexInclusive()} matches the most recent {@link IndexFileMeta#lastLogIndexExclusive()} in
+     * the block. I.e. consecutive index file metas are merged into a single block, no new elements are added to the deque.
+     *
+     * <p>The only case when a new block is added to the deque is if a log suffix truncation happened somewhere during an index file's
+     * lifecycle. In this case, the new block will have its {@link IndexFileMeta#firstLogIndexInclusive()} smaller than the most recent
+     * block's {@link IndexFileMeta#lastLogIndexExclusive()} (two blocks "overlap"). During search, the newer block will be checked first,
+     * so elements in the range {@code [newBlock#firstLogIndexInclusive : oldBlock#lastLogIndexExclusive)} will be taken from the new block,
+     * effectively overriding the old block's entries in this range.
+     */
     private final Deque<IndexMetaArrayHolder> fileMetaDeque = new ConcurrentLinkedDeque<>();
 
     GroupIndexMeta(IndexFileMeta startFileMeta) {

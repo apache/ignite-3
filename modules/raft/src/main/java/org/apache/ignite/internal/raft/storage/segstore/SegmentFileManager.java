@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.HASH_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.CRC_SIZE_BYTES;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_MARKER;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_MARKER;
@@ -315,7 +316,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
 
-        if (segmentPayloadOffset == 0) {
+        if (segmentPayloadOffset == MISSING_SEGMENT_FILE_OFFSET) {
             return null;
         }
 
@@ -527,14 +528,23 @@ class SegmentFileManager implements ManuallyCloseable {
 
     /**
      * Creates an index memtable from the given segment file. Unlike {@link #recoverMemtable} which is expected to only be called on
-     * "complete" segment files (i.e. those that has experienced a rollover), this method is expected to be called on the most recent,
+     * "complete" segment files (i.e. those that have experienced a rollover) this method is expected to be called on the most recent,
      * possibly incomplete segment file.
      */
     private WriteModeIndexMemTable recoverLatestMemtable(SegmentFile segmentFile, Path segmentFilePath) {
         return recoverMemtable(segmentFile, segmentFilePath, true);
     }
 
+    /**
+     * Creates an index memtable from the given segment file. This method is expected to be called only on "complete" segment files
+     * (i.e. those that have experienced a rollover).
+     *
+     * <p>This method skips CRC validation, because it is used to identify the end of incomplete segment files (and, by definition, this can
+     * never happen during this method's invocation), not to validate storage integrity.
+     */
     private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        // We skip CRC validation during recovery of already "rollovered" segment files, because CRC validation is only used to find an end
+        // of an incomplete segment file, not to check for storage integrity.
         return recoverMemtable(segmentFile, segmentFilePath, false);
     }
 
@@ -595,7 +605,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 memtable.appendSegmentFileOffset(groupId, index, segmentFilePayloadOffset);
             }
 
-            buffer.position(crcPosition + HASH_SIZE_BYTES);
+            buffer.position(crcPosition + CRC_SIZE_BYTES);
         }
 
         return memtable;

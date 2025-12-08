@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -58,9 +59,9 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
     void testMissingValue() {
         memTable.appendSegmentFileOffset(0, 5, 1);
 
-        assertThat(memTable.segmentInfo(0).getOffset(1), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(MISSING_SEGMENT_FILE_OFFSET));
         assertThat(memTable.segmentInfo(0).getOffset(5), is(1));
-        assertThat(memTable.segmentInfo(0).getOffset(6), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(6), is(MISSING_SEGMENT_FILE_OFFSET));
         assertThat(memTable.segmentInfo(1), is(nullValue()));
     }
 
@@ -82,11 +83,11 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
             if (groupId == 0) {
                 assertThat(segmentInfo.getOffset(0), is(1));
                 assertThat(segmentInfo.getOffset(1), is(2));
-                assertThat(segmentInfo.getOffset(2), is(0));
+                assertThat(segmentInfo.getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
             } else {
                 assertThat(segmentInfo.getOffset(0), is(3));
                 assertThat(segmentInfo.getOffset(1), is(4));
-                assertThat(segmentInfo.getOffset(2), is(0));
+                assertThat(segmentInfo.getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
             }
         });
     }
@@ -107,7 +108,7 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
                 SegmentInfo segmentInfo = memTable.segmentInfo(0);
 
                 if (segmentInfo != null) {
-                    assertThat(segmentInfo.getOffset(i), either(is(i + 1)).or(is(0)));
+                    assertThat(segmentInfo.getOffset(i), either(is(i + 1)).or(is(MISSING_SEGMENT_FILE_OFFSET)));
                 }
             }
         };
@@ -139,7 +140,7 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
                     SegmentInfo segmentInfo = memTable.segmentInfo(groupId);
 
                     if (segmentInfo != null) {
-                        assertThat(segmentInfo.getOffset(j), either(is(j + 1)).or(is(0)));
+                        assertThat(segmentInfo.getOffset(j), either(is(j + 1)).or(is(MISSING_SEGMENT_FILE_OFFSET)));
                     }
                 }
             });
@@ -176,8 +177,8 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
         assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(0));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(MISSING_SEGMENT_FILE_OFFSET));
 
         assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(55));
         assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(56));
@@ -188,8 +189,8 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
         assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(0));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(MISSING_SEGMENT_FILE_OFFSET));
 
         assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(55));
         assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(56));
@@ -200,13 +201,13 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
         assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(0));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(MISSING_SEGMENT_FILE_OFFSET));
 
-        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(0));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(MISSING_SEGMENT_FILE_OFFSET));
     }
 
     @Test
@@ -226,7 +227,7 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         memTable.truncateSuffix(0, 0);
 
-        assertThat(memTable.segmentInfo(0).getOffset(1), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(MISSING_SEGMENT_FILE_OFFSET));
 
         memTable.appendSegmentFileOffset(0, 1, 43);
 
@@ -240,66 +241,66 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         // Truncate to a position before the moment the last segment info was added.
         memTable.truncateSuffix(0, 10);
 
-        assertThat(memTable.segmentInfo(0).getOffset(36), is(0));
-        assertThat(memTable.segmentInfo(0).getOffset(11), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(36), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(0).getOffset(11), is(MISSING_SEGMENT_FILE_OFFSET));
 
         memTable.appendSegmentFileOffset(0, 11, 43);
 
         assertThat(memTable.segmentInfo(0).getOffset(11), is(43));
-        assertThat(memTable.segmentInfo(0).getOffset(12), is(0));
-        assertThat(memTable.segmentInfo(0).getOffset(36), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(12), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(0).getOffset(36), is(MISSING_SEGMENT_FILE_OFFSET));
     }
 
     @Test
     void testTruncatePrefix() {
-        long groupId0 = 1;
-        long groupId1 = 2;
+        long groupId1 = 1;
+        long groupId2 = 2;
 
-        memTable.appendSegmentFileOffset(groupId0, 1, 42);
-        memTable.appendSegmentFileOffset(groupId0, 2, 43);
-        memTable.appendSegmentFileOffset(groupId0, 3, 44);
-        memTable.appendSegmentFileOffset(groupId0, 4, 45);
+        memTable.appendSegmentFileOffset(groupId1, 1, 42);
+        memTable.appendSegmentFileOffset(groupId1, 2, 43);
+        memTable.appendSegmentFileOffset(groupId1, 3, 44);
+        memTable.appendSegmentFileOffset(groupId1, 4, 45);
 
-        memTable.appendSegmentFileOffset(groupId1, 1, 55);
-        memTable.appendSegmentFileOffset(groupId1, 2, 56);
-        memTable.appendSegmentFileOffset(groupId1, 3, 57);
-        memTable.appendSegmentFileOffset(groupId1, 4, 58);
+        memTable.appendSegmentFileOffset(groupId2, 1, 55);
+        memTable.appendSegmentFileOffset(groupId2, 2, 56);
+        memTable.appendSegmentFileOffset(groupId2, 3, 57);
+        memTable.appendSegmentFileOffset(groupId2, 4, 58);
 
-        memTable.truncatePrefix(groupId0, 1);
+        memTable.truncatePrefix(groupId1, 1);
 
-        assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(44));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(45));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(42));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(43));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(44));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(45));
 
-        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(55));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(56));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(57));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(58));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(1), is(55));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(2), is(56));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(3), is(57));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(4), is(58));
 
-        memTable.truncatePrefix(groupId1, 3);
+        memTable.truncatePrefix(groupId2, 3);
 
-        assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(44));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(45));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(42));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(43));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(44));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(45));
 
-        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(57));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(58));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(1), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(3), is(57));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(4), is(58));
 
-        memTable.truncatePrefix(groupId0, 4);
+        memTable.truncatePrefix(groupId1, 4);
 
-        assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(0));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(0));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
-        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(45));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(45));
 
-        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(0));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(57));
-        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(58));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(1), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(3), is(57));
+        assertThat(memTable.segmentInfo(groupId2).getOffset(4), is(58));
     }
 
     @Test

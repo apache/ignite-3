@@ -70,8 +70,8 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Group ID (8 bytes);</li>
  *     <li>Flags (4 bytes);</li>
  *     <li>Payload offset (4 bytes);</li>
- *     <li>First log index (8 bytes);</li>
- *     <li>Last log index (8 bytes);</li>
+ *     <li>First log index (8 bytes, inclusive);</li>
+ *     <li>Last log index (8 bytes, exclusive);</li>
  *     <li>First log index kept (8 bytes): used during prefix truncation, either equal to first index kept if prefix was truncated at least
  *     once during the index file lifecycle, otherwise equal to {@code -1}.</li>
  * </ol>
@@ -103,6 +103,9 @@ class IndexFileManager {
     private static final Pattern INDEX_FILE_NAME_PATTERN = Pattern.compile("index-(?<ordinal>\\d{10})-(?<generation>\\d{10})\\.bin");
 
     private static final String TMP_FILE_SUFFIX = ".tmp";
+
+    /** Size of the segment file offset entry (used as the payload of an index file). */
+    static final int SEGMENT_FILE_OFFSET_SIZE = Integer.BYTES;
 
     // Magic number + format version + number of Raft groups.
     static final int COMMON_META_SIZE = Integer.BYTES + Integer.BYTES + Integer.BYTES;
@@ -348,7 +351,7 @@ class IndexFileManager {
         // Create a meta with a truncated prefix.
         int numEntriesToSkip = toIntExact(firstIndexKept - firstLogIndexInclusive);
 
-        int adjustedPayloadOffset = payloadOffset + numEntriesToSkip * Integer.BYTES;
+        int adjustedPayloadOffset = payloadOffset + numEntriesToSkip * SEGMENT_FILE_OFFSET_SIZE;
 
         return new IndexFileMeta(firstIndexKept, lastLogIndexExclusive, adjustedPayloadOffset, fileOrdinal);
     }

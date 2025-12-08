@@ -35,14 +35,14 @@ class SegmentPayload {
 
     static final int LENGTH_SIZE_BYTES = Integer.BYTES;
 
-    static final int HASH_SIZE_BYTES = Integer.BYTES;
+    static final int CRC_SIZE_BYTES = Integer.BYTES;
 
     /**
      * Length of the byte sequence that is written when suffix truncation happens.
      *
      * <p>Format: {@code groupId, TRUNCATE_SUFFIX_RECORD_MARKER (special length value), last kept index, crc}
      */
-    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE_BYTES;
+    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + CRC_SIZE_BYTES;
 
     /**
      * Length of the byte sequence that is written when prefix truncation happens.
@@ -86,7 +86,7 @@ class SegmentPayload {
                 .putInt(TRUNCATE_SUFFIX_RECORD_MARKER)
                 .putLong(lastLogIndexKept);
 
-        writeCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE_BYTES);
+        writeCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - CRC_SIZE_BYTES);
     }
 
     static void writeTruncatePrefixRecordTo(ByteBuffer buffer, long groupId, long firstIndexKept) {
@@ -95,7 +95,7 @@ class SegmentPayload {
                 .putInt(TRUNCATE_PREFIX_RECORD_MARKER)
                 .putLong(firstIndexKept);
 
-        writeCrc(buffer, TRUNCATE_PREFIX_RECORD_SIZE - HASH_SIZE_BYTES);
+        writeCrc(buffer, TRUNCATE_PREFIX_RECORD_SIZE - CRC_SIZE_BYTES);
     }
 
     private static void writeCrc(ByteBuffer buffer, int recordSizeWithoutCrc) {
@@ -140,7 +140,7 @@ class SegmentPayload {
         buffer.get(entryBytes);
 
         // Move the position as if we have read the whole payload.
-        buffer.position(buffer.position() + HASH_SIZE_BYTES);
+        buffer.position(buffer.position() + CRC_SIZE_BYTES);
 
         return logEntryDecoder.decode(entryBytes);
     }
@@ -154,6 +154,6 @@ class SegmentPayload {
     }
 
     static int fixedOverheadSize() {
-        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE_BYTES;
+        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + CRC_SIZE_BYTES;
     }
 }
