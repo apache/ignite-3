@@ -34,8 +34,8 @@
     <PackageReference Include="JetBrains.Annotations" Version="2025.2.4" PrivateAssets="all" />
     <PackageReference Include="NodaTime" Version="[3.*,)" />
     <PackageReference Include="Remotion.Linq" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[6.*,)" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="[8.*,)" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.11" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.11" />
   </ItemGroup>
 
   <ItemGroup>

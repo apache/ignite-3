@@ -70,7 +70,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -93,6 +92,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
@@ -137,7 +137,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStor
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -162,6 +161,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     private static final int PARTITION_ID = 0;
+
+    private static final int ZONE_ID = 2;
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
@@ -297,7 +298,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
@@ -306,8 +306,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                new TablePartitionId(TABLE_ID, PARTITION_ID)
+                new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -479,7 +478,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
@@ -488,8 +486,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                new TablePartitionId(TABLE_ID, PARTITION_ID)
+                new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
 
         txStatePartitionStorage.lastApplied(3L, 1L);

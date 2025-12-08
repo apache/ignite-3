@@ -58,7 +58,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -401,7 +400,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 storageUpdateHandler,
                 txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId()),
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaRegistry,
                 indexMetaStorage,
@@ -410,7 +408,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
     }

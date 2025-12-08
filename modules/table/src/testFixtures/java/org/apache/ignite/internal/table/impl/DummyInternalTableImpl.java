@@ -50,7 +50,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -535,7 +534,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 safeTime,
-                storageIndexTracker,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
@@ -544,8 +542,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                enabledColocation ? zonePartitionId : tablePartitionId
+                zonePartitionId
         );
 
         if (enabledColocation) {

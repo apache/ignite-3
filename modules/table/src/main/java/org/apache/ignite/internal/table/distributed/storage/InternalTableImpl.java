@@ -2287,15 +2287,12 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param partitionId Partition ID.
      * @param newSafeTimeTracker New partition safe time tracker.
-     * @param newStorageIndexTracker New partition storage index tracker.
      */
     public void updatePartitionTrackers(
             int partitionId,
-            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> newStorageIndexTracker
+            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker
     ) {
         PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
-        PendingComparableValuesTracker<Long, Void> previousStorageIndexTracker;
 
         synchronized (updatePartitionMapsMux) {
             Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
@@ -2306,7 +2303,6 @@ public class InternalTableImpl implements InternalTable {
             newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
 
             previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
-            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
 
             safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
             storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
@@ -2314,10 +2310,6 @@ public class InternalTableImpl implements InternalTable {
 
         if (previousSafeTimeTracker != null) {
             previousSafeTimeTracker.close();
-        }
-
-        if (previousStorageIndexTracker != null) {
-            previousStorageIndexTracker.close();
         }
     }
 
