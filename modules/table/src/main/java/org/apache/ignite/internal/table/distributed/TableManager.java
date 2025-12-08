@@ -1219,16 +1219,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * Creates transaction state storage for the provided table.
-     *
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
-     */
-    protected TxStateStorage createTxStateTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-            return new BrokenTxStateStorage();
-    }
-
-    /**
      * Drops local structures for a table.
      *
      * @param tableId Table id to destroy.

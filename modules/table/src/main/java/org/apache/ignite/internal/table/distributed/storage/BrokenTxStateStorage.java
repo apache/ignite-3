@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * It is intended to make sure that with enabled colocation, table-scoped tx state storages are not used.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove this.
+// TODO sanpwc Remove
 public class BrokenTxStateStorage implements TxStateStorage {
     @Override
     public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {

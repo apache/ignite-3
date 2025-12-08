@@ -158,7 +158,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -228,7 +227,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     @Mock
     private LogSyncer logSyncer;
     private volatile MvTableStorage mvTableStorage;
-    private volatile TxStateStorage txStateStorage;
 
     private volatile HybridTimestamp savedWatermark;
 
@@ -251,9 +249,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createIndex(TABLE_NAME, INDEX_NAME);
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
         clearInvocations(mvTableStorage);
-        clearInvocations(txStateStorage);
 
         int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
 
@@ -269,7 +265,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertEquals(0, tableManager.startedTables().size());
 
         verify(mvTableStorage, never()).createMvPartition(anyInt());
-        verify(txStateStorage, never()).getOrCreatePartitionStorage(anyInt());
 
         // Let's check that the table was deleted.
         verify(dsm.engineByStorageProfile(DEFAULT_STORAGE_PROFILE)).destroyMvTable(eq(tableId));
@@ -284,9 +279,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         int tableId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
         clearInvocations(mvTableStorage);
-        clearInvocations(txStateStorage);
 
         // Drop table.
         dropTable(TABLE_NAME);
@@ -298,7 +291,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(tableManager.startedTables().keySet(), contains(tableId));
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
     }
 
     @Test
@@ -308,14 +300,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         dropSimpleTable(catalogManager, TABLE_NAME);
 
         clearInvocations(mvTableStorage);
-        clearInvocations(txStateStorage);
 
         stopComponents();
         startComponents();
 
         // Table is available after restart.
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).atLeastOnce()).createMvPartition(anyInt());
-        verify(txStateStorage, timeout(WAIT_TIMEOUT).atLeastOnce()).getOrCreatePartitionStorage(anyInt());
 
         lowWatermark.updateLowWatermark(clock.now());
 
@@ -602,16 +592,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
                 return mvTableStorage;
-            }
-
-            @Override
-            protected TxStateStorage createTxStateTableStorage(
-                    CatalogTableDescriptor tableDescriptor,
-                    CatalogZoneDescriptor zoneDescriptor
-            ) {
-                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
-
-                return txStateStorage;
             }
         };
 
