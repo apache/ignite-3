@@ -105,7 +105,8 @@ public class Checkpointer extends IgniteWorker {
             + "checkpointId={}, "
             + "beforeWriteLockTime={}ms, "
             + "writeLockWait={}us, "
-            + "listenersExecuteTime={}us, "
+            + "listenersBeforeCheckpointBeginTime={}us, "
+            + "listenersOnMarkCheckpointBeginTime={}us, "
             + "writeLockHoldTime={}us, "
             + "splitAndSortPagesDuration={}ms, "
             + "{}"
@@ -115,7 +116,8 @@ public class Checkpointer extends IgniteWorker {
     private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
             + "beforeWriteLockTime={}ms, "
             + "writeLockWait={}us, "
-            + "listenersExecuteTime={}us, "
+            + "listenersBeforeCheckpointBeginTime={}us, "
+            + "listenersOnMarkCheckpointBeginTime={}us, "
             + "writeLockHoldTime={}us, reason='{}']";
 
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
@@ -390,6 +392,7 @@ public class Checkpointer extends IgniteWorker {
                                 chp.progress.id(),
                                 tracker.beforeWriteLockDuration(MILLISECONDS),
                                 tracker.writeLockWaitDuration(MICROSECONDS),
+                                tracker.onBeforeCheckpointBeginDuration(MICROSECONDS),
                                 tracker.onMarkCheckpointBeginDuration(MICROSECONDS),
                                 tracker.writeLockHoldDuration(MICROSECONDS),
                                 tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS),
@@ -411,6 +414,7 @@ public class Checkpointer extends IgniteWorker {
                             CHECKPOINT_SKIPPED_LOG_TEMPLATE,
                             tracker.beforeWriteLockDuration(MILLISECONDS),
                             tracker.writeLockWaitDuration(MICROSECONDS),
+                            tracker.onBeforeCheckpointBeginDuration(MICROSECONDS),
                             tracker.onMarkCheckpointBeginDuration(MICROSECONDS),
                             tracker.writeLockHoldDuration(MICROSECONDS),
                             chp.progress.reason()

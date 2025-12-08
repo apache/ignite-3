@@ -209,6 +209,8 @@ class CheckpointWorkflow {
         AwaitTasksCompletionExecutor executor = callbackListenerThreadPool == null
                 ? null : new AwaitTasksCompletionExecutor(callbackListenerThreadPool, updateHeartbeat);
 
+        tracker.onBeforeCheckpointBeginStart();
+
         checkpointReadWriteLock.readLock();
 
         try {
@@ -228,6 +230,8 @@ class CheckpointWorkflow {
         } finally {
             checkpointReadWriteLock.readUnlock();
         }
+
+        tracker.onBeforeCheckpointBeginEnd();
 
         tracker.onWriteLockWaitStart();
 
