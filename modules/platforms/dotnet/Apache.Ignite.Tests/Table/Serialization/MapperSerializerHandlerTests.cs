@@ -53,7 +53,7 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
     {
         var ex = Assert.Throws<IgniteClientException>(() => Write(new Poco { Key = 1234, Val = "skip-me"}));
 
-        StringAssert.StartsWith("Not all columns were written by the mapper. Expected: 2, written: 1, schema: : [Column { Name = Key, Type = Int64", ex!.Message);
+        StringAssert.StartsWith("Not all columns were written by the mapper. Expected: 2, written: 1, schema: [Column { Name = Key, Type = Int64", ex!.Message);
     }
 
     [Test]

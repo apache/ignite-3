@@ -78,7 +78,7 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
             var message = $"Not all columns were written by the mapper. " +
                           $"Expected: {tupleBuilder.NumElements}, " +
                           $"written: {mapperWriter.Builder.ElementIndex}, " +
-                          $"schema: {columns.StringJoin()}.";
+                          $"schema: [{columns.StringJoin()}].";
 
             throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
         }
