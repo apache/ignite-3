@@ -22,6 +22,7 @@ using Internal.Proto.BinaryTuple;
 using Internal.Table;
 using Internal.Table.Serialization;
 using NodaTime;
+using Sql;
 
 /// <summary>
 /// Row writer for mappers. Writes columns in the order defined by the schema.
@@ -59,7 +60,12 @@ public ref struct RowWriter
     /// </summary>
     /// <param name="value">Value.</param>
     [CLSCompliant(false)]
-    public void WriteByte(sbyte? value) => _builder.AppendByteNullable(value);
+    public void WriteByte(sbyte? value)
+    {
+        CheckColumnType(ColumnType.Int8);
+
+        _builder.AppendByteNullable(value);
+    }
 
     /// <summary>
     /// Writes a boolean value.
@@ -167,4 +173,16 @@ public ref struct RowWriter
     /// Skips writing the next column (marks as not set, so that the default column value can be applied by the server).
     /// </summary>
     public void Skip() => _builder.AppendNoValue(_noValueSet);
+
+    private void CheckColumnType(ColumnType provided)
+    {
+        var col = Column;
+
+        if (col.Type == provided)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException($"Can't write a value of type '{provided}' to column '{col.Name}' of type '{col.Type}'.");
+    }
 }
