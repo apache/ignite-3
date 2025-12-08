@@ -25,7 +25,7 @@ import picocli.CommandLine.Command;
  */
 @Command(name = "datanodes",
         subcommands = {
-                RecalculateDataNodesCommand.class
+                ResetDataNodesCommand.class
         },
         description = "Manages data nodes for distribution zones")
 public class DataNodesCommand extends BaseCommand {

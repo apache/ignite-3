@@ -504,7 +504,7 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    Executors.newSingleThreadScheduledExecutor(),
+                    executor,
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
             );
@@ -692,7 +692,6 @@ public class ItTxTestCluster {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -881,67 +880,44 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             SchemaRegistry schemaRegistry
     ) {
-        if (colocationEnabled()) {
-            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
 
-            var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
-                    k -> new HashMap<>());
+        var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
+                k -> new HashMap<>());
 
-            ZonePartitionRaftListener zonePartitionRaftListener = nodeSpecificZonePartitionRaftGroupListeners.computeIfAbsent(
-                    zonePartitionId,
-                    k -> new ZonePartitionRaftListener(
-                            zonePartitionId,
-                            txStateStorage,
-                            txManagers.get(assignment),
-                            safeTimeTracker,
-                            storageIndexTracker,
-                            mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
-                            partitionOperationsExecutor
-                    )
-            );
+        ZonePartitionRaftListener zonePartitionRaftListener = nodeSpecificZonePartitionRaftGroupListeners.computeIfAbsent(
+                zonePartitionId,
+                k -> new ZonePartitionRaftListener(
+                        zonePartitionId,
+                        txStateStorage,
+                        txManagers.get(assignment),
+                        safeTimeTracker,
+                        storageIndexTracker,
+                        mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
+                        partitionOperationsExecutor
+                )
+        );
 
-            PartitionListener tablePartitionRaftListener = new PartitionListener(
-                    txManagers.get(assignment),
-                    partitionDataStorage,
-                    storageUpdateHandler,
-                    txStateStorage,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    schemaRegistry,
-                    mock(IndexMetaStorage.class),
-                    clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor,
-                    placementDriver,
-                    clockServices.get(assignment),
-                    new SystemPropertiesNodeProperties(),
-                    zonePartitionId
-            );
+        PartitionListener tablePartitionRaftListener = new PartitionListener(
+                txManagers.get(assignment),
+                partitionDataStorage,
+                storageUpdateHandler,
+                txStateStorage,
+                safeTimeTracker,
+                catalogService,
+                schemaRegistry,
+                mock(IndexMetaStorage.class),
+                clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
+                mock(MinimumRequiredTimeCollectorService.class),
+                partitionOperationsExecutor,
+                placementDriver,
+                clockServices.get(assignment),
+                zonePartitionId
+        );
 
-            zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
+        zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
 
-            return zonePartitionRaftListener;
-        } else {
-            return new PartitionListener(
-                    txManagers.get(assignment),
-                    partitionDataStorage,
-                    storageUpdateHandler,
-                    txStateStorage,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    schemaRegistry,
-                    mock(IndexMetaStorage.class),
-                    clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor,
-                    placementDriver,
-                    clockServices.get(assignment),
-                    new SystemPropertiesNodeProperties(),
-                    new TablePartitionId(tableId, partId)
-            );
-        }
+        return zonePartitionRaftListener;
     }
 
     /**
@@ -1201,14 +1177,6 @@ public class ItTxTestCluster {
             assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
-        if (executor != null) {
-            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-        }
-
-        if (partitionOperationsExecutor != null) {
-            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
-        }
-
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
 
@@ -1272,6 +1240,14 @@ public class ItTxTestCluster {
             for (ClockWaiter clockWaiter : clockWaiters) {
                 assertThat(clockWaiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
+        }
+
+        if (executor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
+
+        if (partitionOperationsExecutor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
     }
 

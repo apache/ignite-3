@@ -15,25 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.zone.datanodes;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECALCULATE_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECALCULATE_ZONE_NAMES_OPTION_DESC;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import picocli.CommandLine.Option;
+class WiLinkableCommittedVersionReader extends WiLinkableRowVersionReader {
+    WiLinkableCommittedVersionReader(long link, int partitionId) {
+        super(link, partitionId);
+    }
 
-/** Arguments for recalculate data nodes command. */
-public class RecalculateDataNodesMixin {
-    @Option(
-            names = RECALCULATE_ZONE_NAMES_OPTION,
-            description = RECALCULATE_ZONE_NAMES_OPTION_DESC,
-            split = ","
-    )
-    private List<String> zoneNames;
-
-    /** Returns names of zones to recalculate data nodes for. */
-    public List<String> zoneNames() {
-        return zoneNames;
+    @Override
+    public WiLinkableRowVersion createRowVersion(int valueSize, @Nullable BinaryRow value) {
+        return new WiLinkableRowVersion(
+                null,
+                partitionId,
+                link,
+                timestamp,
+                nextLink,
+                prevWiLink,
+                nextWiLink,
+                valueSize,
+                value
+        );
     }
 }
