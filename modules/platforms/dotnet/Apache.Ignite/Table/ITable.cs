@@ -62,10 +62,7 @@ namespace Apache.Ignite.Table
             where T : notnull;
 
         /// <summary>
-        /// Gets the record view mapped to specified type <typeparamref name="T"/>.
-        /// <para />
-        /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
-        /// including private and readonly.
+        /// Gets the record view mapped to specified type <typeparamref name="T"/> with a custom mapper.
         /// </summary>
         /// <param name="mapper">Mapper.</param>
         /// <typeparam name="T">Record type.</typeparam>
@@ -86,10 +83,7 @@ namespace Apache.Ignite.Table
             where TK : notnull;
 
         /// <summary>
-        /// Gets the record view mapped to specified key and value types.
-        /// <para />
-        /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
-        /// including private and readonly.
+        /// Gets the record view mapped to specified key and value types with a custom mapper.
         /// </summary>
         /// <param name="mapper">Mapper.</param>
         /// <typeparam name="TK">Key type.</typeparam>
