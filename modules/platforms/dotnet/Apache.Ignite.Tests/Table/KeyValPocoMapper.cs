@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Table;
 
 using System.Collections.Generic;
 using Ignite.Table.Mapper;
+using Internal.Common;
 
 public class KeyValPocoMapper : IMapper<KeyValuePair<KeyPoco, ValPoco>>
 {
@@ -28,6 +29,8 @@ public class KeyValPocoMapper : IMapper<KeyValuePair<KeyPoco, ValPoco>>
 
         if (schema.Columns.Count > 1)
         {
+            IgniteArgumentCheck.NotNull(obj.Value, "val");
+
             rowWriter.WriteString(obj.Value.Val);
         }
     }
