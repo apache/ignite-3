@@ -28,12 +28,13 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     ///
     /// Results on i9-12900H, .NET SDK 8.0.416, Ubuntu 22.04:
     ///
-    /// | Method                | Mean     | Error   | StdDev  | Ratio | Gen0   | Allocated |
-    /// |---------------------- |---------:|--------:|--------:|------:|-------:|----------:|
-    /// | WriteObjectManual     | 118.9 ns | 0.57 ns | 0.50 ns |  1.00 | 0.0002 |      80 B |
-    /// | WriteObject           | 134.8 ns | 0.49 ns | 0.43 ns |  1.13 | 0.0002 |      80 B |
-    /// | WriteObjectWithMapper | 130.2 ns | 0.92 ns | 0.81 ns |  1.10 | 0.0002 |     112 B |
-    /// | WriteTuple            | 186.3 ns | 0.68 ns | 0.60 ns |  1.57 | 0.0005 |     184 B |.
+    /// | Method                          | Mean     | Error   | StdDev  | Ratio | Gen0   | Allocated | Alloc Ratio |
+    /// |-------------------------------- |---------:|--------:|--------:|------:|-------:|----------:|------------:|
+    /// | WriteObjectManual               | 117.5 ns | 0.40 ns | 0.36 ns |  1.00 | 0.0002 |      80 B |        1.00 |
+    /// | WriteObject                     | 129.2 ns | 0.43 ns | 0.38 ns |  1.10 | 0.0002 |      80 B |        1.00 |
+    /// | WriteObjectWithMapper           | 140.7 ns | 1.00 ns | 0.89 ns |  1.20 | 0.0002 |     112 B |        1.40 |
+    /// | WriteObjectWithMapperKnownOrder | 133.8 ns | 0.38 ns | 0.34 ns |  1.14 | 0.0002 |      80 B |        1.00 |
+    /// | WriteTuple                      | 180.7 ns | 0.46 ns | 0.43 ns |  1.54 | 0.0005 |     184 B |        2.30 |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
