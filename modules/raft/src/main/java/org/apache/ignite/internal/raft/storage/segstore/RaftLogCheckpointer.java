@@ -32,7 +32,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.CheckpointQueue.Entry;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Class responsible for running periodic checkpoint tasks.
@@ -106,7 +105,7 @@ class RaftLogCheckpointer {
     /**
      * Searches for the segment payload corresponding to the given Raft Group ID and Raft Log Index in the checkpoint queue.
      */
-    @Nullable EntrySearchResult findSegmentPayloadInQueue(long groupId, long logIndex) {
+    EntrySearchResult findSegmentPayloadInQueue(long groupId, long logIndex) {
         Iterator<Entry> it = queue.tailIterator();
 
         while (it.hasNext()) {
@@ -119,12 +118,12 @@ class RaftLogCheckpointer {
             }
 
             if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
-                return EntrySearchResult.empty();
+                return EntrySearchResult.notFound();
             }
 
             if (logIndex < segmentInfo.firstIndexKept()) {
                 // This is a prefix tombstone and it cuts off the log index we search for.
-                return EntrySearchResult.empty();
+                return EntrySearchResult.notFound();
             }
 
             int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
@@ -132,11 +131,11 @@ class RaftLogCheckpointer {
             if (segmentPayloadOffset != MISSING_SEGMENT_FILE_OFFSET) {
                 ByteBuffer entryBuffer = e.segmentFile().buffer().position(segmentPayloadOffset);
 
-                return new EntrySearchResult(entryBuffer);
+                return EntrySearchResult.success(entryBuffer);
             }
         }
 
-        return null;
+        return EntrySearchResult.continueSearch();
     }
 
     private class CheckpointTask implements Runnable {

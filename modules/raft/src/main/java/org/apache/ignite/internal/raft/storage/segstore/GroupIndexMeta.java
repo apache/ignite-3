@@ -81,7 +81,7 @@ class GroupIndexMeta {
     /**
      * A deque of index file meta blocks.
      *
-     * <p>When a new index file is created, its meta is appended to the last block (represented by a {@link IndexMetaArrayHolder} of the
+     * <p>When a new index file is created, its meta is appended to the last block (represented by a {@link IndexMetaArrayHolder}) of the
      * deque if its {@link IndexFileMeta#firstLogIndexInclusive()} matches the most recent {@link IndexFileMeta#lastLogIndexExclusive()} in
      * the block. I.e. consecutive index file metas are merged into a single block, no new elements are added to the deque.
      *

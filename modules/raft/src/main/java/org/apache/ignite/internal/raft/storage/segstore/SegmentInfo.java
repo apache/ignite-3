@@ -26,6 +26,25 @@ import java.util.Arrays;
 
 /**
  * Information about a segment file for single Raft Group stored in a {@link IndexMemTable}.
+ *
+ * <p>It consists of a base log index and an array of segment file offsets which stores in log entry offsets which indices lie in the
+ * {@code [logIndexBase, logIndexBase + segmentFileOffsets.size)} range.
+ *
+ * <p>Objects of this class can represent special conditions in presence of log truncations:
+ *
+ * <ul>
+ *     <li>When a suffix truncation happens, a "suffix tombstone" is inserted with {@code logIndexBase} equal to the next log index
+ *     after the cutoff value and an empty offsets array. This array can then be populated with new entries, as usual. This means that
+ *     {@link #firstLogIndexInclusive()} can be equal to {@link #lastLogIndexExclusive()} if this is a "pure" suffix tombstone
+ *     (i.e. tombstone without any values added after it was created);</li>
+ *     <li>When a prefix truncation happens, a "prefix tombstone" is inserted. Depending on the state of the object, it can either be a
+ *     "pure" prefix tombstone ({@code logIndexBase = -1}, {@code firstIndexKept = <cutoff value>}, empty offsets array), this means that
+ *     a memtable didn't contain any data for a particular Raft group at the moment of truncation, or a "regular" prefix tombstone
+ *     ({@code logIndexBase > 0}, {@code firstIndexKept=<cutoff value>}, non-empty offsets array), which means that some entries were
+ *     inserted (or already existed) after the cutoff index. This means that if {@link #firstIndexKept()} is not equal to {@code -1}
+ *     (i.e. this is a prefix tombstone), an additional check is required ({@link #firstLogIndexInclusive()} == -1) to identify if this is a
+ *     "pure" prefix tombstone.</li>
+ * </ul>
  */
 class SegmentInfo {
     static int MISSING_SEGMENT_FILE_OFFSET = 0;
@@ -108,6 +127,10 @@ class SegmentInfo {
      */
     private final long logIndexBase;
 
+    /**
+     * Special log index value used to indicate that a prefix truncation command has been executed. Is equal to the cutoff log index value
+     * or {@code -1}, if no prefix truncations happened.
+     */
     private final long firstIndexKept;
 
     /**
@@ -234,7 +257,8 @@ class SegmentInfo {
 
         setSegmentFileOffsets(segmentFileOffsets, segmentFileOffsets.truncateSuffix(newSize));
 
-        // This could have been a "void" method, but this way it looks consistent with "truncatePrefix".
+        // This could have been a "void" method, but this way it looks consistent with "truncatePrefix". Since the tail of the
+        // {@code segmentFileOffsets} array is mutable, we can avoid creating a new object.
         return this;
     }
 
@@ -256,7 +280,7 @@ class SegmentInfo {
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
         if (firstIndexKept < logIndexBase) {
-            // Add the prefix tombstone property for the current SegmentInfo.
+            // Add the prefix tombstone property to the current SegmentInfo.
             return new SegmentInfo(logIndexBase, firstIndexKept, segmentFileOffsets);
         }
 

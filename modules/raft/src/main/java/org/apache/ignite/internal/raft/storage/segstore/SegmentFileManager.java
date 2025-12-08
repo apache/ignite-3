@@ -41,6 +41,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.internal.util.FastCrc;
@@ -281,48 +282,50 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private @Nullable ByteBuffer getEntry(long groupId, long logIndex) throws IOException {
-        EntrySearchResult currentMemtableResult = getEntryFromCurrentMemtable(groupId, logIndex);
+        EntrySearchResult searchResult = getEntryFromCurrentMemtable(groupId, logIndex);
 
-        if (currentMemtableResult != null) {
-            return currentMemtableResult.isEmpty() ? null : currentMemtableResult.entryBuffer();
+        if (searchResult.searchOutcome() == SearchOutcome.CONTINUE_SEARCH) {
+            searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
+
+            if (searchResult.searchOutcome() == SearchOutcome.CONTINUE_SEARCH) {
+                searchResult = readFromOtherSegmentFiles(groupId, logIndex);
+            }
         }
 
-        EntrySearchResult checkpointQueueResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
-
-        if (checkpointQueueResult != null) {
-            return checkpointQueueResult.isEmpty() ? null : checkpointQueueResult.entryBuffer();
+        switch (searchResult.searchOutcome()) {
+            case SUCCESS: return searchResult.entryBuffer();
+            case NOT_FOUND: return null;
+            default: throw new IllegalStateException("Unexpected search outcome: " + searchResult.searchOutcome());
         }
-
-        return readFromOtherSegmentFiles(groupId, logIndex);
     }
 
-    private @Nullable EntrySearchResult getEntryFromCurrentMemtable(long groupId, long logIndex) {
+    private EntrySearchResult getEntryFromCurrentMemtable(long groupId, long logIndex) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
         if (segmentInfo == null) {
-            return null;
+            return EntrySearchResult.continueSearch();
         }
 
         if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
-            return EntrySearchResult.empty();
+            return EntrySearchResult.notFound();
         }
 
         if (logIndex < segmentInfo.firstIndexKept()) {
             // This is a prefix tombstone and it cuts off the log index we search for.
-            return EntrySearchResult.empty();
+            return EntrySearchResult.notFound();
         }
 
         int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
 
         if (segmentPayloadOffset == MISSING_SEGMENT_FILE_OFFSET) {
-            return null;
+            return EntrySearchResult.continueSearch();
         }
 
         ByteBuffer entryBuffer = currentSegmentFile.segmentFile().buffer().position(segmentPayloadOffset);
 
-        return new EntrySearchResult(entryBuffer);
+        return EntrySearchResult.success(entryBuffer);
     }
 
     void truncateSuffix(long groupId, long lastLogIndexKept) throws IOException {
@@ -495,11 +498,11 @@ class SegmentFileManager implements ManuallyCloseable {
         return fileSize - HEADER_RECORD.length;
     }
 
-    private @Nullable ByteBuffer readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
+    private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
         SegmentFilePointer segmentFilePointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
 
         if (segmentFilePointer == null) {
-            return null;
+            return EntrySearchResult.notFound();
         }
 
         Path path = segmentFilesDir.resolve(segmentFileName(segmentFilePointer.fileOrdinal(), 0));
@@ -507,7 +510,9 @@ class SegmentFileManager implements ManuallyCloseable {
         // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
         SegmentFile segmentFile = SegmentFile.openExisting(path);
 
-        return segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+        ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+
+        return EntrySearchResult.success(buffer);
     }
 
     private static boolean endOfSegmentReached(ByteBuffer buffer) {

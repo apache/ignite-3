@@ -23,9 +23,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -38,6 +37,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -110,7 +110,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     @Test
     void testReadFromQueue() {
         // Read from empty queue.
-        assertThat(checkpointer.findSegmentPayloadInQueue(0, 0), is(nullValue()));
+        assertThat(checkpointer.findSegmentPayloadInQueue(0, 0).searchOutcome(), is(SearchOutcome.CONTINUE_SEARCH));
 
         var blockFuture = new CompletableFuture<Void>();
 
@@ -140,21 +140,23 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
                     EntrySearchResult searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
                     if (groupId == logIndex) {
-                        assertThat(searchResult, is(notNullValue()));
-                        assertThat(!searchResult.isEmpty(), is(true));
-                    } else if (searchResult != null) {
-                        assertThat(searchResult.isEmpty(), is(true));
+                        assertThat(searchResult.searchOutcome(), is(SearchOutcome.SUCCESS));
+                    } else {
+                        assertThat(searchResult.searchOutcome(), anyOf(is(SearchOutcome.CONTINUE_SEARCH), is(SearchOutcome.NOT_FOUND)));
                     }
                 }
             }
 
-            assertThat(checkpointer.findSegmentPayloadInQueue(MAX_QUEUE_SIZE, MAX_QUEUE_SIZE), is(nullValue()));
+            assertThat(
+                    checkpointer.findSegmentPayloadInQueue(MAX_QUEUE_SIZE, MAX_QUEUE_SIZE).searchOutcome(),
+                    is(SearchOutcome.CONTINUE_SEARCH)
+            );
         } finally {
             blockFuture.complete(null);
         }
 
         // The queue should eventually become empty again.
-        await().until(() -> checkpointer.findSegmentPayloadInQueue(0, 0), is(nullValue()));
+        await().until(() -> checkpointer.findSegmentPayloadInQueue(0, 0).searchOutcome(), is(SearchOutcome.CONTINUE_SEARCH));
     }
 
     @Test
@@ -183,8 +185,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
             EntrySearchResult res = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
-            assertThat(res, is(notNullValue()));
-            assertThat(res.isEmpty(), is(false));
+            assertThat(res.searchOutcome(), is(SearchOutcome.SUCCESS));
             assertThat(res.entryBuffer(), is(buffer));
         } finally {
             blockFuture.complete(null);
@@ -211,8 +212,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
             EntrySearchResult res = checkpointer.findSegmentPayloadInQueue(groupId, 5);
 
-            assertThat(res, is(notNullValue()));
-            assertThat(res.isEmpty(), is(true));
+            assertThat(res.searchOutcome(), is(SearchOutcome.NOT_FOUND));
         } finally {
             blockFuture.complete(null);
         }

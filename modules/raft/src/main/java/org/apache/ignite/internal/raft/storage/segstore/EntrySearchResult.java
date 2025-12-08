@@ -17,37 +17,45 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome.CONTINUE_SEARCH;
+import static org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome.NOT_FOUND;
+import static org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome.SUCCESS;
+
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class representing the result of an entry search in the log storage.
  *
- * <p>It is used to represent three conditions:
+ * <p>It is used to represent three search outcomes:
  *
  * <ol>
- *     <li>If the corresponding method returns {@code null}, then the entry was not found and we may want to continue
- *     looking in other places;</li>
- *     <li>If the method returns an {@link #isEmpty} instance, then the entry was not found but we know for sure that it does
- *     not exist in the storage;</li>
- *     <li>If the method returns a non-empty instance, then the corresponding entry has been found successfully.</li>
+ *     <li>If {@link EntrySearchResult#searchOutcome()} is {@link SearchOutcome#CONTINUE_SEARCH}, then the entry was not found and we should
+ *     continue looking in other places;</li>
+ *     <li>If {@link EntrySearchResult#searchOutcome()} is {@link SearchOutcome#NOT_FOUND}, then the entry was not found and we know for
+ *     sure that it does not exist in the storage;</li>
+ *     <li>If {@link EntrySearchResult#searchOutcome()} is {@link SearchOutcome#SUCCESS}, then the corresponding entry has been found
+ *     successfully and {@link EntrySearchResult#entryBuffer()} method can be used to obtain the entry value.</li>
  * </ol>
  */
 class EntrySearchResult {
-    private static final EntrySearchResult EMPTY = new EntrySearchResult();
+    enum SearchOutcome {
+        SUCCESS, NOT_FOUND, CONTINUE_SEARCH
+    }
+
+    private static final EntrySearchResult NOT_FOUND_RESULT = new EntrySearchResult(null, NOT_FOUND);
+
+    private static final EntrySearchResult CONTINUE_SEARCH_RESULT = new EntrySearchResult(null, CONTINUE_SEARCH);
 
     @Nullable
     private final ByteBuffer entryBuffer;
 
-    @SuppressWarnings("NullableProblems") // We don't want to accept nulls here.
-    EntrySearchResult(ByteBuffer entryBuffer) {
-        assert entryBuffer != null;
+    private final SearchOutcome searchOutcome;
 
+    private EntrySearchResult(@Nullable ByteBuffer entryBuffer, SearchOutcome searchOutcome) {
         this.entryBuffer = entryBuffer;
-    }
-
-    private EntrySearchResult() {
-        entryBuffer = null;
+        this.searchOutcome = searchOutcome;
     }
 
     ByteBuffer entryBuffer() {
@@ -56,11 +64,24 @@ class EntrySearchResult {
         return entryBuffer;
     }
 
-    boolean isEmpty() {
-        return entryBuffer == null;
+    SearchOutcome searchOutcome() {
+        return searchOutcome;
     }
 
-    static EntrySearchResult empty() {
-        return EMPTY;
+    static EntrySearchResult success(ByteBuffer entryBuffer) {
+        return new EntrySearchResult(entryBuffer, SUCCESS);
+    }
+
+    static EntrySearchResult notFound() {
+        return NOT_FOUND_RESULT;
+    }
+
+    static EntrySearchResult continueSearch() {
+        return CONTINUE_SEARCH_RESULT;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
