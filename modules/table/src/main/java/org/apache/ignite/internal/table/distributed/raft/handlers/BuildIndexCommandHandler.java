@@ -124,7 +124,6 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
                 .collect(Collectors.toList());
         @Nullable RowId lastRowId = last(rowIds);
 
-        // we store iteration position in between storage calls to ensure we processed all elements
         AtomicInteger rowIdsIterationIndex = new AtomicInteger(0);
         boolean finished = false;
         while (!finished) {
