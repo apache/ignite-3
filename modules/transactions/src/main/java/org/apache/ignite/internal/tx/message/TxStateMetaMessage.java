@@ -41,6 +41,8 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
 
     @Nullable Boolean isFinishedDueToTimeout();
 
+    @Nullable String txLabel();
+
     /** Converts to {@link TxStateMeta}. */
     default TxStateMeta asTxStateMeta() {
         ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
@@ -53,7 +55,8 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
                 null,
                 initialVacuumObservationTimestamp(),
                 cleanupCompletionTimestamp(),
-                isFinishedDueToTimeout()
+                isFinishedDueToTimeout(),
+                txLabel()
         );
     }
 

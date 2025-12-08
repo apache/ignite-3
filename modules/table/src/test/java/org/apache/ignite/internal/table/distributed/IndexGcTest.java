@@ -42,7 +42,7 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
-        assertTrue(gcUpdateHandler.vacuumBatch(now(), 1, true));
+        assertTrue(gcUpdateHandler.vacuumBatch(now(), 1));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Newer entry has the same index value, so it should not be removed.
@@ -70,13 +70,13 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
+        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1));
 
         // row1 should still be in the index, because second write was identical to the first.
         assertTrue(inAllIndexes(row1));
 
-        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
-        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
+        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1));
+        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Older entries have different indexes, should be removed.
@@ -103,8 +103,8 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
-        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
+        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1));
+        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1));
 
         assertEquals(0, getRowVersions(rowId).size());
         // The last entry was a tombstone, so no indexes should be left.
@@ -129,8 +129,8 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
-        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
+        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1));
+        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1));
 
         assertEquals(1, getRowVersions(rowId).size());
         assertTrue(inAllIndexes(row));
@@ -154,9 +154,9 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
-        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
-        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1, true));
+        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1));
+        assertTrue(gcUpdateHandler.vacuumBatch(afterCommits, 1));
+        assertFalse(gcUpdateHandler.vacuumBatch(afterCommits, 1));
 
         assertEquals(0, getRowVersions(rowId).size());
         assertTrue(notInAnyIndex(row));

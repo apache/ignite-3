@@ -478,7 +478,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
-                tablePartitionId,
+                zonePartitionId,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
@@ -499,7 +499,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
         );
 
@@ -515,7 +514,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     mock(ClusterNodeResolver.class),
                     svc,
                     mock(FailureProcessor.class),
-                    new SystemPropertiesNodeProperties(),
                     LOCAL_NODE,
                     zonePartitionId
             );
