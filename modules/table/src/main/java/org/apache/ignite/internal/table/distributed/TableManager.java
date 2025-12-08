@@ -1034,7 +1034,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> table.indexStorageAdapters(partitionIndex).get(),
                 clockService,
                 safeTimeTracker,
-                txStatePartitionStorage,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
                 new CatalogValidationSchemasSource(catalogService, schemaManager),
@@ -1567,7 +1566,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     var tablePartitionId = new TablePartitionId(internalTable.tableId(), partitionId);
 
                     stopReplicaAndDestroyFutures[partitionId] = resourcesUnloadFuture
-                            .thenCompose(v -> stopAndDestroyTablePartition(tablePartitionId, table, true));
+                            .thenCompose(v -> stopAndDestroyTablePartition(tablePartitionId, table));
                 }
 
                 return allOf(stopReplicaAndDestroyFutures).whenComplete((res, th) -> {
@@ -1597,17 +1596,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     TableViewInternal table = tables.get(tablePartitionId.tableId());
                     assert table != null : tablePartitionId;
 
-                    return stopAndDestroyTablePartition(tablePartitionId, table, false);
+                    return stopAndDestroyTablePartition(tablePartitionId, table);
                 });
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(
             TablePartitionId tablePartitionId,
-            TableViewInternal table,
-            boolean destroyingWholeTable
+            TableViewInternal table
     ) {
         return stopTablePartition(tablePartitionId, table)
-                .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table, destroyingWholeTable), ioExecutor);
+                .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
     }
 
     /**
@@ -1652,8 +1650,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> destroyPartitionStorages(
             TablePartitionId tablePartitionId,
-            TableViewInternal table,
-            boolean destroyingWholeTable
+            TableViewInternal table
     ) {
         InternalTable internalTable = table.internalTable();
 
