@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -87,6 +86,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
+// TODO sanpwc Rename and remove implements RaftGroupListener
 public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
