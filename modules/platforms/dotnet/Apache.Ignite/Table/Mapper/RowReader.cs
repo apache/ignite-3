@@ -45,7 +45,7 @@ public ref struct RowReader
         _columns = columns;
     }
 
-    private Column Column => _columns[_position];
+    private readonly Column Column => _columns[_position];
 
     /// <summary>
     /// Reads the next column as a byte.
