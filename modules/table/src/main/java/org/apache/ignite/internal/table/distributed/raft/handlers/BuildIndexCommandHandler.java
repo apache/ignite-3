@@ -124,30 +124,36 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
                 .collect(Collectors.toList());
         @Nullable RowId lastRowId = last(rowIds);
 
+        // we store iteration position in between storage calls to ensure we processed all elements
         AtomicInteger rowIdsIterationIndex = new AtomicInteger(0);
         boolean finished = false;
         while (!finished) {
             finished = storage.runConsistently(locker -> {
-                int index = rowIdsIterationIndex.get();
-                while (index < rowIds.size()) {
-                    RowId rowId = rowIds.get(index);
-                    locker.lock(rowId);
-                    Stream<BinaryRowAndRowId> rowVersions = rowVersionChooser.chooseForBuildIndex(rowId)
-                            .stream()
-                            .map(row -> upgradeBinaryRow(binaryRowUpgrader, row));
+                if (rowIds.isEmpty()) {
+                    // necessary to bump `nextRowIdToBuild` to null
+                    storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), Stream.of(), null);
+                } else {
+                    int index = rowIdsIterationIndex.get();
+                    while (index < rowIds.size()) {
+                        RowId rowId = rowIds.get(index);
+                        locker.lock(rowId);
+                        Stream<BinaryRowAndRowId> rowVersions = rowVersionChooser.chooseForBuildIndex(rowId)
+                                .stream()
+                                .map(row -> upgradeBinaryRow(binaryRowUpgrader, row));
 
-                    RowId nextRowIdToBuild = null;
-                    if (index != rowIds.size() - 1) {
-                        nextRowIdToBuild = rowIds.get(index + 1);
-                    } else if (!command.finish()) {
-                        nextRowIdToBuild = requireNonNull(lastRowId).increment();
-                    }
+                        RowId nextRowIdToBuild = null;
+                        if (index != rowIds.size() - 1) {
+                            nextRowIdToBuild = rowIds.get(index + 1);
+                        } else if (!command.finish()) {
+                            nextRowIdToBuild = requireNonNull(lastRowId).increment();
+                        }
 
-                    storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), rowVersions, nextRowIdToBuild);
-                    index = rowIdsIterationIndex.incrementAndGet();
+                        storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), rowVersions, nextRowIdToBuild);
+                        index = rowIdsIterationIndex.incrementAndGet();
 
-                    if (locker.shouldRelease()) {
-                        return false;
+                        if (locker.shouldRelease() && index < rowIds.size()) {
+                            return false;
+                        }
                     }
                 }
                 storage.lastApplied(commandIndex, commandTerm);
