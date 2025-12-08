@@ -52,11 +52,11 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        var columns = schema.GetColumnsFor(keyOnly);
+        Column[] columns = schema.GetColumnsFor(keyOnly);
         var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Length);
 
         var mapperReader = new RowReader(ref binaryTupleReader, columns);
-        var mapperSchema = schema.GetMapperSchema(keyOnly);
+        IMapperSchema mapperSchema = schema.GetMapperSchema(keyOnly);
 
         return _mapper.Read(ref mapperReader, mapperSchema);
     }
@@ -64,6 +64,8 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
+        // Use MemoryMarshal to overcome the 'scoped' restriction.
+        // We know that noValueSet will not outlive this method but cannot express this to the compiler.
         Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
         var mapperWriter = new RowWriter(ref tupleBuilder, noValueSetRef, schema.GetColumnsFor(keyOnly));
 
