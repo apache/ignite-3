@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -60,7 +61,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -104,6 +106,8 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryRequestMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryResponseMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryStatusRequestMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryStatusResponseMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
@@ -130,6 +134,7 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.Disaster
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryRequestForwardException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalNodesException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.LocalProcessingDisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -176,11 +181,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      */
     private static final int CATCH_UP_THRESHOLD = 100;
 
+    /** How often to check status of running multi node operations. */
+    private static final long POLLING_RATE_MILLIS = 100;
+
+    /** Multi node operation was successfully completed. */
+    private static final String COMPLETED_STATUS = "COMPLETED";
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Thread pool executor for async parts. */
-    private final ExecutorService threadPool;
+    private final ScheduledExecutorService threadPool;
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -225,9 +236,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private final Map<Integer, PartitionStatesMetricSource> metricSourceByTableId = new ConcurrentHashMap<>();
 
+    private final Map<String, MultiNodeOperations> operationsByNodeName = new ConcurrentHashMap<>();
+
+    /** Multi node operations completed by current node and not yet reported to initiator. */
+    private final Map<UUID, String> operationStatusByOperationId = new HashMap<>();
+
+    /** Runs {@link #pollMultiNodeOperations()} at a fixed rate. */
+    private ScheduledFuture<?> pollingFuture;
+
     /** Constructor. */
     public DisasterRecoveryManager(
-            ExecutorService threadPool,
+            ScheduledExecutorService threadPool,
             MessagingService messagingService,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
@@ -278,6 +297,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             registerMetricSources();
 
+            pollingFuture = threadPool.scheduleWithFixedDelay(
+                    this::pollMultiNodeOperations,
+                    0,
+                    POLLING_RATE_MILLIS,
+                    TimeUnit.MILLISECONDS
+            );
+
             return nullCompletedFuture();
         });
     }
@@ -290,6 +316,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         for (CompletableFuture<Void> future : ongoingOperationsById.values()) {
             future.completeExceptionally(new NodeStoppingException());
+        }
+
+        ScheduledFuture<?> pollingFuture = this.pollingFuture;
+        if (pollingFuture != null) {
+            pollingFuture.cancel(true);
         }
 
         return nullCompletedFuture();
@@ -1130,7 +1161,79 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
         }
 
-        return operationFuture;
+        if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
+            return allOf(request.nodeNames()
+                    .stream()
+                    .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
+                    .toArray(CompletableFuture[]::new));
+        } else {
+            return operationFuture;
+        }
+    }
+
+    private CompletableFuture<Void> addMultiNodeOperation(String nodeName, UUID operationId) {
+        CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        operationsByNodeName.compute(nodeName, (node, operations) -> {
+            if (operations == null) {
+                operations = new MultiNodeOperations();
+            }
+
+            operations.add(operationId, result);
+
+            return operations;
+        });
+
+        return result;
+    }
+
+    /** Check status of ongoing multi node operations. Uses versioning to avoid sending identical requests. */
+    private void pollMultiNodeOperations() {
+        for (Map.Entry<String, MultiNodeOperations> entry : operationsByNodeName.entrySet()) {
+            int accumulatedChanges = entry.getValue().accumulatedChanges();
+
+            // We already sent the latest version, skip.
+            if (accumulatedChanges == 0) {
+                continue;
+            }
+
+            String nodeName = entry.getKey();
+            MultiNodeOperations operations = entry.getValue();
+
+            DisasterRecoveryStatusRequestMessage request = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusRequestMessage()
+                            .operationIds(operations.operationsIds())
+                            .build();
+
+            messagingService.invoke(nodeName, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+                    .whenComplete((message, ex) -> {
+                        if (ex != null) {
+                            operations.exceptionally(ex);
+                        }
+
+                        DisasterRecoveryStatusResponseMessage responseMessage = (DisasterRecoveryStatusResponseMessage) message;
+
+                        for (Map.Entry<UUID, String> operationResponse : responseMessage.operationStatuses().entrySet()) {
+                            UUID operationId = operationResponse.getKey();
+                            String operationStatus = operationResponse.getValue();
+
+                            if (!COMPLETED_STATUS.equals(operationStatus)) {
+                                operations.get(operationId)
+                                        .completeExceptionally(new LocalProcessingDisasterRecoveryException(operationStatus, nodeName));
+                            } else {
+                                operations.get(operationId).complete(null);
+                            }
+
+                            operations.remove(operationId);
+                        }
+
+                        // Not all operations were completed, increase version to poll again.
+                        if (!operations.operationsIds().isEmpty()) {
+                            operations.shouldSendNewRequest();
+                        }
+                    });
+
+            operations.markLatestVersionSent(accumulatedChanges);
+        }
     }
 
     /**
@@ -1252,6 +1355,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             }
 
                             if (ex != null) {
+                                operationStatusByOperationId.put(request.operationId(), ex.getMessage());
+
                                 if (!hasCause(
                                         ex,
                                         NodeStoppingException.class,
@@ -1261,6 +1366,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                 )) {
                                     failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
                                 }
+                            } else {
+                                operationStatusByOperationId.put(request.operationId(), COMPLETED_STATUS);
                             }
 
                             return null;
@@ -1282,6 +1389,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
+        } else if (message instanceof DisasterRecoveryStatusRequestMessage) {
+            handleDisasterRecoveryStatusRequest((DisasterRecoveryStatusRequestMessage) message, sender, correlationId);
         }
     }
 
@@ -1403,6 +1512,25 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             LocalPartitionStatesResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesResponse()
                     .states(statesList)
+                    .build();
+
+            messagingService.respond(sender, response, correlationId);
+        }, threadPool);
+    }
+
+    private void handleDisasterRecoveryStatusRequest(
+            DisasterRecoveryStatusRequestMessage request,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
+        assert correlationId != null : "request=" + request + ", sender=" + sender;
+
+        runAsync(() -> {
+            Map<UUID, String> operationStatuses = request.operationIds().stream()
+                    .collect(toMap(Function.identity(), operationStatusByOperationId::get));
+
+            DisasterRecoveryStatusResponseMessage response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusResponseMessage()
+                    .operationStatuses(operationStatuses)
                     .build();
 
             messagingService.respond(sender, response, correlationId);

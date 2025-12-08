@@ -309,5 +309,11 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for disaster recovery request forwarding response. */
         short DISASTER_RECOVERY_RESPONSE = 111;
+
+        /** Message type for disaster recovery status request. */
+        short DISASTER_RECOVERY_STATUS_REQUEST = 112;
+
+        /** Message type for disaster recovery status response. */
+        short DISASTER_RECOVERY_STATUS_RESPONSE = 113;
     }
 }

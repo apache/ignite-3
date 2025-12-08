@@ -85,6 +85,11 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         return SINGLE_NODE;
     }
 
+    @Override
+    public Set<String> nodeNames() {
+        return Set.of();
+    }
+
     public int catalogVersion() {
         return catalogVersion;
     }
