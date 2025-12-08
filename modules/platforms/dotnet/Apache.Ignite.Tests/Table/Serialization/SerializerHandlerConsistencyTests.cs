@@ -53,9 +53,8 @@ public class SerializerHandlerConsistencyTests
         var objectHandler = new ObjectSerializerHandler<Poco>();
         var objectKvHandler = new ObjectSerializerHandler<KvPair<PocoKey, PocoVal>>();
         var mapperHandler = new MapperSerializerHandler<Poco>(new PocoMapper());
+        var mapperKvHandler = new MapperSerializerHandler<KvPair<PocoKey, PocoVal>>(new PocoKvMapper());
 
-        // TODO
-        // var mapperKvHandler = new MapperSerializerHandler<KvPair<PocoKey, PocoVal>>(new PocoKvMapper());
         var poco = new Poco
         {
             Val1 = "v1",
