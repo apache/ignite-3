@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +31,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
     @Nullable UUID txCoordinatorId();
 
     /** ID of the replication group that manages a transaction state. */
-    @Nullable ReplicationGroupIdMessage commitPartitionId();
+    @Nullable ZonePartitionIdMessage commitPartitionId();
 
     /** Initial vacuum observation timestamp. */
     @Nullable Long initialVacuumObservationTimestamp();
@@ -45,7 +45,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
 
     /** Converts to {@link TxStateMeta}. */
     default TxStateMeta asTxStateMeta() {
-        ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
+        ZonePartitionIdMessage commitPartitionId = commitPartitionId();
 
         return new TxStateMeta(
                 txState(),
