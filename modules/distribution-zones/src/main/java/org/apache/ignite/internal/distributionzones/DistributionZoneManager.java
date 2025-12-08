@@ -415,22 +415,6 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using catalog version. The timestamp which is used for data nodes retrieval is taken from the catalog
-     * with the given {@code catalogVersion}.
-     *
-     * <p>Return data nodes or throw the exception:
-     * {@link IllegalArgumentException} if zoneId is not valid.
-     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
-     *
-     * @param catalogVersion Catalog version.
-     * @param zoneId Zone id.
-     * @return The future with data nodes for the zoneId.
-     */
-    public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
-        return dataNodes(INITIAL_TIMESTAMP, catalogVersion, zoneId);
-    }
-
-    /**
      * Recalculates data nodes for given zones and writes them to metastorage.
      *
      * @param zoneNames Zone names set. If is empty then the recalculation will be performed against all known zones

@@ -453,7 +453,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
-        when(distributionZoneManager.dataNodes(anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         PlacementDriver placementDriver = new TestPlacementDriver(node);

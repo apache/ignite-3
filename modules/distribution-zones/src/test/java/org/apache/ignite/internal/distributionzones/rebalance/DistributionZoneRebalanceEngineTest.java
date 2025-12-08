@@ -417,7 +417,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnNonDefaultZones() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();
@@ -452,7 +452,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();
