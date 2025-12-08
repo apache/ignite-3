@@ -427,8 +427,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         GET_AND_DELETE((table, tx) -> table.getAndDelete(createBinaryRow(), tx)),
         DELETE_ALL((table, tx) -> table.deleteAll(List.of(createBinaryRow()), tx)),
         DELETE_ALL_EXACT((table, tx) -> table.deleteAllExact(List.of(createBinaryRow()), tx)),
-        SCAN_MV_STORAGE(adaptScan((table, tx) -> table.scan(0, tx))),
-        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, IndexScanCriteria.unbounded())));
+        SCAN_MV_STORAGE(adaptScan((table, tx) -> table.partitionScan(0, tx))),
+        SCAN_INDEX(adaptScan((table, tx) -> table.indexScan(0, tx, 1, IndexScanCriteria.unbounded())));
 
         private final BiFunction<InternalTable, InternalTransaction, CompletableFuture<?>> action;
 

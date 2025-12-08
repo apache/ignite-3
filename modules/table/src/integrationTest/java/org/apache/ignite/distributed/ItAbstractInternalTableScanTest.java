@@ -82,7 +82,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
+ * Tests for {@link InternalTable#partitionScan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest {

@@ -290,7 +290,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, sortedIndexId, IndexScanCriteria.unbounded());
+        Publisher<BinaryRow> publisher = internalTable.indexScan(PART_ID, null, sortedIndexId, IndexScanCriteria.unbounded());
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -466,7 +466,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null);
+        Publisher<BinaryRow> publisher = internalTable.partitionScan(PART_ID, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -502,7 +502,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
-        var pub = internalTable.scan(PART_ID, null);
+        var pub = internalTable.partitionScan(PART_ID, null);
 
         assertEquals(ROW_IDS.size() + txOpFut.get(), scanAllRows(pub).size());
     }
@@ -642,7 +642,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"));
 
-        Publisher<BinaryRow> publisher2 = internalTable.scan(
+        Publisher<BinaryRow> publisher2 = internalTable.indexScan(
                 PART_ID,
                 null,
                 sortedIndexId,
@@ -772,7 +772,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
             }
 
-            publisher = internalTable.scan(PART_ID, tx);
+            publisher = internalTable.partitionScan(PART_ID, tx);
         }
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();

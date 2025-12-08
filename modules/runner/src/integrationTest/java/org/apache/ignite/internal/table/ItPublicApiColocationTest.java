@@ -193,7 +193,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         List<Tuple> res = new ArrayList<>();
         CompletableFuture<Void> f = new CompletableFuture<>();
 
-        tbl.internalTable().scan(part, null).subscribe(new Subscriber<>() {
+        tbl.internalTable().partitionScan(part, null).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(ROWS);

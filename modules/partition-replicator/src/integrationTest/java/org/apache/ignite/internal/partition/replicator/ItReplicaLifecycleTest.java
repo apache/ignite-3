@@ -614,7 +614,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Prepare a subscription on table scan in explicit transaction.
         List<BinaryRow> scannedRows = new ArrayList<>();
-        PartitionScanPublisher<BinaryRow> publisher = (PartitionScanPublisher<BinaryRow>) table.scan(partId, tx);
+        PartitionScanPublisher<BinaryRow> publisher = (PartitionScanPublisher<BinaryRow>) table.partitionScan(partId, tx);
         CompletableFuture<Void> scanned = new CompletableFuture<>();
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 

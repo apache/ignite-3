@@ -403,18 +403,15 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            @Nullable InternalTransaction tx
-    ) {
+    public Publisher<BinaryRow> partitionScan(int partId, @Nullable InternalTransaction tx) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     @Override
-    public Publisher<BinaryRow> scan(
+    public Publisher<BinaryRow> indexScan(
             int partId,
             @Nullable InternalTransaction tx,
-            Integer indexId,
+            int indexId,
             IndexScanCriteria.Range criteria
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
