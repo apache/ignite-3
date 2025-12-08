@@ -25,7 +25,11 @@ public class KeyValPocoMapper : IMapper<KeyValuePair<KeyPoco, ValPoco>>
     public void Write(KeyValuePair<KeyPoco, ValPoco> obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
         rowWriter.WriteLong(obj.Key.Key);
-        rowWriter.WriteString(obj.Value.Val);
+
+        if (schema.Columns.Count > 1)
+        {
+            rowWriter.WriteString(obj.Value.Val);
+        }
     }
 
     public KeyValuePair<KeyPoco, ValPoco> Read(ref RowReader rowReader, IMapperSchema schema)
@@ -35,11 +39,13 @@ public class KeyValPocoMapper : IMapper<KeyValuePair<KeyPoco, ValPoco>>
             Key = rowReader.ReadLong()!.Value
         };
 
-        var val = new ValPoco
-        {
-            Val = rowReader.ReadString()
-        };
+        var val = schema.Columns.Count > 1
+            ? new ValPoco
+            {
+                Val = rowReader.ReadString()
+            }
+            : null;
 
-        return new KeyValuePair<KeyPoco, ValPoco>(key, val);
+        return new KeyValuePair<KeyPoco, ValPoco>(key, val!);
     }
 }
