@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.LOCAL_NODE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.REMOTE_NODE_ERR;
 
 import java.util.Map;
 import java.util.Set;
@@ -78,7 +78,7 @@ class MultiNodeOperations {
 
         for (UUID operationId : operationIds) {
             operationsById.get(operationId).completeExceptionally(new DisasterRecoveryException(
-                    LOCAL_NODE_ERR,
+                    REMOTE_NODE_ERR,
                     "Couldn't get multi node operation status: " + ex.getMessage()
             ));
 

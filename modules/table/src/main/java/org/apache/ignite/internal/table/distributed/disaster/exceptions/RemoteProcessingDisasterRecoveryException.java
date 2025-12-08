@@ -19,15 +19,14 @@ package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
 import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 
-/** Exception is thrown when local node encounters an error during disaster recovery processing. */
-public class LocalProcessingDisasterRecoveryException extends DisasterRecoveryException {
+/** Exception is thrown when remote node encounters an error during disaster recovery processing. */
+public class RemoteProcessingDisasterRecoveryException extends DisasterRecoveryException {
     private static final long serialVersionUID = 1L;
 
-    public LocalProcessingDisasterRecoveryException(String message, String nodeName) {
-        super(DisasterRecovery.LOCAL_NODE_ERR, formatMessage(message, nodeName));
-    }
-
-    private static String formatMessage(String message, String nodeName) {
-        return "Processing error on node " + nodeName + " during disaster recovery: " + message;
+    public RemoteProcessingDisasterRecoveryException(String message, String nodeName) {
+        super(
+                DisasterRecovery.REMOTE_NODE_ERR,
+                "Processing error on node " + nodeName + " during disaster recovery: " + message
+        );
     }
 }

@@ -135,9 +135,9 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.Disaster
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryRequestForwardException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalNodesException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.LocalProcessingDisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.RemoteProcessingDisasterRecoveryException;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -1225,7 +1225,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                             if (!COMPLETED_STATUS.equals(operationStatus)) {
                                 operations.get(operationId)
-                                        .completeExceptionally(new LocalProcessingDisasterRecoveryException(operationStatus, nodeName));
+                                        .completeExceptionally(new RemoteProcessingDisasterRecoveryException(operationStatus, nodeName));
                             } else {
                                 operations.get(operationId).complete(null);
                             }
