@@ -18,57 +18,40 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
+using System.Collections.Generic;
 using Ignite.Table.Mapper;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
 
 /// <summary>
-/// Mapper-based KV pair serializer handler. See <see cref="MapperSerializerHandler{T}"/> for details.
+/// Mapper-based KV pair serializer handler.
+/// Converts between internal <see cref="KvPair{TK,TV}"/> and public <see cref="KeyValuePair{TKey,TValue}"/>.
+/// See <see cref="MapperSerializerHandler{T}"/> for details.
 /// </summary>
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
 internal sealed class MapperPairSerializerHandler<TK, TV> : IRecordSerializerHandler<KvPair<TK, TV>>
 {
-    private readonly IMapper<TK> _keyMapper;
-
-    private readonly IMapper<TV> _valMapper;
+    private readonly MapperSerializerHandler<KeyValuePair<TK, TV>> _pairHandler;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MapperPairSerializerHandler{TK, TV}"/> class.
     /// </summary>
-    /// <param name="keyMapper">Key mapper.</param>
-    /// <param name="valMapper">Val mapper.</param>
-    public MapperPairSerializerHandler(IMapper<TK> keyMapper, IMapper<TV> valMapper)
-    {
-        _keyMapper = keyMapper;
-        _valMapper = valMapper;
-    }
+    /// <param name="mapper">Mapper.</param>
+    public MapperPairSerializerHandler(IMapper<KeyValuePair<TK, TV>> mapper) =>
+        _pairHandler = new MapperSerializerHandler<KeyValuePair<TK, TV>>(mapper);
 
     /// <inheritdoc/>
     public KvPair<TK, TV> Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        Column[] columns = schema.GetColumnsFor(keyOnly);
-        var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Length);
-
-        var mapperReader = new RowReader(ref binaryTupleReader, columns);
-        IMapperSchema keySchema = schema.GetMapperSchema(keyOnly: true);
-
-        var key = _keyMapper.Read(ref mapperReader, keySchema);
-        if (keyOnly)
-        {
-            return new KvPair<TK, TV>(key);
-        }
-
-        // TODO: Only read value columns.
-        var valueSchema = schema.GetMapperSchema(keyOnly: false);
-        var val = _valMapper.Read(ref mapperReader, keySchema);
-
-        return new KvPair<TK, TV>(key, val);
+        KeyValuePair<TK, TV> pair = _pairHandler.Read(ref reader, schema, keyOnly);
+        return new KvPair<TK, TV>(pair.Key, pair.Value);
     }
 
     /// <inheritdoc/>
     public void Write(ref BinaryTupleBuilder tupleBuilder, KvPair<TK, TV> record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
     {
-        throw new NotImplementedException();
+        KeyValuePair<TK, TV> pair = new KeyValuePair<TK, TV>(record.Key, record.Val);
+        _pairHandler.Write(ref tupleBuilder, pair, schema, keyOnly, noValueSet);
     }
 }
