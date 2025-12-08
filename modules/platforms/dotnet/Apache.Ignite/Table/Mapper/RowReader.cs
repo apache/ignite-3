@@ -253,6 +253,8 @@ public ref struct RowReader
 
     private void AdvanceAndCheckColumnType(ColumnType provided)
     {
+        ++_position;
+
         var col = Column;
 
         if (col.Type == provided)
