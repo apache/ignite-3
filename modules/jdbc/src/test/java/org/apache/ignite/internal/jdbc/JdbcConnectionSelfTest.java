@@ -46,7 +46,6 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.IgniteSql;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
@@ -462,16 +461,16 @@ public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
                 try (Statement stmt = conn.createStatement();
                         PreparedStatement pstmt = conn.prepareStatement("SELECT 1")) {
 
-                    assertThat(stmt.getQueryTimeout(), Matchers.is(pstmt.getQueryTimeout()));
+                    assertThat(stmt.getQueryTimeout(), is(pstmt.getQueryTimeout()));
 
                     return stmt.getQueryTimeout();
                 }
             }
         };
 
-        assertThat(valueGetter.apply(URL), Matchers.is(0));
-        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), Matchers.is(Integer.MAX_VALUE));
-        assertThat(valueGetter.apply(urlPrefix + "=0"), Matchers.is(0));
+        assertThat(valueGetter.apply(URL), is(0));
+        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
 
         expectConnectionException(urlPrefix + "=A",
                 format("Failed to parse int property [name={}, value=A]", propName));
@@ -500,9 +499,9 @@ public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(valueGetter.apply(URL), Matchers.is(0));
-        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), Matchers.is(Integer.MAX_VALUE));
-        assertThat(valueGetter.apply(urlPrefix + "=0"), Matchers.is(0));
+        assertThat(valueGetter.apply(URL), is(0));
+        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
 
         expectConnectionException(urlPrefix + "=A",
                 format("Failed to parse int property [name={}, value=A]", propName));
