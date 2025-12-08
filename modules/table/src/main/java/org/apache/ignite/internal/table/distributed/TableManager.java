@@ -175,7 +175,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
-import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
@@ -184,7 +183,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -860,9 +858,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
-        PartitionStorages partitionStorages;
+        MvPartitionStorage mvPartitionStorage;
         try {
-            partitionStorages = getPartitionStorages(table, partId);
+            mvPartitionStorage = getMvPartitionStorage(table, partId);
         } catch (TableClosedException e) {
             // The node is probably stopping while we start the table, let's just skip it.
             return;
@@ -871,7 +869,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         PartitionDataStorage partitionDataStorage = partitionDataStorage(
                 new ZonePartitionKey(zonePartitionId.zoneId(), partId),
                 tableId,
-                partitionStorages.getMvPartitionStorage()
+                mvPartitionStorage
         );
 
         PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
@@ -892,8 +890,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zonePartitionId,
                 table,
                 safeTimeTracker,
-                partitionStorages.getMvPartitionStorage(),
-                partitionStorages.getTxStateStorage(),
+                mvPartitionStorage,
                 partitionUpdateHandlers,
                 raftClient
         );
@@ -1013,7 +1010,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             MvPartitionStorage mvPartitionStorage,
-            TxStatePartitionStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
             RaftCommandRunner raftClient
     ) {
@@ -1470,13 +1466,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * Gets partition stores.
+     * Gets MV partition storage.
      *
      * @param table Table.
      * @param partitionId Partition ID.
-     * @return PartitionStorages.
+     * @return MvPartitionStorage.
      */
-    private static PartitionStorages getPartitionStorages(TableViewInternal table, int partitionId) {
+    private static MvPartitionStorage getMvPartitionStorage(TableViewInternal table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
         MvPartitionStorage mvPartition;
@@ -1488,7 +1484,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert mvPartition != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
-        return new PartitionStorages(mvPartition, null);
+        return mvPartition;
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.

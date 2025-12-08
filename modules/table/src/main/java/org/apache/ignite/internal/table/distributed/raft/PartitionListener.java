@@ -86,7 +86,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-// TODO sanpwc Rename and remove implements RaftGroupListener
+// TODO ignite-22522 Rename to TablePartitionProcessor and remove implements RaftGroupListener
 public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
@@ -151,7 +151,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.clockService = clockService;
         this.realReplicationGroupId = realReplicationGroupId;
 
-        // TODO sanpwc simplify, e.g. use NoOp handler
+        // TODO ignite-22522 Will be removed.
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(null, null);
 
         // RAFT command handlers initialization.
@@ -516,7 +516,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
      * @param commandIndex RAFT index of the command.
      * @param commandTerm RAFT term of the command.
      */
-    // TODO sanpwc cmd is never used, check whethet it was used previously.
     private CommandResult handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
