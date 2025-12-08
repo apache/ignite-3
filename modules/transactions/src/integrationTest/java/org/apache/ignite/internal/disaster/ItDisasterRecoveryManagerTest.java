@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.awaitPartitionsToBeHealthy;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
@@ -81,7 +82,6 @@ import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -668,7 +668,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23633")
     @Test
     void testRestartPartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -684,6 +683,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
 
         assertEquals(4, runningNodes.size(), "Expected 4 running nodes after zone alteration");
+
+        awaitPartitionsToBeHealthy(cluster, testZone, Set.of());
 
         String tableName = "TABLE_NAME";
 

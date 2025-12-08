@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.management.zone.RecalculateDataNodesCall;
-import org.apache.ignite.internal.cli.call.management.zone.RecalculateDataNodesCallInput;
+import org.apache.ignite.internal.cli.call.management.zone.ResetDataNodesCall;
+import org.apache.ignite.internal.cli.call.management.zone.ResetDataNodesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
@@ -28,18 +28,18 @@ import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** REPL command to recalculate data nodes for distribution zones. */
-@Command(name = "recalculate", description = "Recalculates data nodes for distribution zones")
-public class RecalculateDataNodesReplCommand extends BaseCommand implements Runnable {
+/** REPL command to reset data nodes for distribution zones. */
+@Command(name = "reset", description = "Resets data nodes for distribution zones")
+public class ResetDataNodesReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
     @Mixin
-    private RecalculateDataNodesMixin options;
+    private ResetDataNodesMixin options;
 
     @Inject
-    private RecalculateDataNodesCall call;
+    private ResetDataNodesCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
@@ -47,14 +47,14 @@ public class RecalculateDataNodesReplCommand extends BaseCommand implements Runn
     @Override
     public void run() {
         runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(this::recalculateDataNodesCallInput)
+                .map(this::resetDataNodesCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot recalculate data nodes"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot reset data nodes"))
                 .print()
         );
     }
 
-    private RecalculateDataNodesCallInput recalculateDataNodesCallInput(String clusterUrl) {
-        return RecalculateDataNodesCallInput.of(options, clusterUrl);
+    private ResetDataNodesCallInput resetDataNodesCallInput(String clusterUrl) {
+        return ResetDataNodesCallInput.of(options, clusterUrl);
     }
 }

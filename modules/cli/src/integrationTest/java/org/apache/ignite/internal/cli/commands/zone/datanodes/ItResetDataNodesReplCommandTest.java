@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
-/** Test class for {@link RecalculateDataNodesCommand}. */
-public class ItRecalculateDataNodesCommandTest extends ItRecalculateDataNodesTest {
+/** Test class for {@link ResetDataNodesReplCommand}. */
+public class ItResetDataNodesReplCommandTest extends ItResetDataNodesTest {
     @Override
     protected Class<?> getCommandClass() {
-        return RecalculateDataNodesCommand.class;
+        return ResetDataNodesReplCommand.class;
     }
 }

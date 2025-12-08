@@ -29,21 +29,21 @@ import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.api.DataNodesApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
-/** Call to recalculate data nodes for distribution zones. */
+/** Call to reset data nodes for distribution zones. */
 @Singleton
-public class RecalculateDataNodesCall implements Call<RecalculateDataNodesCallInput, String> {
+public class ResetDataNodesCall implements Call<ResetDataNodesCallInput, String> {
 
     private final ApiClientFactory clientFactory;
 
-    RecalculateDataNodesCall(ApiClientFactory clientFactory) {
+    ResetDataNodesCall(ApiClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
     @Override
-    public CallOutput<String> execute(RecalculateDataNodesCallInput input) {
+    public CallOutput<String> execute(ResetDataNodesCallInput input) {
         try {
             DataNodesApi api = new DataNodesApi(clientFactory.getClient(input.clusterUrl()));
-            // If no zone names specified, pass an empty list (which means recalculate all zones).
+            // If no zone names specified, pass an empty list (which means reset all zones).
             api.resetDataNodesForZones(input.zoneNames() == null ? Collections.emptyList() : input.zoneNames());
 
             return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());

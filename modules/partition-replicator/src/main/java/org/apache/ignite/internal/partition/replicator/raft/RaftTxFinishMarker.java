@@ -51,15 +51,10 @@ public class RaftTxFinishMarker {
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable ReplicationGroupId commitPartitionId
     ) {
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                commit ? COMMITTED : ABORTED,
-                old == null ? null : old.txCoordinatorId(),
-                old == null ? commitPartitionId : old.commitPartitionId(),
-                commit ? commitTimestamp : null,
-                old == null ? null : old.tx(),
-                old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp(),
-                old == null ? null : old.isFinishedDueToTimeout()
-        ));
+        txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, commit ? COMMITTED : ABORTED)
+                .commitPartitionId(commitPartitionId)
+                .commitTimestamp(commit ? commitTimestamp : null)
+                .build()
+        );
     }
 }
