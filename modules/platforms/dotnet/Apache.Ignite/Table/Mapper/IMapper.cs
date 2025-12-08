@@ -46,6 +46,11 @@ public interface IMapper<T>
     ///     }
     /// }
     /// </code>
+    /// Alternatively, if we know the exact schema at compile time, we can write directly:
+    /// <code>
+    /// rowWriter.WriteInt(obj.Id);
+    /// rowWriter.WriteString(obj.Name);
+    /// </code>
     /// </summary>
     /// <param name="obj">Object.</param>
     /// <param name="rowWriter">Row writer.</param>
@@ -54,6 +59,35 @@ public interface IMapper<T>
 
     /// <summary>
     /// Reads an object of type <typeparamref name="T"/> from an Ignite table row.
+    /// <para />
+    /// The columns must be read in the order defined by the schema. A typical implementation looks like this:
+    /// <code>
+    /// var obj = new MyObject();
+    /// foreach (var column in schema.Columns)
+    /// {
+    ///     switch (column.Name)
+    ///     {
+    ///         case "ID":
+    ///             obj.Id = rowReader.ReadInt()!.Value;
+    ///             break;
+    ///         case "NAME":
+    ///             obj.Name = rowReader.ReadString();
+    ///             break;
+    ///         default:
+    ///             rowReader.Skip(); // Unmapped column.
+    ///             break;
+    ///     }
+    /// }
+    /// return obj;
+    /// </code>
+    /// Alternatively, if we know the exact schema at compile time, we can read directly:
+    /// <code>
+    /// return new MyObject
+    /// {
+    ///     Id = rowReader.ReadInt()!.Value,
+    ///     Name = rowReader.ReadString()
+    /// };
+    /// </code>
     /// </summary>
     /// <param name="rowReader">Row reader.</param>
     /// <param name="schema">Row schema.</param>
