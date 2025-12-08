@@ -47,7 +47,23 @@ internal sealed class MapperPairSerializerHandler<TK, TV> : IRecordSerializerHan
     /// <inheritdoc/>
     public KvPair<TK, TV> Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        throw new NotImplementedException();
+        Column[] columns = schema.GetColumnsFor(keyOnly);
+        var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Length);
+
+        var mapperReader = new RowReader(ref binaryTupleReader, columns);
+        IMapperSchema keySchema = schema.GetMapperSchema(keyOnly: true);
+
+        var key = _keyMapper.Read(ref mapperReader, keySchema);
+        if (keyOnly)
+        {
+            return new KvPair<TK, TV>(key);
+        }
+
+        // TODO: Only read value columns.
+        var valueSchema = schema.GetMapperSchema(keyOnly: false);
+        var val = _valMapper.Read(ref mapperReader, keySchema);
+
+        return new KvPair<TK, TV>(key, val);
     }
 
     /// <inheritdoc/>
