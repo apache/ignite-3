@@ -74,8 +74,10 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
         // NOTE: MapperWriter constructor makes a copy of the builder, but this is ok since the underlying buffer is shared.
         if (mapperWriter.Builder.ElementIndex < mapperWriter.Builder.NumElements)
         {
-            throw new InvalidOperationException("Not all columns were written by the mapper. " +
-                $"Expected: {tupleBuilder.NumElements}, written: {mapperWriter.Builder.ElementIndex}.");
+            var message = $"Not all columns were written by the mapper. " +
+                          $"Expected: {tupleBuilder.NumElements}, written: {mapperWriter.Builder.ElementIndex}.";
+
+            throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
         }
     }
 }

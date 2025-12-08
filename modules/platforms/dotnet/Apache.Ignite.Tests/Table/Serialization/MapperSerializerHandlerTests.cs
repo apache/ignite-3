@@ -28,6 +28,20 @@ using NUnit.Framework;
 [TestFixture]
 internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 {
+    public override void TestReadUnsupportedFieldTypeThrowsException()
+    {
+        var ex = Assert.Throws<IgniteClientException>(() =>
+        {
+            var reader = WriteAndGetReader();
+            GetHandler<BadPoco>().Read(ref reader, Schema);
+        });
+
+        Assert.AreEqual(
+            "Can't map field 'BadPoco.<Key>k__BackingField' of type 'System.Guid'" +
+            " to column 'Key' of type 'System.Int64' - types do not match.",
+            ex!.Message);
+    }
+
     protected override IRecordSerializerHandler<T> GetHandler<T>()
     {
         if (typeof(T) == typeof(Poco))

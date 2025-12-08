@@ -32,7 +32,7 @@ using NUnit.Framework;
 // ReSharper disable NotAccessedPositionalProperty.Local
 internal abstract class SerializerHandlerTestBase
 {
-    private static readonly Schema Schema = Schema.CreateInstance(
+    protected static readonly Schema Schema = Schema.CreateInstance(
         version: 1,
         tableId: 1,
         columns:
@@ -79,7 +79,7 @@ internal abstract class SerializerHandlerTestBase
     }
 
     [Test]
-    public void TestReadUnsupportedFieldTypeThrowsException()
+    public virtual void TestReadUnsupportedFieldTypeThrowsException()
     {
         var ex = Assert.Throws<IgniteClientException>(() =>
         {

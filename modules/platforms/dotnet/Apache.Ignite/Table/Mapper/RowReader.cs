@@ -254,7 +254,6 @@ public ref struct RowReader
     private void AdvanceAndCheckColumnType(ColumnType provided)
     {
         ++_position;
-
         var col = Column;
 
         if (col.Type == provided)
@@ -262,6 +261,8 @@ public ref struct RowReader
             return;
         }
 
-        throw new InvalidOperationException($"Can't read a value of type '{provided}' from column '{col.Name}' of type '{col.Type}'.");
+        throw new IgniteClientException(
+            ErrorGroups.Client.Configuration,
+            $"Can't read a value of type '{provided}' from column '{col.Name}' of type '{col.Type}'.");
     }
 }

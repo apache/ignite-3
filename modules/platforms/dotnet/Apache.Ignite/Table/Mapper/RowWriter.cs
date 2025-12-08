@@ -268,6 +268,8 @@ public ref struct RowWriter
             return;
         }
 
-        throw new InvalidOperationException($"Can't write a value of type '{provided}' to column '{col.Name}' of type '{col.Type}'.");
+        throw new IgniteClientException(
+            ErrorGroups.Client.Configuration,
+            $"Can't write a value of type '{provided}' to column '{col.Name}' of type '{col.Type}'.");
     }
 }
