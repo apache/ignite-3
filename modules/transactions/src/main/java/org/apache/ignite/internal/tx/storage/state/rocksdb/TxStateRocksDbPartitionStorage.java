@@ -646,7 +646,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     private String createStorageInfo() {
-        return "tableOrZone=" + zoneId + ", partitionId=" + partitionId;
+        return "zone=" + zoneId + ", partitionId=" + partitionId;
     }
 
     private <V> V busy(Supplier<V> supplier) {

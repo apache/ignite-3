@@ -119,7 +119,7 @@ class TxCleanupRecoveryRequestHandlerTest extends BaseIgniteAbstractTest {
         verify(failureProcessor, never()).process(any());
     }
 
-    private static List<EnlistedPartitionGroup> tableEnlistedPartitions(ZonePartitionId... zonePartitionIds) {
+    private static List<EnlistedPartitionGroup> zoneEnlistedPartitions(ZonePartitionId... zonePartitionIds) {
         return Arrays.stream(zonePartitionIds)
                 // Assume that partition ID equals to table ID and both tables belong to the same distribution zone.
                 .map(zonePartitionId -> new EnlistedPartitionGroup(zonePartitionId, Set.of(zonePartitionId.partitionId())))
@@ -165,7 +165,7 @@ class TxCleanupRecoveryRequestHandlerTest extends BaseIgniteAbstractTest {
     private Cursor<IgniteBiTuple<UUID, TxMeta>> mockTxCursor(int txCount) {
         List<IgniteBiTuple<UUID, TxMeta>> tasks = new ArrayList<>();
         for (int i = 0; i < txCount; i++) {
-            TxMeta txMeta = new TxMeta(TxState.COMMITTED, tableEnlistedPartitions(partition1Id, partition2Id), clock.now());
+            TxMeta txMeta = new TxMeta(TxState.COMMITTED, zoneEnlistedPartitions(partition1Id, partition2Id), clock.now());
             tasks.add(new IgniteBiTuple<>(UUID.randomUUID(), txMeta));
         }
 

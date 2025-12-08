@@ -268,15 +268,15 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerCoordinatorAlive() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        ZonePartitionId zo = new ZonePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(zo.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
-        lockManager.acquire(orphanTxId, new LockKey(zo.zoneId(), rowId), LockMode.X);
+        lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zo, null, null, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
