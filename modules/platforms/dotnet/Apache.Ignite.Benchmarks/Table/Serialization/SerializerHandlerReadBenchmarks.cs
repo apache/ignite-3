@@ -28,14 +28,14 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     ///
     /// Results on i9-12900H, .NET SDK 8.0.416, Ubuntu 22.04:
     ///
-    /// | Method                         | Mean      | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated | Alloc Ratio |
-    /// |------------------------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|------------:|
-    /// | ReadObjectManual               |  40.92 ns | 0.171 ns | 0.143 ns |  1.00 |    0.00 | 0.0002 |      80 B |        1.00 |
-    /// | ReadObject                     |  69.99 ns | 0.235 ns | 0.220 ns |  1.71 |    0.01 | 0.0002 |      80 B |        1.00 |
-    /// | ReadObjectWithMapper           |  50.23 ns | 0.196 ns | 0.163 ns |  1.23 |    0.01 | 0.0004 |     112 B |        1.40 |
-    /// | ReadObjectWithMapperKnownOrder |  39.68 ns | 0.269 ns | 0.252 ns |  0.97 |    0.01 | 0.0002 |      80 B |        1.00 |
-    /// | ReadTuple                      |  21.44 ns | 0.114 ns | 0.089 ns |  0.52 |    0.00 | 0.0004 |     112 B |        1.40 |
-    /// | ReadTupleAndFields             | 130.85 ns | 0.832 ns | 0.694 ns |  3.20 |    0.02 | 0.0005 |     200 B |        2.50 |.
+    /// | Method                         | Mean      | Error    | StdDev   | Ratio | Gen0   | Allocated | Alloc Ratio |
+    /// |------------------------------- |----------:|---------:|---------:|------:|-------:|----------:|------------:|
+    /// | ReadObjectManual               |  40.78 ns | 0.119 ns | 0.099 ns |  1.00 | 0.0002 |      80 B |        1.00 |
+    /// | ReadObject                     |  69.94 ns | 0.287 ns | 0.268 ns |  1.72 | 0.0002 |      80 B |        1.00 |
+    /// | ReadObjectWithMapper           |  52.73 ns | 0.205 ns | 0.192 ns |  1.29 | 0.0004 |     112 B |        1.40 |
+    /// | ReadObjectWithMapperKnownOrder |  41.87 ns | 0.128 ns | 0.120 ns |  1.03 | 0.0002 |      80 B |        1.00 |
+    /// | ReadTuple                      |  21.82 ns | 0.092 ns | 0.077 ns |  0.53 | 0.0004 |     112 B |        1.40 |
+    /// | ReadTupleAndFields             | 132.84 ns | 0.433 ns | 0.384 ns |  3.26 | 0.0005 |     200 B |        2.50 |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
