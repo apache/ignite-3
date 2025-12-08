@@ -1633,6 +1633,8 @@ public class InternalTableImpl implements InternalTable {
             IndexScanCriteria.Range criteria
     ) {
 
+        assert (criteria != null) == (indexId != null) : "Index scan requires both indexId and criteria, or neither.";
+
         validatePartitionIndex(partId);
 
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
