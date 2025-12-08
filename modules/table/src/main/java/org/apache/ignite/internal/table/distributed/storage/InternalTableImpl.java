@@ -102,7 +102,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -214,8 +213,6 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-only transaction timeout. */
     private final Supplier<Long> defaultReadTxTimeout;
 
-    private final boolean colocationEnabled;
-
     private final TableMetricSource metrics;
 
     /**
@@ -256,7 +253,6 @@ public class InternalTableImpl implements InternalTable {
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
             Supplier<Long> defaultReadTxTimeout,
-            boolean colocationEnabled,
             TableMetricSource metrics
     ) {
         this.tableName = tableName;
@@ -276,7 +272,6 @@ public class InternalTableImpl implements InternalTable {
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
         this.defaultReadTxTimeout = defaultReadTxTimeout;
-        this.colocationEnabled = colocationEnabled;
         this.metrics = metrics;
     }
 
@@ -2226,11 +2221,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
-        if (colocationEnabled) {
-            return new ZonePartitionId(zoneId, partitionIndex);
-        } else {
-            return new TablePartitionId(tableId, partitionIndex);
-        }
+        return new ZonePartitionId(zoneId, partitionIndex);
     }
 
     private static ZonePartitionIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
@@ -2297,15 +2288,12 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param partitionId Partition ID.
      * @param newSafeTimeTracker New partition safe time tracker.
-     * @param newStorageIndexTracker New partition storage index tracker.
      */
     public void updatePartitionTrackers(
             int partitionId,
-            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> newStorageIndexTracker
+            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker
     ) {
         PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
-        PendingComparableValuesTracker<Long, Void> previousStorageIndexTracker;
 
         synchronized (updatePartitionMapsMux) {
             Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
@@ -2316,7 +2304,6 @@ public class InternalTableImpl implements InternalTable {
             newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
 
             previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
-            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
 
             safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
             storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
@@ -2324,10 +2311,6 @@ public class InternalTableImpl implements InternalTable {
 
         if (previousSafeTimeTracker != null) {
             previousSafeTimeTracker.close();
-        }
-
-        if (previousStorageIndexTracker != null) {
-            previousStorageIndexTracker.close();
         }
     }
 

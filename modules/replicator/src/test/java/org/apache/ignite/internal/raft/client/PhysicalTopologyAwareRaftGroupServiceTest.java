@@ -21,12 +21,11 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -41,15 +40,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
-import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -64,8 +63,8 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -81,24 +80,22 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Abstract class containing test scenarios for {@link TopologyAwareRaftGroupService} related test classes.
- * TODO: IGNITE-27257 Refactor the class to make it more readable and maintainable.
+ * Tests for {@link PhysicalTopologyAwareRaftGroupService}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstractTest {
+public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     /** RAFT message factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Base node port. */
     private static final int PORT_BASE = 1234;
 
-    /** Wait timeout, in milliseconds. */
-    protected static final int WAIT_TIMEOUT_MILLIS = 10_000;
+    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
 
-    protected static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+    private static final FailureManager NOOP_FAILURE_PROCESSOR = new FailureManager(new NoOpFailureHandler());
 
     /** RPC executor. */
-    protected final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
+    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
             20,
             IgniteThreadFactory.create("Test", "Raft-Group-Client", log)
     );
@@ -109,63 +106,23 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
     private final Map<NetworkAddress, LogStorageFactory> logStorageFactories = new HashMap<>();
 
-    private final List<TopologyAwareRaftGroupService> raftClients = new ArrayList<>();
+    private final List<PhysicalTopologyAwareRaftGroupService> raftClients = new ArrayList<>();
 
     @InjectConfiguration
-    protected RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     @AfterEach
-    protected void tearDown() throws Exception {
+    public void afterTest() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         stopCluster();
     }
 
-    /**
-     * The method is called after every node of the cluster starts.
-     *
-     * @param nodeName Node name.
-     * @param clusterService Cluster service.
-     * @param dataPath Data path for raft node.
-     * @param peersAndLearners Peers and learners.
-     * @param eventsClientListener Raft events listener for client.
-     * @param logicalTopologyService Logical topology service.
-     */
-    protected abstract void afterNodeStart(
-            String nodeName,
-            ClusterService clusterService,
-            Path dataPath,
-            PeersAndLearners peersAndLearners,
-            RaftGroupEventsClientListener eventsClientListener,
-            LogicalTopologyService logicalTopologyService
-    );
-
-    /**
-     * Checks the condition after cluster and raft clients initialization.
-     *
-     * @param leaderName Current leader name.
-     */
-    protected abstract void afterClusterInit(String leaderName) throws InterruptedException;
-
-    /**
-     * Checks the condition after leader change.
-     *
-     * @param leaderName Current leader name.
-     */
-    protected abstract void afterLeaderChange(String leaderName) throws InterruptedException;
-
-    /**
-     * The method is called after every node of the cluster stops.
-     *
-     * @param nodeName Node name.
-     */
-    protected abstract void afterNodeStop(String nodeName) throws Exception;
-
     @Test
     public void testOneNodeReplicationGroup(TestInfo testInfo) throws Exception {
         int nodes = 2;
 
-        TopologyAwareRaftGroupService raftClient = startCluster(
+        PhysicalTopologyAwareRaftGroupService raftClient = startCluster(
                 testInfo,
                 addr -> true,
                 nodes,
@@ -176,21 +133,24 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         CompletableFuture<InternalClusterNode> leaderFut = new CompletableFuture<>();
 
-        subscribeLeader(raftClient, (node, term) -> leaderFut.complete(node), "New leader: {}");
+        raftClient.subscribeLeader((node, term) -> {
+            log.info("Received leader node: {}", node);
 
-        InternalClusterNode leader = leaderFut.get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            leaderFut.complete(node);
+        });
+
+        assertThat(leaderFut, willCompleteSuccessfully());
+
+        InternalClusterNode leader = leaderFut.get();
 
         assertNotNull(leader);
-
-        afterClusterInit(leader.name());
 
         // Below we check that leaderElectionCallback is called once only.
         AtomicInteger leaderElectionCallbackCallsCounter = new AtomicInteger(0);
         raftClient.subscribeLeader((leader0, term) -> leaderElectionCallbackCallsCounter.incrementAndGet());
 
-        // Leader election callback triggering is asynchronous, thus it's required to give it some time to be called. With 1 second await
-        // interval the test will fail 100/100 if there's no fix.
-        Thread.sleep(1_000);
+        // Leader election callback triggering is asynchronous, thus it's required to give it some time to be called.
+        await().until(() -> leaderElectionCallbackCallsCounter.get() == 1);
 
         assertEquals(1, leaderElectionCallbackCallsCounter.get());
     }
@@ -206,11 +166,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      *     client.
      * @return Raft clients.
      */
-    private IgniteBiTuple<TopologyAwareRaftGroupService, TopologyAwareRaftGroupService> startClusterWithClientsAndSubscribeToLeaderChange(
+    private IgniteBiTuple<PhysicalTopologyAwareRaftGroupService, PhysicalTopologyAwareRaftGroupService> startClusterWithClientsAndSubscribe(
             TestInfo testInfo,
             AtomicReference<InternalClusterNode> leaderRef,
             AtomicReference<InternalClusterNode> leaderRefNoInitialNotify
-    ) throws Exception {
+    ) {
         int nodes = 3;
 
         assertTrue(clusterServices.isEmpty());
@@ -219,16 +179,16 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         Predicate<NetworkAddress> isServerAddress = addr -> true;
 
         // Start cluster and the first topology aware client.
-        TopologyAwareRaftGroupService raftClient = startCluster(
+        PhysicalTopologyAwareRaftGroupService firstRaftClient = startCluster(
                 testInfo,
                 isServerAddress,
                 nodes,
                 PORT_BASE
         );
 
-        assertNotNull(raftClient);
+        assertNotNull(firstRaftClient);
 
-        raftClient.refreshLeader().get();
+        assertThat(firstRaftClient.refreshLeader(), willCompleteSuccessfully());
 
         // Start client service for the second client.
         int clientPort = PORT_BASE + nodes + 1;
@@ -237,17 +197,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertThat(clientClusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Start the second topology aware client, that should not get the initial leader notification.
-        TopologyAwareRaftGroupService raftClientNoInitialNotify = startTopologyAwareClient(
+        PhysicalTopologyAwareRaftGroupService secondRaftClient = startTopologyAwareClient(
                 clientClusterService,
-                clusterServices,
-                isServerAddress,
-                nodes,
-                null,
-                new TestLogicalTopologyService(clientClusterService),
-                false
+                peersAndLearners(testInfo, isServerAddress, nodes),
+                null
         );
-
-        raftClientNoInitialNotify.refreshLeader().get();
 
         List<NetworkAddress> clientAddress = findLocalAddresses(clientPort, clientPort + 1);
         assertEquals(1, clientAddress.size());
@@ -256,60 +210,55 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         AtomicInteger callsCount = new AtomicInteger();
 
         // Subscribing clients.
-        subscribeLeader(raftClient, (node, term) -> leaderRef.set(node), "New leader: {}");
+        firstRaftClient.subscribeLeader((leader, term) -> {
+            log.info("First client got notification [node={}, term={}].", leader, term);
 
-        for (int i = 0; i < 2; i++) {
-            unsubscribeLeader(raftClientNoInitialNotify);
+            leaderRef.set(leader);
+        });
 
-            subscribeLeader(raftClientNoInitialNotify, (node, term) -> {
-                callsCount.incrementAndGet();
-                leaderRefNoInitialNotify.set(node);
-            }, "New leader (client without initial notification): {}");
-        }
+        secondRaftClient.subscribeLeader((node, term) -> {
+            log.info("Second client got notification [node={}, term={}].", node, term);
 
-        // Checking invariants.
-        assertTrue(callsCount.get() <= 1);
+            callsCount.incrementAndGet();
+            leaderRefNoInitialNotify.set(node);
+        });
 
-        assertTrue(waitForCondition(() -> leaderRef.get() != null, WAIT_TIMEOUT_MILLIS));
+        await().until(() -> leaderRef.get() != null);
 
         InternalClusterNode leader = leaderRef.get();
 
-        assertNotNull(leader);
-
         log.info("Leader: " + leader);
 
-        afterClusterInit(leader.name());
+        // Checking invariants.
+        await().until(() -> leaderRef.get().equals(leaderRefNoInitialNotify.get()));
+        assertEquals(1, callsCount.get());
 
-        raftClients.add(raftClientNoInitialNotify);
+        raftClients.add(secondRaftClient);
 
-        return new IgniteBiTuple<>(raftClient, raftClientNoInitialNotify);
+        return new IgniteBiTuple<>(firstRaftClient, secondRaftClient);
     }
 
     @Test
     public void testChangeLeaderWhenActualLeft(TestInfo testInfo) throws Exception {
-        AtomicReference<InternalClusterNode> leaderRef = new AtomicReference<>();
-        AtomicReference<InternalClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> firstLeaderRef = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> secondLeaderRef = new AtomicReference<>();
 
-        IgniteBiTuple<TopologyAwareRaftGroupService, TopologyAwareRaftGroupService> raftClients =
-                startClusterWithClientsAndSubscribeToLeaderChange(
-                    testInfo,
-                    leaderRef,
-                    leaderRefNoInitialNotify
-        );
+        IgniteBiTuple<PhysicalTopologyAwareRaftGroupService, PhysicalTopologyAwareRaftGroupService> raftClients =
+                startClusterWithClientsAndSubscribe(
+                        testInfo,
+                        firstLeaderRef,
+                        secondLeaderRef
+                );
 
-        TopologyAwareRaftGroupService raftClientNoInitialNotify = raftClients.get2();
+        PhysicalTopologyAwareRaftGroupService secondRaftClient = raftClients.get2();
 
-        InternalClusterNode leader = leaderRef.get();
-
-        assertNull(leaderRefNoInitialNotify.get());
+        InternalClusterNode leader = firstLeaderRef.get();
 
         // Forcing the leader change by stopping the actual leader.
         var raftServerToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
         raftServerToStop.stopRaftNodes(GROUP_ID);
         ComponentContext componentContext = new ComponentContext();
         assertThat(raftServerToStop.stopAsync(componentContext), willCompleteSuccessfully());
-
-        afterNodeStop(leader.name());
 
         var logStorageToStop = logStorageFactories.remove(new NetworkAddress("localhost", leader.address().port()));
         assertThat(logStorageToStop.stopAsync(componentContext), willCompleteSuccessfully());
@@ -323,39 +272,33 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         if (leader.address().port() != PORT_BASE) {
             // leaderRef is updated through raftClient hosted on PORT_BASE, thus if corresponding node was stopped (and it will be stopped
             // if it occurred to be a leader) leaderRef won't be updated.
-            assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
+            await().until(() -> !leader.equals(firstLeaderRef.get()));
         }
-        assertTrue(waitForCondition(
-                () -> leaderRefNoInitialNotify.get() != null && !leader.equals(leaderRefNoInitialNotify.get()),
-                WAIT_TIMEOUT_MILLIS)
-        );
 
-        log.info("New Leader: " + leaderRefNoInitialNotify.get());
+        await().until(() -> secondLeaderRef.get() != null && !leader.equals(secondLeaderRef.get()));
 
-        afterLeaderChange(leaderRefNoInitialNotify.get().name());
+        log.info("New Leader: " + secondLeaderRef.get());
 
-        raftClientNoInitialNotify.refreshLeader().get();
+        secondRaftClient.refreshLeader().get();
 
-        assertEquals(raftClientNoInitialNotify.leader().consistentId(), leaderRefNoInitialNotify.get().name());
+        assertEquals(secondRaftClient.leader().consistentId(), secondLeaderRef.get().name());
     }
 
     @Test
     public void testChangeLeaderForce(TestInfo testInfo) throws Exception {
         AtomicReference<InternalClusterNode> leaderRef = new AtomicReference<>();
-        AtomicReference<InternalClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
+        AtomicReference<InternalClusterNode> secondLeaderRef = new AtomicReference<>();
 
-        IgniteBiTuple<TopologyAwareRaftGroupService, TopologyAwareRaftGroupService> raftClients =
-                startClusterWithClientsAndSubscribeToLeaderChange(
+        IgniteBiTuple<PhysicalTopologyAwareRaftGroupService, PhysicalTopologyAwareRaftGroupService> raftClients =
+                startClusterWithClientsAndSubscribe(
                         testInfo,
                         leaderRef,
-                        leaderRefNoInitialNotify
+                        secondLeaderRef
                 );
 
-        TopologyAwareRaftGroupService raftClient = raftClients.get1();
+        PhysicalTopologyAwareRaftGroupService raftClient = raftClients.get1();
 
         InternalClusterNode leader = leaderRef.get();
-
-        assertNull(leaderRefNoInitialNotify.get());
 
         // Forcing the leader change by transferring leadership.
         Peer newLeaderPeer = raftClient.peers().stream().filter(peer -> !leader.name().equals(peer.consistentId())).findAny().get();
@@ -367,15 +310,10 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         String leaderId = newLeaderPeer.consistentId();
 
         // Waiting for the notifications to check.
-        assertTrue(waitForCondition(() -> leaderId.equals(leaderRef.get().name()), WAIT_TIMEOUT_MILLIS));
-        assertTrue(waitForCondition(
-                () -> leaderRefNoInitialNotify.get() != null && leaderId.equals(leaderRefNoInitialNotify.get().name()),
-                WAIT_TIMEOUT_MILLIS
-        ));
+        await().until(() -> leaderId.equals(leaderRef.get().name()));
+        await().until(() -> secondLeaderRef.get() != null && leaderId.equals(secondLeaderRef.get().name()));
 
         log.info("New Leader: " + leaderRef.get());
-
-        afterLeaderChange(leaderRef.get().name());
 
         raftClient.refreshLeader().get();
 
@@ -389,7 +327,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      */
     private void stopCluster() throws Exception {
         if (!CollectionUtils.nullOrEmpty(raftClients)) {
-            raftClients.forEach(TopologyAwareRaftGroupService::shutdown);
+            raftClients.forEach(PhysicalTopologyAwareRaftGroupService::shutdown);
 
             raftClients.clear();
         }
@@ -422,7 +360,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      * @param clientPort      Port of node where a client will start.
      * @return Topology aware client.
      */
-    private @Nullable TopologyAwareRaftGroupService startCluster(
+    private @Nullable PhysicalTopologyAwareRaftGroupService startCluster(
             TestInfo testInfo,
             Predicate<NetworkAddress> isServerAddress,
             int nodes,
@@ -432,24 +370,35 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         var nodeFinder = new StaticNodeFinder(addresses);
 
-        TopologyAwareRaftGroupService raftClient = null;
+        PeersAndLearners peersAndLearners = peersAndLearners(testInfo, isServerAddress, nodes);
+
+        PhysicalTopologyAwareRaftGroupService raftClient = null;
+
+        RaftGroupEventsClientListener clientRaftListener = null;
 
         for (NetworkAddress addr : addresses) {
             var cluster = clusterService(testInfo, addr.port(), nodeFinder);
 
             assertThat(cluster.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
+            // Starting the topology-aware client earlier than the other components to provoke a situation where the client starts earlier
+            // than the other nodes but works anyway.
+            if (addr.port() == clientPort) {
+                clientRaftListener = new RaftGroupEventsClientListener();
+
+                raftClient = startTopologyAwareClient(cluster, peersAndLearners, clientRaftListener);
+
+                raftClients.add(raftClient);
+            }
+
             clusterServices.put(addr, cluster);
         }
-
-        PeersAndLearners peersAndLearners = peersAndLearners(clusterServices, isServerAddress, nodes);
 
         for (NetworkAddress addr : addresses) {
             ClusterService cluster = clusterServices.get(addr);
 
-            LogicalTopologyService logicalTopologyService = new TestLogicalTopologyService(cluster);
-
-            RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
+            RaftGroupEventsClientListener eventsClientListener =
+                    addr.port() == clientPort ? clientRaftListener : new RaftGroupEventsClientListener();
 
             if (isServerAddress.test(addr)) { // RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
@@ -491,31 +440,16 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 );
 
                 raftServers.put(addr, raftServer);
-
-                afterNodeStart(localPeer.consistentId(), cluster, dataPath, peersAndLearners, eventsClientListener, logicalTopologyService);
-            }
-
-            if (addr.port() == clientPort) {
-                assertTrue(isServerAddress.test(addr));
-
-                raftClient = startTopologyAwareClient(cluster, clusterServices, isServerAddress, nodes, eventsClientListener,
-                        logicalTopologyService, true);
-
-                raftClients.add(raftClient);
             }
         }
 
         return raftClient;
     }
 
-    private TopologyAwareRaftGroupService startTopologyAwareClient(
+    private PhysicalTopologyAwareRaftGroupService startTopologyAwareClient(
             ClusterService localClusterService,
-            Map<NetworkAddress, ClusterService> clusterServices,
-            Predicate<NetworkAddress> isServerAddress,
-            int nodes,
-            RaftGroupEventsClientListener eventsClientListener,
-            LogicalTopologyService logicalTopologyService,
-            boolean notifyOnSubscription
+            PeersAndLearners peersAndLearners,
+            RaftGroupEventsClientListener eventsClientListener
     ) {
         if (eventsClientListener == null) {
             eventsClientListener = new RaftGroupEventsClientListener();
@@ -532,46 +466,28 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(localClusterService.serializationRegistry());
 
-        return TopologyAwareRaftGroupService.start(
+        return PhysicalTopologyAwareRaftGroupService.start(
                 GROUP_ID,
                 localClusterService,
                 FACTORY,
                 raftConfiguration,
-                peersAndLearners(clusterServices, isServerAddress, nodes),
+                peersAndLearners,
                 executor,
-                logicalTopologyService,
                 eventsClientListener,
-                notifyOnSubscription,
                 commandsMarshaller,
                 StoppingExceptionFactories.indicateComponentStop(),
-                throttlingContextHolder()
+                throttlingContextHolder(),
+                NOOP_FAILURE_PROCESSOR
         );
     }
 
     private static PeersAndLearners peersAndLearners(
-            Map<NetworkAddress, ClusterService> clusterServices,
+            TestInfo testInfo,
             Predicate<NetworkAddress> isServerAddress,
             int nodes
     ) {
         return PeersAndLearners.fromConsistentIds(
                 findLocalAddresses(PORT_BASE, PORT_BASE + nodes).stream().filter(isServerAddress)
-                        .map(netAddr -> clusterServices.get(netAddr).topologyService().localMember().name()).collect(
-                                toSet()));
-    }
-
-    private void subscribeLeader(TopologyAwareRaftGroupService client, LeaderElectionListener callback, String logMessage) {
-        CompletableFuture<Void> future = client.subscribeLeader((node, term) -> {
-            callback.onLeaderElected(node, term);
-
-            log.info(logMessage, node);
-        });
-
-        assertThat(future, willCompleteSuccessfully());
-    }
-
-    private static void unsubscribeLeader(TopologyAwareRaftGroupService client) {
-        CompletableFuture<Void> future = client.unsubscribeLeader();
-
-        assertThat(future, willCompleteSuccessfully());
+                        .map(netAddr -> IgniteTestUtils.testNodeName(testInfo, netAddr.port())).collect(toSet()));
     }
 }
