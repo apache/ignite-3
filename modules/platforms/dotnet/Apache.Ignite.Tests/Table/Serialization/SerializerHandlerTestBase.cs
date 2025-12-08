@@ -94,7 +94,7 @@ internal abstract class SerializerHandlerTestBase
     }
 
     [Test]
-    public void TestWriteUnsupportedFieldTypeThrowsException()
+    public virtual void TestWriteUnsupportedFieldTypeThrowsException()
     {
         var ex = Assert.Throws<IgniteClientException>(() => Write(new BadPoco(Guid.Empty, DateTimeOffset.Now)));
 

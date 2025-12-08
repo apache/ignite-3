@@ -28,6 +28,7 @@ using NUnit.Framework;
 [TestFixture]
 internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
 {
+    [Test]
     public override void TestReadUnsupportedFieldTypeThrowsException()
     {
         var ex = Assert.Throws<IgniteClientException>(() =>
@@ -36,10 +37,15 @@ internal class MapperSerializerHandlerTests : SerializerHandlerTestBase
             GetHandler<BadPoco>().Read(ref reader, Schema);
         });
 
-        Assert.AreEqual(
-            "Can't map field 'BadPoco.<Key>k__BackingField' of type 'System.Guid'" +
-            " to column 'Key' of type 'System.Int64' - types do not match.",
-            ex!.Message);
+        Assert.AreEqual("Can't read a value of type 'Uuid' from column 'Key' of type 'Int64'.", ex!.Message);
+    }
+
+    [Test]
+    public override void TestWriteUnsupportedFieldTypeThrowsException()
+    {
+        var ex = Assert.Throws<IgniteClientException>(() => Write(new BadPoco(Guid.Empty, DateTimeOffset.Now)));
+
+        Assert.AreEqual("Can't write a value of type 'Uuid' to column 'Key' of type 'Int64'.", ex!.Message);
     }
 
     protected override IRecordSerializerHandler<T> GetHandler<T>()
