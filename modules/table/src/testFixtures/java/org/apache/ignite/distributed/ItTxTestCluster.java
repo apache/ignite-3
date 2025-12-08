@@ -184,7 +184,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -1052,6 +1051,7 @@ public class ItTxTestCluster {
         }
     }
 
+    // TODO sanpwc Remove txStatePartitionStorage parameter
     protected PartitionReplicaListener newReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftGroupService raftClient,
@@ -1089,7 +1089,6 @@ public class ItTxTestCluster {
                 secondaryIndexStorages,
                 clockService,
                 safeTime,
-                txStatePartitionStorage,
                 transactionStateResolver,
                 storageUpdateHandler,
                 validationSchemasSource,

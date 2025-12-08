@@ -165,6 +165,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 };
             }
 
+            // TODO sanpwc Remove txStatePartitionStorage parameter
             @Override
             protected PartitionReplicaListener newReplicaListener(
                     MvPartitionStorage mvDataStorage,
@@ -203,7 +204,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         secondaryIndexStorages,
                         clockService,
                         safeTime,
-                        txStatePartitionStorage,
                         transactionStateResolver,
                         storageUpdateHandler,
                         validationSchemasSource,
