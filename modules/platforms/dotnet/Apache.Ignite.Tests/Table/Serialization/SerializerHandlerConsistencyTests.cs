@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Table.Serialization;
 using System;
 using Ignite.Sql;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using Internal.Buffers;
 using Internal.Table;
 using Internal.Table.Serialization;
@@ -51,7 +52,10 @@ public class SerializerHandlerConsistencyTests
         var tupleKvHandler = TuplePairSerializerHandler.Instance;
         var objectHandler = new ObjectSerializerHandler<Poco>();
         var objectKvHandler = new ObjectSerializerHandler<KvPair<PocoKey, PocoVal>>();
+        var mapperHandler = new MapperSerializerHandler<Poco>(new PocoMapper());
 
+        // TODO
+        // var mapperKvHandler = new MapperSerializerHandler<KvPair<PocoKey, PocoVal>>(new PocoKvMapper());
         var poco = new Poco
         {
             Val1 = "v1",
@@ -104,15 +108,18 @@ public class SerializerHandlerConsistencyTests
         var (tupleKvBuf, tupleKvHash) = Serialize(tupleKvHandler, tupleKv, keyOnly);
         var (pocoBuf, pocoHash) = Serialize(objectHandler, poco, keyOnly);
         var (pocoKvBuf, pocoKvHash) = Serialize(objectKvHandler, pocoKv, keyOnly);
+        var (mapperBuf, mapperHash) = Serialize(mapperHandler, poco, keyOnly);
 
         Assert.AreEqual(ExpectedColocationHash, tupleHash);
         Assert.AreEqual(ExpectedColocationHash, tupleKvHash);
         Assert.AreEqual(ExpectedColocationHash, pocoHash);
         Assert.AreEqual(ExpectedColocationHash, pocoKvHash);
+        Assert.AreEqual(ExpectedColocationHash, mapperHash);
 
         CollectionAssert.AreEqual(tupleBuf, tupleKvBuf);
         CollectionAssert.AreEqual(tupleBuf, pocoBuf);
         CollectionAssert.AreEqual(tupleBuf, pocoKvBuf);
+        CollectionAssert.AreEqual(tupleBuf, mapperBuf);
     }
 
     private static (byte[] Buf, int Hash) Serialize<T>(IRecordSerializerHandler<T> handler, T obj, bool keyOnly = false)
@@ -149,4 +156,68 @@ public class SerializerHandlerConsistencyTests
 
         public Guid Val2 { get; set; }
     }
+
+    private class PocoMapper : IMapper<Poco>
+    {
+        public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "val1":
+                        rowWriter.WriteString(obj.Val1);
+                        break;
+
+                    case "key1":
+                        rowWriter.WriteInt(obj.Key1);
+                        break;
+
+                    case "val2":
+                        rowWriter.WriteGuid(obj.Val2);
+                        break;
+
+                    case "key2":
+                        rowWriter.WriteString(obj.Key2);
+                        break;
+
+                    default:
+                        rowWriter.Skip();
+                        break;
+                }
+            }
+        }
+
+        public Poco Read(ref RowReader rowReader, IMapperSchema schema)
+        {
+            var res = new Poco();
+
+            foreach (var column in schema.Columns)
+            {
+                switch (column.Name)
+                {
+                    case "val1":
+                        res.Val1 = rowReader.ReadString();
+                        break;
+
+                    case "key1":
+                        res.Key1 = rowReader.ReadInt()!.Value;
+                        break;
+
+                    case "val2":
+                        res.Val2 = rowReader.ReadGuid()!.Value;
+                        break;
+
+                    case "key2":
+                        res.Key2 = rowReader.ReadString()!;
+                        break;
+
+                    default:
+                        rowReader.Skip();
+                        break;
+                }
+            }
+
+            return res;
+        }
 }
