@@ -53,7 +53,20 @@ public ref struct RowWriter
     /// </summary>
     internal readonly BinaryTupleBuilder Builder => _builder;
 
-    private Column Column => _columns[_builder.ElementIndex];
+    private Column Column
+    {
+        get
+        {
+            if (_builder.ElementIndex >= _columns.Length)
+            {
+                throw new IgniteClientException(
+                    ErrorGroups.Client.Configuration,
+                    "Attempted to write more columns than defined in the schema.");
+            }
+
+            return _columns[_builder.ElementIndex];
+        }
+    }
 
     /// <summary>
     /// Writes a byte value.
