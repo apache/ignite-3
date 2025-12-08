@@ -28,13 +28,6 @@ namespace ignite {
  * Owning wrapper around server-side client socket.
  */
 class tcp_client_channel {
-    int m_srv_fd;
-    int m_cl_fd = -1;
-    std::byte m_buf[1024];
-    size_t m_pos = 0;
-    size_t m_remaining = 0;
-    std::atomic_bool m_stopped{false};
-
 public:
     explicit tcp_client_channel(int srv_socket_fd)
         : m_srv_fd(srv_socket_fd) {}
@@ -46,6 +39,19 @@ public:
 
 private:
     void receive_next_packet();
+    /** Server FD. */
+    int m_srv_fd;
+    /** Client FD. */
+    int m_cl_fd = -1;
+    /** Message buffer. */
+    std::byte m_buf[1024];
+    /** Pointer position. */
+    size_t m_pos = 0;
+    /** Remain unread bytes in current buffer. */
+    size_t m_remaining = 0;
+    /** If @code true then channel is stopped. */
+    std::atomic_bool m_stopped{false};
+
 
 };
 } // namespace ignite

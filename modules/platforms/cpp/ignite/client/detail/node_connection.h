@@ -51,13 +51,13 @@ public:
 
     struct pending_request {
         /** Handler function for request */
-        std::shared_ptr<response_handler> handler = nullptr;
+        std::shared_ptr<response_handler> handler{};
 
         /**
          * Optional request timeout.
          * When provided contains time point after which request would be considered as timed out.
          */
-        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at = std::nullopt;
+        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at{};
 
         explicit pending_request(
             std::shared_ptr<response_handler> handler,

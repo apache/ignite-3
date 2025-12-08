@@ -23,29 +23,34 @@
 #include <thread>
 
 using namespace ignite;
+using namespace std::chrono_literals;
 
 class connection_test : public ignite_runner_suite {
+protected:
+    static constexpr int PORT = 50800;
 
+    std::vector<std::string> get_endpoints() const {
+        return {"127.0.0.1:" + std::to_string(PORT)};
+    }
 };
 
 
-TEST_F(connection_test, handshake_with_fake_server) {
-    using namespace std::chrono_literals;
-    fake_server fs{};
+TEST_F(connection_test, handshake_success) {
+    fake_server fs{PORT, get_logger()};
 
     fs.start();
 
     ignite_client_configuration cfg;
     cfg.set_logger(get_logger());
-    cfg.set_endpoints({"127.0.0.1:10800"});
+    cfg.set_endpoints(get_endpoints());
 
     auto cl = ignite_client::start(cfg, 5s);
 }
 
 TEST_F(connection_test, request_timeout) {
-    using namespace std::chrono_literals;
     fake_server fs{
-        10800,
+        PORT,
+        get_logger(),
         [](protocol::client_operation op) -> std::unique_ptr<response_action> {
             switch (op) {
                 case protocol::client_operation::CLUSTER_GET_NODES:
@@ -60,7 +65,7 @@ TEST_F(connection_test, request_timeout) {
 
     ignite_client_configuration cfg;
     cfg.set_logger(get_logger());
-    cfg.set_endpoints({"127.0.0.1:10800"});
+    cfg.set_endpoints(get_endpoints());
     cfg.set_operation_timeout(std::chrono::milliseconds{100});
 
     auto cl = ignite_client::start(cfg, 5s);

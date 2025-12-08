@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/ignite_logger.h"
 #include "ignite/protocol/bitmask_feature.h"
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/reader.h"
@@ -35,10 +36,12 @@ using raw_msg = std::vector<std::byte>;
 class fake_server {
 public:
     explicit fake_server(
-        int srv_port = 10800,
+        int srv_port,
+        std::shared_ptr<ignite_logger> logger,
         std::function<std::unique_ptr<response_action>(protocol::client_operation)> op_type_handler = nullptr
         )
         : m_srv_port(srv_port)
+        , m_logger(std::move(logger))
         , m_op_type_handler(op_type_handler)
     {}
 
@@ -55,9 +58,29 @@ public:
         m_io_thread->join();
     }
 
+    /** Starts fake server. */
     void start();
 
+    /** Returns configured port number. */
+    int get_server_port() const { return m_srv_port; }
+
 private:
+    void start_socket();
+
+    void bind_address_port() const;
+
+    void start_socket_listen() const;
+
+    void accept_client_connection();
+
+    void handle_client_handshake() const;
+
+    void send_server_handshake() const;
+
+    void write_response(std::vector<std::byte>& resp, std::int64_t req_id, std::function<void(protocol::writer &wr)> body);
+
+    void handle_requests();
+
     /** Server socket FD. */
     int m_srv_fd = -1;
     /** Flag is up when server initialization was complete. */
@@ -75,24 +98,11 @@ private:
     /** Objects which owns client socket FD and handles reads and writes to it. */
     std::unique_ptr<tcp_client_channel> m_client_channel{};
 
+    /** Logger. */
+    std::shared_ptr<ignite_logger> m_logger;
+
     /**
      * Allows developer to define custom action on requests according to their type.
      */
     std::function<std::unique_ptr<response_action>(protocol::client_operation)> m_op_type_handler;
-
-    void start_socket();
-
-    void bind_address_port() const;
-
-    void start_socket_listen() const;
-
-    void accept_client_connection();
-
-    void handle_client_handshake() const;
-
-    void send_server_handshake() const;
-
-    void write_response(std::vector<std::byte>& resp, int64_t req_id, std::function<void(protocol::writer &wr)> body);
-
-    void handle_requests();
 };

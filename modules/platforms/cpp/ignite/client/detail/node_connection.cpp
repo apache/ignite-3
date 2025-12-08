@@ -220,12 +220,11 @@ void node_connection::handle_timeouts() {
             auto &id = it->first;
             auto &req = it->second;
 
-            if (req.timeouts_at.has_value() && req.timeouts_at < now) {
-                std::stringstream ss;
-                ss << "Operation timeout [req_id=" << id << "]";
-                auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT, ss.str()));
+            if (req.timeouts_at && *req.timeouts_at < now) {
+                std::string err_msg = "Operation timeout [req_id=" + std::to_string(id) + "]";
+                auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT, err_msg));
 
-                this->m_logger->log_warning(ss.str());
+                this->m_logger->log_warning(err_msg);
 
                 if (res.has_error())
                     this->m_logger->log_error(

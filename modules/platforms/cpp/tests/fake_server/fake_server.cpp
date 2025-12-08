@@ -43,7 +43,7 @@ void fake_server::start() {
         handle_requests();
     });
 
-    std::cout << "fake server started" << std::endl;
+    m_logger->log_debug("fake server started");
 }
 
 void fake_server::start_socket() {
@@ -77,7 +77,7 @@ void fake_server::start_socket_listen() const {
         throw std::runtime_error("listen failed");
     }
 
-    std::cout << "fake server is listening on port=" << m_srv_port << "\n";
+    m_logger->log_debug("fake server is listening on port=" + std::to_string(m_srv_port));
 }
 
 void fake_server::accept_client_connection() {
@@ -98,7 +98,7 @@ void fake_server::handle_client_handshake() const {
 
     int32_t msg_size = detail::bytes::load<detail::endian::BIG, int32_t>(size_header.data());
 
-    std::cout << "Handshake message size = " << msg_size << "\n";
+    m_logger->log_debug("Handshake message size = " + std::to_string(msg_size));
 
     auto msg = m_client_channel->read_next_n_bytes(msg_size);
 
@@ -111,15 +111,18 @@ void fake_server::handle_client_handshake() const {
     int16_t ver_patch = reader.read_int16();
     int16_t client_type = reader.read_int16();
 
-    std::cout << "Client version = " << ver_major << '.' << ver_minor << '.' << ver_patch << '\n';
-    std::cout << "Client type = " << client_type << '\n';
+    if (m_logger->is_debug_enabled()) {
+        std::stringstream ss;
+        ss << "Client version = " << ver_major << '.' << ver_minor << '.' << ver_patch << '\n';
+        ss << "Client type = " << client_type;
+
+        m_logger->log_debug(ss.str());
+    }
 
     auto features_bytes = reader.read_binary();
     std::vector<std::byte> features{features_bytes.begin(), features_bytes.end()};
 
     // we ignore the rest for now.
-
-    std::cout << std::flush;
 }
 
 void fake_server::send_server_handshake() const {
@@ -164,7 +167,7 @@ void fake_server::send_server_handshake() const {
 
     m_client_channel->send_message(msg);
 
-    std::cout << "Server handshake message sent" << std::endl;
+    m_logger->log_debug("Server handshake message sent");
 }
 
 void fake_server::write_response(
@@ -219,8 +222,13 @@ void fake_server::handle_requests() {
 
         auto req_id = rd.read_int64();
 
-        std::cout << "Received message of size " << msg_size << " Operation type = " << static_cast<int>(op_code)
-                  << " req_id = " << req_id << std::endl;
+        if (m_logger->is_debug_enabled()) {
+            std::stringstream ss;
+            ss << "Received message of size " << msg_size << " Operation type = " << static_cast<int>(op_code)
+                      << " req_id = " << req_id;
+
+            m_logger->log_debug(ss.str());
+        }
 
         std::vector<std::byte> resp;
         switch (op) {

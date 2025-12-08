@@ -1,5 +1,5 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one or more
+ * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
@@ -16,11 +16,12 @@
  */
 
 #include "tcp_client_channel.h"
-#include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
-std::vector<std::byte> ignite::tcp_client_channel::read_next_n_bytes(size_t n) {
+namespace ignite {
+std::vector<std::byte> tcp_client_channel::read_next_n_bytes(size_t n) {
     std::vector<std::byte> res;
     res.reserve(n);
 
@@ -44,11 +45,11 @@ std::vector<std::byte> ignite::tcp_client_channel::read_next_n_bytes(size_t n) {
     return res;
 }
 
-void ignite::tcp_client_channel::send_message(std::vector<std::byte> msg) {
+void tcp_client_channel::send_message(std::vector<std::byte> msg) {
     ::send(m_cl_fd, msg.data(), msg.size(), 0);
 }
 
-void ignite::tcp_client_channel::receive_next_packet() {
+void tcp_client_channel::receive_next_packet() {
     int received = ::recv(m_cl_fd, m_buf, sizeof(m_buf), 0);
 
     if (received == 0) {
@@ -68,7 +69,7 @@ void ignite::tcp_client_channel::receive_next_packet() {
     m_pos = 0;
 }
 
-void ignite::tcp_client_channel::start() {
+void tcp_client_channel::start() {
     sockaddr_in cl_addr{};
 
     socklen_t addr_len = sizeof(cl_addr);
@@ -86,9 +87,10 @@ void ignite::tcp_client_channel::start() {
     std::cout << "Client connected\n";
 }
 
-void ignite::tcp_client_channel::stop() {
+void tcp_client_channel::stop() {
     m_stopped.store(true);
     if (m_cl_fd > 0) {
         ::close(m_cl_fd);
     }
 }
+}; // namespace ignite
