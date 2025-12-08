@@ -135,17 +135,16 @@ public final class ReliableChannel implements AutoCloseable {
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
+    /** Executor for async re-resolving addresses. */
+    private final Executor asyncContinuationExecutor;
+
     /** Inflights. */
     private final ClientTransactionInflights inflights;
 
     /** Address resolver. */
     private final InetAddressResolver addressResolver;
 
-    /** Executor for async re-resolving addresses. */
-    private final Executor asyncContinuationExecutor;
-
-    /** Executor for async re-resolving addresses. */
-    @Nullable
+    /** Future for scheduled re-resolving addresses. */
     private volatile CompletableFuture<Void> scheduledReResolveAddressesFuture;
 
     /**
@@ -195,10 +194,10 @@ public final class ReliableChannel implements AutoCloseable {
     public synchronized void close() throws Exception {
         closed = true;
 
-        if (scheduledReResolveAddressesFuture != null) {
-            scheduledReResolveAddressesFuture.cancel(true);
+        @Nullable CompletableFuture<Void> fut = scheduledReResolveAddressesFuture;
 
-            scheduledReResolveAddressesFuture = null;
+        if (fut != null && !fut.isDone()) {
+            fut.cancel(true);
         }
 
         List<ClientChannelHolder> holders = channels;
@@ -1108,8 +1107,10 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** Resolve addresses in background. */
     private void reResolveAddresses() {
+        CompletableFuture<Void> fut = scheduledReResolveAddressesFuture;
+
         // Skip if another re-resolve is already running or closed.
-        if (closed || (scheduledReResolveAddressesFuture != null && !scheduledReResolveAddressesFuture.cancel(false))) {
+        if (closed || (fut != null && !fut.cancel(false))) {
             if (log.isDebugEnabled()) {
                 log.debug("Skipping re-resolve of addresses since another re-resolve is already running or channel is closed");
             }
