@@ -17,12 +17,28 @@ task verifyArtifactoryProperties {
 task artifactoryPublishAll {
   description = "Runs 'artifactoryPublish' tasks from all projects"
   mustRunAfter "githubRelease" // github release is easier to rollback so we run it first
+
+  doFirst {
+    def publishTasks = []
+    subprojects.each { subproject ->
+      if (subproject.tasks.findByName('artifactoryPublish')) {
+        publishTasks.add(subproject.path)
+      }
+    }
+    println "Publishing ${publishTasks.size()} modules to Artifactory: ${publishTasks}"
+  }
+
+  doLast {
+    println "All artifacts published to Artifactory"
+  }
 }
 
-allprojects {
-  tasks.matching { it.name == "artifactoryPublish" }.all {
-    it.dependsOn verifyArtifactoryProperties
-    artifactoryPublishAll.dependsOn it
+subprojects {
+  afterEvaluate { project ->
+    if (project.tasks.findByName('artifactoryPublish')) {
+      project.tasks.artifactoryPublish.dependsOn rootProject.tasks.verifyArtifactoryProperties
+      rootProject.tasks.artifactoryPublishAll.dependsOn project.tasks.artifactoryPublish
+    }
   }
 }
 
