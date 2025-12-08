@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.EnumMap;
 import java.util.List;
@@ -31,7 +32,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.Spacer;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptTable;
@@ -342,54 +342,123 @@ class RelTreeToTextWriter {
     }
 
     private static String beautifySearchBounds(List<SearchBounds> searchBounds) {
-        return searchBounds.stream()
-                .filter(Objects::nonNull)
-                .flatMap(bounds -> {
-                    if (bounds.type() == SearchBounds.Type.MULTI) {
-                        return ((MultiBounds) bounds).bounds().stream().filter(Objects::nonNull);
-                    }
-                    return Stream.of(bounds);
-                })
-                .map(RelTreeToTextWriter::beautifySearchBounds)
-                .collect(Collectors.joining(", "));
+        List<SearchBounds> current = Arrays.asList(new SearchBounds[searchBounds.size()]);
+        List<String> result = new ArrayList<>();
+
+        processSearchBoundsRecursively(new ArrayList<>(searchBounds), 0, current, result);
+
+        return result.stream().sorted().collect(Collectors.joining(", "));
     }
 
-    private static String beautifySearchBounds(SearchBounds searchBounds) {
-        switch (searchBounds.type()) {
-            case EXACT:
-                RexNode lookupKey = ((ExactBounds) searchBounds).bound();
+    private static void processSearchBoundsRecursively(
+            List<SearchBounds> searchBounds,
+            int i,
+            List<SearchBounds> current,
+            List<String> result
+    ) {
+        if (i >= searchBounds.size() || searchBounds.get(i) == null) {
+            if (!current.isEmpty()) {
+                result.add(beautifyPlainSearchBounds(current));
+            }
 
-                return OPEN_TUPLE_SYMBOL + lookupKey + CLOSE_TUPLE_SYMBOL;
-            case RANGE:
-                RangeBounds rangeBounds = (RangeBounds) searchBounds;
-
-                RexNode lowerBound = rangeBounds.lowerBound();
-                RexNode upperBound = rangeBounds.upperBound();
-
-                StringBuilder sb = new StringBuilder();
-                sb.append((lowerBound == null || rangeBounds.lowerInclude()) ? "[" : "(");
-                if (lowerBound != null) {
-                    sb.append(beautifyConditionalBound(lowerBound, rangeBounds.shouldComputeLower()));
-                }
-                sb.append("..");
-                if (upperBound != null) {
-                    sb.append(beautifyConditionalBound(upperBound, rangeBounds.shouldComputeUpper()));
-                }
-                sb.append((upperBound == null || rangeBounds.upperInclude()) ? "]" : ")");
-                return sb.toString();
-            case MULTI:
-            default:
-                assert false;
-
-                return searchBounds.toString();
+            return;
         }
+
+        SearchBounds bound = searchBounds.get(i);
+
+        switch (bound.type()) {
+            case EXACT:
+            case RANGE: {
+                current.set(i, bound);
+                processSearchBoundsRecursively(searchBounds, i + 1, current, result);
+                current.set(i, null);
+                break;
+            }
+            case MULTI: {
+                for (SearchBounds bounds : ((MultiBounds) bound).bounds()) {
+                    current.set(i, bounds);
+                    if (bounds != null) {
+                        processSearchBoundsRecursively(searchBounds, i + 1, current, result);
+                    } else if (!current.isEmpty()) {
+                        result.add(beautifyPlainSearchBounds(current));
+                    }
+                }
+                current.set(i, null);
+
+                break;
+            }
+        }
+    }
+
+    private static String beautifyPlainSearchBounds(List<SearchBounds> searchBound) {
+        assert !searchBound.isEmpty();
+
+        boolean exactBounds = true;
+        boolean includeLower = true;
+        boolean includeUpper = true;
+        List<String> lowerBound = new ArrayList<>(searchBound.size());
+        List<String> upperBound = new ArrayList<>(searchBound.size());
+
+        for (int i = 0; i < searchBound.size(); i++) {
+            SearchBounds current = searchBound.get(i);
+
+            if (current == null) {
+                break;
+            }
+
+            switch (current.type()) {
+                case EXACT:
+                    String lookupKey = ((ExactBounds) current).bound().toString();
+
+                    lowerBound.add(lookupKey);
+                    upperBound.add(lookupKey);
+
+                    break;
+                case RANGE:
+                    exactBounds = false;
+                    RangeBounds rangeBounds = (RangeBounds) current;
+
+                    RexNode lower = rangeBounds.lowerBound();
+                    RexNode upper = rangeBounds.upperBound();
+                    if (lower != null && lowerBound.size() == i) {
+                        lowerBound.add(beautifyConditionalBound(lower, rangeBounds.shouldComputeLower()));
+                    }
+                    if (upper != null && upperBound.size() == i) {
+                        upperBound.add(beautifyConditionalBound(upper, rangeBounds.shouldComputeUpper()));
+                    }
+
+                    includeLower = includeLower && rangeBounds.lowerInclude();
+                    includeUpper = includeUpper && rangeBounds.upperInclude();
+
+                    break;
+                case MULTI:
+                default:
+                    throw new IllegalStateException();
+            }
+        }
+
+        if (exactBounds) {
+            return beautifyTuple(lowerBound);
+        } else {
+            return (includeLower ? "[" : "(")
+                    + beautifyTuple(lowerBound)
+                    + ".."
+                    + beautifyTuple(upperBound)
+                    + (includeUpper ? "]" : ")");
+        }
+    }
+
+    private static String beautifyTuple(List<String> bound) {
+        return bound.isEmpty()
+                ? ""
+                : bound.stream().takeWhile(Objects::nonNull).collect(Collectors.joining(", ", OPEN_TUPLE_SYMBOL, CLOSE_TUPLE_SYMBOL));
     }
 
     private static String beautifyConditionalBound(RexNode bound, @Nullable RexNode condition) {
         if (condition != null && !condition.isAlwaysTrue()) {
-            return OPEN_TUPLE_SYMBOL + condition + " ? " + bound + " : inf" + CLOSE_TUPLE_SYMBOL;
+            return condition + " ? " + bound + " : inf";
         } else {
-            return OPEN_TUPLE_SYMBOL + bound + CLOSE_TUPLE_SYMBOL;
+            return bound.toString();
         }
     }
 
