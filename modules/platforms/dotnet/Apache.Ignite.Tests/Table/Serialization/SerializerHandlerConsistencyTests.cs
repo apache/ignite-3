@@ -220,4 +220,5 @@ public class SerializerHandlerConsistencyTests
 
             return res;
         }
+    }
 }
