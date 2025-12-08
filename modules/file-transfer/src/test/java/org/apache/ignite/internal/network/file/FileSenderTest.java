@@ -246,7 +246,7 @@ class FileSenderTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("Temporarily disabled - rate limiter release logic needs review")
+    @Disabled("https://github.com/linkedin/ignite-3/issues - TODO: Rate limiter not released on exception")
     void rateLimiterIsReleasedIfSendThrowsException() {
         // Setup messaging service to fail on second file transfer.
         AtomicInteger count = new AtomicInteger();
