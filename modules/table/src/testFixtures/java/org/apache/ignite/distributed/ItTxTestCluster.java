@@ -76,7 +76,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -624,7 +623,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
     }
@@ -692,7 +690,6 @@ public class ItTxTestCluster {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -881,67 +878,44 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             SchemaRegistry schemaRegistry
     ) {
-        if (colocationEnabled()) {
-            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
 
-            var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
-                    k -> new HashMap<>());
+        var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
+                k -> new HashMap<>());
 
-            ZonePartitionRaftListener zonePartitionRaftListener = nodeSpecificZonePartitionRaftGroupListeners.computeIfAbsent(
-                    zonePartitionId,
-                    k -> new ZonePartitionRaftListener(
-                            zonePartitionId,
-                            txStateStorage,
-                            txManagers.get(assignment),
-                            safeTimeTracker,
-                            storageIndexTracker,
-                            mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
-                            partitionOperationsExecutor
-                    )
-            );
+        ZonePartitionRaftListener zonePartitionRaftListener = nodeSpecificZonePartitionRaftGroupListeners.computeIfAbsent(
+                zonePartitionId,
+                k -> new ZonePartitionRaftListener(
+                        zonePartitionId,
+                        txStateStorage,
+                        txManagers.get(assignment),
+                        safeTimeTracker,
+                        storageIndexTracker,
+                        mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
+                        partitionOperationsExecutor
+                )
+        );
 
-            PartitionListener tablePartitionRaftListener = new PartitionListener(
-                    txManagers.get(assignment),
-                    partitionDataStorage,
-                    storageUpdateHandler,
-                    txStateStorage,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    schemaRegistry,
-                    mock(IndexMetaStorage.class),
-                    clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor,
-                    placementDriver,
-                    clockServices.get(assignment),
-                    new SystemPropertiesNodeProperties(),
-                    zonePartitionId
-            );
+        PartitionListener tablePartitionRaftListener = new PartitionListener(
+                txManagers.get(assignment),
+                partitionDataStorage,
+                storageUpdateHandler,
+                txStateStorage,
+                safeTimeTracker,
+                catalogService,
+                schemaRegistry,
+                mock(IndexMetaStorage.class),
+                clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
+                mock(MinimumRequiredTimeCollectorService.class),
+                partitionOperationsExecutor,
+                placementDriver,
+                clockServices.get(assignment),
+                zonePartitionId
+        );
 
-            zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
+        zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
 
-            return zonePartitionRaftListener;
-        } else {
-            return new PartitionListener(
-                    txManagers.get(assignment),
-                    partitionDataStorage,
-                    storageUpdateHandler,
-                    txStateStorage,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    schemaRegistry,
-                    mock(IndexMetaStorage.class),
-                    clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor,
-                    placementDriver,
-                    clockServices.get(assignment),
-                    new SystemPropertiesNodeProperties(),
-                    new TablePartitionId(tableId, partId)
-            );
-        }
+        return zonePartitionRaftListener;
     }
 
     /**
@@ -1339,7 +1313,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
 

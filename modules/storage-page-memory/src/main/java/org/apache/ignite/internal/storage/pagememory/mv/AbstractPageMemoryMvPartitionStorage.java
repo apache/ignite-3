@@ -63,9 +63,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
-import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.LocalLocker;
@@ -115,14 +113,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     volatile RenewablePartitionStorageState renewableState;
 
-    private final DataPageReader rowVersionDataPageReader;
+    protected final DataPageReader rowVersionDataPageReader;
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    private final UpdateNextLinkHandler updateNextLinkHandler;
-
-    private final UpdateTimestampHandler updateTimestampHandler;
 
     /**
      * Constructor.
@@ -147,8 +141,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
-        updateNextLinkHandler = new UpdateNextLinkHandler();
-        updateTimestampHandler = new UpdateTimestampHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -443,7 +435,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
             try {
-                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
+                AddWriteInvokeClosure addWrite = newAddWriteInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
@@ -465,6 +457,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
         });
     }
+
+    abstract AddWriteInvokeClosure newAddWriteInvokeClosure(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    );
 
     @Override
     public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
@@ -509,7 +509,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                         rowId,
                         timestamp,
                         txId,
-                        updateTimestampHandler,
                         this
                 );
 
@@ -1007,7 +1006,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 rowId,
                 rowTimestamp,
                 rowLink,
-                updateNextLinkHandler,
                 this
         );
 

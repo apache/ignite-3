@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -208,27 +207,20 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
         // Let's check the first insert.
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime0 = mock(PendingComparableValuesTracker.class);
-        PendingComparableValuesTracker<Long, Void> storageIndex0 = mock(PendingComparableValuesTracker.class);
 
-        internalTable.updatePartitionTrackers(0, safeTime0, storageIndex0);
+        internalTable.updatePartitionTrackers(0, safeTime0);
 
         assertSame(safeTime0, internalTable.getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex0, internalTable.getPartitionStorageIndexTracker(0));
-
         verify(safeTime0, never()).close();
-        verify(storageIndex0, never()).close();
 
         // Let's check the new insert.
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime1 = mock(PendingComparableValuesTracker.class);
-        PendingComparableValuesTracker<Long, Void> storageIndex1 = mock(PendingComparableValuesTracker.class);
 
-        internalTable.updatePartitionTrackers(0, safeTime1, storageIndex1);
+        internalTable.updatePartitionTrackers(0, safeTime1);
 
         assertSame(safeTime1, internalTable.getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex1, internalTable.getPartitionStorageIndexTracker(0));
 
         verify(safeTime0).close();
-        verify(storageIndex0).close();
     }
 
     private InternalTableImpl newInternalTable(int tableId, int partitionCount) {
@@ -251,7 +243,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
     }
@@ -384,15 +375,15 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     }
 
     private PendingTxPartitionEnlistment extractSingleEnlistmentForZone() {
-        Map<ReplicationGroupId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
+        Map<ZonePartitionId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
         assertThat(capturedEnlistments, is(aMapWithSize(1)));
         PendingTxPartitionEnlistment enlistment = capturedEnlistments.get(new ZonePartitionId(ZONE_ID, 0));
         assertThat(enlistment, is(notNullValue()));
         return enlistment;
     }
 
-    private Map<ReplicationGroupId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
-        ArgumentCaptor<Map<ReplicationGroupId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
+    private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
+        ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
         verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
@@ -406,8 +397,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000,
-                colocationEnabled()
+                10_000
         );
     }
 

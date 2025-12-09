@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -26,8 +25,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUui
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -37,6 +34,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
@@ -64,6 +63,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -73,7 +73,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -81,15 +80,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -100,6 +95,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
@@ -116,13 +112,13 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -131,24 +127,21 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.table.distributed.raft.handlers.BuildIndexCommandHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -158,6 +151,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InOrder;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -173,6 +167,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     private static final int PARTITION_ID = 0;
+
+    private static final int ZONE_ID = 2;
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
@@ -199,7 +195,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 
-    private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
+    private final BooleanSupplier shouldRelease = mock(BooleanSupplier.class, "shouldRelease");
+
+    private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID, new LockByRowId(), shouldRelease));
 
     private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
 
@@ -308,7 +306,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
@@ -317,8 +314,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                new TablePartitionId(TABLE_ID, PARTITION_ID)
+                new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -420,57 +416,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         readAndCheck(false);
     }
 
-    @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
-    void testSkipWriteCommandByAppliedIndex() {
-        mvPartitionStorage.lastApplied(10L, 1L);
-
-        UpdateCommandV2 updateCommand = mock(UpdateCommandV2.class);
-        WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
-        SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
-        FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
-        when(finishTxCommand.groupType()).thenReturn(PartitionReplicationMessageGroup.GROUP_TYPE);
-        when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX_V2);
-
-        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = mock(PrimaryReplicaChangeCommand.class);
-
-        // Checks for MvPartitionStorage.
-        commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 1, updateCommand, updateCommandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(10, 1, updateCommand, updateCommandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(4, 1, writeIntentSwitchCommand, commandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(6, 1, primaryReplicaChangeCommand, commandClosureResultCaptor, null)
-        ).iterator());
-
-        // Two storage runConsistently runs are expected: one for configuration application and another for primaryReplicaChangeCommand
-        // handling. Both comes from initial configuration preparation in @BeforeEach
-        verify(mvPartitionStorage, times(2)).runConsistently(any(WriteClosure.class));
-        verify(mvPartitionStorage, times(3)).lastApplied(anyLong(), anyLong());
-
-        List<UpdateCommandResult> allValues = updateCommandClosureResultCaptor.getAllValues();
-        assertThat(allValues, containsInAnyOrder(new Throwable[]{null, null}));
-        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null}));
-
-        // Checks for TxStateStorage.
-        mvPartitionStorage.lastApplied(1L, 1L);
-        txStatePartitionStorage.lastApplied(10L, 2L);
-
-        commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
-
-        commandListener.onWrite(List.of(
-                writeCommandCommandClosure(2, 1, finishTxCommand, commandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(10, 1, finishTxCommand, commandClosureResultCaptor, hybridClock.now())
-        ).iterator());
-
-        verify(txStatePartitionStorage, never())
-                .compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
-        verify(txStatePartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
-
-        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
-    }
-
     private CommandClosure<WriteCommand> writeCommandCommandClosure(
             long index,
             long term,
@@ -541,7 +486,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
@@ -550,8 +494,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                new TablePartitionId(TABLE_ID, PARTITION_ID)
+                new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
 
         txStatePartitionStorage.lastApplied(3L, 1L);
@@ -634,26 +577,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         ).iterator());
 
         verify(mvPartitionStorage).lastApplied(3, 2);
-    }
-
-    @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
-    void updatesLastAppliedForFinishTxCommands() {
-        safeTimeTracker.update(hybridClock.now(), null);
-
-        FinishTxCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommandV2()
-                .txId(TestTransactionIds.newTransactionId())
-                .initiatorTime(hybridClock.now())
-                .partitions(List.of())
-                .build();
-
-        commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 2, command)
-        ).iterator());
-
-        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
-        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
     }
 
     @Test
@@ -801,6 +724,53 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         inOrder.verify(indexUpdateHandler, never()).buildIndex(eq(indexId), any(Stream.class), eq(row2.increment()));
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
+    }
+
+    /**
+     * Tests that {@link BuildIndexCommandHandler} exits early when storage engine needs resources.
+     *
+     * <p>This test verifies that the index building process can be interrupted when {@code shouldRelease()}
+     * returns {@code true}, allowing the storage engine to perform critical operations like checkpoints.
+     */
+    @Test
+    void testBuildIndexCommandExitsEarlyOnShouldRelease() {
+        int indexId = pkStorage.id();
+
+        // Create a new command listener with the custom storage
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(hybridClock.current());
+
+        doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
+
+        RowId row0 = new RowId(PARTITION_ID);
+        RowId row1 = new RowId(PARTITION_ID);
+        RowId row2 = new RowId(PARTITION_ID);
+
+        // Add some rows to the storage
+        mvPartitionStorage.runConsistently(locker -> {
+            mvPartitionStorage.addWriteCommitted(row0, null, hybridClock.now());
+            mvPartitionStorage.addWriteCommitted(row1, null, hybridClock.now());
+            mvPartitionStorage.addWriteCommitted(row2, null, hybridClock.now());
+            return null;
+        });
+
+        // When: Command is processed with shouldRelease returning true before processing
+        when(shouldRelease.getAsBoolean()).thenReturn(true, false);
+        commandListener.processCommand(
+                createBuildIndexCommand(indexId, List.of(row0.uuid(), row1.uuid(), row2.uuid()), true),
+                20,
+                2,
+                null
+        );
+
+        // Then: Command checks should release and finishes with null nextRowIdToBuild
+        verify(shouldRelease, atLeastOnce()).getAsBoolean();
+        verify(indexUpdateHandler, atLeast(2)).buildIndex(eq(indexId), any(Stream.class), any());
+        verify(indexUpdateHandler, times(1)).buildIndex(eq(indexId), any(Stream.class), Mockito.isNull(RowId.class));
+        verify(mvPartitionStorage, times(1)).lastApplied(20, 2);
     }
 
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {

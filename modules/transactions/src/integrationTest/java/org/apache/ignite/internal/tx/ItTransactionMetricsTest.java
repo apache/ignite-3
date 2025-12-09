@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,8 +37,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableImpl;
@@ -66,7 +63,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @BeforeAll
-    void createTable() throws Exception {
+    void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
     }
 
@@ -332,9 +329,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         keyValueView(0).put(tx, key, "value");
 
-        ReplicationGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partitionId)
-                : new TablePartitionId(table.tableId(), partitionId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partitionId);
 
         ReplicaMeta leaseholder = NodeUtils.leaseholder(unwrapIgniteImpl(node(0)), replicationGroupId);
 

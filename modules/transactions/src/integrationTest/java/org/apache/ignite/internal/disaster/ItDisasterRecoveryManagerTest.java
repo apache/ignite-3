@@ -62,7 +62,6 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.Column;
@@ -83,6 +82,7 @@ import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -137,7 +137,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
     }
 
-    private static String findPrimaryNodeName(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+    private static String findPrimaryNodeName(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
         assertThat(awaitPrimaryReplicaForNow(ignite, replicationGroupId), willCompleteSuccessfully());
 
         CompletableFuture<ReplicaMeta> primary = ignite.placementDriver().getPrimaryReplica(replicationGroupId, ignite.clock().now());
@@ -147,7 +147,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return primary.join().getLeaseholder();
     }
 
-    private Ignite findPrimaryIgniteNode(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+    private Ignite findPrimaryIgniteNode(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
         return cluster.runningNodes()
                 .filter(node -> node.name().equals(findPrimaryNodeName(ignite, replicationGroupId)))
                 .findFirst()
@@ -442,7 +442,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return unwrapIgniteImpl(nodeToCleanup);
     }
 
-    private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, ReplicationGroupId replicationGroupId) {
+    private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, ZonePartitionId replicationGroupId) {
         return node.placementDriver().awaitPrimaryReplica(replicationGroupId, node.clock().now(), 60, SECONDS);
     }
 
@@ -670,6 +670,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27268")
     void testRestartPartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 

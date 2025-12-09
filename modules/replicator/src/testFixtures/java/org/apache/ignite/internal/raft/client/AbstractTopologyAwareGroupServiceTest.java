@@ -82,6 +82,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract class containing test scenarios for {@link TopologyAwareRaftGroupService} related test classes.
+ * TODO: IGNITE-27257 Refactor the class to make it more readable and maintainable.
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstractTest {

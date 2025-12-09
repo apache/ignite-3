@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
@@ -41,9 +41,9 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
@@ -234,7 +234,7 @@ public class TxCleanupRequestHandler {
      * @param groups Replication groups.
      * @param sender Cleanup request sender, needed to send cleanup replicated response.
      */
-    private void trackPartitions(UUID txId, Set<ReplicationGroupId> groups, InternalClusterNode sender) {
+    private void trackPartitions(UUID txId, Set<ZonePartitionId> groups, InternalClusterNode sender) {
         writeIntentsReplicated.put(txId, new CleanupContext(sender, groups, groups));
     }
 
@@ -258,7 +258,7 @@ public class TxCleanupRequestHandler {
      */
     void writeIntentSwitchReplicated(WriteIntentSwitchReplicatedInfo info) {
         CleanupContext cleanupContext = writeIntentsReplicated.computeIfPresent(info.txId(), (uuid, context) -> {
-            Set<ReplicationGroupId> partitions = new HashSet<>(context.partitions);
+            Set<ZonePartitionId> partitions = new HashSet<>(context.partitions);
             partitions.remove(info.partitionId());
 
             return new CleanupContext(context.sender, partitions, context.initialPartitions);
@@ -279,18 +279,18 @@ public class TxCleanupRequestHandler {
      * @param sender Cleanup request sender.
      * @param partitions Partitions that we received replication confirmation for.
      */
-    private void sendCleanupReplicatedResponse(UUID txId, InternalClusterNode sender, Collection<ReplicationGroupId> partitions) {
+    private void sendCleanupReplicatedResponse(UUID txId, InternalClusterNode sender, Collection<ZonePartitionId> partitions) {
         messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(txId, partitions)));
     }
 
     private static class CleanupContext {
         private final InternalClusterNode sender;
 
-        private final Set<ReplicationGroupId> partitions;
+        private final Set<ZonePartitionId> partitions;
 
-        private final Set<ReplicationGroupId> initialPartitions;
+        private final Set<ZonePartitionId> initialPartitions;
 
-        public CleanupContext(InternalClusterNode sender, Set<ReplicationGroupId> partitions, Set<ReplicationGroupId> initialPartitions) {
+        public CleanupContext(InternalClusterNode sender, Set<ZonePartitionId> partitions, Set<ZonePartitionId> initialPartitions) {
             this.sender = sender;
             this.partitions = partitions;
             this.initialPartitions = initialPartitions;
@@ -298,11 +298,11 @@ public class TxCleanupRequestHandler {
     }
 
     private static CleanupReplicatedInfoMessage toCleanupReplicatedInfoMessage(CleanupReplicatedInfo info) {
-        Collection<ReplicationGroupId> partitions = info.partitions();
-        List<ReplicationGroupIdMessage> partitionMessages = new ArrayList<>(partitions.size());
+        Collection<ZonePartitionId> partitions = info.partitions();
+        List<ZonePartitionIdMessage> partitionMessages = new ArrayList<>(partitions.size());
 
-        for (ReplicationGroupId partition : partitions) {
-            partitionMessages.add(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, partition));
+        for (ZonePartitionId partition : partitions) {
+            partitionMessages.add(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition));
         }
 
         return TX_MESSAGES_FACTORY.cleanupReplicatedInfoMessage()

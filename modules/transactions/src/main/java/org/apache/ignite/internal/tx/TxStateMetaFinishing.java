@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
@@ -46,7 +46,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
      */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
-            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
             @Nullable String txLabel
     ) {

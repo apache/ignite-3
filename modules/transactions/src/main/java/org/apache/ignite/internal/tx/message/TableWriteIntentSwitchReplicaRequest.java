@@ -25,8 +25,7 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  * or removes them (TxState.ABORTED).
  *
  * <p>Never sent by users of ReplicaService; it's rather an internal request used to handle {@link WriteIntentSwitchReplicaRequest}s
- * in per-zone case (invoked on table replicas directly). Never used in per-table case.
- * // TODO: IGNITE-22522 remove the above mention of per-table case.
+ * in per-zone case (invoked on table replicas directly).
  */
 @Transferable(TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST)
 public interface TableWriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase, TableAware {
