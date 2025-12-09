@@ -15,20 +15,8 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: 'jobs.gradle'
+package org.apache.ignite.internal.compute;
 
-description = 'ignite-code-deployment-classloader'
-
-dependencies {
-    implementation libs.jetbrains.annotations
-
-    implementation project(':ignite-core')
-    implementation project(':ignite-api')
-    implementation project(':ignite-code-deployment')
-
-    testImplementation project(':ignite-core')
-    testImplementation testFixtures(project(':ignite-core'))
+/** Utility class. */
+public class Job1Utility {
 }
