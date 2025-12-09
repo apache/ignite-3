@@ -117,7 +117,7 @@ public class MultiTableDataStreamerExample extends AbstractDeploymentUnitExample
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
-            // 1) Check if deployment unit already exists
+             
             if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {
