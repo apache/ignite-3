@@ -87,7 +87,7 @@ class CreatorFromAnnotatedConstructorParameters implements Creator {
 
         for (int fldIdx = 0; fldIdx < accessors.length; fldIdx++) {
             FieldAccessor a = accessors[fldIdx];
-            Object val = a.read(reader);
+            Object val = a.read(reader); // pojo field order doesn't matter for current reader impl
             args.add(a.getColumnName(), val);
         }
         return args;

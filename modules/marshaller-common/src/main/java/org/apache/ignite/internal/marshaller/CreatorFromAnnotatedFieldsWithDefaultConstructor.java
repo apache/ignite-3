@@ -38,7 +38,7 @@ class CreatorFromAnnotatedFieldsWithDefaultConstructor implements Creator {
             Object instance = mhNoArgs.invokeExact();
 
             for (int fldIdx = 0; fldIdx < accessors.length; fldIdx++) {
-                accessors[fldIdx].read(reader, instance);
+                accessors[fldIdx].read(reader, instance); // pojo field order doesn't matter for current reader impl
             }
 
             return instance;
