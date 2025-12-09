@@ -414,7 +414,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            Integer indexId,
+            int indexId,
             IndexScanCriteria.Range criteria
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
