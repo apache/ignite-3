@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  */
 public class NetworkAddress {
     /** Regexp for parsing strings in the "host:port" format. */
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("(.+):(\\d+)");
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("(.+):([1-9]\\d*|0+[1-9]\\d*)");
 
     /** Host. */
     private final String host;

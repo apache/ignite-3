@@ -19,16 +19,40 @@ package org.apache.ignite.internal.network;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.InetSocketAddress;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 
 /**
  * Test suite for {@link NetworkAddress}.
  */
 class NetworkAddressTest {
+    /**
+     * Test constructing a new {@link NetworkAddress} with good parameters.
+     */
+    @Test
+    void testConstructorWithGoodParams() {
+        String host = "some.host";
+        int port = 1234;
+
+        assertDoesNotThrow(() -> new NetworkAddress(host, port));
+    }
+
+    /**
+     * Test constructing a new {@link NetworkAddress} with bad parameters.
+     */
+    @CartesianTest
+    void testConstructorWithBadParams(
+            @Values(strings = {""}) String host,
+            @Values(ints = {-1, 0}) int port) {
+        assertThrows(IllegalArgumentException.class, () -> new NetworkAddress(host, port));
+    }
+
     /**
      * Test parsing of a {@link NetworkAddress} from a string.
      */
