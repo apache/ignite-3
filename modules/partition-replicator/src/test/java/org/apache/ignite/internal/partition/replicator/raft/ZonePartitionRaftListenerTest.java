@@ -568,7 +568,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                         ZONE_PARTITION_KEY
                 ),
                 mock(StorageUpdateHandler.class),
-                txStatePartitionStorage,
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 mock(CatalogService.class),
                 mock(SchemaRegistry.class),

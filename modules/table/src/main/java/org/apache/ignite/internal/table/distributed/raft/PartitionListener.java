@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
-import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
@@ -34,7 +33,6 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -51,8 +49,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
-import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
-import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
@@ -80,7 +76,6 @@ import org.apache.ignite.internal.table.distributed.raft.handlers.MinimumActiveT
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -90,6 +85,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
+// TODO ignite-22522 Rename to TablePartitionProcessor and remove implements RaftGroupListener
 public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
@@ -103,9 +99,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     /** Handler that processes storage updates. */
     private final StorageUpdateHandler storageUpdateHandler;
 
-    /** Storage of transaction metadata. */
-    private final TxStatePartitionStorage txStatePartitionStorage;
-
     /** Safe time tracker. */
     private final SafeTimeValuesTracker safeTimeTracker;
 
@@ -114,8 +107,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private final UUID localNodeId;
 
     private final Set<String> currentGroupTopology = new HashSet<>();
-
-    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     // Raft command handlers.
     private final CommandHandlers commandHandlers;
@@ -136,7 +127,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
-            TxStatePartitionStorage txStatePartitionStorage,
             SafeTimeValuesTracker safeTimeTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
@@ -151,15 +141,12 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
-        this.txStatePartitionStorage = txStatePartitionStorage;
         this.safeTimeTracker = safeTimeTracker;
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.realReplicationGroupId = realReplicationGroupId;
-
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
@@ -227,14 +214,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
             assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
 
-            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
-            // one of the storages.
-            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
+            long storagesAppliedIndex = storage.lastAppliedIndex();
 
             assert commandIndex > storagesAppliedIndex :
                     "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
-                            + ", mvAppliedIndex=" + storage.lastAppliedIndex()
-                            + ", txStateAppliedIndex=" + txStatePartitionStorage.lastAppliedIndex() + "]";
+                            + ", mvAppliedIndex=" + storage.lastAppliedIndex() + "]";
 
             CommandResult result;
 
@@ -585,25 +569,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(snapshotInfo(), List.of(this))
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
-    }
+        throw new UnsupportedOperationException("!!! It's not expected that PartitionListener onSnapshotSave will be called.");
 
-    private PartitionSnapshotInfo snapshotInfo() {
-        long maxAppliedIndex = max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
-        long maxAppliedTerm = max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
-
-        byte[] configuration = storage.getStorage().committedGroupConfiguration();
-
-        assert configuration != null : "Trying to create a snapshot without Raft group configuration";
-
-        return new PartitionSnapshotInfo(
-                maxAppliedIndex,
-                maxAppliedTerm,
-                storage.leaseInfo(),
-                configuration,
-                Set.of(storage.tableId())
-        );
     }
 
     @Override

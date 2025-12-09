@@ -34,7 +34,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
@@ -390,14 +389,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Count of partitions.
      */
     int partitions();
-
-    /**
-     * Storage of transaction states for this table.
-     *
-     * @return Transaction states' storage.
-     */
-    // TODO: remove this method as a part of https://issues.apache.org/jira/browse/IGNITE-22522.
-    TxStateStorage txStateStorage();
 
     // TODO: IGNITE-14488. Add invoke() methods.
 

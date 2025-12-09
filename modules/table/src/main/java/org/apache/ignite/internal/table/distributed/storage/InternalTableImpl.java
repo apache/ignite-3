@@ -127,7 +127,6 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -182,9 +181,6 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
 
-    /** Storage for transaction states. */
-    private final TxStateStorage txStateStorage;
-
     /** Replica service. */
     private final ReplicaService replicaSvc;
 
@@ -224,7 +220,6 @@ public class InternalTableImpl implements InternalTable {
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
-     * @param txStateStorage Transaction state storage.
      * @param replicaSvc Replica service.
      * @param clockService A hybrid logical clock service.
      * @param placementDriver Placement driver.
@@ -242,7 +237,6 @@ public class InternalTableImpl implements InternalTable {
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxStateStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
             HybridTimestampTracker observableTimestampTracker,
@@ -261,7 +255,6 @@ public class InternalTableImpl implements InternalTable {
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
-        this.txStateStorage = txStateStorage;
         this.replicaSvc = replicaSvc;
         this.clockService = clockService;
         this.observableTimestampTracker = observableTimestampTracker;
@@ -637,7 +630,7 @@ public class InternalTableImpl implements InternalTable {
      * @param full {@code True} for a full transaction.
      * @param enlistment Enlisted partition.
      * @param noWriteChecker Used to handle operations producing no updates.
-     * @param retryOnLockConflict {@code True} to retry on lock conflics.
+     * @param retryOnLockConflict {@code True} to retry on lock conflicts.
      * @return The future.
      */
     private <R> CompletableFuture<R> trackingInvoke(
@@ -1906,12 +1899,6 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return rowBatchByPartitionId;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TxStateStorage txStateStorage() {
-        return txStateStorage;
     }
 
     /** {@inheritDoc} */

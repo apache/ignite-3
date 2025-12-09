@@ -224,12 +224,10 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -239,7 +237,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
@@ -368,9 +365,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
-    /** The storage stores transaction states. */
-    private final TestTxStatePartitionStorage txStateStorage = new TestTxStatePartitionStorage();
-
     /** Local cluster node. */
     private final InternalClusterNode localNode = new ClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));
 
@@ -462,10 +456,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** If true the local replica is considered leader, false otherwise. */
     private boolean localLeader;
-
-    /** The state is used to resolve write intent. */
-    @Nullable
-    private TxState txState;
 
     /** Secondary sorted index. */
     private TableSchemaAwareIndexStorage sortedIndexStorage;
@@ -663,7 +653,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clockService,
                 safeTimeClock,
-                txStateStorage,
                 transactionStateResolver,
                 new StorageUpdateHandler(
                         PART_ID,
@@ -727,7 +716,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void reset() {
         localLeader = true;
-        txState = null;
         ((TestHashIndexStorage) pkStorage().storage()).clear();
         ((TestHashIndexStorage) hashIndexStorage.storage()).clear();
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
@@ -742,8 +730,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void testExecuteRequestOnFinishedTx(TxState txState, RequestType requestType) {
         UUID txId = newTxId();
 
-        txStateStorage.putForRebalance(txId,
-                new TxMeta(txState, singletonList(new EnlistedPartitionGroup(grpId, Set.of(TABLE_ID))), null));
         txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null, null, null));
 
         BinaryRow testRow = binaryRow(0);
@@ -837,7 +823,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(PART_ID);
-        txState = COMMITTED;
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
@@ -874,7 +859,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(PART_ID);
-        txState = ABORTED;
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, ZONE_ID, PART_ID);
@@ -1587,8 +1571,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             upsert(tx0, br2);
             cleanup(tx0);
         }
-
-        txState = null;
 
         // Delete the same row 2 times within the same transaction to generate garbage rows in storage.
         // If the data was not preloaded, there will be one deletion actually.
@@ -2428,8 +2410,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         lockManager.releaseAll(txId);
         partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
-
-        txState = newTxState;
     }
 
     private BinaryTupleMessage toIndexBound(int val) {

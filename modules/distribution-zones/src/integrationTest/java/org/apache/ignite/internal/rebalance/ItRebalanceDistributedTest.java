@@ -105,8 +105,6 @@ import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -255,9 +253,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -1103,20 +1099,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .orElse(Set.of());
     }
 
-    private static Set<Assignment> getDefaultZonePartitionStableAssignments(Node node, int partitionIndex) {
-        var stableAssignmentsFuture = stablePartitionAssignments(
-                node.metaStorageManager,
-                defaultZoneId(node.catalogManager),
-                partitionIndex
-        );
-
-        assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
-
-        return Optional
-                .ofNullable(stableAssignmentsFuture.join())
-                .orElse(Set.of());
-    }
-
     private static Set<Assignment> getPartitionPendingAssignments(Node node, String tableName, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
@@ -1615,17 +1597,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     systemDistributedConfiguration,
                     metricManager,
                     TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
-            ) {
-                @Override
-                protected TxStateStorage createTxStateTableStorage(
-                        CatalogTableDescriptor tableDescriptor,
-                        CatalogZoneDescriptor zoneDescriptor
-                ) {
-                    return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
-                            ? spy(new TestTxStateStorage())
-                            : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
-                }
-            };
+            );
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
@@ -1830,10 +1802,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         doAnswer(answer -> CompletableFuture.failedFuture(new StorageException("From test")))
                 .when(internalTable.storage())
                 .destroyPartition(partitionId);
-
-        doAnswer(answer -> CompletableFuture.failedFuture(new IgniteInternalException("From test")))
-                .when(internalTable.txStateStorage())
-                .destroyPartitionStorage(partitionId);
     }
 
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {
