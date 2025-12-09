@@ -15,39 +15,22 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table;
+namespace Apache.Ignite.Table.Mapper;
 
-using Ignite.Sql;
-using Ignite.Table.Mapper;
+using Sql;
 
 /// <summary>
-/// Schema column.
+/// Mapper schema column.
 /// </summary>
-internal record Column(
-    string Name,
-    ColumnType Type,
-    bool IsNullable,
-    int KeyIndex,
-    int ColocationIndex,
-    int SchemaIndex,
-    int Scale,
-    int Precision)
-    : IMapperColumn
+public interface IMapperColumn
 {
     /// <summary>
-    /// Gets a value indicating whether this column is a part of the key.
+    /// Gets the column name.
     /// </summary>
-    public bool IsKey => KeyIndex >= 0;
+    string Name { get; }
 
     /// <summary>
-    /// Gets a value indicating whether this column is a part of the colocation key.
+    /// Gets the column type.
     /// </summary>
-    public bool IsColocation => ColocationIndex >= 0;
-
-    /// <summary>
-    /// Gets the column index within a binary tuple.
-    /// </summary>
-    /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
-    /// <returns>Index within a binary tuple.</returns>
-    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : SchemaIndex;
+    ColumnType Type { get; }
 }

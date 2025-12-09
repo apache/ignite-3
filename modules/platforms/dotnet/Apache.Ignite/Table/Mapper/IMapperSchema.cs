@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table.Serialization;
+namespace Apache.Ignite.Table.Mapper;
 
-using Internal.Table.Serialization;
-using NUnit.Framework;
+using System.Collections.Generic;
 
 /// <summary>
-/// Tests for <see cref="ObjectSerializerHandler{T}"/>.
+/// Row schema for <see cref="IMapper{T}"/>.
 /// </summary>
-[TestFixture]
-internal class ObjectSerializerHandlerTests : SerializerHandlerTestBase
+public interface IMapperSchema
 {
-    protected override IRecordSerializerHandler<T> GetHandler<T>() => new ObjectSerializerHandler<T>();
+    /// <summary>
+    /// Gets the columns.
+    /// </summary>
+    IReadOnlyList<IMapperColumn> Columns { get; }
 }

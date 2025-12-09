@@ -15,16 +15,30 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table.Serialization;
+namespace Apache.Ignite.Tests.Table;
 
-using Internal.Table.Serialization;
-using NUnit.Framework;
+using Ignite.Table.Mapper;
 
-/// <summary>
-/// Tests for <see cref="ObjectSerializerHandler{T}"/>.
-/// </summary>
-[TestFixture]
-internal class ObjectSerializerHandlerTests : SerializerHandlerTestBase
+public class PocoMapper : IMapper<Poco>
 {
-    protected override IRecordSerializerHandler<T> GetHandler<T>() => new ObjectSerializerHandler<T>();
+    public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
+    {
+        rowWriter.WriteLong(obj.Key);
+
+        if (schema.Columns.Count > 1)
+        {
+            rowWriter.WriteString(obj.Val);
+        }
+    }
+
+    public Poco Read(ref RowReader rowReader, IMapperSchema schema)
+    {
+        var obj = new Poco
+        {
+            Key = rowReader.ReadLong()!.Value,
+            Val = schema.Columns.Count > 1 ? rowReader.ReadString() : null
+        };
+
+        return obj;
+    }
 }
