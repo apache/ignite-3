@@ -24,7 +24,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -100,12 +99,12 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return enlistment;
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
         return false;
     }
 
@@ -115,7 +114,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
+    public void enlist(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
         // Validate primary replica.
         if (!localNodeConsistentId.equals(primaryNodeConsistentId)) {
             throw new TransactionException(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, "

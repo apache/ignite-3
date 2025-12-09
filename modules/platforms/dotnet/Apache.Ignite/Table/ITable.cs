@@ -17,6 +17,9 @@
 
 namespace Apache.Ignite.Table
 {
+    using System.Collections.Generic;
+    using Mapper;
+
     /// <summary>
     /// Table view.
     /// </summary>
@@ -59,6 +62,15 @@ namespace Apache.Ignite.Table
             where T : notnull;
 
         /// <summary>
+        /// Gets the record view mapped to specified type <typeparamref name="T"/> with a custom mapper.
+        /// </summary>
+        /// <param name="mapper">Mapper.</param>
+        /// <typeparam name="T">Record type.</typeparam>
+        /// <returns>Record view.</returns>
+        public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
+            where T : notnull;
+
+        /// <summary>
         /// Gets the record view mapped to specified key and value types.
         /// <para />
         /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
@@ -68,6 +80,16 @@ namespace Apache.Ignite.Table
         /// <typeparam name="TV">Value type.</typeparam>
         /// <returns>Key-value view.</returns>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
+            where TK : notnull;
+
+        /// <summary>
+        /// Gets the record view mapped to specified key and value types with a custom mapper.
+        /// </summary>
+        /// <param name="mapper">Mapper.</param>
+        /// <typeparam name="TK">Key type.</typeparam>
+        /// <typeparam name="TV">Value type.</typeparam>
+        /// <returns>Key-value view.</returns>
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
             where TK : notnull;
     }
 }

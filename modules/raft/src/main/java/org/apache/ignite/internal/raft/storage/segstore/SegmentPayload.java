@@ -35,16 +35,25 @@ class SegmentPayload {
 
     static final int LENGTH_SIZE_BYTES = Integer.BYTES;
 
-    static final int HASH_SIZE_BYTES = Integer.BYTES;
+    static final int CRC_SIZE_BYTES = Integer.BYTES;
 
     /**
      * Length of the byte sequence that is written when suffix truncation happens.
      *
-     * <p>Format: {@code groupId, 0 (special length value), last kept index, crc}
+     * <p>Format: {@code groupId, TRUNCATE_SUFFIX_RECORD_MARKER (special length value), last kept index, crc}
      */
-    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE_BYTES;
+    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + CRC_SIZE_BYTES;
+
+    /**
+     * Length of the byte sequence that is written when prefix truncation happens.
+     *
+     * <p>Format: {@code groupId, TRUNCATE_PREFIX_RECORD_MARKER (special length value), first kept index, crc}
+     */
+    static final int TRUNCATE_PREFIX_RECORD_SIZE = TRUNCATE_SUFFIX_RECORD_SIZE;
 
     static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
+
+    static final int TRUNCATE_PREFIX_RECORD_MARKER = -1;
 
     static void writeTo(
             ByteBuffer buffer,
@@ -66,28 +75,33 @@ class SegmentPayload {
 
         logEntryEncoder.encode(buffer, logEntry);
 
-        int dataSize = buffer.position() - originalPos;
+        int recordSize = buffer.position() - originalPos;
 
-        // Rewind the position for CRC calculation.
-        buffer.position(originalPos);
-
-        int crc = FastCrc.calcCrc(buffer, dataSize);
-
-        // After CRC calculation the position will be at the provided end of the buffer.
-        buffer.putInt(crc);
+        writeCrc(buffer, recordSize);
     }
 
     static void writeTruncateSuffixRecordTo(ByteBuffer buffer, long groupId, long lastLogIndexKept) {
-        int originalPos = buffer.position();
-
         buffer
                 .putLong(groupId)
                 .putInt(TRUNCATE_SUFFIX_RECORD_MARKER)
                 .putLong(lastLogIndexKept);
 
-        buffer.position(originalPos);
+        writeCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - CRC_SIZE_BYTES);
+    }
 
-        int crc = FastCrc.calcCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE_BYTES);
+    static void writeTruncatePrefixRecordTo(ByteBuffer buffer, long groupId, long firstIndexKept) {
+        buffer
+                .putLong(groupId)
+                .putInt(TRUNCATE_PREFIX_RECORD_MARKER)
+                .putLong(firstIndexKept);
+
+        writeCrc(buffer, TRUNCATE_PREFIX_RECORD_SIZE - CRC_SIZE_BYTES);
+    }
+
+    private static void writeCrc(ByteBuffer buffer, int recordSizeWithoutCrc) {
+        buffer.position(buffer.position() - recordSizeWithoutCrc);
+
+        int crc = FastCrc.calcCrc(buffer, recordSizeWithoutCrc);
 
         buffer.putInt(crc);
     }
@@ -126,7 +140,7 @@ class SegmentPayload {
         buffer.get(entryBytes);
 
         // Move the position as if we have read the whole payload.
-        buffer.position(buffer.position() + HASH_SIZE_BYTES);
+        buffer.position(buffer.position() + CRC_SIZE_BYTES);
 
         return logEntryDecoder.decode(entryBytes);
     }
@@ -140,6 +154,6 @@ class SegmentPayload {
     }
 
     static int fixedOverheadSize() {
-        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE_BYTES;
+        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + CRC_SIZE_BYTES;
     }
 }

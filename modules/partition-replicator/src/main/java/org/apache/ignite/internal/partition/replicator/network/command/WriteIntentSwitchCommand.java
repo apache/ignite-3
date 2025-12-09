@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This command is replaced with {@link WriteIntentSwitchCommandV2} and only exists in the source code for backward compatibility.
  */
+@Deprecated(forRemoval = true)
 @Transferable(PartitionReplicationMessageGroup.Commands.WRITE_INTENT_SWITCH_V1)
 public interface WriteIntentSwitchCommand extends PartitionCommand {
     /**

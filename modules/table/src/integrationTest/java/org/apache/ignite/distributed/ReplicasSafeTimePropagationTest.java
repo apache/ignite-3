@@ -85,7 +85,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -391,7 +390,6 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             txManagerMock,
                             mock(PartitionDataStorage.class),
                             mock(StorageUpdateHandler.class),
-                            mock(TxStatePartitionStorage.class),
                             safeTs,
                             mock(CatalogService.class),
                             mock(SchemaRegistry.class),

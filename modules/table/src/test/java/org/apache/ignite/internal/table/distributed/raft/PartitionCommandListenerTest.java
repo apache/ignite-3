@@ -22,9 +22,7 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,6 +32,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
@@ -56,11 +56,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -115,6 +114,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -123,11 +123,11 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.table.distributed.raft.handlers.BuildIndexCommandHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
@@ -146,6 +146,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InOrder;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -189,7 +190,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 
-    private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
+    private final BooleanSupplier shouldRelease = mock(BooleanSupplier.class, "shouldRelease");
+
+    private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID, new LockByRowId(), shouldRelease));
 
     private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
 
@@ -296,7 +299,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
-                txStatePartitionStorage,
                 safeTimeTracker,
                 catalogService,
                 SCHEMA_REGISTRY,
@@ -444,88 +446,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         }
 
         return commandClosure;
-    }
-
-    /**
-     * The test checks that {@link PartitionListener#onSnapshotSave(Path, Consumer)} propagates the maximal last applied index among
-     * storages to all storages.
-     */
-    @Test
-    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectExecutorService ExecutorService executor) {
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
-
-        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
-        );
-
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
-                PARTITION_ID,
-                partitionDataStorage,
-                indexUpdateHandler,
-                replicationConfiguration,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
-        );
-
-        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
-        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
-
-        ClockService clockService = mock(ClockService.class);
-        lenient().when(clockService.current()).thenReturn(hybridClock.current());
-
-        PartitionListener testCommandListener = new PartitionListener(
-                mock(TxManager.class),
-                partitionDataStorage,
-                storageUpdateHandler,
-                txStatePartitionStorage,
-                safeTimeTracker,
-                catalogService,
-                SCHEMA_REGISTRY,
-                indexMetaStorage,
-                clusterService.topologyService().localMember().id(),
-                mock(MinimumRequiredTimeCollectorService.class),
-                executor,
-                placementDriver,
-                clockService,
-                new ZonePartitionId(ZONE_ID, PARTITION_ID)
-        );
-
-        txStatePartitionStorage.lastApplied(3L, 1L);
-
-        partitionDataStorage.lastApplied(5L, 2L);
-
-        saveSnapshot(testCommandListener);
-
-        assertEquals(5L, partitionDataStorage.lastAppliedIndex());
-        assertEquals(2L, partitionDataStorage.lastAppliedTerm());
-
-        assertEquals(5L, txStatePartitionStorage.lastAppliedIndex());
-        assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
-
-        txStatePartitionStorage.lastApplied(10L, 2L);
-
-        partitionDataStorage.lastApplied(7L, 1L);
-
-        saveSnapshot(testCommandListener);
-
-        assertEquals(10L, partitionDataStorage.lastAppliedIndex());
-        assertEquals(2L, partitionDataStorage.lastAppliedTerm());
-
-        assertEquals(10L, txStatePartitionStorage.lastAppliedIndex());
-        assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
-    }
-
-    private void saveSnapshot(PartitionListener listener) {
-        var snapshotDoneFuture = new CompletableFuture<Void>();
-
-        listener.onSnapshotSave(workDir, throwable -> {
-            if (throwable != null) {
-                snapshotDoneFuture.completeExceptionally(throwable);
-            } else {
-                snapshotDoneFuture.complete(null);
-            }
-        });
-
-        assertThat(snapshotDoneFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -716,6 +636,53 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         inOrder.verify(indexUpdateHandler, never()).buildIndex(eq(indexId), any(Stream.class), eq(row2.increment()));
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
+    }
+
+    /**
+     * Tests that {@link BuildIndexCommandHandler} exits early when storage engine needs resources.
+     *
+     * <p>This test verifies that the index building process can be interrupted when {@code shouldRelease()}
+     * returns {@code true}, allowing the storage engine to perform critical operations like checkpoints.
+     */
+    @Test
+    void testBuildIndexCommandExitsEarlyOnShouldRelease() {
+        int indexId = pkStorage.id();
+
+        // Create a new command listener with the custom storage
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(hybridClock.current());
+
+        doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
+
+        RowId row0 = new RowId(PARTITION_ID);
+        RowId row1 = new RowId(PARTITION_ID);
+        RowId row2 = new RowId(PARTITION_ID);
+
+        // Add some rows to the storage
+        mvPartitionStorage.runConsistently(locker -> {
+            mvPartitionStorage.addWriteCommitted(row0, null, hybridClock.now());
+            mvPartitionStorage.addWriteCommitted(row1, null, hybridClock.now());
+            mvPartitionStorage.addWriteCommitted(row2, null, hybridClock.now());
+            return null;
+        });
+
+        // When: Command is processed with shouldRelease returning true before processing
+        when(shouldRelease.getAsBoolean()).thenReturn(true, false);
+        commandListener.processCommand(
+                createBuildIndexCommand(indexId, List.of(row0.uuid(), row1.uuid(), row2.uuid()), true),
+                20,
+                2,
+                null
+        );
+
+        // Then: Command checks should release and finishes with null nextRowIdToBuild
+        verify(shouldRelease, atLeastOnce()).getAsBoolean();
+        verify(indexUpdateHandler, atLeast(2)).buildIndex(eq(indexId), any(Stream.class), any());
+        verify(indexUpdateHandler, times(1)).buildIndex(eq(indexId), any(Stream.class), Mockito.isNull(RowId.class));
+        verify(mvPartitionStorage, times(1)).lastApplied(20, 2);
     }
 
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -97,7 +96,6 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -234,7 +232,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                mock(TxStateStorage.class),
                 replicaService,
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
@@ -376,15 +373,15 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     }
 
     private PendingTxPartitionEnlistment extractSingleEnlistmentForZone() {
-        Map<ReplicationGroupId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
+        Map<ZonePartitionId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
         assertThat(capturedEnlistments, is(aMapWithSize(1)));
         PendingTxPartitionEnlistment enlistment = capturedEnlistments.get(new ZonePartitionId(ZONE_ID, 0));
         assertThat(enlistment, is(notNullValue()));
         return enlistment;
     }
 
-    private Map<ReplicationGroupId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
-        ArgumentCaptor<Map<ReplicationGroupId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
+    private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
+        ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
         verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
@@ -398,8 +395,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000,
-                colocationEnabled()
+                10_000
         );
     }
 

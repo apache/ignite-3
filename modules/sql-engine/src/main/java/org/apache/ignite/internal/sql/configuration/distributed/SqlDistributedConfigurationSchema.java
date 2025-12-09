@@ -30,4 +30,8 @@ public class SqlDistributedConfigurationSchema {
     /** Represent a configuration related to initial table creation. */
     @ConfigValue
     public CreateTableDefaultsConfigurationSchema createTable;
+
+    /** Represent a configuration related to statistics collection. */
+    @ConfigValue
+    public StatisticsConfigurationSchema statistics;
 }

@@ -39,7 +39,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -141,7 +141,7 @@ public class TransactionStateResolver {
      */
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
         return resolveTxState(txId, commitGrpId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
@@ -159,7 +159,7 @@ public class TransactionStateResolver {
      */
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp,
             long awaitCommitPartitionAvailabilityTimeout,
             TimeUnit awaitCommitPartitionAvailabilityTimeUnit
@@ -207,7 +207,7 @@ public class TransactionStateResolver {
     private void resolveDistributiveTxState(
             UUID txId,
             @Nullable TxStateMeta localMeta,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp,
             long awaitCommitPartitionAvailabilityTimeout,
             TimeUnit awaitCommitPartitionAvailabilityTimeUnit,
@@ -249,7 +249,7 @@ public class TransactionStateResolver {
     private void resolveTxStateFromTxCoordinator(
             UUID txId,
             @Nullable UUID coordinatorId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
@@ -280,7 +280,7 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromCommitPartition(
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         resolveTxStateFromCommitPartition(txId, commitGrpId, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS, txMetaFuture);
@@ -288,7 +288,7 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromCommitPartition(
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             long awaitPrimaryReplicaTimeout,
             TimeUnit awaitPrimaryReplicaTimeUnit,
             CompletableFuture<TransactionMeta> txMetaFuture
@@ -324,7 +324,7 @@ public class TransactionStateResolver {
      */
     private void sendAndRetry(
             CompletableFuture<TransactionMeta> resFut,
-            ReplicationGroupId replicaGrp,
+            ZonePartitionId replicaGrp,
             UUID txId,
             long awaitPrimaryReplicaTimeout,
             TimeUnit awaitPrimaryReplicaTimeUnit

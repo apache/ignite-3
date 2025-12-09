@@ -146,6 +146,19 @@ public class CheckpointMetricsTrackerTest {
     }
 
     @Test
+    void testBeforeCheckpointBegin() {
+        assertThat(tracker.onBeforeCheckpointBeginDuration(NANOSECONDS), equalTo(0L));
+
+        tracker.onBeforeCheckpointBeginStart();
+
+        waitForTimeChange();
+
+        tracker.onBeforeCheckpointBeginEnd();
+
+        assertThat(tracker.onBeforeCheckpointBeginDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
+    }
+
+    @Test
     void testWriteLockHold() {
         assertThat(tracker.writeLockHoldDuration(NANOSECONDS), equalTo(0L));
 

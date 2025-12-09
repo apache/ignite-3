@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.is;
 import java.util.List;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Test multiple HA zone partitions recovery in a row. */
@@ -41,7 +40,6 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     void testTwoSequentialResets() throws InterruptedException {
         createHaZoneWithTable();
 
