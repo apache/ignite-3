@@ -48,6 +48,16 @@ task ciPerformRelease {
 
   // Skip tests during release
   gradle.startParameter.excludedTaskNames += 'integrationTest'
+  
+  doFirst {
+    logger.lifecycle("🚀 Starting CI release process")
+    logger.lifecycle("   → GitHub Release: ✅")
+    logger.lifecycle("   → Artifactory Publish: In progress...")
+  }
+  
+  doLast {
+    logger.lifecycle("✅ CI Release completed successfully!")
+  }
 }
 
 task getVersion() {
