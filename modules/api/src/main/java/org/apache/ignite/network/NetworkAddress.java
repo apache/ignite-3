@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  */
 public class NetworkAddress {
     /** Regexp for parsing strings in the "host:port" format. */
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("(.+):([1-9]\\d*|0+[1-9]\\d*)");
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("(.+):(\\d+)");
 
     /** Host. */
     private final String host;
@@ -41,10 +41,12 @@ public class NetworkAddress {
      * @param port Port.
      */
     public NetworkAddress(String host, int port) {
-        Matcher matcher = ADDRESS_PATTERN.matcher(String.format("%s:%d", host, port));
+        if (host == null || host.isEmpty()) {
+            throw new IllegalArgumentException("Host address cannot be null or empty");
+        }
 
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException(String.format("Unable to parse the network address from host: %s, port %d", host, port));
+        if (port < 1024 || port > 65535) {
+            throw new IllegalArgumentException("Invalid port number: " + port);
         }
 
         this.host = host;

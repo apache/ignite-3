@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.net.InetSocketAddress;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
-import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test suite for {@link NetworkAddress}.
@@ -44,12 +44,29 @@ class NetworkAddressTest {
     }
 
     /**
+     * Test constructing a new {@link NetworkAddress} with bad host parameters.
+     host */
+    @ParameterizedTest
+    @ValueSource(strings = {"null", ""})
+    void testConstructorWithBadHostParam(String host) {
+        if (host.equals("null")) {
+            host = null;
+        }
+
+        int port = 1234;
+
+        String finalHost = host;
+        assertThrows(IllegalArgumentException.class, () -> new NetworkAddress(finalHost, port));
+    }
+
+    /**
      * Test constructing a new {@link NetworkAddress} with bad parameters.
      */
-    @CartesianTest
-    void testConstructorWithBadParams(
-            @Values(strings = {""}) String host,
-            @Values(ints = {-1, 0}) int port) {
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 1023})
+    void testConstructorWithBadPortParams(int port) {
+        String host = "some.host";
+
         assertThrows(IllegalArgumentException.class, () -> new NetworkAddress(host, port));
     }
 
