@@ -79,6 +79,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -694,7 +695,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                                 Tuple.create().set("valInt", intValue).set("valStr", "Str_" + intValue));
                     } catch (TransactionException e) {
                         // May happen, this is a race after all.
-                        assertThat(e.getMessage(), containsString("Failed to acquire a lock"));
+                        Throwable rootCause = unwrapRootCause(e);
+                        assertInstanceOf(LockException.class, rootCause);
+                        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
                     }
                 };
 

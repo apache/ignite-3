@@ -658,7 +658,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19170")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         Node node = getNode(0);
 

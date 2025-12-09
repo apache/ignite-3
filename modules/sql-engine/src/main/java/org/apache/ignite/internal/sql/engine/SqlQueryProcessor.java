@@ -252,10 +252,18 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        StatisticAggregatorImpl statAggregator =
-                new StatisticAggregatorImpl(() -> logicalTopologyService.localLogicalTopology().nodes(),
-                        clusterSrvc.messagingService());
-        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
+        StatisticAggregatorImpl statAggregator = new StatisticAggregatorImpl(
+                () -> logicalTopologyService.localLogicalTopology().nodes(),
+                clusterSrvc.messagingService()
+        );
+        sqlStatisticManager = new SqlStatisticManagerImpl(
+                tableManager, 
+                catalogManager, 
+                lowWaterMark,
+                commonScheduler,
+                statAggregator,
+                clusterCfg.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
+        );
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
@@ -576,6 +584,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @TestOnly
     public SqlStatisticManager sqlStatisticManager() {
         return sqlStatisticManager;
+    }
+
+    @TestOnly
+    public SqlDistributedConfiguration clusterConfig() {
+        return clusterCfg;
     }
 
     private ParsedResult parseAndCache(String sql) {
