@@ -1433,4 +1433,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     LogicalTopologyImpl logicalTopologyImpl() {
         return (LogicalTopologyImpl) logicalTopology;
     }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    public void markAsStopping() {
+        // TODO sanpwc handle null
+        raftService.getNow(null).markAsStopping();
+    }
 }

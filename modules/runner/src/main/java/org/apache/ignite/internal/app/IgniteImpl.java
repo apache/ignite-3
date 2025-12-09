@@ -1765,6 +1765,8 @@ public class IgniteImpl implements Ignite {
 
         ExecutorService lifecycleExecutor = stopExecutor();
 
+        metaStorageMgr.markAsStopping();
+
         // TODO https://issues.apache.org/jira/browse/IGNITE-22570
         lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
