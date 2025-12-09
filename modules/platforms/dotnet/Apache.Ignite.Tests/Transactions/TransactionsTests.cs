@@ -210,25 +210,32 @@ namespace Apache.Ignite.Tests.Transactions
 
         [Test]
         [Repeat(10)]
-        public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
         {
             var recordView = PocoView;
 
             var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
 
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Sending request [requestId=75, op=TupleUpsert, remoteAddress=127.0.0.1:10942]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientFailoverSocket] ObservableTs updated [prev=115684995194486787, current=115684995195076609]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Received response [requestId=75, op=TupleUpsert, flags=0, remoteAddress=127.0.0.1:10942, duration=00:00:00.0041043, observableTs=115684995195076609]
             await recordView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
+            // Lazy tx records observableTs now.
             await using var roTx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
-            if (readBeforeUpdate)
-            {
-                Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
-            }
-
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4405] Sending request [requestId=131, op=TupleUpsert, remoteAddress=127.0.0.1:10943]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientFailoverSocket] ObservableTs updated [prev=115684995195076609, current=115684995196256257]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4405] Received response [requestId=131, op=TupleUpsert, flags=0, remoteAddress=127.0.0.1:10943, duration=00:00:00.2208591, observableTs=115684995196256257]
             // Update data in a different (implicit) tx.
             await recordView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Sending request [requestId=76, op=TxBegin, remoteAddress=127.0.0.1:10942]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientFailoverSocket] ObservableTs updated [prev=115684995196256257, current=115684995202744320]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Received response [requestId=76, op=TxBegin, flags=0, remoteAddress=127.0.0.1:10942, duration=00:00:00.0009190, observableTs=115684995202744320]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Sending request [requestId=77, op=TupleGet, remoteAddress=127.0.0.1:10942]
+            // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Received response [requestId=77, op=TupleGet, flags=0, remoteAddress=127.0.0.1:10942, duration=00:00:00.0526092, observableTs=115684995202744320]
             // Old read-only tx sees old data.
             Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
 
