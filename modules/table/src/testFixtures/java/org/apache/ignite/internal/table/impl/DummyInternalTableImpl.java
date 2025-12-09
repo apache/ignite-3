@@ -50,7 +50,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -311,7 +310,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
 
@@ -478,7 +476,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
-                tablePartitionId,
+                zonePartitionId,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
@@ -499,7 +497,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
         );
 
@@ -515,7 +512,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     mock(ClusterNodeResolver.class),
                     svc,
                     mock(FailureProcessor.class),
-                    new SystemPropertiesNodeProperties(),
                     LOCAL_NODE,
                     zonePartitionId
             );
@@ -538,7 +534,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 safeTime,
-                storageIndexTracker,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
@@ -547,8 +542,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                enabledColocation ? zonePartitionId : tablePartitionId
+                zonePartitionId
         );
 
         if (enabledColocation) {

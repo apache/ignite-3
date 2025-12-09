@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl.TuplePart;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl.ValuesWithStatistics;
+import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
@@ -55,7 +56,7 @@ public class TupleMarshallerStatisticsTest {
                 new Column[]{new Column("KEY", NativeTypes.decimalOf(PRECISION, columnScale), false)},
                 new Column[]{new Column("UNUSED", NativeTypes.INT32, true)});
 
-        TupleMarshallerImpl marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshallerImpl marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         BigDecimal hugeScaledDecimal = new BigDecimal(1, new MathContext(PRECISION))
                 .setScale(HUGE_DECIMAL_SCALE, RoundingMode.HALF_UP);

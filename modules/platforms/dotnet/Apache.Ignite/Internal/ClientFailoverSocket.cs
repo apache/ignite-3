@@ -360,7 +360,7 @@ namespace Apache.Ignite.Internal
 
                 if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
                 {
-                    _logger.LogObservableTsUpdatedTrace(timestamp);
+                    _logger.LogObservableTsUpdatedTrace(prev: current, current: timestamp);
                     return;
                 }
             }

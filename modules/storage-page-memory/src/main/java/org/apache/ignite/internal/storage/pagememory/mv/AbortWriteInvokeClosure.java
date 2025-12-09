@@ -110,6 +110,13 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return operationType;
     }
 
+    @Override
+    public void onUpdate() {
+        if (toRemove != null) {
+            toRemove.operations().removeFromWriteIntentsList(storage, this::abortWriteInfo);
+        }
+    }
+
     /**
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */

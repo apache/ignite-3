@@ -50,7 +50,7 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     private int transferredBytes = 0;
 
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Void ignoredArg) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, @Nullable Void ignoredArg) {
         if (readingFirstSlot) {
             readingFirstSlot = false;
             return readFullyOrStartReadingFragmented(pageAddr, payload);
@@ -61,31 +61,28 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     }
 
     private long readFullyOrStartReadingFragmented(long pageAddr, DataPagePayload payload) {
-        assert PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET) == dataType();
+        byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
 
-        valueSize = readValueSize(pageAddr, payload);
+        valueSize = readValueSize(dataType, pageAddr, payload);
 
         if (!payload.hasMoreFragments()) {
-            return readFully(pageAddr, payload);
+            return readFully(dataType, pageAddr, payload);
         } else {
             allValueBytes = new byte[valueSize];
             transferredBytes = 0;
 
-            readValueFragmentToArray(pageAddr, payload, valueOffsetInFirstSlot());
+            readValueFragmentToArray(pageAddr, payload, valueOffsetInFirstSlot(dataType));
 
             return payload.nextLink();
         }
     }
 
-    /** Returns type of the data row. */
-    protected abstract byte dataType();
-
-    private int readValueSize(long pageAddr, DataPagePayload payload) {
-        return PageUtils.getInt(pageAddr, payload.offset() + valueSizeOffsetInFirstSlot());
+    private int readValueSize(byte dataType, long pageAddr, DataPagePayload payload) {
+        return PageUtils.getInt(pageAddr, payload.offset() + valueSizeOffsetInFirstSlot(dataType));
     }
 
-    private long readFully(long pageAddr, DataPagePayload payload) {
-        allValueBytes = PageUtils.getBytes(pageAddr, payload.offset() + valueOffsetInFirstSlot(), valueSize);
+    private long readFully(byte dataType, long pageAddr, DataPagePayload payload) {
+        allValueBytes = PageUtils.getBytes(pageAddr, payload.offset() + valueOffsetInFirstSlot(dataType), valueSize);
 
         return STOP_TRAVERSAL;
     }
@@ -124,16 +121,18 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     /**
      * Memory offset into first slot at which the 'value' size is stored (as int).
      *
+     * @param dataType Data type we are reading.
      * @return offset into first slot at which the 'value' size is stored (as int)
      */
-    protected abstract int valueSizeOffsetInFirstSlot();
+    protected abstract int valueSizeOffsetInFirstSlot(byte dataType);
 
     /**
      * Memory offset into first slot at which the 'value' starts.
      *
+     * @param dataType Data type we are reading.
      * @return offset into first slot at which the 'value' starts
      */
-    protected abstract int valueOffsetInFirstSlot();
+    protected abstract int valueOffsetInFirstSlot(byte dataType);
 
     /**
      * Resets the object to make it ready for use.

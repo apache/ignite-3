@@ -1068,7 +1068,6 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureManager,
-                nodeProperties,
                 metricManager
         );
 
@@ -1199,7 +1198,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         qryEngine = new SqlQueryProcessor(

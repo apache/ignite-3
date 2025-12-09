@@ -36,7 +36,7 @@ import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.HostAndPort;
@@ -96,7 +96,7 @@ import org.jetbrains.annotations.Nullable;
  *          <br>If not set then system default on client timezone will be used.</td>
  *   </tr>
  *   <tr>
- *      <td>queryTimeout</td>
+ *      <td>queryTimeoutSeconds</td>
  *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
  *   </tr>
@@ -110,9 +110,15 @@ import org.jetbrains.annotations.Nullable;
  *      <th colspan="2">Connection properties</th>
  *   </tr>
  *   <tr>
- *      <td>connectionTimeout</td>
- *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
+ *      <td>connectionTimeoutMillis</td>
+ *      <td>Number of milliseconds JDBC client will wait for server to respond. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
+ *   </tr>
+ *   <tr>
+ *      <td>backgroundReconnectIntervalMillis</td>
+ *      <td>Background reconnect interval, in milliseconds.
+ *          <br>The value {@code 0} can be used to disable background reconnection.
+ *          <br>The default value is {@code 30 000}.</td>
  *   </tr>
  *   <tr>
  *       <th colspan="2">Basic authentication</th>
@@ -303,18 +309,19 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 addresses,
                 networkTimeout,
-                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
+                connectionProperties.getBackgroundReconnectInterval(),
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                new RetryLimitPolicy(),
+                new RetryReadPolicy(),
                 null,
                 extractSslConfiguration(connectionProperties),
                 false,
                 extractAuthenticationConfiguration(connectionProperties),
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
                 connectionProperties.getPartitionAwarenessMetadataCacheSize(),
-                JdbcDatabaseMetadata.DRIVER_NAME
+                JdbcDatabaseMetadata.DRIVER_NAME,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL
         );
 
         ChannelValidator channelValidator = ctx -> {
