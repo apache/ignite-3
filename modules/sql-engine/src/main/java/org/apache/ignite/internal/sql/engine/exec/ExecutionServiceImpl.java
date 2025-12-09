@@ -1333,7 +1333,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 stage = start.thenCompose(ignored -> messageService.send(coordinatorNodeName, FACTORY.queryCloseMessage()
                                 .queryId(executionId.queryId())
                                 .executionToken(executionId.executionToken())
-                                .build()))
+                                .build()).exceptionally(ignore -> null))
                         .thenCompose(ignored -> closeLocalFragments());
             }
 
@@ -1404,7 +1404,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                                                     .queryId(executionId.queryId())
                                                     .executionToken(executionId.executionToken())
                                                     .build()
-                                    );
+                                    ).exceptionally(ignore -> null);
                                 })
                 );
             }
