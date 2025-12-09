@@ -60,9 +60,7 @@ public class OnSnapshotSaveHandler {
 
         tableProcessors.forEach(processor -> processor.lastApplied(lastAppliedIndex, lastAppliedTerm));
 
-        if (txStatePartitionStorage != null) {
-            txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-        }
+        txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
         CompletableFuture<?>[] tableStorageFlushFutures = tableProcessors.stream()
                 .map(RaftTableProcessor::flushStorage)

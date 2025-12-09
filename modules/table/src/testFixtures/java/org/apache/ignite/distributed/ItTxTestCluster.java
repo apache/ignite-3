@@ -941,7 +941,8 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             SchemaRegistry schemaRegistry
     ) {
-        var nodeSpecificZonePartitionReplicaListeners = zonePartitionReplicaListeners.computeIfAbsent(assignment, k -> new HashMap<>());
+        Map<ZonePartitionId, ZonePartitionReplicaListener> nodeSpecificZonePartitionReplicaListeners =
+                zonePartitionReplicaListeners.computeIfAbsent(assignment, k -> new HashMap<>());
 
         ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
                 zonePartitionId,
