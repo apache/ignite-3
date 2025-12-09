@@ -105,8 +105,8 @@ public class Checkpointer extends IgniteWorker {
             + "checkpointId={}, "
             + "beforeWriteLockTime={}ms, "
             + "writeLockWait={}us, "
-            + "listenersBeforeCheckpointBeginTime={}us, "
-            + "listenersOnMarkCheckpointBeginTime={}us, "
+            + "beforeCheckpointBeginTime={}us, "
+            + "markCheckpointBeginTime={}us, "
             + "writeLockHoldTime={}us, "
             + "splitAndSortPagesDuration={}ms, "
             + "{}"
@@ -116,8 +116,8 @@ public class Checkpointer extends IgniteWorker {
     private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
             + "beforeWriteLockTime={}ms, "
             + "writeLockWait={}us, "
-            + "listenersBeforeCheckpointBeginTime={}us, "
-            + "listenersOnMarkCheckpointBeginTime={}us, "
+            + "beforeCheckpointBeginTime={}us, "
+            + "markCheckpointBeginTime={}us, "
             + "writeLockHoldTime={}us, reason='{}']";
 
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
