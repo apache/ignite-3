@@ -222,7 +222,7 @@ void node_connection::handle_timeouts() {
 
             if (req.timeouts_at && *req.timeouts_at < now) {
                 std::string err_msg = "Operation timeout [req_id=" + std::to_string(id) + "]";
-                auto res = req.handler->set_error(ignite_error(error::code::CLIENT_OPERATION_TIMEOUT, err_msg));
+                auto res = req.handler->set_error(ignite_error(error::code::OPERATION_TIMEOUT, err_msg));
 
                 this->m_logger->log_warning(err_msg);
 
