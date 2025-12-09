@@ -227,6 +227,7 @@ enum class code : underlying_t {
     NOT_ENOUGH_ALIVE_NODES = 0x140005,
     ILLEGAL_NODES_SET = 0x140006,
     REQUEST_FORWARD = 0x140007,
+    REMOTE_NODE = 0x140008,
 
     // Embedded group. Group code: 21
     CLUSTER_NOT_INITIALIZED = 0x150001,
