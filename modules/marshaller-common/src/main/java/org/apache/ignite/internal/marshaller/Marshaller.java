@@ -142,7 +142,6 @@ public abstract class Marshaller {
             }
 
             fieldAccessors[i]
-                    .withFieldName(fieldName)
                     .withColumnName(columnName);
         }
 

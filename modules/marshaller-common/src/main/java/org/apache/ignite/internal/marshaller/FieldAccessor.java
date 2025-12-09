@@ -49,30 +49,13 @@ abstract class FieldAccessor {
     private final int scale;
 
     /**
-     * Object field name to bind to.
-     */
-    private String fieldName;
-
-    /**
      * Row column name to bind to.
      */
     private String columnName;
 
-    FieldAccessor withFieldName(String fieldName) {
-        this.fieldName = fieldName;
-        return this;
-    }
-
     FieldAccessor withColumnName(String columnName) {
         this.columnName = columnName;
         return this;
-    }
-
-    /**
-     * Object field name to bind to.
-     */
-    String getFieldName() {
-        return this.fieldName;
     }
 
     /**
