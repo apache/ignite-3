@@ -317,8 +317,9 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Scans given partition within a read-write transaction without specifying an index or range criteria, providing {@link Publisher}
-     * that reactively notifies about partition rows.
+     * Scans given table partition within a read-write transaction, providing {@link Publisher}  that reactively notifies about partition rows.
+
+     *  Method starts an implicit read-write transaction if the on wasn't provided.
      *
      * @param partId The partition.
      * @param tx The transaction.
