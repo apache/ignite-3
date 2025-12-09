@@ -59,7 +59,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -77,6 +76,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @ExtendWith(ExecutorServiceExtension.class)
 class SegmentFileManagerTest extends IgniteAbstractTest {
@@ -353,30 +354,6 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testFirstAndLastIndexOnAppend() {
-        int batchSize = FILE_SIZE / 10;
-
-        List<byte[]> batches = randomData(batchSize, 100);
-
-        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
-
-            for (int i = 0; i < batches.size(); i++) {
-                appendBytes(groupId, batches.get(i), i);
-
-                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
-            }
-
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
-        };
-
-        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
-    }
-
-    @Test
     void truncateRecordIsWrittenOnSuffixTruncate() throws IOException {
         long groupId = 36;
 
@@ -401,37 +378,27 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testLastIndexAfterTruncateSuffix() {
-        int batchSize = FILE_SIZE / 10;
+    void truncateRecordIsWrittenOnPrefixTruncate() throws IOException {
+        long groupId = 36;
 
-        List<byte[]> batches = randomData(batchSize, 100);
+        long firstLogIndexKept = 42;
 
-        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
+        fileManager.truncatePrefix(groupId, firstLogIndexKept);
 
-            long curLogIndex = 0;
+        Path path = findSoleSegmentFile();
 
-            for (int i = 0; i < batches.size(); i++) {
-                appendBytes(groupId, batches.get(i), curLogIndex);
+        ByteBuffer expectedTruncateRecord = ByteBuffer.allocate(SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE)
+                .order(SegmentFile.BYTE_ORDER);
 
-                if (i > 0 && i % 10 == 0) {
-                    curLogIndex -= 4;
+        SegmentPayload.writeTruncatePrefixRecordTo(expectedTruncateRecord, groupId, firstLogIndexKept);
 
-                    fileManager.truncateSuffix(groupId, curLogIndex);
-                }
+        expectedTruncateRecord.rewind();
 
-                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-                assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex + 1));
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
+            channel.position(HEADER_RECORD.length);
 
-                curLogIndex++;
-            }
-
-            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
-            assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex));
-        };
-
-        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
+            assertThat(readFully(channel, SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE), is(expectedTruncateRecord));
+        }
     }
 
     @Test
@@ -490,13 +457,13 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         // Create two tmp index files: one for the complete segment file and one the incomplete segment file.
         try {
-            fileManager.indexFileManager().saveIndexMemtable(mockMemTable, 0);
+            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 0);
         } catch (RuntimeException ignored) {
             // Ignore.
         }
 
         try {
-            fileManager.indexFileManager().saveIndexMemtable(mockMemTable, 1);
+            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 1);
         } catch (RuntimeException ignored) {
             // Ignore.
         }
@@ -518,8 +485,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         assertThat(indexFiles(), hasSize(1));
     }
 
-    @Test
-    void testRecoveryWithTruncateSuffix() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testTruncateSuffix(boolean restart) throws Exception {
         List<byte[]> batches = randomData(FILE_SIZE / 4, 10);
 
         for (int i = 0; i < batches.size(); i++) {
@@ -540,15 +508,17 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         fileManager.truncateSuffix(GROUP_ID, lastLogIndexKept);
 
-        fileManager.close();
+        if (restart) {
+            fileManager.close();
 
-        for (Path indexFile : indexFiles()) {
-            Files.deleteIfExists(indexFile);
+            for (Path indexFile : indexFiles()) {
+                Files.deleteIfExists(indexFile);
+            }
+
+            fileManager = createFileManager();
+
+            fileManager.start();
         }
-
-        fileManager = createFileManager();
-
-        fileManager.start();
 
         for (int i = 0; i <= lastLogIndexKept; i++) {
             byte[] expectedEntry = batches.get(i);
@@ -561,6 +531,55 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
 
         for (int i = lastLogIndexKept + 1; i < batches.size(); i++) {
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                throw new AssertionError("This method should not be called.");
+            });
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testTruncatePrefix(boolean restart) throws Exception {
+        List<byte[]> batches = randomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(4));
+
+        int firstLogIndexKept = batches.size() / 2;
+
+        fileManager.truncatePrefix(GROUP_ID, firstLogIndexKept);
+
+        // Insert more data, just in case.
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i + batches.size());
+        }
+
+        if (restart) {
+            fileManager.close();
+
+            for (Path indexFile : indexFiles()) {
+                Files.deleteIfExists(indexFile);
+            }
+
+            fileManager = createFileManager();
+
+            fileManager.start();
+        }
+
+        for (int i = 0; i < batches.size() - firstLogIndexKept; i++) {
+            byte[] expectedEntry = batches.get(firstLogIndexKept + i);
+
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                assertThat(bs, is(expectedEntry));
+
+                return null;
+            });
+        }
+
+        for (int i = 0; i < firstLogIndexKept; i++) {
             fileManager.getEntry(GROUP_ID, i, bs -> {
                 throw new AssertionError("This method should not be called.");
             });

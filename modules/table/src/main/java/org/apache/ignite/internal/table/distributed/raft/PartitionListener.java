@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
-import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V3;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V1;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
@@ -32,19 +29,16 @@ import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAt
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -55,26 +49,20 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
-import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
-import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
-import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
-import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
-import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -88,18 +76,16 @@ import org.apache.ignite.internal.table.distributed.raft.handlers.MinimumActiveT
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition command handler.
  */
+// TODO ignite-22522 Rename to TablePartitionProcessor and remove implements RaftGroupListener
 public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
@@ -113,24 +99,14 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     /** Handler that processes storage updates. */
     private final StorageUpdateHandler storageUpdateHandler;
 
-    /** Storage of transaction metadata. */
-    private final TxStatePartitionStorage txStatePartitionStorage;
-
     /** Safe time tracker. */
     private final SafeTimeValuesTracker safeTimeTracker;
-
-    /** Storage index tracker. */
-    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     private final CatalogService catalogService;
 
     private final UUID localNodeId;
 
     private final Set<String> currentGroupTopology = new HashSet<>();
-
-    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
-
-    private final RaftTxFinishMarker txFinishMarker;
 
     // Raft command handlers.
     private final CommandHandlers commandHandlers;
@@ -139,14 +115,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final ClockService clockService;
 
-    private final NodeProperties nodeProperties;
-
     /**
      * Partition group ID that is actually used for replication.
-     *
-     * <p>It is a zone partition ID when colocation is enabled, and table partition ID otherwise.
      */
-    private final ReplicationGroupId realReplicationGroupId;
+    private final ZonePartitionId realReplicationGroupId;
 
     private ReplicaMeta lastKnownLease;
 
@@ -155,9 +127,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
-            TxStatePartitionStorage txStatePartitionStorage,
             SafeTimeValuesTracker safeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
@@ -166,27 +136,20 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             Executor partitionOperationsExecutor,
             LeasePlacementDriver placementDriver,
             ClockService clockService,
-            NodeProperties nodeProperties,
-            ReplicationGroupId realReplicationGroupId
+            ZonePartitionId realReplicationGroupId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
-        this.txStatePartitionStorage = txStatePartitionStorage;
         this.safeTimeTracker = safeTimeTracker;
-        this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
-        this.nodeProperties = nodeProperties;
         this.realReplicationGroupId = realReplicationGroupId;
-
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
-        txFinishMarker = new RaftTxFinishMarker(txManager);
 
         CommandHandlers.Builder commandHandlersBuilder = new CommandHandlers.Builder();
         commandHandlersBuilder.addHandler(GROUP_TYPE, UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
@@ -204,25 +167,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V1, buildIndexCommandHandler);
         commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V2, buildIndexCommandHandler);
         commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V3, buildIndexCommandHandler);
-
-        if (!nodeProperties.colocationEnabled()) {
-            commandHandlersBuilder.addHandler(
-                    GROUP_TYPE,
-                    FINISH_TX_V1,
-                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
-            );
-
-            commandHandlersBuilder.addHandler(
-                    GROUP_TYPE,
-                    FINISH_TX_V2,
-                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
-            );
-
-            commandHandlersBuilder.addHandler(
-                    TxMessageGroup.GROUP_TYPE,
-                    VACUUM_TX_STATE_COMMAND,
-                    new VacuumTxStatesCommandHandler(txStatePartitionStorage));
-        }
 
         this.commandHandlers = commandHandlersBuilder.build();
 
@@ -270,14 +214,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
             assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
 
-            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
-            // one of the storages.
-            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
+            long storagesAppliedIndex = storage.lastAppliedIndex();
 
             assert commandIndex > storagesAppliedIndex :
                     "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
-                            + ", mvAppliedIndex=" + storage.lastAppliedIndex()
-                            + ", txStateAppliedIndex=" + txStatePartitionStorage.lastAppliedIndex() + "]";
+                            + ", mvAppliedIndex=" + storage.lastAppliedIndex() + "]";
 
             CommandResult result;
 
@@ -347,10 +288,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             // Adjust safe time before completing update to reduce waiting.
             if (safeTimestamp != null) {
                 updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
-            }
-
-            if (!nodeProperties.colocationEnabled()) {
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
             }
         }
 
@@ -555,12 +492,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         UUID txId = cmd.txId();
 
-        if (!nodeProperties.colocationEnabled()) {
-            // When colocation feature is enabled, this object merely serves as a table processor invoked by zone-aware raft listener,
-            // which has already marked the transaction finished.
-            txFinishMarker.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
-        }
-
         storageUpdateHandler.switchWriteIntents(
                 txId,
                 cmd.commit(),
@@ -625,14 +556,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
                 return null;
             });
-
-            if (!nodeProperties.colocationEnabled()) {
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
-
-                byte[] configBytes = VersionedSerialization.toBytes(config, RaftGroupConfigurationSerializer.INSTANCE);
-
-                txStatePartitionStorage.committedGroupConfiguration(configBytes, lastAppliedIndex, lastAppliedTerm);
-            }
         } finally {
             storage.releasePartitionSnapshotsReadLock();
         }
@@ -646,25 +569,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(snapshotInfo(), List.of(this))
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
-    }
+        throw new UnsupportedOperationException("!!! It's not expected that PartitionListener onSnapshotSave will be called.");
 
-    private PartitionSnapshotInfo snapshotInfo() {
-        long maxAppliedIndex = max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
-        long maxAppliedTerm = max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
-
-        byte[] configuration = storage.getStorage().committedGroupConfiguration();
-
-        assert configuration != null : "Trying to create a snapshot without Raft group configuration";
-
-        return new PartitionSnapshotInfo(
-                maxAppliedIndex,
-                maxAppliedTerm,
-                storage.leaseInfo(),
-                configuration,
-                Set.of(storage.tableId())
-        );
     }
 
     @Override
@@ -763,14 +669,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     }
 
     private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                full ? COMMITTED : PENDING,
-                txCoordinatorId,
-                old == null ? null : old.commitPartitionId(),
-                full ? commitTimestamp : null,
-                old == null ? null : old.tx(),
-                old == null ? null : old.isFinishedDueToTimeout()
-        ));
+        txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, full ? COMMITTED : PENDING)
+                .txCoordinatorId(txCoordinatorId)
+                .commitTimestamp(full ? commitTimestamp : null)
+                .build()
+        );
     }
 
     /**

@@ -108,6 +108,20 @@ public enum RequestType {
     }
 
     /**
+     * Returns {@code true} if the operation is a read-only.
+     */
+    public boolean isReadOnly() {
+        switch (this) {
+            case RO_GET:
+            case RO_GET_ALL:
+            case RO_SCAN:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
      * Returns the enumerated value from its id.
      *
      * @param requestTypeId Id of request type.

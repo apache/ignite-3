@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.cli.commands.zone.datanodes;
 
-/** Exception indicating that a handshake error occurred because the remote node is became stale. */
-public class NodeStaleException extends HandshakeException {
-    private static final long serialVersionUID = 0L;
-
-    /** Constructor. */
-    public NodeStaleException(String message) {
-        super(message);
+/** Test class for {@link ResetDataNodesReplCommand}. */
+public class ItResetDataNodesReplCommandTest extends ItResetDataNodesTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return ResetDataNodesReplCommand.class;
     }
 }

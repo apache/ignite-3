@@ -196,7 +196,24 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             String zone,
             Set<Integer> partitionIds
     ) throws InterruptedException {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+        awaitPartitionsToBeHealthy(CLUSTER, zone, partitionIds);
+    }
+
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param cluster The cluster to check.
+     * @param zone The name of the distribution zone to check.
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    public static void awaitPartitionsToBeHealthy(
+            Cluster cluster,
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         assertTrue(waitForCondition(() -> {
                     CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;

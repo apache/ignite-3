@@ -88,6 +88,8 @@ dependencies {
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation libs.hamcrest.core
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 

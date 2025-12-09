@@ -56,7 +56,6 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -129,7 +128,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .set("price", 5.99d)
                 .set("id2", 33L);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(original);
 
@@ -158,7 +157,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testRowTupleMutability() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -185,7 +184,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testKeyValueTupleMutability() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -214,7 +213,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testRowTupleSchemaAwareness() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -237,7 +236,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testKeyValueTupleSchemaAwareness() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -285,7 +284,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Tuple tuple = Tuple.copy(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));
 
         // Check tuples backed with Row.
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(fullSchema);
 
         Row row = marshaller.marshal(keyTuple, valTuple);
 
@@ -355,7 +354,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Tuple key1 = Tuple.create().set("keyUuidCol", UUID.randomUUID());
         Tuple val1 = addColumnOfAllTypes(Tuple.create());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(fullSchema);
 
         Row row = marshaller.marshal(key1, val1);
 
@@ -368,7 +367,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testTupleNetworkSerialization() throws Exception {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -404,7 +403,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 670_000_000))
                 .set("timestamp", Instant.ofEpochSecond(123, 450_000_000));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Row row = marshaller.marshal(tuple);
 
@@ -423,7 +422,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1)
                 .set("string", "abcef")
@@ -457,7 +456,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
 
@@ -474,7 +473,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Tuple tuple = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.458"));
         Tuple expected = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.46")); // Rounded.
@@ -502,7 +501,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         tuple = transformer.apply(tuple);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }
@@ -513,7 +512,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         tuple = addColumnsForDefaultSchema(tuple);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }
@@ -524,7 +523,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         tuple = addColumnOfAllTypes(tuple);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(fullSchema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }
@@ -539,7 +538,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         Tuple tuple = Tuple.create().set(columnName, value);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }

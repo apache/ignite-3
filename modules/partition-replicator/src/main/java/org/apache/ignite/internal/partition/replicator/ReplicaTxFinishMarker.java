@@ -19,13 +19,13 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,15 +48,9 @@ public class ReplicaTxFinishMarker {
     public void markFinished(UUID txId, TxState txState, @Nullable HybridTimestamp commitTimestamp) {
         assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                txState,
-                old == null ? null : old.txCoordinatorId(),
-                old == null ? null : old.commitPartitionId(),
-                txState == COMMITTED ? commitTimestamp : null,
-                old == null ? null : old.tx(),
-                old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp(),
-                old == null ? null : old.isFinishedDueToTimeout()
-        ));
+        txManager.updateTxMeta(txId, old -> builder(old, txState)
+                .commitTimestamp(txState == COMMITTED ? commitTimestamp : null)
+                .build()
+        );
     }
 }

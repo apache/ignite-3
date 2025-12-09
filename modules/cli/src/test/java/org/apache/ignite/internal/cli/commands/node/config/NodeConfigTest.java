@@ -23,6 +23,7 @@ import static org.mockserver.model.HttpResponse.response;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockserver.model.MediaType;
 
 /** Tests "node config" commands. */
 @DisplayName("node config")
@@ -35,7 +36,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
                         .withMethod("GET")
                         .withPath("/management/v1/configuration/node")
                 )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
 
         execute("node config show --url " + mockUrl);
 
@@ -52,7 +53,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
                         .withMethod("GET")
                         .withPath("/management/v1/configuration/node")
                 )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
 
         execute("node config show --url " + mockUrl + "/");
 
@@ -69,7 +70,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
                         .withMethod("GET")
                         .withPath("/management/v1/configuration/node/local.baseline")
                 )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
 
         execute("node config show --url " + mockUrl + " local.baseline");
 

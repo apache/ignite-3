@@ -782,13 +782,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             IgniteTestUtils.assertThrows(
                     SqlException.class,
                     () -> check.accept(ddlStatement, selectType),
-                    "Invalid SQL statement type"
+                    "Statement of type \"DDL\" is not allowed in current context"
             );
 
             IgniteTestUtils.assertThrows(
                     SqlException.class,
                     () -> check.accept(ddlStatement, dmlType),
-                    "Invalid SQL statement type"
+                    "Statement of type \"DDL\" is not allowed in current context"
             );
         }
 
@@ -797,13 +797,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             IgniteTestUtils.assertThrows(
                     SqlException.class,
                     () -> check.accept(dmlStatement, selectType),
-                    "Invalid SQL statement type"
+                    "Statement of type \"DML\" is not allowed in current context"
             );
 
             IgniteTestUtils.assertThrows(
                     SqlException.class,
                     () -> check.accept(dmlStatement, ddlType),
-                    "Invalid SQL statement type"
+                    "Statement of type \"DML\" is not allowed in current context"
             );
         }
 
@@ -812,13 +812,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             IgniteTestUtils.assertThrows(
                     SqlException.class,
                     () -> check.accept(selectStatement, dmlType),
-                    "Invalid SQL statement type"
+                    "Statement of type \"Query\" is not allowed in current context"
             );
 
             IgniteTestUtils.assertThrows(
                     SqlException.class,
                     () -> check.accept(selectStatement, ddlType),
-                    "Invalid SQL statement type"
+                    "Statement of type \"Query\" is not allowed in current context"
             );
         }
 

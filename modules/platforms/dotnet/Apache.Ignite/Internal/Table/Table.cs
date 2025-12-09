@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal.Table
     using Common;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Ignite.Transactions;
     using Microsoft.Extensions.Logging;
     using Proto;
@@ -149,9 +150,25 @@ namespace Apache.Ignite.Internal.Table
             where T : notnull => GetRecordViewInternal<T>();
 
         /// <inheritdoc/>
+        public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
+            where T : notnull =>
+            new RecordView<T>(this, new RecordSerializer<T>(this, new MapperSerializerHandler<T>(mapper)), _sql);
+
+        /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
             where TK : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+
+        /// <inheritdoc/>
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
+            where TK : notnull
+        {
+            var handler = new MapperPairSerializerHandler<TK, TV>(mapper);
+            var recordSerializer = new RecordSerializer<KvPair<TK, TV>>(this, handler);
+            var recordView = new RecordView<KvPair<TK, TV>>(this, recordSerializer, _sql);
+
+            return new KeyValueView<TK, TV>(recordView);
+        }
 
         /// <inheritdoc/>
         public override string ToString() =>

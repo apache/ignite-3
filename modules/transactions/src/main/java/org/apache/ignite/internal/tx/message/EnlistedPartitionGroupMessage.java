@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.message;
 import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 
 /**
@@ -31,7 +31,7 @@ public interface EnlistedPartitionGroupMessage extends NetworkMessage {
     /**
      * Replication group ID of the partition.
      */
-    ReplicationGroupIdMessage groupId();
+    ZonePartitionIdMessage groupId();
 
     /**
      * IDs of tables for which the partition is enlisted.

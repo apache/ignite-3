@@ -15,123 +15,16 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table.Serialization
+namespace Apache.Ignite.Tests.Table.Serialization;
+
+using Internal.Table.Serialization;
+using NUnit.Framework;
+
+/// <summary>
+/// Tests for <see cref="ObjectSerializerHandler{T}"/>.
+/// </summary>
+[TestFixture]
+internal class ObjectSerializerHandlerTests : SerializerHandlerTestBase
 {
-    using System;
-    using Ignite.Sql;
-    using Internal.Buffers;
-    using Internal.Proto.BinaryTuple;
-    using Internal.Proto.MsgPack;
-    using Internal.Table;
-    using Internal.Table.Serialization;
-    using NUnit.Framework;
-
-    /// <summary>
-    /// Tests for <see cref="ObjectSerializerHandler{T}"/>.
-    /// </summary>
-    // ReSharper disable NotAccessedPositionalProperty.Local
-    public class ObjectSerializerHandlerTests
-    {
-        private static readonly Schema Schema = Schema.CreateInstance(
-            version: 1,
-            tableId: 1,
-            columns: new[]
-            {
-                new Column("Key", ColumnType.Int64, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, SchemaIndex: 0, Scale: 0, Precision: 0),
-                new Column("Val", ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 1, Scale: 0, Precision: 0)
-            });
-
-        [Test]
-        public void TestWrite()
-        {
-            var reader = WriteAndGetTupleReader();
-
-            Assert.AreEqual(1234, reader.GetInt(0));
-            Assert.AreEqual("foo", reader.GetString(1));
-        }
-
-        [Test]
-        public void TestWriteKeyOnly()
-        {
-            var reader = WriteAndGetTupleReader(keyOnly: true);
-
-            Assert.AreEqual(1234, reader.GetInt(0));
-        }
-
-        [Test]
-        public void TestRead()
-        {
-            var reader = WriteAndGetReader();
-            var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema);
-
-            Assert.AreEqual(1234, resPoco.Key);
-            Assert.AreEqual("foo", resPoco.Val);
-        }
-
-        [Test]
-        public void TestReadKeyOnly()
-        {
-            var reader = WriteAndGetReader(true);
-            var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema, keyOnly: true);
-
-            Assert.AreEqual(1234, resPoco.Key);
-            Assert.IsNull(resPoco.Val);
-        }
-
-        [Test]
-        public void TestReadUnsupportedFieldTypeThrowsException()
-        {
-            var ex = Assert.Throws<IgniteClientException>(() =>
-            {
-                var reader = WriteAndGetReader();
-                new ObjectSerializerHandler<BadPoco>().Read(ref reader, Schema);
-            });
-
-            Assert.AreEqual(
-                "Can't map field 'BadPoco.<Key>k__BackingField' of type 'System.Guid'" +
-                " to column 'Key' of type 'System.Int64' - types do not match.",
-                ex!.Message);
-        }
-
-        [Test]
-        public void TestWriteUnsupportedFieldTypeThrowsException()
-        {
-            var ex = Assert.Throws<IgniteClientException>(() => Write(new BadPoco(Guid.Empty, DateTimeOffset.Now)));
-
-            Assert.AreEqual(
-                "Can't map field 'BadPoco.<Key>k__BackingField' of type 'System.Guid'" +
-                " to column 'Key' of type 'System.Int64' - types do not match.",
-                ex!.Message);
-        }
-
-        private static MsgPackReader WriteAndGetReader(bool keyOnly = false)
-        {
-            var bytes = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
-
-            return new MsgPackReader(bytes);
-        }
-
-        private static BinaryTupleReader WriteAndGetTupleReader(bool keyOnly = false)
-        {
-            var msgPackReader = WriteAndGetReader(keyOnly);
-            var bytes = msgPackReader.ReadBinary();
-
-            return new BinaryTupleReader(bytes, keyOnly ? 1 : 2);
-        }
-
-        private static byte[] Write<T>(T obj, bool keyOnly = false)
-        {
-            IRecordSerializerHandler<T> handler = new ObjectSerializerHandler<T>();
-
-            using var pooledWriter = new PooledArrayBuffer();
-            var writer = pooledWriter.MessageWriter;
-
-            handler.Write(ref writer, Schema, obj, keyOnly);
-
-            // Slice NoValueSet.
-            return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
-        }
-
-        private record BadPoco(Guid Key, DateTimeOffset Val);
-    }
+    protected override IRecordSerializerHandler<T> GetHandler<T>() => new ObjectSerializerHandler<T>();
 }

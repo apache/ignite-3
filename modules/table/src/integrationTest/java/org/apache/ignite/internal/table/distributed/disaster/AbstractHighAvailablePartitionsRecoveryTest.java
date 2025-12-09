@@ -583,7 +583,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static Row marshalKey(TableViewInternal table, Tuple key) {
         SchemaRegistry schemaReg = table.schemaView();
 
-        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
+        var marshaller = new TupleMarshallerImpl(table::qualifiedName, schemaReg.lastKnownSchema());
 
         return marshaller.marshal(key, null);
     }

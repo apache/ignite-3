@@ -23,12 +23,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -55,12 +58,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test planning cache metrics.
  */
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
     private final MetricManager metricManager = new MetricManagerImpl();
 
     @InjectExecutorService
     private ScheduledExecutorService commonExecutor;
+
+    @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=5")
+    private StatisticsConfiguration statisticsConfiguration;
 
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
@@ -84,7 +91,8 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         PrepareService prepareService = new PrepareServiceImpl(
                 "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),
-                clockService::currentLong, commonExecutor, producer
+                clockService::currentLong, commonExecutor, producer,
+                statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );
 
         prepareService.start();

@@ -1556,7 +1556,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void OnWrite()
         {
-            Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");
+            if (_elementIndex >= _numElements)
+            {
+                throw new InvalidOperationException("BinaryTuple is full.");
+            }
 
             int offset = _buffer.Position - _valueBase;
 

@@ -91,12 +91,12 @@ import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -714,7 +714,7 @@ public class PlatformTestNodeRunner {
             List<String> colocationColumns = columns.stream().map(Column::name).collect(toList());
             var schema = new SchemaDescriptor(1, columns, colocationColumns, null);
 
-            var marsh = new TupleMarshallerImpl(schema);
+            var marsh = KeyValueTestUtils.createMarshaller(schema);
 
             Row row = marsh.marshal(tuple);
 

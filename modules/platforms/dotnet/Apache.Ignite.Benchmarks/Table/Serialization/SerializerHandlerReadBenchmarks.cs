@@ -26,14 +26,16 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> read methods.
     ///
-    /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
+    /// Results on i9-12900H, .NET SDK 8.0.416, Ubuntu 22.04:
     ///
-    /// |             Method |      Mean |    Error |   StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
-    /// |------------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|
-    /// |   ReadObjectManual |  52.88 ns | 0.348 ns | 0.325 ns |  1.00 |    0.00 | 0.0003 |      80 B |
-    /// |         ReadObject |  89.68 ns | 0.738 ns | 0.654 ns |  1.70 |    0.02 | 0.0002 |      80 B |
-    /// |          ReadTuple |  20.02 ns | 0.147 ns | 0.131 ns |  0.38 |    0.00 | 0.0004 |     112 B |
-    /// | ReadTupleAndFields | 127.92 ns | 2.234 ns | 2.194 ns |  2.42 |    0.05 | 0.0007 |     200 B |.
+    /// | Method                         | Mean      | Error    | StdDev   | Ratio | Gen0   | Allocated | Alloc Ratio |
+    /// |------------------------------- |----------:|---------:|---------:|------:|-------:|----------:|------------:|
+    /// | ReadObjectManual               |  40.78 ns | 0.119 ns | 0.099 ns |  1.00 | 0.0002 |      80 B |        1.00 |
+    /// | ReadObject                     |  69.94 ns | 0.287 ns | 0.268 ns |  1.72 | 0.0002 |      80 B |        1.00 |
+    /// | ReadObjectWithMapper           |  52.73 ns | 0.205 ns | 0.192 ns |  1.29 | 0.0004 |     112 B |        1.40 |
+    /// | ReadObjectWithMapperKnownOrder |  41.87 ns | 0.128 ns | 0.120 ns |  1.03 | 0.0002 |      80 B |        1.00 |
+    /// | ReadTuple                      |  21.82 ns | 0.092 ns | 0.077 ns |  0.53 | 0.0004 |     112 B |        1.40 |
+    /// | ReadTupleAndFields             | 132.84 ns | 0.433 ns | 0.384 ns |  3.26 | 0.0005 |     200 B |        2.50 |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
@@ -60,6 +62,24 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         {
             var reader = new MsgPackReader(SerializedData);
             var res = ObjectSerializerHandler.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
+        }
+
+        [Benchmark]
+        public void ReadObjectWithMapper()
+        {
+            var reader = new MsgPackReader(SerializedData);
+            Car res = MapperSerializerHandler.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
+        }
+
+        [Benchmark]
+        public void ReadObjectWithMapperKnownOrder()
+        {
+            var reader = new MsgPackReader(SerializedData);
+            Car res = MapperKnownOrderSerializerHandler.Read(ref reader, Schema);
 
             Consumer.Consume(res);
         }

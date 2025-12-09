@@ -87,12 +87,17 @@ public class MetricSetMbean implements DynamicMBean {
     @Override
     public AttributeList getAttributes(String[] attributes) {
         AttributeList list = new AttributeList();
+        List<Attribute> attrList = list.asList();
 
         try {
             for (String attribute : attributes) {
                 Object val = getAttribute(attribute);
 
-                list.add(val);
+                if (val instanceof Attribute) {
+                    attrList.add((Attribute) val);
+                } else {
+                    attrList.add(new Attribute(attribute, val));
+                }
             }
         } catch (AttributeNotFoundException e) {
             throw new IllegalArgumentException(e);

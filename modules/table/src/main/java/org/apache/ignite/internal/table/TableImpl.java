@@ -223,7 +223,7 @@ public class TableImpl implements TableViewInternal {
 
         // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
         // columns never change (so they are the same for all schema versions of the table),
-        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        Row keyRow = new TupleMarshallerImpl(tbl::name, schemaReg.lastKnownSchema()).marshalKey(key);
 
         return tbl.partitionId(keyRow);
     }

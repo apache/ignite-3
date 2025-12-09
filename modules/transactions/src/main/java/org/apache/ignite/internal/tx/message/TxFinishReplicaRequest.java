@@ -25,8 +25,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,7 +52,7 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
      *
      * @return Commit partition id.
      */
-    ReplicationGroupIdMessage commitPartitionId();
+    ZonePartitionIdMessage commitPartitionId();
 
     /**
      * Returns {@code True} if a commit request.
@@ -65,7 +65,7 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     @Nullable HybridTimestamp commitTimestamp();
 
     /** Enlisted partition groups aggregated by expected primary replica nodes. */
-    Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> groups();
+    Map<ZonePartitionIdMessage, PartitionEnlistmentMessage> groups();
 
     /** IDs of tables enlisted in the transaction. */
     default Set<Integer> tableIds() {

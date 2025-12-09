@@ -99,7 +99,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -633,7 +632,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clusterNodeResolver,
                 mockRaftClient,
                 failureManager,
-                new SystemPropertiesNodeProperties(),
                 localNode,
                 zonePartitionId
         );
@@ -651,7 +649,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clockService,
                 safeTimeTracker,
-                txStateStorage,
                 transactionStateResolver,
                 new StorageUpdateHandler(
                         PART_ID,
@@ -671,7 +668,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 lowWatermark,
                 failureManager,
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
@@ -1336,14 +1332,11 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> {
             UUID txId = invocation.getArgument(6);
 
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                    ABORTED,
-                    localNode.id(),
-                    commitPartitionId,
-                    null,
-                    null,
-                    null
-            ));
+            txManager.updateTxMeta(txId, old -> TxStateMeta.builder(ABORTED)
+                    .txCoordinatorId(localNode.id())
+                    .commitPartitionId(commitPartitionId)
+                    .build()
+            );
 
             return nullCompletedFuture();
         }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());

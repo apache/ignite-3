@@ -19,3 +19,10 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 5
+    ignore: # Transitive dependencies to be updated manually to avoid breaking changes for users
+      - dependency-name: "NodaTime"
+      - dependency-name: "Microsoft.Extensions.Logging.Abstractions"
+      - dependency-name: "Microsoft.Extensions.DependencyInjection.Abstractions"
+      - dependency-name: "Microsoft.Extensions.ObjectPool"
+      - dependency-name: "Microsoft.Extensions.Options"
+      - dependency-name: "Microsoft.Extensions.Caching.Abstractions"

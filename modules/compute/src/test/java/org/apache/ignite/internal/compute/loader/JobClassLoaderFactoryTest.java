@@ -208,7 +208,7 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
     @Test
     @DisplayName("Create class loader with non-existing version")
     public void nonExistingVersion() {
-        DeploymentUnit unit = new DeploymentUnit("unit1", "-1.0.0");
+        DeploymentUnit unit = new DeploymentUnit("unit1", "1.2.3");
 
         assertThrows(
                 IllegalArgumentException.class,

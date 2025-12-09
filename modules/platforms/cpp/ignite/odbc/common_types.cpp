@@ -153,6 +153,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::HANDSHAKE_HEADER:
             return sql_state::S08004_CONNECTION_REJECTED;
         case error::code::RESOURCE_NOT_FOUND:
+        case error::code::OPERATION_TIMEOUT:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Sql group. Group code: 4
@@ -208,6 +209,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_STALE_OPERATION:
         case error::code::TX_STALE_READ_ONLY_OPERATION:
         case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
+        case error::code::TX_DELAYED_ACK:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8

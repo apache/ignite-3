@@ -278,8 +278,6 @@ class MultiStatementHandler {
     }
 
     private void cancelAll(Throwable cause) {
-        query.cancel.cancel();
-
         for (ScriptStatement scriptStatement : statements) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = scriptStatement.cursorFuture;
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.type;
 
+import static org.apache.ignite.internal.table.KeyValueTestUtils.createMarshaller;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
@@ -48,9 +48,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class NumericTypesSerializerTest {
     /** Random. */
     private Random rnd = new Random();
-
-    /** Schema descriptor. */
-    private SchemaDescriptor schema;
 
     /**
      * Returns list of string decimal representations for test.
@@ -91,7 +88,7 @@ public class NumericTypesSerializerTest {
 
     @Test
     public void testPrecisionRestrictionsForDecimal() {
-        schema = new SchemaDescriptor(
+        SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
@@ -101,7 +98,7 @@ public class NumericTypesSerializerTest {
 
         final Tuple badTup = createTuple().set("key", rnd.nextLong());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = createMarshaller(schema);
 
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("123456789.0123"))),
@@ -127,7 +124,7 @@ public class NumericTypesSerializerTest {
 
     @Test
     public void testStringDecimalSpecialCase() {
-        schema = new SchemaDescriptor(
+        SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
@@ -138,7 +135,7 @@ public class NumericTypesSerializerTest {
         // representation of "0000" value.
         final Tuple tup = createTuple().set("key", rnd.nextLong()).set("decimalCol", new BigDecimal("0E+3"));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = createMarshaller(schema);
 
         final Row row = marshaller.marshal(tup);
 
@@ -151,7 +148,7 @@ public class NumericTypesSerializerTest {
     @ParameterizedTest
     @MethodSource("stringDecimalRepresentation")
     public void testUpscaleForDecimal(String decimalStr) {
-        schema = new SchemaDescriptor(
+        SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
@@ -163,7 +160,7 @@ public class NumericTypesSerializerTest {
                 .set("key", rnd.nextLong())
                 .set("decimalCol1", new BigDecimal(decimalStr));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = createMarshaller(schema);
 
         final Row row = marshaller.marshal(tup);
 
@@ -174,7 +171,7 @@ public class NumericTypesSerializerTest {
     public void testDecimalMaxScale() {
         int maxScale = CatalogUtils.MAX_DECIMAL_SCALE;
 
-        schema = new SchemaDescriptor(
+        SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
@@ -186,7 +183,7 @@ public class NumericTypesSerializerTest {
                 .set("key", rnd.nextLong())
                 .set("decimalCol", BigDecimal.valueOf(123, maxScale));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = createMarshaller(schema);
 
         final Row row = marshaller.marshal(tup);
 
@@ -199,7 +196,7 @@ public class NumericTypesSerializerTest {
             "-32769, Decimal scale is too small: -32769 < -32768",
     })
     public void testDecimalScaleTooLarge(int scale, String message) {
-        schema = new SchemaDescriptor(
+        SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
@@ -211,7 +208,7 @@ public class NumericTypesSerializerTest {
                 .set("key", rnd.nextLong())
                 .set("decimalCol", BigDecimal.valueOf(123, scale));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = createMarshaller(schema);
 
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup),
@@ -226,7 +223,7 @@ public class NumericTypesSerializerTest {
     @ParameterizedTest
     @MethodSource("sameDecimals")
     public void testSameBinaryRepresentation(Pair<BigDecimal, BigDecimal> pair) {
-        schema = new SchemaDescriptor(
+        SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
@@ -234,7 +231,7 @@ public class NumericTypesSerializerTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = createMarshaller(schema);
 
         long randomKey = rnd.nextLong();
 

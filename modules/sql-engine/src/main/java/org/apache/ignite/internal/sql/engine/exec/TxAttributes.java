@@ -60,8 +60,7 @@ public class TxAttributes {
             return new TxAttributes(tx.id(), readTime, tx.coordinatorId());
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-27175 remove cast to ZonePartitionId
-        return new TxAttributes(tx.id(), (ZonePartitionId) tx.commitPartition(), tx.coordinatorId());
+        return new TxAttributes(tx.id(), tx.commitPartition(), tx.coordinatorId());
     }
 
     /**

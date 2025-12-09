@@ -116,6 +116,8 @@ class IndexBuildTask {
 
     private final HybridTimestamp initialOperationTimestamp;
 
+    private final IndexBuilderMetricSource indexBuilderMetricSource;
+
     IndexBuildTask(
             IndexBuildTaskId taskId,
             HybridTimestamp indexCreationActivationTs,
@@ -131,7 +133,8 @@ class IndexBuildTask {
             List<IndexBuildCompletionListener> buildCompletionListeners,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,
-            HybridTimestamp initialOperationTimestamp
+            HybridTimestamp initialOperationTimestamp,
+            IndexBuilderMetricSource indexBuilderMetricSource
     ) {
         this.taskId = taskId;
         this.indexCreationActivationTs = indexCreationActivationTs;
@@ -150,6 +153,7 @@ class IndexBuildTask {
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.afterDisasterRecovery = afterDisasterRecovery;
         this.initialOperationTimestamp = initialOperationTimestamp;
+        this.indexBuilderMetricSource = indexBuilderMetricSource;
     }
 
     /** Starts building the index. */
@@ -235,10 +239,14 @@ class IndexBuildTask {
             return nullCompletedFuture();
         }
 
+        indexBuilderMetricSource.onBatchProcessingStarted(taskId);
+
         try {
             return createBatchToIndex(highestRowId)
                     .thenCompose(this::processBatch)
                     .handleAsync((unused, throwable) -> {
+                        indexBuilderMetricSource.onBatchProcessingFinished(taskId);
+
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
 
@@ -259,6 +267,8 @@ class IndexBuildTask {
                     }, executor)
                     .thenCompose(Function.identity());
         } catch (Throwable t) {
+            indexBuilderMetricSource.onBatchProcessingFinished(taskId);
+
             return failedFuture(t);
         } finally {
             leaveBusy();
@@ -299,6 +309,8 @@ class IndexBuildTask {
                 .map(entry -> Map.entry(entry.getKey(), resolveFinalTxStateIfNeeded(entry.getKey(), entry.getValue())))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+        indexBuilderMetricSource.onTransitionToWaitingForTransactions(taskId, txStateResolveFutures.size());
+
         return CompletableFutures.allOf(txStateResolveFutures.values())
                 .thenApply(unused -> {
                     Set<UUID> abortedTransactionIds = txStateResolveFutures.entrySet().stream()
@@ -321,6 +333,8 @@ class IndexBuildTask {
 
     private CompletableFuture<Void> processBatch(BatchToIndex batch) {
         BuildIndexReplicaRequest request = createBuildIndexReplicaRequest(batch, initialOperationTimestamp);
+
+        indexBuilderMetricSource.onTransitionToWaitingForReplicaResponse(taskId);
 
         return replicaService.invoke(node, request)
                 .whenComplete((unused, throwable) -> {

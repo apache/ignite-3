@@ -46,12 +46,18 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
         // File offset can be less than 0 (it's treated as an unsigned integer) but never 0, because of the file header.
         assert segmentFileOffset != 0 : String.format("Segment file offset must not be 0 [groupId=%d]", groupId);
 
-        ConcurrentMap<Long, SegmentInfo> memTable = stripe(groupId).memTable;
+        ConcurrentMap<Long, SegmentInfo> memTable = memtable(groupId);
 
         SegmentInfo segmentInfo = memTable.get(groupId);
 
         if (segmentInfo == null) {
             segmentInfo = new SegmentInfo(logIndex);
+
+            segmentInfo.addOffset(logIndex, segmentFileOffset);
+
+            memTable.put(groupId, segmentInfo);
+        } else if (segmentInfo.isPrefixTombstone()) {
+            segmentInfo = new SegmentInfo(logIndex, segmentInfo.firstIndexKept());
 
             segmentInfo.addOffset(logIndex, segmentFileOffset);
 
@@ -63,23 +69,40 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
 
     @Override
     public SegmentInfo segmentInfo(long groupId) {
-        return stripe(groupId).memTable.get(groupId);
+        return memtable(groupId).get(groupId);
     }
 
     @Override
     public void truncateSuffix(long groupId, long lastLogIndexKept) {
-        ConcurrentMap<Long, SegmentInfo> memtable = stripe(groupId).memTable;
+        ConcurrentMap<Long, SegmentInfo> memtable = memtable(groupId);
 
-        SegmentInfo segmentInfo = memtable.get(groupId);
+        memtable.compute(groupId, (id, segmentInfo) -> {
+            if (segmentInfo == null || lastLogIndexKept < segmentInfo.firstLogIndexInclusive()) {
+                // If the current memtable does not have information for the given group or if we are truncating everything currently
+                // present in the memtable, we need to write a special "empty" SegmentInfo into the memtable to override existing persisted
+                // data during search.
+                return new SegmentInfo(lastLogIndexKept + 1);
+            } else if (segmentInfo.isPrefixTombstone()) {
+                // This is a prefix tombstone inserted by "truncatePrefix".
+                return new SegmentInfo(lastLogIndexKept + 1, segmentInfo.firstIndexKept());
+            } else {
+                return segmentInfo.truncateSuffix(lastLogIndexKept);
+            }
+        });
+    }
 
-        if (segmentInfo == null || lastLogIndexKept < segmentInfo.firstLogIndexInclusive()) {
-            // If the current memtable does not have information for the given group or if we are truncating everything currently present
-            // in the memtable, we need to write a special "empty" SegmentInfo into the memtable to override existing persisted data during
-            // search.
-            memtable.put(groupId, new SegmentInfo(lastLogIndexKept + 1));
-        } else {
-            segmentInfo.truncateSuffix(lastLogIndexKept);
-        }
+    @Override
+    public void truncatePrefix(long groupId, long firstIndexKept) {
+        ConcurrentMap<Long, SegmentInfo> memtable = memtable(groupId);
+
+        memtable.compute(groupId, (id, segmentInfo) -> {
+            if (segmentInfo == null) {
+                // The memtable does not have any information for the given group, we need to write a special "prefix tombstone".
+                return SegmentInfo.prefixTombstone(firstIndexKept);
+            } else {
+                return segmentInfo.truncatePrefix(firstIndexKept);
+            }
+        });
     }
 
     @Override
@@ -119,6 +142,10 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
         int stripeIndex = safeAbs(Long.hashCode(groupId) % stripes.length);
 
         return stripes[stripeIndex];
+    }
+
+    private ConcurrentMap<Long, SegmentInfo> memtable(long groupId) {
+        return stripe(groupId).memTable;
     }
 
     private class SegmentInfoIterator implements Iterator<Entry<Long, SegmentInfo>> {

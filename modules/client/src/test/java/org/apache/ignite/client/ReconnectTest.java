@@ -100,10 +100,14 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902", "127.0.0.1:10903")
                 .backgroundReconnectInterval(reconnectEnabled ? 50 : 0)
-                .heartbeatInterval(50);
+                .heartbeatInterval(100)
+                .backgroundReResolveAddressesInterval(0L);
 
         try (var client = builder.build()) {
             waitForConnections(client, 2);
+
+            // Skip channels refresh on partition assignment during connection.
+            Thread.sleep(100L);
 
             server2.close();
             waitForConnections(client, 1);

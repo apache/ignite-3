@@ -115,12 +115,14 @@ public class JdbcStatement implements Statement {
             Connection connection,
             IgniteSql igniteSql,
             String schemaName,
-            int rsHoldability
+            int rsHoldability,
+            int queryTimeoutSeconds
     ) {
         this.connection = connection;
         this.schemaName = schemaName;
         this.igniteSql = igniteSql;
         this.rsHoldability = rsHoldability;
+        this.queryTimeoutMillis = TimeUnit.SECONDS.toMillis(queryTimeoutSeconds);
     }
 
     /** {@inheritDoc} */

@@ -27,9 +27,13 @@ using NUnit.Framework;
 /// <summary>
 /// Tests for key-value POCO view.
 /// </summary>
-public class KeyValueViewPocoTests : IgniteTestsBase
+[TestFixture("reflective")]
+[TestFixture("mapper")]
+public class KeyValueViewPocoTests(string mode) : IgniteTestsBase(useMapper: mode == "mapper")
 {
-    private IKeyValueView<KeyPoco, ValPoco> KvView => Table.GetKeyValueView<KeyPoco, ValPoco>();
+    private IKeyValueView<KeyPoco, ValPoco> KvView => UseMapper
+            ? Table.GetKeyValueView(new KeyValPocoMapper())
+            : Table.GetKeyValueView<KeyPoco, ValPoco>();
 
     [TearDown]
     public async Task CleanTable()

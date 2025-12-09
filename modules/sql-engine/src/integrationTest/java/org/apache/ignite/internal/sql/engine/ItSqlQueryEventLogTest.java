@@ -395,7 +395,7 @@ public class ItSqlQueryEventLogTest extends BaseSqlIntegrationTest {
         fieldsChecker.verify(FieldNames.SCHEMA, "PUBLIC");
         fieldsChecker.verify(FieldNames.PARENT_ID, parentId);
         fieldsChecker.verify(FieldNames.STATEMENT_NUMBER, statementNum);
-        fieldsChecker.verify(FieldNames.TYPE, queryType == null ? null : queryType.name());
+        fieldsChecker.verify(FieldNames.TYPE, queryType == null ? null : queryType.displayName());
         fieldsChecker.matches(FieldNames.START_TIME, "\\d+");
 
         if (checkImplicitTx) {

@@ -62,7 +62,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
     ClientRecordBinaryView(ClientTable tbl, ClientSql sql) {
         super(tbl, sql);
 
-        ser = new ClientTupleSerializer(tbl.tableId());
+        ser = new ClientTupleSerializer(tbl.tableId(), tbl::qualifiedName);
     }
 
     /** {@inheritDoc} */

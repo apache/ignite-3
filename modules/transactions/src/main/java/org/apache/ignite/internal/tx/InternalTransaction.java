@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +44,7 @@ public interface InternalTransaction extends Transaction {
      * @param replicationGroupId Replication group ID.
      * @return Enlisted partition information.
      */
-    PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId);
+    PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId);
 
     /**
      * Returns a transaction state.
@@ -59,14 +59,14 @@ public interface InternalTransaction extends Transaction {
      * @param commitPartitionId Commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(ReplicationGroupId commitPartitionId);
+    boolean assignCommitPartition(ZonePartitionId commitPartitionId);
 
     /**
      * Gets a partition id that stores the transaction state.
      *
      * @return Partition id.
      */
-    ReplicationGroupId commitPartition();
+    ZonePartitionId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.
@@ -77,7 +77,7 @@ public interface InternalTransaction extends Transaction {
      * @param consistencyToken Consistency token to enlist for given replication group.
      */
     void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken

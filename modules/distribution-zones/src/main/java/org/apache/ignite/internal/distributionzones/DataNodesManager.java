@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -46,6 +47,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -100,6 +102,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -173,6 +176,8 @@ public class DataNodesManager {
 
     private final Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider;
 
+    private final LowWatermark lowWatermark;
+
     /**
      * Constructor.
      *
@@ -186,6 +191,7 @@ public class DataNodesManager {
      * @param partitionResetClosure Closure to reset partitions.
      * @param partitionDistributionResetTimeoutSupplier Supplier for partition distribution reset timeout.
      * @param latestLogicalTopologyProvider Provider of the latest logical topology.
+     * @param lowWatermark Low watermark manager.
      */
     public DataNodesManager(
             String nodeName,
@@ -197,7 +203,8 @@ public class DataNodesManager {
             FailureProcessor failureProcessor,
             PartitionResetClosure partitionResetClosure,
             IntSupplier partitionDistributionResetTimeoutSupplier,
-            Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider
+            Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider,
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
         this.catalogManager = catalogManager;
@@ -208,9 +215,10 @@ public class DataNodesManager {
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
         this.latestLogicalTopologyProvider = latestLogicalTopologyProvider;
         this.busyLock = busyLock;
+        this.lowWatermark = lowWatermark;
 
         executor = createZoneManagerExecutor(
-                Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
+                min(Runtime.getRuntime().availableProcessors() * 3, 20),
                 IgniteThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
         );
 
@@ -445,9 +453,11 @@ public class DataNodesManager {
                 )
         );
 
+        DataNodesHistory newHistory = addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
+                currentDataNodes.dataNodes(), addMandatoryEntry);
+
         List<Operation> operations = operations(
-                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
-                        currentDataNodes.dataNodes(), addMandatoryEntry),
+                addNewEntryOperation(zoneId, newHistory),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
                 renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
         );
@@ -457,7 +467,7 @@ public class DataNodesManager {
                 .condition(condition)
                 .operations(operations)
                 .operationName("topology change")
-                .currentDataNodesHistory(dataNodesHistory)
+                .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(currentDataNodes.timestamp())
                 .historyEntryNodes(currentDataNodes.dataNodes())
@@ -655,9 +665,11 @@ public class DataNodesManager {
                 )
         );
 
+        DataNodesHistory newHistory = addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
+                currentDataNodes.dataNodes());
+
         List<Operation> operations = operations(
-                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
-                        currentDataNodes.dataNodes()),
+                addNewEntryOperation(zoneId, newHistory),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
                 renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
         );
@@ -667,7 +679,7 @@ public class DataNodesManager {
                 .condition(condition)
                 .operations(operations)
                 .operationName("distribution zone auto adjust change")
-                .currentDataNodesHistory(dataNodesHistory)
+                .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(currentDataNodes.timestamp())
                 .historyEntryNodes(currentDataNodes.dataNodes())
@@ -749,6 +761,13 @@ public class DataNodesManager {
         DataNodesHistoryEntry currentDataNodes = scheduledTimer
                 .recalculateDataNodes(dataNodesHistory, timer);
 
+        DataNodesHistory newHistory = addNewEntryToDataNodesHistory(
+                zoneId,
+                dataNodesHistory,
+                timeToTrigger,
+                currentDataNodes.dataNodes()
+        );
+
         // We need to wait for actual time according to hybrid clock plus clock skew, because scheduled executor
         // is not synchronized with hybrid clock. If we don't do this and scheduled executor will trigger this closure
         // earlier than max hybrid clock time in cluster, we may append new history entry having timestamp that
@@ -764,17 +783,12 @@ public class DataNodesManager {
                         )
                         .operations(
                                 operations(
-                                        addNewEntryToDataNodesHistory(
-                                                zoneId,
-                                                dataNodesHistory,
-                                                timeToTrigger,
-                                                currentDataNodes.dataNodes()
-                                        ),
+                                        addNewEntryOperation(zoneId, newHistory),
                                         clearTimer(scheduledTimer.metaStorageKey())
                                 )
                         )
                         .operationName(scheduledTimer.name() + " trigger")
-                        .currentDataNodesHistory(dataNodesHistory)
+                        .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                         .currentTimestamp(timeToTrigger)
                         .historyEntryTimestamp(timeToTrigger)
                         .historyEntryNodes(currentDataNodes.dataNodes())
@@ -907,7 +921,7 @@ public class DataNodesManager {
                 .thenApply(history -> inBusyLock(busyLock, () -> {
                     if (history == null) {
                         // It means that the zone was created but the data nodes value had not been updated yet.
-                        // So the data nodes value will be equals to the logical topology.
+                        // So the data nodes value will be equal to the logical topology.
                         return filterDataNodes(topologyNodes(), zone);
                     }
 
@@ -978,16 +992,18 @@ public class DataNodesManager {
 
         stopAllTimers(zoneId);
 
+        DataNodesHistory newHistory = addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, filteredDataNodes);
+
         return DataNodesHistoryMetaStorageOperation.builder()
                 .zoneId(zoneId)
                 .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
                 .operations(operations(
-                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, filteredDataNodes),
+                        addNewEntryOperation(zoneId, newHistory),
                         clearTimer(zoneScaleUpTimerKey(zoneId)),
                         clearTimer(zoneScaleDownTimerKey(zoneId))
                 ))
                 .operationName(operationName)
-                .currentDataNodesHistory(dataNodesHistory)
+                .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(timestamp)
                 .historyEntryNodes(filteredDataNodes)
@@ -1027,7 +1043,8 @@ public class DataNodesManager {
         );
     }
 
-    private Operation addNewEntryToDataNodesHistory(
+    @Nullable
+    private DataNodesHistory addNewEntryToDataNodesHistory(
             int zoneId,
             DataNodesHistory history,
             HybridTimestamp timestamp,
@@ -1037,7 +1054,7 @@ public class DataNodesManager {
     }
 
     /**
-     * Meta storage operation that adds new entry to data nodes history.
+     * Adds new entry to data nodes history.
      * If the new entry is the same as the latest one {@code addMandatoryEntry} is {@code false}, then no new entry is added.
      *
      * @param zoneId Zone id.
@@ -1045,9 +1062,10 @@ public class DataNodesManager {
      * @param timestamp Timestamp of the new entry.
      * @param nodes Data nodes for the new entry.
      * @param addMandatoryEntry If {@code true}, then the new entry is added even if it is the same as the latest one.
-     * @return Operation that adds new entry to data nodes history.
+     * @return Copy of the history with the new entry added if needed, or {@code null} if the history is not changed.
      */
-    private Operation addNewEntryToDataNodesHistory(
+    @Nullable
+    private DataNodesHistory addNewEntryToDataNodesHistory(
             int zoneId,
             DataNodesHistory history,
             HybridTimestamp timestamp,
@@ -1057,12 +1075,55 @@ public class DataNodesManager {
         if (!addMandatoryEntry
                 && !history.isEmpty()
                 && nodes.equals(history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes())) {
+            return null;
+        } else {
+            HybridTimestamp now = clockService.current();
+            HybridTimestamp earliestTimestampNeededForHistory = earliestTimestampNeededForHistory();
+            DataNodesHistory newHistory = history
+                    .addHistoryEntry(timestamp, nodes)
+                    .compactIfNeeded(earliestTimestampNeededForHistory);
+            dataNodesHistoryVolatile.put(zoneId, newHistory);
+
+            int compactedEntriesCount = history.size() - (newHistory.size() - 1);
+            if (compactedEntriesCount > 0) {
+                LOG.info("Data nodes history compacted [zoneId={}, compactedEntriesCount={}, atTimestamp={}, earliestTimestampNeeded={}].",
+                        zoneId, compactedEntriesCount, now, earliestTimestampNeededForHistory);
+            }
+
+            return newHistory;
+        }
+    }
+
+    private static Operation addNewEntryOperation(int zoneId, @Nullable DataNodesHistory history) {
+        if (history == null) {
             return noop();
         } else {
-            DataNodesHistory newHistory = history.addHistoryEntry(timestamp, nodes);
-            dataNodesHistoryVolatile.put(zoneId, newHistory);
-            return put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory));
+            return put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(history));
         }
+    }
+
+    /**
+     * Calculates the earliest timestamp needed to keep history for. Takes the minimum of low watermark and catalog earliest timestamp,
+     * subtracts max clock skew and ensures that it is at least minimum hybrid timestamp.
+     *
+     * @return The earliest timestamp needed to keep history for.
+     */
+    private HybridTimestamp earliestTimestampNeededForHistory() {
+        HybridTimestamp lw = lowWatermark.getLowWatermark();
+
+        if (lw == null) {
+            // Low watermark is not set yet, keep the history.
+            return HybridTimestamp.MIN_VALUE;
+        }
+
+        long minTimeAvailable = lw.getPhysical();
+        long minCatalogTimeAvailable = hybridTimestamp(catalogManager.earliestCatalog().time()).getPhysical();
+
+        long minPhysical = max(
+                min(minTimeAvailable, minCatalogTimeAvailable) - clockService.maxClockSkewMillis(),
+                1
+        );
+        return new HybridTimestamp(minPhysical, 0);
     }
 
     private static Operation renewTimer(ByteArray timerKey, DistributionZoneTimer timer) {
@@ -1283,8 +1344,10 @@ public class DataNodesManager {
                     notTombstone(zoneDataNodesHistoryKey(zoneId))
             );
 
+            DataNodesHistory history = addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes);
+
             Update update = new Operations(operations(
-                    addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
+                    addNewEntryOperation(zoneId, history),
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
                     removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop(),

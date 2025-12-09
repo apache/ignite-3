@@ -36,6 +36,10 @@ public class InternalTxOptions {
     /** Transaction timeout. 0 means 'use default timeout'. */
     private final long timeoutMillis;
 
+    /** Transaction label. */
+    @Nullable
+    private final String txLabel;
+
     /**
      * Read timestamp of the transaction. If {@code null} - the most recent available timestamp will be calculated based on the current
      * node's clock.
@@ -43,10 +47,11 @@ public class InternalTxOptions {
     @Nullable
     private final HybridTimestamp readTimestamp;
 
-    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp) {
+    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;
+        this.txLabel = txLabel;
     }
 
     public static Builder builder() {
@@ -73,6 +78,10 @@ public class InternalTxOptions {
         return readTimestamp;
     }
 
+    public @Nullable String txLabel() {
+        return txLabel;
+    }
+
     /** Builder for InternalTxOptions. */
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
@@ -85,6 +94,9 @@ public class InternalTxOptions {
 
         @Nullable
         private HybridTimestamp readTimestamp = null;
+
+        @Nullable
+        private String txLabel = null;
 
         public Builder priority(TxPriority priority) {
             this.priority = priority;
@@ -101,8 +113,13 @@ public class InternalTxOptions {
             return this;
         }
 
+        public Builder txLabel(@Nullable String txLabel) {
+            this.txLabel = txLabel;
+            return this;
+        }
+
         public InternalTxOptions build() {
-            return new InternalTxOptions(priority, timeoutMillis, readTimestamp);
+            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, txLabel);
         }
     }
 }

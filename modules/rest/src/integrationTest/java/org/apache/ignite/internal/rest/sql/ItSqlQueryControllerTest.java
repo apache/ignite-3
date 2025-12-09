@@ -73,7 +73,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
             assertThat(queryInfo, notNullValue());
             assertThat(queryInfo.schema(), is("PUBLIC"));
-            assertThat(queryInfo.type(), is("QUERY"));
+            assertThat(queryInfo.type(), is("Query"));
         }
     }
 

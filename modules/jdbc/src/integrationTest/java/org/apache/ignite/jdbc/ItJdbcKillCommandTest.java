@@ -79,7 +79,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
     public void killUsingExecuteQueryIsForbidden() throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             //noinspection ThrowableNotThrown
-            assertThrowsSqlException("Invalid SQL statement type.",
+            assertThrowsSqlException("Statement of type \"Kill\" is not allowed in current context",
                     () -> stmt.executeQuery("KILL QUERY '" + UUID.randomUUID() + "'")
             );
         }

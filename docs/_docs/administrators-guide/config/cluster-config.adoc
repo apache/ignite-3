@@ -266,6 +266,10 @@ bin/ignite3 cluster config show > cluster-config.txt
 {
   "ignite" : {
     "sql" : {
+      "createTable" : {
+        "minStaleRowsCount" : 500,
+        "staleRowsFraction" : 0.2
+      },
       "planner" : {
         "estimatedNumberOfQueries" : 1024,
         "maxPlanningTimeMillis" : 15000
@@ -278,6 +282,8 @@ bin/ignite3 cluster config show > cluster-config.txt
 [cols="1,1,3,1,1,2",opts="header", stripes=none]
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
+|createTable.minStaleRowsCount|500|Number of updates since the last query plan update required to automatically recreate query execution plan. Is overriden by `WITH min stale rows` link:sql-reference/ddl#create-table[parameter]. | Yes | no | 0 - Long.MAX_VALUE
+|createTable.staleRowsFraction|0.2|Fraction of the table that must change for query execution plan to be recreated automatically. Is overriden by `WITH stale rows fraction` link:sql-reference/ddl#create-table[parameter]| Yes | no | 0 - 1
 |planner.estimatedNumberOfQueries|1024|The estimated number of unique queries that are planned to be executed in the cluster in a certain period of time. Used to optimize internal caches and processes. Optional.| Yes | Yes | 0 - Integer.MAX_VALUE
 |planner.maxPlanningTimeMillis|15000|Query planning timeout in milliseconds. Plan optimization process stops when the timeout is reached. "0" means no timeout.| Yes | Yes | 0 - Long.MAX_VALUE
 |======

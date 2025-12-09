@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Marshalling.COMMON_ERR;
 
@@ -31,7 +32,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.CheckpointQueue.Entry;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Class responsible for running periodic checkpoint tasks.
@@ -104,11 +104,8 @@ class RaftLogCheckpointer {
 
     /**
      * Searches for the segment payload corresponding to the given Raft Group ID and Raft Log Index in the checkpoint queue.
-     *
-     * @return {@code ByteBuffer} which position is set to the start of the corresponding segment payload or {@code null} if the payload has
-     *         not been found in all files currently present in the queue.
      */
-    @Nullable ByteBuffer findSegmentPayloadInQueue(long groupId, long logIndex) {
+    EntrySearchResult findSegmentPayloadInQueue(long groupId, long logIndex) {
         Iterator<Entry> it = queue.tailIterator();
 
         while (it.hasNext()) {
@@ -116,51 +113,29 @@ class RaftLogCheckpointer {
 
             SegmentInfo segmentInfo = e.memTable().segmentInfo(groupId);
 
-            int segmentPayloadOffset = segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
+            if (segmentInfo == null) {
+                continue;
+            }
 
-            if (segmentPayloadOffset != 0) {
-                return e.segmentFile().buffer().position(segmentPayloadOffset);
+            if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
+                return EntrySearchResult.notFound();
+            }
+
+            if (logIndex < segmentInfo.firstIndexKept()) {
+                // This is a prefix tombstone and it cuts off the log index we search for.
+                return EntrySearchResult.notFound();
+            }
+
+            int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
+
+            if (segmentPayloadOffset != MISSING_SEGMENT_FILE_OFFSET) {
+                ByteBuffer entryBuffer = e.segmentFile().buffer().position(segmentPayloadOffset);
+
+                return EntrySearchResult.success(entryBuffer);
             }
         }
 
-        return null;
-    }
-
-    /**
-     * Returns the lowest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
-     */
-    long firstLogIndexInclusive(long groupId) {
-        Iterator<Entry> it = queue.tailIterator();
-
-        long firstIndex = -1;
-
-        while (it.hasNext()) {
-            SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
-
-            // Segment Info can be empty if the log suffix was truncated.
-            if (segmentInfo != null && segmentInfo.size() > 0) {
-                firstIndex = segmentInfo.firstLogIndexInclusive();
-            }
-        }
-
-        return firstIndex;
-    }
-
-    /**
-     * Returns the highest possible log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
-     */
-    long lastLogIndexExclusive(long groupId) {
-        Iterator<Entry> it = queue.tailIterator();
-
-        while (it.hasNext()) {
-            SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
-
-            if (segmentInfo != null) {
-                return segmentInfo.lastLogIndexExclusive();
-            }
-        }
-
-        return -1;
+        return EntrySearchResult.continueSearch();
     }
 
     private class CheckpointTask implements Runnable {

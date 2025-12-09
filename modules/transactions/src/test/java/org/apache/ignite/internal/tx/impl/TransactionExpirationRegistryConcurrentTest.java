@@ -28,8 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
@@ -185,7 +184,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+        public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
             return null;
         }
 
@@ -195,18 +194,17 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
             return false;
         }
 
         @Override
-        public TablePartitionId commitPartition() {
+        public ZonePartitionId commitPartition() {
             return null;
         }
 
         @Override
-        public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
-
+        public void enlist(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
         }
 
         @Override

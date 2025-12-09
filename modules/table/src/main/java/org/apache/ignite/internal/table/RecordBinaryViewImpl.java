@@ -107,7 +107,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param schemaVersion Schema version for which to obtain a marshaller.
      */
     public TupleMarshaller marshaller(int schemaVersion) {
-        return marshallerCache.marshaller(schemaVersion);
+        return marshallerCache.marshaller(tbl::name, schemaVersion);
     }
 
     @Override

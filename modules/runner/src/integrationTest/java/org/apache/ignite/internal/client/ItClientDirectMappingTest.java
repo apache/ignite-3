@@ -23,13 +23,9 @@ import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.withTx;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.withTxVoid;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.function.Predicate;
-import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -127,19 +123,6 @@ public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
     @Override
     protected String getNodeBootstrapConfigTemplate() {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
-    }
-
-    private IgniteImpl findNode(int startRange, int endRange, Predicate<IgniteImpl> filter) {
-        return IntStream.range(startRange, endRange)
-                .mapToObj(this::node)
-                .map(TestWrappers::unwrapIgniteImpl)
-                .filter(filter::test)
-                .findFirst()
-                .get();
-    }
-
-    private IgniteImpl findNodeByName(String leaseholder) {
-        return findNode(0, initialNodes(), n -> leaseholder.equals(n.name()));
     }
 
     @Override

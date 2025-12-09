@@ -56,6 +56,8 @@ public class CheckpointMetricsTracker {
 
     private final Duration writeLockWaitDuration = new Duration();
 
+    private final Duration onBeforeCheckpointBeginDuration = new Duration();
+
     private final Duration onMarkCheckpointBeginDuration = new Duration();
 
     private final Duration writeLockHoldDuration = new Duration();
@@ -167,6 +169,33 @@ public class CheckpointMetricsTracker {
      */
     public long writeLockWaitDuration(TimeUnit timeUnit) {
         return writeLockWaitDuration.duration(timeUnit);
+    }
+
+    /**
+     * Callback before all {@link CheckpointListener#beforeCheckpointBegin}.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onBeforeCheckpointBeginStart() {
+        onBeforeCheckpointBeginDuration.onStart();
+    }
+
+    /**
+     * Callback after all {@link CheckpointListener#beforeCheckpointBegin}.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onBeforeCheckpointBeginEnd() {
+        onBeforeCheckpointBeginDuration.onEnd();
+    }
+
+    /**
+     * Returns execution all {@link CheckpointListener#beforeCheckpointBegin} duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long onBeforeCheckpointBeginDuration(TimeUnit timeUnit) {
+        return onBeforeCheckpointBeginDuration.duration(timeUnit);
     }
 
     /**

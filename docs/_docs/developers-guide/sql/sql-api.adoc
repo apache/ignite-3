@@ -76,18 +76,18 @@ System.out.println("\nAdded accounts: " + rowsAdded);
 
 == Partition-Specific SELECTs
 
-When executing a SELECT operation, you can use the system `\__part` column to only `SELECT` data in a specific partition. To find out partition information, use the SELECT request that explicitly includes the `__part` column as its part:
+When executing a SELECT operation, you can use the system `\__partition_id` column to only `SELECT` data in a specific partition. To find out partition information, use the SELECT request that explicitly includes the `__partition_id` column as its part:
 
 [source, sql]
 ----
-SELECT city_id, id, "__part"  FROM Person;
+SELECT city_id, id, __partition_id  FROM Person;
 ----
 
 Once you know the partition, you can use it in the `WHERE` clause:
 
 [source, sql]
 ----
-SELECT city_id, id FROM Person WHERE "__part"=23;
+SELECT city_id, id FROM Person WHERE __partition_id=23;
 ----
 
 

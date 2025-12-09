@@ -94,13 +94,9 @@ The metrics for Ignite Java Virtual Machine resource use.
 |=======================================================================
 | Metric name | Description
 
-| ActiveLeasesCount | The number of currently active leases.
-| CurrentPendingAssignmentsSize | The current size of pending assignments over all partitions.
-| CurrentStableAssignmentsSize | The current size of stable assignments over all partitions.
-| LeasesCreated | The total number of created leases.
-| LeasesProlonged | The total number of prolonged leases.
-| LeasesPublished | The total number of published leases.
-| LeasesWithoutCandidates | The total number of leases without candidates currently existing.
+| AcceptedLeases | The number of active leases. Equals the number of replication groups for which a primary replica has been elected.
+| LeaseNegotiations | The number of leases currently in negotiation. Represents the number of replication groups for which the primary replica has not yet been selected.
+| ReplicationGroups | The total number of replication groups. Each group first appears in `LeaseNegotiations`. After the primary is elected, its entry moves to `AcceptedLeases` and is removed from `LeaseNegotiations`.
 |=======================================================================
 
 == raft
@@ -213,6 +209,21 @@ Table metrics.
 | RwReads | The total number of reads performed within read-write transactions.
 | RoReads | The total number of reads performed within read-only transactions.
 | Writes | The total number of write operations for this table.
+|=======================================================================
+
+== index.builder
+
+Index builder metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| TotalIndexesBuilding | Total number of indexes that node builds at the moment.
+| IndexesReadingStorage | Number of indexes that are currently reading data from storage.
+| IndexesWaitingForTransactions | Number of indexes that are currently waiting for transactions to complete.
+| TransactionsWaitingFor | Number of transactions that indexes are currently waiting for.
+| IndexesWaitingForReplica | Number of indexes that are currently waiting for replica response.
 |=======================================================================
 
 == thread.pools.{thread-pool-executor-name}

@@ -78,6 +78,11 @@ namespace Apache.Ignite.Tests
             AppDomain.CurrentDomain.ProcessExit += (_, _) => ServerNode.Dispose();
         }
 
+        protected IgniteTestsBase(bool useMapper = false)
+        {
+            UseMapper = useMapper;
+        }
+
         protected static int ServerPort => ServerNode.Port;
 
         protected IIgniteClient Client { get; private set; } = null!;
@@ -98,6 +103,8 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!;
 
+        protected bool UseMapper { get; }
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -108,18 +115,33 @@ namespace Apache.Ignite.Tests
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
-            PocoView = Table.GetRecordView<Poco>();
+            PocoView = UseMapper ? Table.GetRecordView(new PocoMapper()) : Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            PocoAllColumnsNullableView = UseMapper
+                ? tableAllColumns!.GetRecordView(new PocoAllColumnsNullableMapper())
+                : tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
 
             var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
-            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsBigDecimalView = tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
+
+            PocoAllColumnsView = UseMapper
+                ? tableAllColumnsNotNull!.GetRecordView(new PocoAllColumnsMapper())
+                : tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
+
+            PocoAllColumnsBigDecimalView = UseMapper
+                ? tableAllColumnsNotNull.GetRecordView(new PocoAllColumnsBigDecimalMapper())
+                : tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
-            PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
-            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
+
+            PocoAllColumnsSqlView = UseMapper
+                ? tableAllColumnsSql!.GetRecordView(new PocoAllColumnsSqlMapper())
+                : tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
+
+            PocoAllColumnsSqlNullableView = UseMapper
+                ? tableAllColumnsSql.GetRecordView(new PocoAllColumnsSqlNullableMapper())
+                : tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
 
             _logger.Flush();
         }

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -83,14 +84,21 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final List<IndexBuildCompletionListener> buildCompletionListeners = new CopyOnWriteArrayList<>();
 
+    private final IndexBuilderMetricSource indexBuilderMetricSource;
+
     /** Constructor. */
     IndexBuilder(
             Executor executor,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
             FinalTransactionStateResolver finalTransactionStateResolver,
-            IndexMetaStorage indexMetaStorage
+            IndexMetaStorage indexMetaStorage,
+            MetricManager metricManager
     ) {
+        this.indexBuilderMetricSource = new IndexBuilderMetricSource();
+        metricManager.registerSource(indexBuilderMetricSource);
+        metricManager.enable(indexBuilderMetricSource);
+
         this.executor = executor;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
@@ -157,7 +165,8 @@ class IndexBuilder implements ManuallyCloseable {
                     buildCompletionListeners,
                     enlistmentConsistencyToken,
                     false,
-                    initialOperationTimestamp
+                    initialOperationTimestamp,
+                    indexBuilderMetricSource
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
@@ -221,7 +230,8 @@ class IndexBuilder implements ManuallyCloseable {
                     buildCompletionListeners,
                     enlistmentConsistencyToken,
                     true,
-                    initialOperationTimestamp
+                    initialOperationTimestamp,
+                    indexBuilderMetricSource
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);

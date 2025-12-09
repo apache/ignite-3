@@ -477,7 +477,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @throws MarshallerException If failed to marshal key and/or value.
      */
     private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) {
-        return marshallerCache.marshaller(schemaVersion).marshal(key, val);
+        return marshallerCache.marshaller(tbl::name, schemaVersion).marshal(key, val);
     }
 
     /**

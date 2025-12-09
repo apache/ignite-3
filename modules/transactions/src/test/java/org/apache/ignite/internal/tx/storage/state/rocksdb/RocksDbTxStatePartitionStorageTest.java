@@ -61,9 +61,9 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     private ExecutorService executor;
 
     @Override
-    protected TxStateRocksDbStorage createTableOrZoneStorage() {
+    protected TxStateRocksDbStorage createZoneStorage() {
         return new TxStateRocksDbStorage(
-                TABLE_ID,
+                ZONE_ID,
                 3,
                 sharedStorage
         );
@@ -96,7 +96,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
     @Test
     void testRestartStorageInProgressOfRebalance() {
-        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+        TxStatePartitionStorage storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         List<IgniteBiTuple<UUID, TxMeta>> rows = List.of(
                 randomTxMetaTuple(1, UUID.randomUUID()),
@@ -110,13 +110,13 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
         assertThat(storage.flush(), willCompleteSuccessfully());
 
-        tableStorage.close();
+        txStateStorage.close();
 
-        tableStorage = createTableOrZoneStorage();
+        txStateStorage = createZoneStorage();
 
-        tableStorage.start();
+        txStateStorage.start();
 
-        storage = tableStorage.getOrCreatePartitionStorage(0);
+        storage = txStateStorage.getOrCreatePartitionStorage(0);
 
         checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, GROUP_CONFIGURATION, LEASE_INFO, SNAPSHOT_INFO);
 

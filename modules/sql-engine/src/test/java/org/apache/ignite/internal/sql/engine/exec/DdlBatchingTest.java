@@ -500,6 +500,8 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
                 executeCallCounter.get()
         );
 
+        cursor.closeAsync();
+
         assertTableNotExists("t1");
         assertIndexNotExists("t1_ind_1");
     }

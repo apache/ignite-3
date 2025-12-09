@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.KeyValueView;
@@ -656,7 +657,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
         @SuppressWarnings("ThrowableNotThrown")
         void checkNullValueError(Executable run) {
-            IgniteTestUtils.assertThrows(NullPointerException.class, run, "val");
+            assertThrows(NullPointerException.class, run, "val");
         }
 
         @SuppressWarnings("ThrowableNotThrown")
@@ -664,7 +665,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             Executable e = wrap(run);
 
             if (thin) {
-                IgniteTestUtils.assertThrows(IgniteException.class, e, expectedMessage);
+                assertThrows(IgniteException.class, e, expectedMessage);
             } else {
                 IgniteTestUtils.assertThrowsWithCause(e::execute, SchemaMismatchException.class, expectedMessage);
             }
@@ -674,7 +675,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         void checkInvalidTypeError(Executable run, String expectedMessage) {
             if (thin) {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Must throw MarshallerException
-                IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+                assertThrows(IgniteException.class, run, expectedMessage);
             } else {
                 IgniteTestUtils.assertThrowsWithCause(run::execute, InvalidTypeException.class, expectedMessage);
             }
@@ -684,9 +685,9 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=INT32]";
 
             if (thin) {
-                IgniteException ex = (IgniteException) IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+                MarshallerException ex = (MarshallerException) assertThrows(MarshallerException.class, run, expectedMessage);
 
-                assertThat(ex.code(), is(Client.PROTOCOL_ERR));
+                assertThat(ex.code(), is(Marshalling.COMMON_ERR));
             } else {
                 //noinspection ThrowableNotThrown
                 IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
@@ -698,7 +699,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             String expectedMessage = "Missed key column: ID";
 
             if (thin) {
-                IgniteTestUtils.assertThrows(MarshallerException.class, run, expectedMessage);
+                assertThrows(MarshallerException.class, run, expectedMessage);
             } else {
                 IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
             }

@@ -82,6 +82,8 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -99,6 +101,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -189,6 +192,7 @@ import org.mockito.ArgumentMatchers;
  */
 @SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Tag allows to skip default cluster setup. */
     private static final String CUSTOM_CLUSTER_SETUP_TAG = "skipDefaultClusterSetup";
@@ -214,6 +218,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @InjectExecutorService
     private ScheduledExecutorService commonExecutor;
+
+    @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=5")
+    private StatisticsConfiguration statisticsConfiguration;
 
     private final Map<String, List<Object[]>> dataPerNode = Map.of(
             nodeNames.get(0), List.of(new Object[]{0, 0}, new Object[]{3, 3}, new Object[]{6, 6}),
@@ -291,7 +298,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 new PredefinedSchemaManager(schema),
                 clockService::currentLong,
                 commonExecutor,
-                producer
+                producer,
+                statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );
         parserService = new ParserServiceImpl();
 

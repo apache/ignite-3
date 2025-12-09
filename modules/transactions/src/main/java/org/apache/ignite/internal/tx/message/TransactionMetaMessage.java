@@ -33,6 +33,6 @@ public interface TransactionMetaMessage extends NetworkMessage {
 
     /** Converts to {@link TransactionMeta}. */
     default TransactionMeta asTransactionMeta() {
-        throw new AssertionError("Must be implemented by heirs.");
+        throw new AssertionError("Must be implemented by subclasses.");
     }
 }

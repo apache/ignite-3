@@ -56,7 +56,7 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
 
         if (tx == null) {
             if (implicit) {
-                transaction = txManager.beginImplicit(observableTimeTracker, readOnly);
+                transaction = txManager.beginImplicit(observableTimeTracker, readOnly, null);
             } else {
                 transaction = txManager.beginExplicit(observableTimeTracker, readOnly, InternalTxOptions.defaults());
             }

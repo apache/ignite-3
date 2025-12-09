@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using Ignite.Sql;
+using Ignite.Table.Mapper;
 
 /// <summary>
 /// Schema column.
@@ -31,6 +32,7 @@ internal record Column(
     int SchemaIndex,
     int Scale,
     int Precision)
+    : IMapperColumn
 {
     /// <summary>
     /// Gets a value indicating whether this column is a part of the key.
