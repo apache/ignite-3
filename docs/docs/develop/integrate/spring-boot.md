@@ -13,23 +13,35 @@ Apache Ignite 3 provides a Spring Boot starter that auto-configures an `IgniteCl
 
 ## Installation
 
-Add the starter dependency to your project.
+Add the starter dependency to your project. The starter version must match your Apache Ignite cluster version.
 
 **Maven:**
 
 ```xml
+<properties>
+    <ignite.version>3.1.0</ignite.version>
+</properties>
+
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>spring-boot-starter-ignite-client</artifactId>
-    <version>3.0.0</version>
+    <version>${ignite.version}</version>
 </dependency>
 ```
 
 **Gradle:**
 
 ```groovy
-implementation 'org.apache.ignite:spring-boot-starter-ignite-client:3.0.0'
+ext {
+    igniteVersion = '3.1.0'
+}
+
+implementation "org.apache.ignite:spring-boot-starter-ignite-client:${igniteVersion}"
 ```
+
+:::note Version Matching
+The `spring-boot-starter-ignite-client` artifact is released as part of Apache Ignite, so its version matches the Ignite release version. For Ignite 3.1.0, use `spring-boot-starter-ignite-client:3.1.0`.
+:::
 
 ## Basic Configuration
 

@@ -3,7 +3,7 @@ id: spring-data
 title: Spring Data Integration
 ---
 
-Apache Ignite 3 provides a Spring Data JDBC dialect that enables repository-based data access. The dialect registers automatically via Spring's SPI mechanism, allowing standard Spring Data repositories to work with Ignite tables.
+Apache Ignite 3 provides a Spring Data JDBC dialect that enables repository-based data access. Combined with Spring Boot's JDBC starter, this allows standard Spring Data repositories to work with Ignite tables through familiar patterns like `CrudRepository` and derived query methods.
 
 ## Prerequisites
 
@@ -14,31 +14,66 @@ Apache Ignite 3 provides a Spring Data JDBC dialect that enables repository-base
 
 ## Installation
 
-Add the Spring Data Ignite dependency along with the Ignite JDBC driver.
+Spring Data integration requires three dependencies:
+
+- `spring-boot-starter-data-jdbc` (from Spring) provides the Spring Data JDBC framework
+- `spring-data-ignite` (from Apache Ignite) provides the SQL dialect for Ignite-compatible query generation
+- `ignite-jdbc` (from Apache Ignite) provides the JDBC driver for database connectivity
+
+The Ignite artifact versions must match your Apache Ignite cluster version.
 
 **Maven:**
 
 ```xml
+<properties>
+    <ignite.version>3.1.0</ignite.version>
+</properties>
+
+<!-- Spring Data JDBC framework -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jdbc</artifactId>
+</dependency>
+
+<!-- Ignite SQL dialect for Spring Data -->
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>spring-data-ignite</artifactId>
-    <version>3.0.0</version>
+    <version>${ignite.version}</version>
 </dependency>
+
+<!-- Ignite JDBC driver -->
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-jdbc</artifactId>
-    <version>3.0.0</version>
+    <version>${ignite.version}</version>
 </dependency>
 ```
 
 **Gradle:**
 
 ```groovy
-implementation 'org.apache.ignite:spring-data-ignite:3.0.0'
-implementation 'org.apache.ignite:ignite-jdbc:3.0.0'
+ext {
+    igniteVersion = '3.1.0'
+}
+
+// Spring Data JDBC framework
+implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+
+// Ignite SQL dialect for Spring Data
+implementation "org.apache.ignite:spring-data-ignite:${igniteVersion}"
+
+// Ignite JDBC driver
+implementation "org.apache.ignite:ignite-jdbc:${igniteVersion}"
 ```
 
+:::note Version Matching
+The `spring-data-ignite` and `ignite-jdbc` artifacts are released as part of Apache Ignite, so their versions match the Ignite release version. For Ignite 3.1.0, use version `3.1.0` for both artifacts.
+:::
+
 ## Configuration
+
+### Datasource Properties
 
 Configure the JDBC datasource in `application.properties`:
 
@@ -52,6 +87,18 @@ For multiple nodes:
 ```properties
 spring.datasource.url=jdbc:ignite:thin://node1:10800,node2:10800,node3:10800
 ```
+
+### SQL Dialect Registration
+
+Spring Data JDBC needs to generate database-specific SQL for operations like pagination, identity columns, and certain functions. The `spring-data-ignite` artifact includes an `IgniteDialectProvider` that teaches Spring Data how to generate Ignite-compatible SQL.
+
+The dialect provider is registered via Spring's SPI mechanism. Create the file `src/main/resources/META-INF/spring.factories` with the following content:
+
+```properties
+org.springframework.data.jdbc.repository.config.DialectResolver$JdbcDialectProvider=org.apache.ignite.data.IgniteDialectProvider
+```
+
+Without this configuration, Spring Data falls back to generic ANSI SQL, which works for basic queries but may fail for database-specific operations.
 
 ## Application Setup
 
@@ -74,6 +121,7 @@ Entities map to Ignite tables. Use Spring Data annotations to define the mapping
 
 ```java
 import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 @Table("PERSON")
@@ -84,12 +132,16 @@ public class Person {
     private String name;
     private String email;
 
+    @Column("COUNTRYCODE")
+    private String countryCode;  // Maps to COUNTRYCODE column
+
     public Person() {}
 
-    public Person(Long id, String name, String email) {
+    public Person(Long id, String name, String email, String countryCode) {
         this.id = id;
         this.name = name;
         this.email = email;
+        this.countryCode = countryCode;
     }
 
     // Getters and setters
@@ -99,6 +151,8 @@ public class Person {
     public void setName(String name) { this.name = name; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
 }
 ```
 
@@ -108,9 +162,16 @@ Create the corresponding table in Ignite before using the repository:
 CREATE TABLE PERSON (
     id BIGINT PRIMARY KEY,
     name VARCHAR,
-    email VARCHAR
+    email VARCHAR,
+    COUNTRYCODE VARCHAR
 );
 ```
+
+Key annotations:
+
+- `@Table` maps the class to a specific table name
+- `@Id` marks the primary key field
+- `@Column` maps a field to a column when names differ (Java's `countryCode` to SQL's `COUNTRYCODE`). Fields without `@Column` map by convention based on field name.
 
 ## Repository Definition
 
