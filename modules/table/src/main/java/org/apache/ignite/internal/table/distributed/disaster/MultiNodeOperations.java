@@ -33,8 +33,9 @@ class MultiNodeOperations {
 
     private final AtomicBoolean shouldPoll = new AtomicBoolean(true);
 
+    /** Returns ids of all tracked operations. */
     Set<UUID> operationsIds() {
-        return operationsById.keySet();
+        return Set.copyOf(operationsById.keySet());
     }
 
     /** Adds new operation to track. Requires new polling request to be sent. */
