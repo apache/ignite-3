@@ -1435,6 +1435,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+
+    /**
+     * Mark component as stopping.
+     */
     public void markAsStopping() {
         if (raftService == null) {
             return;

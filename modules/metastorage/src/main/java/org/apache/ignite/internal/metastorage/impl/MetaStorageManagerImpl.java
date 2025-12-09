@@ -1419,6 +1419,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark component as stopping.
+     */
     public void markAsStopping() {
         metaStorageSvcFut.thenAccept(MetaStorageServiceImpl::markAsStopping);
     }

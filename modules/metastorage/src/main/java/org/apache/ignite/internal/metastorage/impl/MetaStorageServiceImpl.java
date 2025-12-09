@@ -403,6 +403,9 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark component as stopping.
+     */
     void markAsStopping() {
         context.raftService().markAsStopping();
     }
