@@ -76,7 +76,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -126,7 +125,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -505,7 +503,7 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    Executors.newSingleThreadScheduledExecutor(),
+                    executor,
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
             );
@@ -625,7 +623,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
     }
@@ -693,7 +690,6 @@ public class ItTxTestCluster {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -882,67 +878,44 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             SchemaRegistry schemaRegistry
     ) {
-        if (colocationEnabled()) {
-            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
 
-            var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
-                    k -> new HashMap<>());
+        var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
+                k -> new HashMap<>());
 
-            ZonePartitionRaftListener zonePartitionRaftListener = nodeSpecificZonePartitionRaftGroupListeners.computeIfAbsent(
-                    zonePartitionId,
-                    k -> new ZonePartitionRaftListener(
-                            zonePartitionId,
-                            txStateStorage,
-                            txManagers.get(assignment),
-                            safeTimeTracker,
-                            storageIndexTracker,
-                            mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
-                            partitionOperationsExecutor
-                    )
-            );
+        ZonePartitionRaftListener zonePartitionRaftListener = nodeSpecificZonePartitionRaftGroupListeners.computeIfAbsent(
+                zonePartitionId,
+                k -> new ZonePartitionRaftListener(
+                        zonePartitionId,
+                        txStateStorage,
+                        txManagers.get(assignment),
+                        safeTimeTracker,
+                        storageIndexTracker,
+                        mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
+                        partitionOperationsExecutor
+                )
+        );
 
-            PartitionListener tablePartitionRaftListener = new PartitionListener(
-                    txManagers.get(assignment),
-                    partitionDataStorage,
-                    storageUpdateHandler,
-                    txStateStorage,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    schemaRegistry,
-                    mock(IndexMetaStorage.class),
-                    clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor,
-                    placementDriver,
-                    clockServices.get(assignment),
-                    new SystemPropertiesNodeProperties(),
-                    zonePartitionId
-            );
+        PartitionListener tablePartitionRaftListener = new PartitionListener(
+                txManagers.get(assignment),
+                partitionDataStorage,
+                storageUpdateHandler,
+                txStateStorage,
+                safeTimeTracker,
+                catalogService,
+                schemaRegistry,
+                mock(IndexMetaStorage.class),
+                clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
+                mock(MinimumRequiredTimeCollectorService.class),
+                partitionOperationsExecutor,
+                placementDriver,
+                clockServices.get(assignment),
+                zonePartitionId
+        );
 
-            zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
+        zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
 
-            return zonePartitionRaftListener;
-        } else {
-            return new PartitionListener(
-                    txManagers.get(assignment),
-                    partitionDataStorage,
-                    storageUpdateHandler,
-                    txStateStorage,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    schemaRegistry,
-                    mock(IndexMetaStorage.class),
-                    clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor,
-                    placementDriver,
-                    clockServices.get(assignment),
-                    new SystemPropertiesNodeProperties(),
-                    new TablePartitionId(tableId, partId)
-            );
-        }
+        return zonePartitionRaftListener;
     }
 
     /**
@@ -990,7 +963,6 @@ public class ItTxTestCluster {
                             clusterNodeResolver,
                             raftClient,
                             new NoOpFailureManager(),
-                            new SystemPropertiesNodeProperties(),
                             localNode,
                             partitionId
                     )
@@ -1001,8 +973,7 @@ public class ItTxTestCluster {
                     (RaftGroupService) raftGroupService,
                     txManager,
                     Runnable::run,
-                    // It's correct to have TablePartitionId here because it's table processor.
-                    new TablePartitionId(tableId, zonePartitionId.partitionId()),
+                    zonePartitionId,
                     tableId,
                     indexesLockers,
                     pkIndexStorage,
@@ -1031,7 +1002,7 @@ public class ItTxTestCluster {
                     raftClient,
                     txManagers.get(assignment),
                     Runnable::run,
-                    colocationEnabled() ? zonePartitionId : new TablePartitionId(tableId, zonePartitionId.partitionId()),
+                    zonePartitionId,
                     tableId,
                     indexesLockers,
                     pkIndexStorage,
@@ -1086,7 +1057,7 @@ public class ItTxTestCluster {
             RaftGroupService raftClient,
             TxManager txManager,
             Executor scanRequestExecutor,
-            PartitionGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
@@ -1132,7 +1103,6 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 lowWatermark,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
     }
@@ -1205,14 +1175,6 @@ public class ItTxTestCluster {
             assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
-        if (executor != null) {
-            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-        }
-
-        if (partitionOperationsExecutor != null) {
-            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
-        }
-
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
 
@@ -1276,6 +1238,14 @@ public class ItTxTestCluster {
             for (ClockWaiter clockWaiter : clockWaiters) {
                 assertThat(clockWaiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
+        }
+
+        if (executor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
+
+        if (partitionOperationsExecutor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
     }
 
@@ -1343,7 +1313,6 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TestMetricManager()
         );
 

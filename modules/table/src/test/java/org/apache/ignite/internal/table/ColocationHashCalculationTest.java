@@ -33,7 +33,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -150,7 +149,7 @@ public class ColocationHashCalculationTest {
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
         for (int i = 0; i < 10; ++i) {
             Column rndCol = schema.column(rnd.nextInt(schema.length()));
 
@@ -220,7 +219,7 @@ public class ColocationHashCalculationTest {
     }
 
     private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Tuple t = Tuple.create();
 

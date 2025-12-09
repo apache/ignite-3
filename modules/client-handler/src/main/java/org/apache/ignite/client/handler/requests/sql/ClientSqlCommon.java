@@ -31,6 +31,8 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -60,7 +62,16 @@ class ClientSqlCommon {
         out.packInt(asyncResultSet.currentPageSize());
 
         for (SqlRow row : asyncResultSet.currentPage()) {
-            // TODO IGNITE-18922 Avoid conversion, copy BinaryTuple from SQL to client.
+            if (row instanceof BinaryTupleContainer) {
+                BinaryTupleParser binaryTuple = ((BinaryTupleContainer) row).binaryTuple();
+                if (binaryTuple != null) {
+                    out.packBinaryTuple(binaryTuple);
+
+                    continue;
+                }
+            }
+
+            // Fall-back to conversion.
             var builder = new BinaryTupleBuilder(row.columnCount());
 
             for (int i = 0; i < cols.size(); i++) {

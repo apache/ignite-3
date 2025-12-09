@@ -166,6 +166,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
+import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -686,6 +687,7 @@ public class ClientInboundMessageHandler
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
+        DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -727,6 +729,10 @@ public class ClientInboundMessageHandler
             packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
             packer.packLongArray(sqlBatchException.updateCounters());
+        } else if (delayedAckException != null) {
+            packer.packInt(1); // 1 extension.
+            packer.packString(ErrorExtensions.DELAYED_ACK);
+            packer.packUuid(delayedAckException.txId());
         } else {
             packer.packNil(); // No extensions.
         }
@@ -1102,8 +1108,8 @@ public class ClientInboundMessageHandler
         boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
                 && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
-            LOG.info("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
+        if (primaryReplicasUpdated && LOG.isDebugEnabled()) {
+            LOG.debug("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 

@@ -66,24 +66,26 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync() => await StartInternalAsyncWithRetry(old: false, env: [], defaultPort: 10942);
+        public static async Task<JavaServer> StartAsync() => await StartInternalAsyncWithRetry(
+            async () => await StartInternalAsync(old: false, env: [], defaultPort: 10942));
 
-        public static async Task<JavaServer> StartOldAsync(string version, string workDir)
-        {
-            // Get random unused ports to avoid conflicts with other tests.
-            var ports = GetUnusedPorts(3);
+        public static async Task<JavaServer> StartOldAsync(string version, string workDir) =>
+            await StartInternalAsyncWithRetry(async () =>
+            {
+                // Get random unused ports to avoid conflicts with other tests.
+                var ports = GetUnusedPorts(3);
 
-            return await StartInternalAsyncWithRetry(
-                old: true,
-                env: new()
-                {
-                    { "IGNITE_OLD_SERVER_VERSION", version },
-                    { "IGNITE_OLD_SERVER_WORK_DIR", workDir },
-                    { "IGNITE_OLD_SERVER_PORT", ports[0].ToString(CultureInfo.InvariantCulture) },
-                    { "IGNITE_OLD_SERVER_HTTP_PORT", ports[1].ToString(CultureInfo.InvariantCulture) },
-                    { "IGNITE_OLD_SERVER_CLIENT_PORT", ports[2].ToString(CultureInfo.InvariantCulture) },
-                });
-        }
+                return await StartInternalAsync(
+                    old: true,
+                    env: new()
+                    {
+                        { "IGNITE_OLD_SERVER_VERSION", version },
+                        { "IGNITE_OLD_SERVER_WORK_DIR", workDir },
+                        { "IGNITE_OLD_SERVER_PORT", ports[0].ToString(CultureInfo.InvariantCulture) },
+                        { "IGNITE_OLD_SERVER_HTTP_PORT", ports[1].ToString(CultureInfo.InvariantCulture) },
+                        { "IGNITE_OLD_SERVER_CLIENT_PORT", ports[2].ToString(CultureInfo.InvariantCulture) },
+                    });
+            });
 
         public void Dispose()
         {
@@ -110,7 +112,7 @@ namespace Apache.Ignite.Tests
         }
 
         private static async Task<JavaServer> StartInternalAsyncWithRetry(
-            bool old, Dictionary<string, string?> env, int? defaultPort = null)
+            Func<Task<JavaServer>> startFunc)
         {
             int attempt = 0;
 
@@ -119,7 +121,7 @@ namespace Apache.Ignite.Tests
                 try
                 {
                     attempt++;
-                    return await StartInternalAsync(old, env, defaultPort);
+                    return await startFunc();
                 }
                 catch (Exception e)
                 {

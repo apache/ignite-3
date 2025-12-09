@@ -627,13 +627,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type",
+                "Statement of type \"Query\" is not allowed in current context",
                 () -> executeBatch("SELECT * FROM TEST", args));
 
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type",
+                "Statement of type \"DDL\" is not allowed in current context",
                 () -> executeBatch("CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args));
 
         // Check that statement parameters taken into account.

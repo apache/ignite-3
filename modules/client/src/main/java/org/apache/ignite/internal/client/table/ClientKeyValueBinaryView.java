@@ -74,7 +74,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     ClientKeyValueBinaryView(ClientTable tbl, ClientSql sql) {
         super(tbl, sql);
 
-        ser = new ClientTupleSerializer(tbl.tableId());
+        ser = new ClientTupleSerializer(tbl.tableId(), tbl::qualifiedName);
     }
 
     /** {@inheritDoc} */
@@ -91,7 +91,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
+                (s, r) -> ser.readValueTuple(s, r.in()),
                 null,
                 getPartitionAwarenessProvider(key),
                 tx);

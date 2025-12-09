@@ -73,7 +73,7 @@ public interface ConnectionProperties {
      *
      * @return Query timeout in seconds.
      */
-    Integer getQueryTimeout();
+    int getQueryTimeout();
 
     /**
      * Note: zero value means there is no limits.

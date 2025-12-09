@@ -43,6 +43,7 @@ import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.raft.configuration.RaftConfigurationSchema;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -66,6 +67,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
+    protected static final String ZONE_NAME = "TEST_ZONE";
+
     protected static final String TABLE_NAME = "TBL1";
 
     protected static final String COLUMN_KEY = "key";
@@ -97,8 +100,9 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                             + (i == 1 ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                             + "  clientConnector.metricsEnabled: true\n") : "")
                             + "  clientConnector.port: " + (10800 + i) + ",\n"
-                            + "  rest.port: " + (10300 + i) + "\n"
-                            + "  compute.threadPoolSize: 1\n"
+                            + "  rest.port: " + (10300 + i) + ",\n"
+                            + "  compute.threadPoolSize: 1,\n"
+                            + "  raft.retryTimeoutMillis: " + raftTimeoutMillis()
                             + "}"
             );
         }
@@ -124,7 +128,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         IgniteSql sql = startedNodes.get(0).sql();
 
-        sql.execute(null, "CREATE ZONE TEST_ZONE (REPLICAS " + replicas() + ", PARTITIONS " + PARTITIONS + ") STORAGE PROFILES ['"
+        sql.execute(null, "CREATE ZONE " + ZONE_NAME + " (REPLICAS " + replicas() + ", PARTITIONS " + PARTITIONS + ") STORAGE PROFILES ['"
                 + DEFAULT_STORAGE_PROFILE + "']");
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) ZONE TEST_ZONE");
@@ -185,6 +189,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
     protected long idleSafeTimePropagationDuration() {
         return DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
+    }
+
+    protected long raftTimeoutMillis() {
+        return new RaftConfigurationSchema().retryTimeoutMillis;
     }
 
     protected IgniteClient client() {

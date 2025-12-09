@@ -420,12 +420,22 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual("Job execution failed: java.lang.RuntimeException: Test exception: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
+            Assert.IsInstanceOf<IgniteServerException>(ex.InnerException);
+
+            var innerEx = (IgniteServerException)ex.InnerException!;
+            Assert.AreEqual("org.apache.ignite.compute.ComputeException", innerEx.ServerExceptionClass);
+            StringAssert.StartsWith(
+                "org.apache.ignite.compute.ComputeException: IGN-COMPUTE-9 Job execution failed: " +
+                "java.lang.RuntimeException: Test exception: foo-bar",
+                innerEx.ServerStackTrace);
 
             var str = ex.ToString();
 
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.executeAsync(PlatformTestNodeRunner.java:",
                 str);
+
+            StringAssert.Contains("---- End of server-side stack trace ----", str);
         }
 
         [Test]

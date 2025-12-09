@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.HASH_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.CRC_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_MARKER;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_MARKER;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -27,6 +30,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -37,6 +41,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.internal.util.FastCrc;
@@ -189,7 +194,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
                         WriteModeIndexMemTable memTable = recoverMemtable(segmentFile, segmentFilePath);
 
-                        indexFileManager.saveIndexMemtable(memTable.transitionToReadMode(), segmentFileOrdinal);
+                        indexFileManager.recoverIndexFile(memTable.transitionToReadMode(), segmentFileOrdinal);
                     }
                 }
             }
@@ -277,40 +282,67 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private @Nullable ByteBuffer getEntry(long groupId, long logIndex) throws IOException {
-        // First, read from the current segment file.
+        EntrySearchResult searchResult = getEntryFromCurrentMemtable(groupId, logIndex);
+
+        if (searchResult.searchOutcome() == SearchOutcome.CONTINUE_SEARCH) {
+            searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
+
+            if (searchResult.searchOutcome() == SearchOutcome.CONTINUE_SEARCH) {
+                searchResult = readFromOtherSegmentFiles(groupId, logIndex);
+            }
+        }
+
+        switch (searchResult.searchOutcome()) {
+            case SUCCESS: return searchResult.entryBuffer();
+            case NOT_FOUND: return null;
+            default: throw new IllegalStateException("Unexpected search outcome: " + searchResult.searchOutcome());
+        }
+    }
+
+    private EntrySearchResult getEntryFromCurrentMemtable(long groupId, long logIndex) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        if (segmentInfo != null) {
-            if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
-                return null;
-            }
-
-            int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
-
-            if (segmentPayloadOffset != 0) {
-                return currentSegmentFile.segmentFile().buffer().position(segmentPayloadOffset);
-            }
+        if (segmentInfo == null) {
+            return EntrySearchResult.continueSearch();
         }
 
-        ByteBuffer bufferFromCheckpointQueue = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
-
-        if (bufferFromCheckpointQueue != null) {
-            return bufferFromCheckpointQueue;
+        if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
+            return EntrySearchResult.notFound();
         }
 
-        return readFromOtherSegmentFiles(groupId, logIndex);
+        if (logIndex < segmentInfo.firstIndexKept()) {
+            // This is a prefix tombstone and it cuts off the log index we search for.
+            return EntrySearchResult.notFound();
+        }
+
+        int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
+
+        if (segmentPayloadOffset == MISSING_SEGMENT_FILE_OFFSET) {
+            return EntrySearchResult.continueSearch();
+        }
+
+        ByteBuffer entryBuffer = currentSegmentFile.segmentFile().buffer().position(segmentPayloadOffset);
+
+        return EntrySearchResult.success(entryBuffer);
     }
 
     void truncateSuffix(long groupId, long lastLogIndexKept) throws IOException {
         try (WriteBufferWithMemtable writeBufferWithMemtable = reserveBytesWithRollover(TRUNCATE_SUFFIX_RECORD_SIZE)) {
-            ByteBuffer segmentBuffer = writeBufferWithMemtable.buffer();
-
-            SegmentPayload.writeTruncateSuffixRecordTo(segmentBuffer, groupId, lastLogIndexKept);
+            SegmentPayload.writeTruncateSuffixRecordTo(writeBufferWithMemtable.buffer(), groupId, lastLogIndexKept);
 
             // Modify the memtable before write buffer is released to avoid races with checkpoint on rollover.
             writeBufferWithMemtable.memtable().truncateSuffix(groupId, lastLogIndexKept);
+        }
+    }
+
+    void truncatePrefix(long groupId, long firstLogIndexKept) throws IOException {
+        try (WriteBufferWithMemtable writeBufferWithMemtable = reserveBytesWithRollover(TRUNCATE_PREFIX_RECORD_SIZE)) {
+            SegmentPayload.writeTruncatePrefixRecordTo(writeBufferWithMemtable.buffer(), groupId, firstLogIndexKept);
+
+            // Modify the memtable before write buffer is released to avoid races with checkpoint on rollover.
+            writeBufferWithMemtable.memtable().truncatePrefix(groupId, firstLogIndexKept);
         }
     }
 
@@ -331,64 +363,47 @@ class SegmentFileManager implements ManuallyCloseable {
 
     /**
      * Returns the lowest log index for the given group present in the storage or {@code -1} if no such index exists.
+     *
+     * <p>This method is expected to be called without any ongoing load (e.g. on recovery), because it only reflects the state of the
+     * storage, not taking pending in-memory state into account.
      */
-    long firstLogIndexInclusive(long groupId) {
-        long logIndexFromMemtable = firstLogIndexFromMemtable(groupId);
-
-        long logIndexFromCheckpointQueue = checkpointer.firstLogIndexInclusive(groupId);
-
-        long logIndexFromIndexFiles = indexFileManager.firstLogIndexInclusive(groupId);
-
-        if (logIndexFromIndexFiles >= 0) {
-            return logIndexFromIndexFiles;
-        }
-
-        if (logIndexFromCheckpointQueue >= 0) {
-            return logIndexFromCheckpointQueue;
-        }
-
-        return logIndexFromMemtable;
-    }
-
-    private long firstLogIndexFromMemtable(long groupId) {
+    long firstLogIndexInclusiveOnRecovery(long groupId) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        if (segmentInfo == null || segmentInfo.size() == 0) {
-            return -1;
+        // We need to consult with the latest memtable in case it contains a prefix tombstone.
+        if (segmentInfo != null && segmentInfo.firstIndexKept() != -1) {
+            return segmentInfo.firstIndexKept();
         }
 
-        return segmentInfo.firstLogIndexInclusive();
+        long firstLogIndexFromIndexStorage = indexFileManager.firstLogIndexInclusive(groupId);
+
+        if (firstLogIndexFromIndexStorage != -1) {
+            return firstLogIndexFromIndexStorage;
+        }
+
+        return segmentInfo == null ? -1 : segmentInfo.firstLogIndexInclusive();
     }
 
     /**
      * Returns the highest possible exclusive log index for the given group or {@code -1} if no such index exists.
      *
      * <p>The highest log index currently present in the storage can be computed as {@code lastLogIndexExclusive - 1}.
+     *
+     * <p>This method is expected to be called without any ongoing load (e.g. on recovery), because it only reflects the state of the
+     * storage, not taking pending in-memory state into account.
      */
-    long lastLogIndexExclusive(long groupId) {
-        long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);
-
-        if (logIndexFromMemtable >= 0) {
-            return logIndexFromMemtable;
-        }
-
-        long logIndexFromCheckpointQueue = checkpointer.lastLogIndexExclusive(groupId);
-
-        if (logIndexFromCheckpointQueue >= 0) {
-            return logIndexFromCheckpointQueue;
-        }
-
-        return indexFileManager.lastLogIndexExclusive(groupId);
-    }
-
-    private long lastLogIndexFromMemtable(long groupId) {
+    long lastLogIndexExclusiveOnRecovery(long groupId) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        return segmentInfo == null ? -1 : segmentInfo.lastLogIndexExclusive();
+        if (segmentInfo != null) {
+            return segmentInfo.lastLogIndexExclusive();
+        }
+
+        return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
     /**
@@ -483,11 +498,11 @@ class SegmentFileManager implements ManuallyCloseable {
         return fileSize - HEADER_RECORD.length;
     }
 
-    private @Nullable ByteBuffer readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
+    private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
         SegmentFilePointer segmentFilePointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
 
         if (segmentFilePointer == null) {
-            return null;
+            return EntrySearchResult.notFound();
         }
 
         Path path = segmentFilesDir.resolve(segmentFileName(segmentFilePointer.fileOrdinal(), 0));
@@ -495,56 +510,57 @@ class SegmentFileManager implements ManuallyCloseable {
         // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
         SegmentFile segmentFile = SegmentFile.openExisting(path);
 
-        return segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+        ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+
+        return EntrySearchResult.success(buffer);
     }
 
-    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
-        ByteBuffer buffer = segmentFile.buffer();
-
-        validateSegmentFileHeader(buffer, segmentFilePath);
-
-        var memtable = new IndexMemTable(stripes);
-
-        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
-            int segmentFilePayloadOffset = buffer.position();
-
-            long groupId = buffer.getLong();
-
-            int payloadLength = buffer.getInt();
-
-            if (payloadLength == TRUNCATE_SUFFIX_RECORD_MARKER) {
-                long lastLogIndexKept = buffer.getLong();
-
-                memtable.truncateSuffix(groupId, lastLogIndexKept);
-
-                buffer.position(buffer.position() + HASH_SIZE_BYTES);
-            } else {
-                int endOfRecordPosition = buffer.position() + payloadLength + HASH_SIZE_BYTES;
-
-                long index = VarlenEncoder.readLong(buffer);
-
-                memtable.appendSegmentFileOffset(groupId, index, segmentFilePayloadOffset);
-
-                buffer.position(endOfRecordPosition);
-            }
+    private static boolean endOfSegmentReached(ByteBuffer buffer) {
+        if (buffer.remaining() < SWITCH_SEGMENT_RECORD.length) {
+            return true;
         }
 
-        return memtable;
+        var switchSegmentRecordBytes = new byte[SWITCH_SEGMENT_RECORD.length];
+
+        int originalPos = buffer.position();
+
+        buffer.get(switchSegmentRecordBytes);
+
+        buffer.position(originalPos);
+
+        return Arrays.equals(switchSegmentRecordBytes, SWITCH_SEGMENT_RECORD);
     }
 
     /**
      * Creates an index memtable from the given segment file. Unlike {@link #recoverMemtable} which is expected to only be called on
-     * "complete" segment files (i.e. those that has experienced a rollover), this method is expected to be called on the most recent,
+     * "complete" segment files (i.e. those that have experienced a rollover) this method is expected to be called on the most recent,
      * possibly incomplete segment file.
      */
     private WriteModeIndexMemTable recoverLatestMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        return recoverMemtable(segmentFile, segmentFilePath, true);
+    }
+
+    /**
+     * Creates an index memtable from the given segment file. This method is expected to be called only on "complete" segment files
+     * (i.e. those that have experienced a rollover).
+     *
+     * <p>This method skips CRC validation, because it is used to identify the end of incomplete segment files (and, by definition, this can
+     * never happen during this method's invocation), not to validate storage integrity.
+     */
+    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        // We skip CRC validation during recovery of already "rollovered" segment files, because CRC validation is only used to find an end
+        // of an incomplete segment file, not to check for storage integrity.
+        return recoverMemtable(segmentFile, segmentFilePath, false);
+    }
+
+    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath, boolean validateCrc) {
         ByteBuffer buffer = segmentFile.buffer();
 
         validateSegmentFileHeader(buffer, segmentFilePath);
 
         var memtable = new IndexMemTable(stripes);
 
-        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+        while (!endOfSegmentReached(buffer)) {
             int segmentFilePayloadOffset = buffer.position();
 
             long groupId = buffer.getLong();
@@ -561,11 +577,24 @@ class SegmentFileManager implements ManuallyCloseable {
                 buffer.position(segmentFilePayloadOffset);
 
                 // CRC violation signals the end of meaningful data in the segment file.
-                if (!isCrcValid(buffer, crcPosition)) {
+                if (validateCrc && !isCrcValid(buffer, crcPosition)) {
                     break;
                 }
 
                 memtable.truncateSuffix(groupId, lastLogIndexKept);
+            } else if (payloadLength == TRUNCATE_PREFIX_RECORD_MARKER) {
+                long firstLogIndexKept = buffer.getLong();
+
+                crcPosition = buffer.position();
+
+                buffer.position(segmentFilePayloadOffset);
+
+                // CRC violation signals the end of meaningful data in the segment file.
+                if (validateCrc && !isCrcValid(buffer, crcPosition)) {
+                    break;
+                }
+
+                memtable.truncatePrefix(groupId, firstLogIndexKept);
             } else {
                 crcPosition = buffer.position() + payloadLength;
 
@@ -574,14 +603,14 @@ class SegmentFileManager implements ManuallyCloseable {
                 buffer.position(segmentFilePayloadOffset);
 
                 // CRC violation signals the end of meaningful data in the segment file.
-                if (!isCrcValid(buffer, crcPosition)) {
+                if (validateCrc && !isCrcValid(buffer, crcPosition)) {
                     break;
                 }
 
                 memtable.appendSegmentFileOffset(groupId, index, segmentFilePayloadOffset);
             }
 
-            buffer.position(crcPosition + HASH_SIZE_BYTES);
+            buffer.position(crcPosition + CRC_SIZE_BYTES);
         }
 
         return memtable;
