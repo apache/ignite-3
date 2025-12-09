@@ -79,4 +79,9 @@ afterEvaluate {
       }
     }
   }
+
+  // Fix task dependency issue with Artifactory v5
+  tasks.matching { it.name == 'artifactoryDeploy' }.configureEach {
+    dependsOn tasks.matching { it.name in ['build', 'assemble', 'jar'] }
+  }
 }
