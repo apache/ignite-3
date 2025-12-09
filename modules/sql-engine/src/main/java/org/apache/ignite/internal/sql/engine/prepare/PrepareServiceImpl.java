@@ -1155,6 +1155,8 @@ public class PrepareServiceImpl implements PrepareService {
             assert seconds != null;
 
             if (!Objects.equals(seconds, value.oldValue())) {
+                // To observe actual values of statistics, plan cache updates should happen more frequently
+                // (plan update interval must be less than statistics auto refresh interval).
                 int interval = Math.max(1, seconds / 2);
                 schedule(interval);
             }
