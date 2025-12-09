@@ -1259,7 +1259,11 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),
                 logicalTopologyService,
-                new UnitsContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new UnitsClassLoaderFactory()),
+                new UnitsContextManager(
+                        deploymentManagerImpl,
+                        deploymentManagerImpl.deploymentUnitAccessor(),
+                        new UnitsClassLoaderFactory()
+                ),
                 computeExecutor,
                 computeCfg,
                 eventLog
