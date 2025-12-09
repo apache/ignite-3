@@ -108,7 +108,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(messagingService);
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("foo", 65535)));
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("foo", 0)));
 
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 

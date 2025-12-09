@@ -41,14 +41,6 @@ public class NetworkAddress {
      * @param port Port.
      */
     public NetworkAddress(String host, int port) {
-        if (host == null || host.isEmpty()) {
-            throw new IllegalArgumentException("Host address cannot be null or empty");
-        }
-
-        if (port < 1024 || port > 65535) {
-            throw new IllegalArgumentException("Invalid port number: " + port);
-        }
-
         this.host = host;
         this.port = port;
     }

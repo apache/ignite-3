@@ -109,7 +109,7 @@ class ScaleCubeTopologyServiceTest {
             @InjectExecutorService ExecutorService executor,
             Function<Member, InternalClusterNode> getter
     ) {
-        Member member = new Member(randomUUID().toString(), "test", Address.create("host", 1024), "default");
+        Member member = new Member(randomUUID().toString(), "test", Address.create("host", 1001), "default");
 
         AtomicBoolean proceed = new AtomicBoolean(true);
 

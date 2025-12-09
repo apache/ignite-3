@@ -132,13 +132,13 @@ import org.junit.jupiter.api.Test;
 public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTest {
     private static final Duration BUSY_WAIT_TIMEOUT = Duration.of(3, ChronoUnit.SECONDS);
 
-    private static final LogicalNode NODE1 = new LogicalNode(nodeId(1), "node1", new NetworkAddress("localhost", 1234));
+    private static final LogicalNode NODE1 = new LogicalNode(nodeId(1), "node1", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE2 = new LogicalNode(nodeId(2), "node2", new NetworkAddress("localhost", 1234));
+    private static final LogicalNode NODE2 = new LogicalNode(nodeId(2), "node2", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE3 = new LogicalNode(nodeId(3), "node3", new NetworkAddress("localhost", 1234));
+    private static final LogicalNode NODE3 = new LogicalNode(nodeId(3), "node3", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE4 = new LogicalNode(nodeId(4), "node4", new NetworkAddress("localhost", 1234));
+    private static final LogicalNode NODE4 = new LogicalNode(nodeId(4), "node4", new NetworkAddress("localhost", 123));
 
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
     private static final Pattern CATALOG_COMPACTION_ITERATION_HAS_FAILED = Pattern.compile(".*Catalog compaction iteration has failed.*");

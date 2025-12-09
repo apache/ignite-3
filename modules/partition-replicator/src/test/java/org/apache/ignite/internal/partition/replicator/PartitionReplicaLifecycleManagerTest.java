@@ -185,7 +185,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         String nodeName = testNodeName(testInfo, 0);
 
         when(topologyService.localMember())
-                .thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 65535)));
+                .thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyAwareRaftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 

@@ -68,7 +68,7 @@ public class ClusterServiceFactory {
     private InternalClusterNode nodeByName(String name) {
         return nodeByName.computeIfAbsent(
                 name,
-                key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1024))
+                key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
         );
     }
 

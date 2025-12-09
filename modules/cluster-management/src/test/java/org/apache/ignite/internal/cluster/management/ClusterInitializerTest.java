@@ -96,8 +96,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testNormalInit() {
-        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 1234));
-        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 4567));
+        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
+        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);

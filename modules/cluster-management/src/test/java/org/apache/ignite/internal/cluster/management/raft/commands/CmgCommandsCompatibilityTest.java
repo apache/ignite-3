@@ -152,7 +152,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
                 .id(uuid())
                 .name("name1")
                 .host("host1")
-                .port(1024)
+                .port(1000)
                 .userAttributes(Map.of("userKey1", "userVal1"))
                 .systemAttributes(Map.of("sysKey1", "sysVal1"))
                 .storageProfiles(List.of("profile1"))
