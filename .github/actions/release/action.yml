@@ -20,14 +20,14 @@ runs:
       run: |
         echo "Releasing version: ${{ steps.get-tag.outputs.tag }}"
 
-    # 3️⃣ Build & publish artifacts
+    # 1️⃣ Build & publish artifacts
     - shell: bash
       run: |
-        ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish --no-configuration-cache
+        ./gradlew build -x integrationTest artifactoryPublish --no-configuration-cache
 
-    # 4️⃣ Release (GitHub + Artifactory)
+    # 2️⃣ GitHub release
     - shell: bash
       run: |
-        ./gradlew ciPerformRelease \
-          -PprojectVersion=${{ steps.get-tag.outputs.tag }} \
-          --no-configuration-cache
+        ./gradlew githubRelease \
+        -PprojectVersion=${{ steps.get-tag.outputs.tag }} \
+        --no-configuration-cache
