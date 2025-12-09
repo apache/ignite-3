@@ -9,21 +9,25 @@ outputs:
 runs:
   using: "composite"
   steps:
-    # 1️⃣ Compute version via Shipkit (getVersion task)
+
+    # 1️⃣ Get version from Shipkit
     - id: get-tag
       shell: bash
       run: echo "::set-output name=tag::$(./gradlew -q getVersion)"
 
+    # 2️⃣ Print version
     - shell: bash
-      run:
+      run: |
         echo "Releasing version: ${{ steps.get-tag.outputs.tag }}"
 
-    # 2️⃣ Build + publish artifacts (non-dry-run)
+    # 3️⃣ Build & publish artifacts
     - shell: bash
-      run: ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish --no-configuration-cache
+      run: |
+        ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish --no-configuration-cache
 
-    # 3️⃣ Full release: version bump, GitHub Release, Artifactory release
+    # 4️⃣ Release (GitHub + Artifactory)
     - shell: bash
-      run: ./gradlew ciPerformRelease \
-        -PprojectVersion=${{ steps.get-tag.outputs.tag }} \
-        --no-configuration-cache
+      run: |
+        ./gradlew ciPerformRelease \
+          -PprojectVersion=${{ steps.get-tag.outputs.tag }} \
+          --no-configuration-cache
