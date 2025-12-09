@@ -24,27 +24,24 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 
 /** Used to poll statuses of multi node operations from other nodes. */
 class MultiNodeOperations {
     private final Map<UUID, CompletableFuture<Void>> operationsById = new ConcurrentHashMap<>();
 
-    /**
-     * Used to track if new request should be sent. Incremented when new operation is added or last request didn't return all operations.
-     * Decremented after new request is sent, by value last seen by the sender. If not zero, new request should be sent.
-     */
-    private final AtomicInteger accumulatedChanges = new AtomicInteger(0);
+    private final AtomicBoolean shouldPoll = new AtomicBoolean(true);
 
     Set<UUID> operationsIds() {
         return operationsById.keySet();
     }
 
-    /** Adds new operation to be tracked. Increments accumulated changes. */
+    /** Adds new operation to track. Requires new polling request to be sent. */
     void add(UUID operationId, CompletableFuture<Void> operationFuture) {
         operationsById.put(operationId, operationFuture);
-        accumulatedChanges.incrementAndGet();
+
+        shouldPoll.set(true);
     }
 
     /** Removes operation tracking. Doesn't affect versioning. */
@@ -52,24 +49,19 @@ class MultiNodeOperations {
         operationsById.remove(operationId);
     }
 
-    /** Returns number of accumulated changes since last request was sent. */
-    int accumulatedChanges() {
-        return accumulatedChanges.get();
-    }
-
     /** Returns operation future by its id. */
     CompletableFuture<Void> get(UUID operationId) {
         return operationsById.get(operationId);
     }
 
-    /** Decrements accumulated changes by the number of changes seen by the sender. */
-    void markLatestVersionSent(int sentVersion) {
-        accumulatedChanges.addAndGet(-sentVersion);
+    /** Marks that new request should be sent. */
+    void triggerNextRequest() {
+        shouldPoll.set(true);
     }
 
-    /** Last request didn't return all requested operations, so we need to send a new one. */
-    void shouldSendNewRequest() {
-        accumulatedChanges.incrementAndGet();
+    /** Returns {@code true} if new request should be sent, and sets the {@code requestSent} flag. */
+    boolean startPollingIfNeeded() {
+        return shouldPoll.getAndSet(false);
     }
 
     /** Completes all tracked operations with a given exception. */

@@ -1188,13 +1188,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return result;
     }
 
-    /** Check status of ongoing multi node operations. Uses versioning to avoid sending identical requests. */
+    /**
+     * Sends status request to nodes participating in MULTI_NODE operations and completes corresponding futures in
+     * {@link #operationsByNodeName}. Doesn't send identical requests.
+    */
     private void pollMultiNodeOperations() {
         for (Map.Entry<String, MultiNodeOperations> entry : operationsByNodeName.entrySet()) {
-            int accumulatedChanges = entry.getValue().accumulatedChanges();
-
             // We already sent the latest version, skip.
-            if (accumulatedChanges == 0) {
+            if (!entry.getValue().startPollingIfNeeded()) {
                 continue;
             }
 
@@ -1209,7 +1210,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     .whenComplete((message, ex) -> {
                         if (ex != null) {
                             if (hasCause(ex, TimeoutException.class)) {
-                                operations.shouldSendNewRequest();
+                                operations.triggerNextRequest();
                             } else {
                                 operations.exceptionally(ex);
                             }
@@ -1235,11 +1236,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                         // Not all operations were completed, increase version to poll again.
                         if (!operations.operationsIds().isEmpty()) {
-                            operations.shouldSendNewRequest();
+                            operations.triggerNextRequest();
                         }
                     });
-
-            operations.markLatestVersionSent(accumulatedChanges);
         }
     }
 
