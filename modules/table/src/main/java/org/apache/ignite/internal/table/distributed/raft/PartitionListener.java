@@ -49,7 +49,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
-import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
@@ -109,8 +108,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final Set<String> currentGroupTopology = new HashSet<>();
 
-    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
-
     // Raft command handlers.
     private final CommandHandlers commandHandlers;
 
@@ -150,9 +147,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.realReplicationGroupId = realReplicationGroupId;
-
-        // TODO ignite-22522 Will be removed.
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(null, null);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());

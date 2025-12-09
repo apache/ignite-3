@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
-
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
