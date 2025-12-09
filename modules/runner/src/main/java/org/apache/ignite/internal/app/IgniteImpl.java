@@ -1765,6 +1765,7 @@ public class IgniteImpl implements Ignite {
 
         ExecutorService lifecycleExecutor = stopExecutor();
 
+        cmgMgr.markAsStopping();
         metaStorageMgr.markAsStopping();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22570

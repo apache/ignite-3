@@ -136,7 +136,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private final TopologyEventHandler topologyEventHandler;
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
-    private boolean stopping;
+    private volatile boolean stopping;
 
     /**
      * Constructor.
@@ -722,8 +722,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             long requestStartTime = currentTimeMillis();
 
             if (requestStartTime >= retryContext.stopTime()) {
-                fut.completeExceptionally(retryContext.createTimeoutException());
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+                if (stopping) {
+                    fut.completeExceptionally(new NodeStoppingException());
+                    return;
+                }
 
+                fut.completeExceptionally(retryContext.createTimeoutException());
                 return;
             }
 
