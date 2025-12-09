@@ -320,8 +320,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             future.completeExceptionally(new NodeStoppingException());
         }
 
-        operationsByNodeName.values().forEach(operations -> operations.exceptionally(new NodeStoppingException()));
-
         ScheduledFuture<?> pollingFuture = this.pollingFuture;
         if (pollingFuture != null) {
             pollingFuture.cancel(true);
@@ -1197,6 +1195,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         });
     }
 
+    /** If request node names is empty, returns all nodes in the logical topology. */
     private Collection<String> getNodeNames(Set<String> requestNodeNames) {
         if (requestNodeNames.isEmpty()) {
             return dzManager.logicalTopology().stream()

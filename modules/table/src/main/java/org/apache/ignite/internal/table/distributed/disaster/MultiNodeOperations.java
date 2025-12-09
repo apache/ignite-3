@@ -45,22 +45,22 @@ class MultiNodeOperations {
         shouldPoll.set(true);
     }
 
-    /** Removes operation tracking. Doesn't affect versioning. */
+    /** Removes operation tracking. Doesn't require new polling request. */
     void remove(UUID operationId) {
         operationsById.remove(operationId);
     }
 
-    /** Returns operation future by its id. */
+    /** Returns operation future by operation id. */
     CompletableFuture<Void> get(UUID operationId) {
         return operationsById.get(operationId);
     }
 
-    /** Marks that new request should be sent. */
+    /** Marks that new polling request should be sent. */
     void triggerNextRequest() {
         shouldPoll.set(true);
     }
 
-    /** Returns {@code true} if new request should be sent, and sets the {@code requestSent} flag. */
+    /** Returns {@code true} if new request should be sent, and unsets the {@link #shouldPoll} flag. */
     boolean startPollingIfNeeded() {
         return shouldPoll.getAndSet(false);
     }
