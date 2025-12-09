@@ -12,7 +12,5 @@ runs:
       shell: bash
     - run: echo Got version ${{ steps.get-tag.outputs.tag }}
       shell: bash
-    - run: ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish -Partifactory.dryRun --no-configuration-cache
-      shell: bash
-    - run: ./gradlew ciPerformRelease --no-configuration-cache
+    - run: ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish --no-configuration-cache
       shell: bash
