@@ -22,8 +22,6 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        classpath "org.shipkit:shipkit-auto-version:1.1.1"
-        classpath "org.shipkit:shipkit-changelog:1.1.1"
         classpath "org.jfrog.buildinfo:build-info-extractor-gradle:5.2.3"
     }
 
@@ -41,9 +39,8 @@ buildscript {
         }
     }
 }
-
 plugins {
-    id('idea')
+    id 'idea'
     alias(libs.plugins.ideaext)
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.aggregateJavadoc)
@@ -51,10 +48,19 @@ plugins {
     alias(libs.plugins.jmh) apply false
     alias(libs.plugins.jmhReport) apply false
     alias(libs.plugins.dockerRemoteApi) apply false
+
+    // ⭐ Shipkit plugins must be applied here
+    id "org.shipkit.shipkit-auto-version" version "1.1.1"
+    id "org.shipkit.shipkit-changelog" version "1.1.1"
+    id "org.shipkit.shipkit-github-release" version "1.1.1"
 }
 
+
 apply from: "$rootDir/buildscripts/javadoc.gradle"
-apply from: "./gradle/release.gradle"
+
+apply plugin: "org.shipkit.shipkit-auto-version"
+apply plugin: "org.shipkit.shipkit-changelog"
+apply plugin: "org.shipkit.shipkit-github-release"
 
 repositories {
     mavenCentral()
@@ -104,12 +110,32 @@ ext {
     ]
 
     product = "Apache Ignite"
-    projectVersion = project.hasProperty('projectVersion') ? project.property('projectVersion') : '3.0.0-SNAPSHOT'
-    def versionPattern = '\\d+\\.\\d+\\.\\d+(?:\\.(\\d+))?(?:-[0-9A-Za-z]+)?'
+
+    // -------------------------------------------------------
+    // Version Resolution Logic
+    // -------------------------------------------------------
+    // 1. LOCAL DEV → always use projectVersion from gradle.properties (SNAPSHOT)
+    // 2. CI RELEASE → Shipkit sets "shipkit.auto.version", so override
+    // -------------------------------------------------------
+
+    def localVersion = project.findProperty("projectVersion") ?: "3.2.0-SNAPSHOT"
+
+    def isShipkitActive =
+            project.hasProperty("shipkit.auto.version") ||
+                    project.ext.has("shipkit-auto-version.previous-tag")
+
+    if (isShipkitActive) {
+        projectVersion = rootProject.version    // Shipkit computed version
+    } else {
+        projectVersion = localVersion           // Deterministic version for tests
+    }
+
+    def versionPattern = '\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.]+)?'
     if (!projectVersion.matches(versionPattern)) {
-        throw new GradleException("Project version $projectVersion doesn't conform to the semver format")
+        throw new GradleException("Project version $projectVersion doesn't conform to semver")
     }
 }
+
 
 def trimQuotes(String input) {
     if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
@@ -119,7 +145,10 @@ def trimQuotes(String input) {
 }
 
 allprojects {
-    group 'org.apache.ignite'
+    group = 'org.apache.ignite'
+
+    // ⭐ Do NOT override version here.
+    // Shipkit has already set rootProject.version, so we propagate it:
     version = projectVersion
 
     tasks.withType(Jar).configureEach {
@@ -132,14 +161,10 @@ allprojects {
 
         if (project.hasProperty('extraJvmArgs')) {
             def prop = project.property('extraJvmArgs').toString().trim()
-
-            extraJvmArgs = trimQuotes(prop)
-                    .split(/\s+/)  // Split on whitespace
-                    .toList()
+            extraJvmArgs = trimQuotes(prop).split(/\s+/).toList()
         }
 
         jvmArgs += defaultJvmArgs + extraJvmArgs
-
         systemProperty 'jraft.available_processors', 1
 
         if (project.hasProperty('excludeTest')) {
@@ -147,17 +172,18 @@ allprojects {
         }
 
         def dockerVersion = findProperty("migration-tools.docker.version")
-        systemProperty "migration-tools.docker.version", dockerVersion != null ? dockerVersion : project.version
+        systemProperty "migration-tools.docker.version",
+                dockerVersion != null ? dockerVersion : project.version
 
         [
-            "tests.containers.support",
-            "e2e.testLimiter",
-            "ai2.sampleCluster.Xmx",
-            "ai2.sampleCluster.checkpointChecker.maxwaitseconds",
-            "ai2.sampleCluster.checkpointChecker.pollingseconds",
-            "ai2.sampleCluster.recreate.seeding.maxwaitseconds",
-            "ai2.sampleCluster.recreate.seeding.pollingseconds",
-            "seeddata.nCachesPerStint",
+                "tests.containers.support",
+                "e2e.testLimiter",
+                "ai2.sampleCluster.Xmx",
+                "ai2.sampleCluster.checkpointChecker.maxwaitseconds",
+                "ai2.sampleCluster.checkpointChecker.pollingseconds",
+                "ai2.sampleCluster.recreate.seeding.maxwaitseconds",
+                "ai2.sampleCluster.recreate.seeding.pollingseconds",
+                "seeddata.nCachesPerStint",
         ].forEach {
             def v = findProperty(it)
             if (v != null) {
@@ -183,7 +209,6 @@ allprojects {
     }
 
     //Temporary hack to disable caching of Test tasks.
-    //https://github.com/gradle/gradle/issues/9210
     tasks.withType(Test).configureEach {
         outputs.upToDateWhen { false }
     }
@@ -194,6 +219,7 @@ allprojects {
         }
     }
 }
+
 
 // Apply common configuration to all subprojects
 subprojects {
@@ -250,5 +276,11 @@ idea.project.settings {
         defaults(org.jetbrains.gradle.ext.Application) {
             jvmArgs = defaultJvmArgs.join(' ')
         }
+    }
+}
+
+tasks.register("getVersion") {
+    doLast {
+        println projectVersion
     }
 }

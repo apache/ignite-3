@@ -1,8 +1,3 @@
-apply plugin: 'org.shipkit.shipkit-auto-version'
-apply plugin: 'org.shipkit.shipkit-changelog'
-apply plugin: 'org.shipkit.shipkit-github-release'
-
-
 if (!project.hasProperty('disableShipkit')) {
     task checkGitHubToken {
         doFirst {
@@ -15,6 +10,13 @@ if (!project.hasProperty('disableShipkit')) {
 
     tasks.named("generateChangelog") {
         dependsOn checkGitHubToken
+
+        // ⭐ FIX: Required for Gradle 8+ to avoid implicit dependency crash
+        // Shipkit uses moduleInfo.json produced by extractModuleInfo, so make it explicit
+        if (project.tasks.findByName("extractModuleInfo") != null) {
+            dependsOn project.tasks.named("extractModuleInfo")
+        }
+
         previousRevision = project.ext.'shipkit-auto-version.previous-tag'
         githubToken = System.getenv("GITHUB_TOKEN")
         repository = System.getenv("GITHUB_REPOSITORY")
