@@ -2175,14 +2175,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         UUID txId = ((ReadWriteTransactionImpl) tx).id();
 
         for (TxManager txManager : txManagers()) {
-            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(
-                    old.txState(),
-                    new UUID(1, 2),
-                    old.commitPartitionId(),
-                    old.commitTimestamp(),
-                    old == null ? null : old.tx(),
-                    old == null ? null : old.isFinishedDueToTimeout()
-            ));
+            txManager.updateTxMeta(txId, old -> old == null ? null : old.mutate()
+                    .txCoordinatorId(new UUID(1, 2))
+                    .build()
+            );
         }
 
         // Read-only.

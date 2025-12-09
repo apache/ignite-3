@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -795,6 +796,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return estimatedSize;
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return Cursor.fromBareIterator(emptyIterator());
     }
 
     @Override

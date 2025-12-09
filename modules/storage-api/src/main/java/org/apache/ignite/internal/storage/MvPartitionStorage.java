@@ -346,6 +346,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long estimatedSize();
 
     /**
+     * Returns a cursor that traverses all row IDs of write intents registered with the write intents' list.
+     *
+     * <p>Volatile storages will always return an empty cursor.
+     *
+     * <p>Persistent storages might maintain the corresponding list or not. If they don't, they return an empty cursor as well.
+     * If they do, they do their best effort to return all registered write intents, but they might miss some of them that were
+     * created before the corresponding write intent's list was introduced.
+     *
+     * <p>The caller is responsible for closing the returned cursor.
+     *
+     * @return A {@link Cursor} of {@link RowId} objects representing the write intents.
+     */
+    Cursor<RowId> scanWriteIntents();
+
+    /**
      * Closes the storage.
      *
      * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.

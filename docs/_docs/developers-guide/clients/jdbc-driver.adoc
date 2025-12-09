@@ -70,8 +70,8 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 * `parameters` are optional parameters. The following parameters are available:
 ** `connectionTimeZone` - Client connection time-zone ID. This property can be used by the client to change the time zone of the session on the server. Affects the interpretation of dates in queries that do not specify the time zone explicitly. If not set, system default on client timezone will be used.
 ** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
-** `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
-** `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
+** `queryTimeoutSeconds` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
+** `connectionTimeoutMillis` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
 ** `backgroundReconnectIntervalMillis` - Specifies the wait time in milliseconds between runs of the background reconnection procedure. This procedure is used to restore old and establish new connections to cluster nodes. The value `0` can be used to disable background reconnection. Default value is `30000` (30 seconds).
 ** `username` - username for basic authentication to the cluster.
 ** `password` - user password for basic authentication to the cluster.
