@@ -346,7 +346,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
         @Override
         public ClusterNode node() {
-            return new PublicClusterNodeImpl(UUID.randomUUID(), nodeName, new NetworkAddress("local-host", 1));
+            return new PublicClusterNodeImpl(UUID.randomUUID(), nodeName, new NetworkAddress("local-host", 65535));
         }
 
         @Override
