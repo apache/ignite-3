@@ -1091,7 +1091,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
             publisher = tbl.internalTable().scan(PART_ID, primaryNode, operationContext);
         } else {
-            publisher = tbl.internalTable().partitionScan(PART_ID, tx);
+            publisher = tbl.internalTable().scan(PART_ID, tx);
         }
 
         List<BinaryRow> scannedRows = new ArrayList<>();

@@ -115,7 +115,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
 
             futures[i] = future;
 
-            Publisher<BinaryRow> scan = internalTable.partitionScan(i, null);
+            Publisher<BinaryRow> scan = internalTable.scan(i, null);
 
             Partition value = new HashPartition(i);
 

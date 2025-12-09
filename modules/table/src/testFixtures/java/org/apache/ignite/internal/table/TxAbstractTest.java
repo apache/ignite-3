@@ -1476,7 +1476,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         ),
                         OperationContext.create(TxContext.readOnly(internalTx))
                 )
-                : internalTable.partitionScan(0, internalTx);
+                : internalTable.scan(0, internalTx);
 
         List<Tuple> rows = new ArrayList<>();
 

@@ -345,9 +345,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
                 publisher = internalTable.scan(PART_ID, primaryNode, idxId, IndexScanCriteria.lookup(exactKey), opCtx);
             }
         } else if (idxId == null) {
-            publisher = unwrappedTable.internalTable().partitionScan(PART_ID, tx);
+            publisher = unwrappedTable.internalTable().scan(PART_ID, tx);
         } else if (exactKey == null) {
-            publisher = unwrappedTable.internalTable().indexScan(PART_ID, tx, idxId, IndexScanCriteria.unbounded());
+            publisher = unwrappedTable.internalTable().scan(PART_ID, tx, idxId, IndexScanCriteria.unbounded());
         } else {
             ReadWriteTransactionImpl rwTx = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 

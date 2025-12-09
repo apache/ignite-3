@@ -1618,30 +1618,26 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public Publisher<BinaryRow> partitionScan(
+    public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx
     ) {
-        validatePartitionIndex(partId);
-
-        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
-
-        return readWriteScan(partId, actualTx, null, null);
+        return scan(partId, tx, null, null);
     }
 
     @Override
-    public Publisher<BinaryRow> indexScan(
+    public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            int indexId,
+            Integer indexId,
             IndexScanCriteria.Range criteria
     ) {
+
+        assert (criteria != null) == (indexId != null) : "Index scan requires both indexId and criteria, or neither.";
 
         validatePartitionIndex(partId);
 
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
-
-        assert !actualTx.isReadOnly();
 
         return readWriteScan(partId, actualTx, indexId, criteria);
     }

@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link InternalTable#partitionScan(int, InternalTransaction)}.
+ * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** Timestamp tracker. */
@@ -46,7 +46,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
     @Override
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         if (tx == null) {
-            return internalTbl.partitionScan(part, null);
+            return internalTbl.scan(part, null);
         }
 
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(new ZonePartitionId(zoneId, part));
