@@ -60,7 +60,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
@@ -72,9 +74,7 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
-import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -624,17 +624,14 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        ConnectionManager connectionManager = new ConnectionManager(
-                networkConfig.value(),
+        ConnectionManager connectionManager = new TestConnectionManager(
+                networkConfig,
                 serializationService,
-                node.name(),
-                node.id(),
+                node,
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
-                initiatorHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
-                channelTypeRegistry,
-                new DefaultIgniteProductVersionSource()
+                beforeHandshake
         );
         connectionManager.start();
         connectionManager.setLocalNode(node);
@@ -646,39 +643,61 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactoryAdding(
-            Runnable beforeHandshake,
-            NettyBootstrapFactory bootstrapFactory,
-            StaleIdDetector staleIdDetector,
-            ClusterIdSupplier clusterIdSupplier
-    ) {
-        return new RecoveryInitiatorHandshakeManagerFactory() {
-            @Override
-            public RecoveryInitiatorHandshakeManager create(
-                    InternalClusterNode localNode,
-                    short connectionId,
-                    RecoveryDescriptorProvider recoveryDescriptorProvider
-            ) {
-                return new RecoveryInitiatorHandshakeManager(
-                        localNode,
-                        connectionId,
-                        recoveryDescriptorProvider,
-                        bootstrapFactory.handshakeEventLoopSwitcher(),
-                        staleIdDetector,
-                        clusterIdSupplier,
-                        channel -> {},
-                        () -> false,
-                        new DefaultIgniteProductVersionSource()
-                ) {
-                    @Override
-                    protected void finishHandshake() {
-                        beforeHandshake.run();
+    private class TestConnectionManager extends ConnectionManager {
+        private final Runnable beforeHandshake;
 
-                        super.finishHandshake();
-                    }
-                };
-            }
-        };
+        private TestConnectionManager(
+                NetworkConfiguration networkConfig,
+                SerializationService serializationService,
+                InternalClusterNode node,
+                NettyBootstrapFactory bootstrapFactory,
+                StaleIdDetector staleIdDetector,
+                ClusterIdSupplier clusterIdSupplier,
+                Runnable beforeHandshake
+        ) {
+            super(
+                    networkConfig.value(),
+                    serializationService,
+                    node.name(),
+                    node.id(),
+                    bootstrapFactory,
+                    staleIdDetector,
+                    clusterIdSupplier,
+                    DefaultMessagingServiceTest.this.channelTypeRegistry,
+                    new DefaultIgniteProductVersionSource(),
+                    DefaultMessagingServiceTest.this.topologyService,
+                    DefaultMessagingServiceTest.this.failureProcessor
+            );
+
+            this.beforeHandshake = beforeHandshake;
+        }
+
+        @Override
+        protected RecoveryInitiatorHandshakeManager newRecoveryInitiatorHandshakeManager(
+                short connectionId,
+                InternalClusterNode localNode
+        ) {
+            return new RecoveryInitiatorHandshakeManager(
+                    localNode,
+                    connectionId,
+                    descriptorProvider,
+                    bootstrapFactory.handshakeEventLoopSwitcher(),
+                    staleIdDetector,
+                    clusterIdSupplier,
+                    channel -> {},
+                    () -> false,
+                    new DefaultIgniteProductVersionSource(),
+                    this.topologyService,
+                    new FailureManager(new NoOpFailureHandler())
+            ) {
+                @Override
+                protected void finishHandshake() {
+                    beforeHandshake.run();
+
+                    super.finishHandshake();
+                }
+            };
+        }
     }
 
     private static String localHostName() {

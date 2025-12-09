@@ -37,6 +37,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -105,6 +106,9 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
+    /** Cluster topology service. */
+    protected final TopologyService topologyService;
+
     /**
      * Constructor.
      *
@@ -113,6 +117,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
+     * @param topologyService Cluster topology service.
      */
     public RecoveryAcceptorHandshakeManager(
             InternalClusterNode localNode,
@@ -123,7 +128,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource, TopologyService topologyService
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -133,6 +138,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
+        this.topologyService = topologyService;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {

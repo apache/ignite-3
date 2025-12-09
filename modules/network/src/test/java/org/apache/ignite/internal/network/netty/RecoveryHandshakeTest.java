@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.embedded.EmbeddedChannel;
@@ -38,12 +39,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -100,6 +104,8 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     private static final TestMessagesFactory TEST_MESSAGES_FACTORY = new TestMessagesFactory();
 
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
+
+    protected final TopologyService topologyService = mock(TopologyService.class);
 
     @Test
     public void testHandshake() throws Exception {
@@ -769,7 +775,9 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                topologyService,
+                new FailureManager(new NoOpFailureHandler())
         );
     }
 
@@ -802,7 +810,8 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                topologyService
         );
     }
 
