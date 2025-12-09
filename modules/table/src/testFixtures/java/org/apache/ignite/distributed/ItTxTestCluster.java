@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
@@ -128,8 +127,6 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -658,8 +655,8 @@ public class ItTxTestCluster {
                 .map(a -> a.stream().map(Assignment::consistentId).collect(toSet()))
                 .collect(toList());
 
-        List<ReplicationGroupId> grpIds = IntStream.range(0, assignments.size())
-                .mapToObj(i -> colocationEnabled() ? new ZonePartitionId(predefinedZoneId, i) : new TablePartitionId(tableId, i))
+        List<ZonePartitionId> grpIds = IntStream.range(0, assignments.size())
+                .mapToObj(i -> new ZonePartitionId(predefinedZoneId, i))
                 .collect(toList());
 
         List<CompletableFuture<?>> partitionReadyFutures = new ArrayList<>();
@@ -707,7 +704,7 @@ public class ItTxTestCluster {
 
             PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
-            ReplicationGroupId grpId = grpIds.get(p);
+            ZonePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
                 int partId = p;
@@ -823,7 +820,7 @@ public class ItTxTestCluster {
         allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
         for (int p = 0; p < assignments.size(); p++) {
-            ReplicationGroupId grpId = grpIds.get(p);
+            ZonePartitionId grpId = grpIds.get(p);
             CompletableFuture<ReplicaMeta> primaryFuture = placementDriver.getPrimaryReplica(grpId,
                     clockServices.values().iterator().next().now());
 
@@ -859,8 +856,8 @@ public class ItTxTestCluster {
     }
 
     /**
-     * If colocation is enabled given method creates zone raft listener for specific zone partition if it wasn't created previously and
-     * populates it with table raft processor. If colocation is disabled given method will create table raft listener.
+     * Creates zone raft listener for specific zone partition if it wasn't created previously and
+     * populates it with table raft processor.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24798 Simplify after switching main towards colocation.
     private RaftGroupListener getOrCreateAndPopulateRaftGroupListener(
@@ -916,8 +913,8 @@ public class ItTxTestCluster {
     }
 
     /**
-     * If colocation is enabled given method creates zone listener for specific zone partition if it wasn't created previously and
-     * populate it with table processor. If colocation is disabled given method will create table replica listener.
+     * Creates zone listener for specific zone partition if it wasn't created previously and
+     * populate it with table processor.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24798 Simplify after switching main towards colocation.
     private ReplicaListener getOrCreateAndPopulateReplicaListenerProvider(
@@ -944,81 +941,53 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             SchemaRegistry schemaRegistry
     ) {
-        if (colocationEnabled()) {
-            var nodeSpecificZonePartitionReplicaListeners = zonePartitionReplicaListeners.computeIfAbsent(assignment, k -> new HashMap<>());
+        var nodeSpecificZonePartitionReplicaListeners = zonePartitionReplicaListeners.computeIfAbsent(assignment, k -> new HashMap<>());
 
-            ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
-                    zonePartitionId,
-                    partitionId -> new ZonePartitionReplicaListener(
-                            txStatePartitionStorage,
-                            clockService,
-                            txManager,
-                            validationSchemasSource,
-                            schemaSyncService,
-                            catalogService,
-                            placementDriver,
-                            clusterNodeResolver,
-                            raftClient,
-                            new NoOpFailureManager(),
-                            localNode,
-                            partitionId
-                    )
-            );
+        ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
+                zonePartitionId,
+                partitionId -> new ZonePartitionReplicaListener(
+                        txStatePartitionStorage,
+                        clockService,
+                        txManager,
+                        validationSchemasSource,
+                        schemaSyncService,
+                        catalogService,
+                        placementDriver,
+                        clusterNodeResolver,
+                        raftClient,
+                        new NoOpFailureManager(),
+                        localNode,
+                        partitionId
+                )
+        );
 
-            Function<RaftCommandRunner, ReplicaTableProcessor> createReplicaListener = raftGroupService -> newReplicaListener(
-                    mvDataStorage,
-                    (RaftGroupService) raftGroupService,
-                    txManager,
-                    Runnable::run,
-                    zonePartitionId,
-                    tableId,
-                    indexesLockers,
-                    pkIndexStorage,
-                    secondaryIndexStorages,
-                    clockService,
-                    safeTime,
-                    txStatePartitionStorage,
-                    transactionStateResolver,
-                    storageUpdateHandler,
-                    validationSchemasSource,
-                    localNode,
-                    schemaSyncService,
-                    catalogService,
-                    placementDriver,
-                    clusterNodeResolver,
-                    resourcesRegistry,
-                    schemaRegistry
-            );
+        Function<RaftCommandRunner, ReplicaTableProcessor> createReplicaListener = raftGroupService -> newReplicaListener(
+                mvDataStorage,
+                (RaftGroupService) raftGroupService,
+                txManager,
+                Runnable::run,
+                zonePartitionId,
+                tableId,
+                indexesLockers,
+                pkIndexStorage,
+                secondaryIndexStorages,
+                clockService,
+                safeTime,
+                transactionStateResolver,
+                storageUpdateHandler,
+                validationSchemasSource,
+                localNode,
+                schemaSyncService,
+                catalogService,
+                placementDriver,
+                clusterNodeResolver,
+                resourcesRegistry,
+                schemaRegistry
+        );
 
-            zonePartitionReplicaListener.addTableReplicaProcessor(tableId, createReplicaListener);
+        zonePartitionReplicaListener.addTableReplicaProcessor(tableId, createReplicaListener);
 
-            return zonePartitionReplicaListener;
-        } else {
-            return newReplicaListener(
-                    mvDataStorage,
-                    raftClient,
-                    txManagers.get(assignment),
-                    Runnable::run,
-                    zonePartitionId,
-                    tableId,
-                    indexesLockers,
-                    pkIndexStorage,
-                    Map::of,
-                    clockServices.get(assignment),
-                    safeTime,
-                    txStatePartitionStorage,
-                    transactionStateResolver,
-                    storageUpdateHandler,
-                    new DummyValidationSchemasSource(schemaRegistry),
-                    nodeResolver.getByConsistentId(assignment),
-                    new AlwaysSyncedSchemaSyncService(),
-                    catalogService,
-                    placementDriver,
-                    nodeResolver,
-                    cursorRegistries.get(assignment),
-                    schemaRegistry
-            );
-        }
+        return zonePartitionReplicaListener;
     }
 
     private CompletableFuture<Replica> startReplica(
@@ -1026,7 +995,7 @@ public class ItTxTestCluster {
             RaftGroupListener raftGroupListener,
             Function<RaftGroupService, ReplicaListener> replicaListenerProvider,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            ReplicationGroupId replicaGrpId,
+            ZonePartitionId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
         CompletableFuture<Replica> replicaPendingFuture = replicaManagers.get(assignment).replica(replicaGrpId);
@@ -1049,7 +1018,6 @@ public class ItTxTestCluster {
         }
     }
 
-    // TODO sanpwc Remove txStatePartitionStorage parameter
     protected PartitionReplicaListener newReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftGroupService raftClient,
@@ -1062,7 +1030,6 @@ public class ItTxTestCluster {
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            TxStatePartitionStorage txStatePartitionStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
@@ -1143,7 +1110,7 @@ public class ItTxTestCluster {
         };
     }
 
-    private CompletableFuture<RaftGroupService> getRaftClientForGroup(ReplicationGroupId groupId) {
+    private CompletableFuture<RaftGroupService> getRaftClientForGroup(ZonePartitionId groupId) {
         int partId = 0;
 
         return replicaManagers.get(extractConsistentId(cluster.get(partId)))
@@ -1156,8 +1123,7 @@ public class ItTxTestCluster {
         TableImpl tableImpl = tables.get(tableName.objectName());
 
         return replicaManagers.get(extractConsistentId(cluster.get(partId)))
-                .replica(colocationEnabled() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), partId)
-                        : new TablePartitionId(tableImpl.tableId(), partId))
+                .replica(new ZonePartitionId(tableImpl.internalTable().zoneId(), partId))
                 .thenApply(replica -> replica.raftClient().leader())
                 .join();
     }
