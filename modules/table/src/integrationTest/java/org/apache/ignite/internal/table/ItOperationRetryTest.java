@@ -26,9 +26,7 @@ import static org.apache.ignite.internal.storage.pagememory.configuration.PageMe
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,14 +38,12 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -184,29 +180,5 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
         return primaryReplicaFut.join();
-    }
-
-    private ReplicaMeta movePrimaryReplicaToAnyNodeFrom(IgniteImpl leaseholderNode, ZonePartitionId replicationGroup) {
-        log.info("Move lease from {}",  leaseholderNode.name());
-
-        DefaultMessagingService messagingService = (DefaultMessagingService) leaseholderNode.clusterService().messagingService();
-
-        messagingService.dropMessages((nodeName, networkMessage) -> networkMessage instanceof StopLeaseProlongationMessage);
-
-        IgniteImpl nonLeaseholderNode = findNonLeaseholderNode(leaseholderNode);
-
-        ReplicaMeta newPrimaryReplicaMeta = Awaitility.waitAtMost(Duration.ofSeconds(20)).until(
-                () -> waitAndGetPrimaryReplica(nonLeaseholderNode , replicationGroup),
-                replicaMeta ->
-                        replicaMeta != null && !replicaMeta.getLeaseholder().equals(leaseholderNode.name())
-        );
-
-        messagingService.stopDroppingMessages();
-
-        assertNotNull(newPrimaryReplicaMeta);
-
-        log.info("New lease is on {}",  newPrimaryReplicaMeta.getLeaseholder());
-
-        return newPrimaryReplicaMeta;
     }
 }
