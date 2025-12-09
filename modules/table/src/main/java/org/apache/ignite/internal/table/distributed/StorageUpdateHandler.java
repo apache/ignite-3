@@ -429,9 +429,11 @@ public class StorageUpdateHandler {
                             break;
                         }
                     }
+
                     if (commit) {
                         modificationCounter.updateValue(modificationsCount, commitTimestamp);
                     }
+
                     if (shouldRelease) {
                         return false;
                     }
@@ -462,21 +464,6 @@ public class StorageUpdateHandler {
 
         if (!pendingRowIds.isEmpty()) {
             modificationCounter.updateValue(pendingRowIds.size(), commitTimestamp);
-        }
-    }
-
-    /**
-     * Aborts write intents created by the provided transaction.
-     *
-     * <p>Transaction that created write intent is expected to abort it.</p>
-     *
-     * @param txId Transaction ID.
-     * @param pendingRowIds Row IDs of write-intents to be aborted.
-     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
-     */
-    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
-        for (RowId rowId : pendingRowIds) {
-            performAbortWrite(txId, rowId, indexIds);
         }
     }
 
@@ -627,7 +614,7 @@ public class StorageUpdateHandler {
             // So if we got up to here, it means that the previous transaction was aborted,
             // but the storage was not cleaned after it.
             // Action: abort this write intent.
-            performAbortWrite(writeIntentTxId, Set.of(rowId), indexIds);
+            performAbortWrite(writeIntentTxId, rowId, indexIds);
         }
     }
 
