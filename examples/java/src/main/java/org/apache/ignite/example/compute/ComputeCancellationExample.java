@@ -134,7 +134,7 @@ public class ComputeCancellationExample  extends AbstractDeploymentUnitExample {
 
             System.out.println("\nConfiguring compute job...");
 
-            // 1) Check if deployment unit already exists
+             
             if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {

@@ -33,7 +33,7 @@ import org.apache.ignite.example.util.DeployComputeUnit;
  * <p>Find instructions on how to run the example in the {@code README.md}
  * file located in the {@code examples} directory root.</p>
  *
- * <h2>Execution Modes</h2>
+ *  <h2>Execution Modes</h2>
  *
  * <p>There are two modes of execution:</p>
  *
@@ -105,7 +105,6 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
 
             processDeploymentUnit(args);
 
-            // 1) Check if deployment unit already exists
             if (deploymentExists(DEPLOYMENT_UNIT_NATIVE, VERSION)) {
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {
@@ -116,7 +115,6 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
 
             NativeTypeSerializationExample.runNativeSerialization(client);
 
-            // 2) Check if deployment unit already exists
             if (deploymentExists(DEPLOYMENT_UNIT_TUPLE, VERSION)) {
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {
@@ -127,7 +125,6 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
 
             TupleSerializationExample.runTupleSerialization(client);
 
-            // 3) Check if deployment unit already exists
             if (deploymentExists(DEPLOYMENT_UNIT_AUTO, VERSION)) {
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {
@@ -138,7 +135,6 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
 
             PojoAutoSerializationExample.runPojoAutoSerialization(client);
 
-            // 4) Check if deployment unit already exists
             if (deploymentExists(DEPLOYMENT_UNIT_CUSTOM, VERSION)) {
                 System.out.println("Deployment unit already exists. Skip deploy.");
             } else {
