@@ -210,7 +210,7 @@ namespace Apache.Ignite.Tests.Transactions
 
         [Test]
         [Repeat(10)]
-        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate1()
         {
             var recordView = PocoView;
 
@@ -231,6 +231,7 @@ namespace Apache.Ignite.Tests.Transactions
             // Update data in a different (implicit) tx.
             await recordView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
+            // Somehow tx uses later observableTs - we should log it on the client to understand why.
             // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Sending request [requestId=76, op=TxBegin, remoteAddress=127.0.0.1:10942]
             // [10:55:39] [trce] [Apache.Ignite.Internal.ClientFailoverSocket] ObservableTs updated [prev=115684995196256257, current=115684995202744320]
             // [10:55:39] [trce] [Apache.Ignite.Internal.ClientSocket-4404] Received response [requestId=76, op=TxBegin, flags=0, remoteAddress=127.0.0.1:10942, duration=00:00:00.0009190, observableTs=115684995202744320]
