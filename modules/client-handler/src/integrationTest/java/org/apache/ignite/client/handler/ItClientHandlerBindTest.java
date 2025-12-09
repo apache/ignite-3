@@ -34,6 +34,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,6 +60,7 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @Disabled("IGNITE-26927: Test requires loopback alias 127.0.0.7, which is not available in all environments.")
     @Test
     void listenOnlySpecificAddress(
             TestInfo testInfo,
