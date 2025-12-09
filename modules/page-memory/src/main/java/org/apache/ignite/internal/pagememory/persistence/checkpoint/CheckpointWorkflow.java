@@ -209,12 +209,12 @@ class CheckpointWorkflow {
         AwaitTasksCompletionExecutor executor = callbackListenerThreadPool == null
                 ? null : new AwaitTasksCompletionExecutor(callbackListenerThreadPool, updateHeartbeat);
 
-        tracker.onBeforeCheckpointBeginStart();
-
         checkpointReadWriteLock.readLock();
 
         try {
             updateHeartbeat.run();
+
+            tracker.onBeforeCheckpointBeginStart();
 
             for (CheckpointListener listener : listeners) {
                 listener.beforeCheckpointBegin(curr, executor);
@@ -227,11 +227,11 @@ class CheckpointWorkflow {
             if (executor != null) {
                 executor.awaitPendingTasksFinished();
             }
+
+            tracker.onBeforeCheckpointBeginEnd();
         } finally {
             checkpointReadWriteLock.readUnlock();
         }
-
-        tracker.onBeforeCheckpointBeginEnd();
 
         tracker.onWriteLockWaitStart();
 
