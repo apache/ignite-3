@@ -258,7 +258,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testIndexedFieldEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId=2")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX,"<2>"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX, "<2>"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .check();
@@ -267,7 +267,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testIndexedFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId>21")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX,"(<21>..<null:INTEGER>)"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX, "(<21>..<null:INTEGER>)"))
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
     }
@@ -864,7 +864,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT * FROM T1 WHERE val <= 5")
                 .disableRules("LogicalTableScanConverterRule")
                 .matches(anyOf(
-                        // containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX", "[..<5>]"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX", "(<null:INTEGER>..<5>]")
                 ))
@@ -924,7 +924,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testNullCondition1() {
         assertQuery("SELECT * FROM T1 WHERE val is null")
                 .matches(anyOf(
-                        // containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX", "<null:INTEGER>"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX", "<null:INTEGER>")
                 ))
@@ -940,7 +940,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
                 .disableRules("LogicalTableScanConverterRule")
                 .matches(anyOf(
-                        // containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX", "<null:INTEGER>, [..<5>]"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX", "(<null:INTEGER>..<5>], <null:INTEGER>")
                 ))
@@ -959,7 +959,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
                 .disableRules("LogicalTableScanConverterRule")
                 .matches(anyOf(
-                        // containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX", "<null:INTEGER>, [<5>..<null:INTEGER>)"),
                         containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX", "<null:INTEGER>, [<5>..]")
                 ))

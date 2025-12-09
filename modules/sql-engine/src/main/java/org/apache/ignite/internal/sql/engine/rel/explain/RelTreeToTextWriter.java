@@ -387,6 +387,8 @@ class RelTreeToTextWriter {
 
                 break;
             }
+            default:
+                throw new IllegalStateException();
         }
     }
 
@@ -441,17 +443,15 @@ class RelTreeToTextWriter {
             return beautifyTuple(lowerBound);
         } else {
             return (includeLower ? "[" : "(")
-                    + beautifyTuple(lowerBound)
+                    + (lowerBound.isEmpty() ? "" : beautifyTuple(lowerBound))
                     + ".."
-                    + beautifyTuple(upperBound)
+                    + (upperBound.isEmpty() ? "" : beautifyTuple(upperBound))
                     + (includeUpper ? "]" : ")");
         }
     }
 
     private static String beautifyTuple(List<String> bound) {
-        return bound.isEmpty()
-                ? ""
-                : bound.stream().takeWhile(Objects::nonNull).collect(Collectors.joining(", ", OPEN_TUPLE_SYMBOL, CLOSE_TUPLE_SYMBOL));
+        return bound.stream().takeWhile(Objects::nonNull).collect(Collectors.joining(", ", OPEN_TUPLE_SYMBOL, CLOSE_TUPLE_SYMBOL));
     }
 
     private static String beautifyConditionalBound(RexNode bound, @Nullable RexNode condition) {
