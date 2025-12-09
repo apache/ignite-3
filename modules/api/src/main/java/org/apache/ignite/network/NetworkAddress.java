@@ -41,6 +41,12 @@ public class NetworkAddress {
      * @param port Port.
      */
     public NetworkAddress(String host, int port) {
+        Matcher matcher = ADDRESS_PATTERN.matcher(String.format("%s:%d", host, port));
+
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(String.format("Unable to parse the network address from host: %s, port %d", host, port));
+        }
+
         this.host = host;
         this.port = port;
     }
