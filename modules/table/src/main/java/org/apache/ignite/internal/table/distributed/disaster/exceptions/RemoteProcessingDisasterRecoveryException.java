@@ -23,6 +23,7 @@ import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 public class RemoteProcessingDisasterRecoveryException extends DisasterRecoveryException {
     private static final long serialVersionUID = 1L;
 
+    /** Constructor. */
     public RemoteProcessingDisasterRecoveryException(String message, String nodeName) {
         super(
                 DisasterRecovery.REMOTE_NODE_ERR,

@@ -137,8 +137,8 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalN
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
-import org.apache.ignite.internal.table.distributed.storage.NullMvTableStorage;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.RemoteProcessingDisasterRecoveryException;
+import org.apache.ignite.internal.table.distributed.storage.NullMvTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -319,6 +319,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         for (CompletableFuture<Void> future : ongoingOperationsById.values()) {
             future.completeExceptionally(new NodeStoppingException());
         }
+
+        operationsByNodeName.values().forEach(operations -> operations.exceptionally(new NodeStoppingException()));
 
         ScheduledFuture<?> pollingFuture = this.pollingFuture;
         if (pollingFuture != null) {
@@ -1183,13 +1185,25 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
         }
 
-        if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
-            return allOf(request.nodeNames()
-                    .stream()
-                    .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
-                    .toArray(CompletableFuture[]::new));
+        return operationFuture.thenCompose(v -> {
+            if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
+                return allOf(getNodeNames(request.nodeNames())
+                        .stream()
+                        .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
+                        .toArray(CompletableFuture[]::new));
+            } else {
+                return nullCompletedFuture();
+            }
+        });
+    }
+
+    private Collection<String> getNodeNames(Set<String> requestNodeNames) {
+        if (requestNodeNames.isEmpty()) {
+            return dzManager.logicalTopology().stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(toSet());
         } else {
-            return operationFuture;
+            return requestNodeNames;
         }
     }
 
@@ -1565,16 +1579,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         runAsync(() -> {
-            Map<UUID, String> operationStatuses = request.operationIds().stream()
+            Map<UUID, String> statusByOperationId = request.operationIds().stream()
                     .collect(toMap(Function.identity(), operationStatusByOperationId::get));
 
             DisasterRecoveryStatusResponseMessage response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusResponseMessage()
-                    .operationStatuses(operationStatuses)
+                    .operationStatuses(statusByOperationId)
                     .build();
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Responding with state for local partitions [response={}]", response);
-            }
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
