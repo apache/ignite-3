@@ -1,41 +1,65 @@
 if (!project.hasProperty('disableShipkit')) {
+
+    // ------------------------------------------
+    // CHECK TOKEN PRESENT
+    // ------------------------------------------
     task checkGitHubToken {
         doFirst {
-            if (System.getenv("GITHUB_TOKEN") == null) {
-                throw new Exception("Environment variable GITHUB_TOKEN not set.");
+            def token = System.getenv("GITHUB_TOKEN")
+            if (!token) {
+                throw new Exception("Environment variable GITHUB_TOKEN not set.")
             }
-            println "Using repository " + System.getenv("GITHUB_REPOSITORY")
+            println "Using repository: " + (System.getenv("GITHUB_REPOSITORY") ?: "linkedin/ignite-3")
         }
     }
 
+    // ------------------------------------------
+    // CONFIGURE CHANGELOG
+    // ------------------------------------------
     tasks.named("generateChangelog") {
         dependsOn checkGitHubToken
 
-        // ⭐ FIX: Required for Gradle 8+ to avoid implicit dependency crash
-        // Shipkit uses moduleInfo.json produced by extractModuleInfo, so make it explicit
         if (project.tasks.findByName("extractModuleInfo") != null) {
             dependsOn project.tasks.named("extractModuleInfo")
         }
 
         previousRevision = project.ext.'shipkit-auto-version.previous-tag'
         githubToken = System.getenv("GITHUB_TOKEN")
-        repository = System.getenv("GITHUB_REPOSITORY")
+
+        // Default repo name locally
+        repository = System.getenv("GITHUB_REPOSITORY") ?: "linkedin/ignite-3"
     }
 
+    // ------------------------------------------
+    // CONFIGURE GITHUB RELEASE
+    // ------------------------------------------
     tasks.named("githubRelease") {
         dependsOn tasks.named("generateChangelog")
         dependsOn checkGitHubToken
-        repository = System.getenv("GITHUB_REPOSITORY")
-        changelog = tasks.named("generateChangelog").get().outputFile
+
+        repository = System.getenv("GITHUB_REPOSITORY") ?: "linkedin/ignite-3"
+
+        // Shipkit automatically writes changelog.md
+        changelog = file("CHANGELOG.md")
+
         githubToken = System.getenv("GITHUB_TOKEN")
-        newTagRevision = System.getenv("GITHUB_SHA")
+        writeToken = System.getenv("GITHUB_TOKEN")
+
+        // MUST BE A TAG, NOT SHA
+        newTagRevision = project.version
     }
 }
 
-allprojects { p ->
+// ------------------------------------------
+// GLOBAL GROUP
+// ------------------------------------------
+allprojects {
     group = "com.linkedin.ignite-3"
 }
 
+// ------------------------------------------
+// APPLY CI RELEASE RULES
+// ------------------------------------------
 if (!project.hasProperty('disableShipkit')) {
     apply from: file("gradle/ci-release.gradle")
 }

@@ -60,7 +60,10 @@ apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 apply plugin: "org.shipkit.shipkit-auto-version"
 apply plugin: "org.shipkit.shipkit-changelog"
-apply plugin: "org.shipkit.shipkit-github-release"
+
+// MUST come after plugins so tasks exist
+apply from: "$rootDir/gradle/release.gradle"
+
 
 repositories {
     mavenCentral()
@@ -276,11 +279,5 @@ idea.project.settings {
         defaults(org.jetbrains.gradle.ext.Application) {
             jvmArgs = defaultJvmArgs.join(' ')
         }
-    }
-}
-
-tasks.register("getVersion") {
-    doLast {
-        println projectVersion
     }
 }

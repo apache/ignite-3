@@ -10,21 +10,37 @@ on:
       - '**.md'
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-22.04
 
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+      ARTIFACTORY_KEY: ${{ secrets.ARTIFACTORY_KEY }}
+
     steps:
-      - name: Checkout with full tag history
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install libncurses5 (required by packaging tasks)
+      - name: Install native libs
         run: sudo apt-get update && sudo apt-get install -y libncurses5
 
-      - name: Release
-        uses: ./.github/actions/release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
-          ARTIFACTORY_KEY: ${{ secrets.ARTIFACTORY_KEY }}
+      - name: Determine version
+        id: version
+        run: echo "version=$(./gradlew -q getVersion)" >> $GITHUB_OUTPUT
+
+      - name: Build + Publish to Artifactory
+        run: |
+          ./gradlew build \
+            -x integrationTest \
+            artifactoryPublish \
+            -PprojectVersion=${{ steps.version.outputs.version }} \
+            --no-configuration-cache
+
+      - name: GitHub Release
+        run: |
+          ./gradlew githubRelease \
+            -PprojectVersion=${{ steps.version.outputs.version }} \
+            --no-configuration-cache
