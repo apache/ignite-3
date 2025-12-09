@@ -18,13 +18,10 @@
 package org.apache.ignite.example.streaming;
 
 import static java.sql.DriverManager.getConnection;
-import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
-import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.List;
@@ -36,7 +33,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
-import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -106,8 +102,6 @@ public class MultiTableDataStreamerExample extends AbstractDeploymentUnitExample
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
-    private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
-
 
     public static void main(String[] arg) throws Exception {
 
@@ -117,14 +111,7 @@ public class MultiTableDataStreamerExample extends AbstractDeploymentUnitExample
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
-             
-            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, JAR_PATH);
-                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
-            }
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
 
             /* Create 'accounts' table via JDBC */
             try (

@@ -17,23 +17,18 @@
 
 package org.apache.ignite.example.serialization;
 
-import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
-import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
-import org.apache.ignite.example.util.DeployComputeUnit;
-
 /**
  * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
  *
  * <p>Find instructions on how to run the example in the {@code README.md}
  * file located in the {@code examples} directory root.</p>
  *
- *  <h2>Execution Modes</h2>
+ * <h2>Execution Modes</h2>
  *
  * <p>There are two modes of execution:</p>
  *
@@ -61,7 +56,7 @@ import org.apache.ignite.example.util.DeployComputeUnit;
  * ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
  * <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"
  *     }</pre>
- *
+ * <p>
  *     In this mode, {@code runFromIDE=false} indicates command-line execution,
  *     and {@code jarPath} must reference the examples JAR used as the
  *     deployment unit.
@@ -96,7 +91,6 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
     private static final String DEPLOYMENT_UNIT_AUTO = "pojoAutoSerializationExampleUnit";
     private static final String DEPLOYMENT_UNIT_TUPLE = "tupleSerializationExampleUnit";
     private static final String VERSION = "1.0.0";
-    private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
 
     public static void main(String[] args) throws Exception {
         try (IgniteClient client = IgniteClient.builder()
@@ -105,43 +99,16 @@ public class SerializationExample extends AbstractDeploymentUnitExample {
 
             processDeploymentUnit(args);
 
-            if (deploymentExists(DEPLOYMENT_UNIT_NATIVE, VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_NATIVE, VERSION, JAR_PATH);
-                System.out.println(" Deployment completed runNativeSerialization.");
-            }
-
+            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION, jarPath);
             NativeTypeSerializationExample.runNativeSerialization(client);
 
-            if (deploymentExists(DEPLOYMENT_UNIT_TUPLE, VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_TUPLE, VERSION, JAR_PATH);
-                System.out.println(" Deployment completed runTupleSerialization.");
-            }
-
+            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION, jarPath);
             TupleSerializationExample.runTupleSerialization(client);
 
-            if (deploymentExists(DEPLOYMENT_UNIT_AUTO, VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_AUTO, VERSION, JAR_PATH);
-                System.out.println(" Deployment completed runPojoAutoSerialization.");
-            }
-
+            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION, jarPath);
             PojoAutoSerializationExample.runPojoAutoSerialization(client);
 
-            if (deploymentExists(DEPLOYMENT_UNIT_CUSTOM, VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_CUSTOM, VERSION, JAR_PATH);
-                System.out.println(" Deployment completed runPojoCustomJsonSerialization.");
-            }
+            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION, jarPath);
             CustomPojoSerializationExample.runPojoCustomJsonSerialization(client);
 
         } finally {

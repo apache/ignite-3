@@ -17,17 +17,11 @@
 
 package org.apache.ignite.example.compute;
 
-import static java.sql.DriverManager.getConnection;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.BroadcastJobTarget.table;
-import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
-import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.BroadcastJobTarget;
@@ -74,7 +68,7 @@ import org.apache.ignite.table.QualifiedName;
  * ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
  * <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"
  *     }</pre>
- *
+ * <p>
  *     In this mode, {@code runFromIDE=false} indicates command-line execution,
  *     and {@code jarPath} must reference the examples JAR used as the
  *     deployment unit.
@@ -107,7 +101,6 @@ public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
-    private static final Path JAR_PATH = Path.of("build/libs/codeDeploymentExampleUnit-1.0.0.jar"); // Output jar
 
     /**
      * Main method of the example.
@@ -131,100 +124,80 @@ public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            //--------------------------------------------------------------------------------------
-            //
-            // Configuring compute job.
-            //
-            //--------------------------------------------------------------------------------------
 
-            try (
-                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.execute("CREATE SCHEMA IF NOT EXISTS CUSTOM_SCHEMA");
-                stmt.execute("CREATE TABLE IF NOT EXISTS CUSTOM_SCHEMA.MY_QUALIFIED_TABLE (" +
+            try {
+
+                client.sql().executeScript("DROP SCHEMA IF EXISTS CUSTOM_SCHEMA CASCADE;");
+                client.sql().executeScript("CREATE SCHEMA CUSTOM_SCHEMA");
+                client.sql().executeScript("CREATE TABLE CUSTOM_SCHEMA.MY_QUALIFIED_TABLE (" +
                         "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
 
-                stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC");
-                stmt.execute("CREATE TABLE IF NOT EXISTS PUBLIC.MY_TABLE (" +
+                client.sql().executeScript("CREATE SCHEMA IF NOT EXISTS PUBLIC");
+                client.sql().executeScript("CREATE TABLE IF NOT EXISTS PUBLIC.MY_TABLE (" +
                         "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
 
-                stmt.execute("CREATE TABLE IF NOT EXISTS PERSON (" +
+                client.sql().executeScript("CREATE TABLE PERSON (" +
                         "ID INT PRIMARY KEY, FIRST_NAME VARCHAR(100)," +
                         "LAST_NAME VARCHAR(100), AGE INT)");
 
-                stmt.execute("INSERT INTO PERSON VALUES " +
+                client.sql().executeScript("INSERT INTO PERSON VALUES " +
                         "(1, 'John', 'Doe', 36)," +
                         "(2, 'Jane', 'Smith', 35)," +
                         "(3, 'Robert', 'Johnson', 25)");
 
+                System.out.println("\nConfiguring compute job...");
+
+                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+
+                JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
+                        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                        .build();
+
+                BroadcastJobTarget target = table("Person");
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Executing compute job using configured jobTarget.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nExecuting compute job...");
+
+                client.compute().execute(target, job, "John");
+
+                System.out.println("\nCompute job executed...");
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Executing compute job using a custom by specifying a fully qualified table name .
+                //
+                //
+
+                QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
+                client.compute().execute(table(customSchemaTable),
+                        JobDescriptor.builder(HelloMessageJob.class)
+                                .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                                .build(), null
+                );
+
+                QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
+                client.compute().execute(table(customSchemaTableName),
+                        JobDescriptor.builder(HelloMessageJob.class)
+                                .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                                .build(), null
+                );
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+
+                System.out.println("Cleaning up resources");
+                undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+                /* Drop table */
+                System.out.println("\nDropping the table...");
+
+                client.sql().executeScript("DROP TABLE Person");
             }
-
-            System.out.println("\nConfiguring compute job...");
-
-             
-            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, JAR_PATH);
-                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
-            }
-
-            JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
-                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                    .build();
-
-            BroadcastJobTarget target = table("Person");
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Executing compute job using configured jobTarget.
-            //
-            //--------------------------------------------------------------------------------------
-
-            System.out.println("\nExecuting compute job...");
-
-            client.compute().execute(target, job, "John");
-
-            System.out.println("\nCompute job executed...");
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Executing compute job using a custom by specifying a fully qualified table name .
-            //
-            //
-
-            QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
-            client.compute().execute(table(customSchemaTable),
-                    JobDescriptor.builder(HelloMessageJob.class)
-                            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                            .build(), null
-            );
-
-            QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
-            client.compute().execute(table(customSchemaTableName),
-                    JobDescriptor.builder(HelloMessageJob.class)
-                            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                            .build(), null
-            );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-
-            System.out.println("Cleaning up resources");
-            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
-
-            /* Drop table */
-            System.out.println("\nDropping the table...");
-            try (
-                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE IF EXISTS Person");
-            }
-
-
         }
     }
 

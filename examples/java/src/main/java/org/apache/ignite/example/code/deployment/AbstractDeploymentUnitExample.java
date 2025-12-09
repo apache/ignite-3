@@ -9,20 +9,20 @@ import org.apache.ignite.example.util.DeployComputeUnit;
 public class AbstractDeploymentUnitExample {
 
     // Root path of ignite-examples/
-    protected static final Path projectRoot =
+    private static final Path projectRoot =
             Paths.get("").toAbsolutePath();
 
     // Compiled class output when running from IDE/CLI
-    protected static final Path DEFAULT_CLASSES_DIR =
+    private static final Path DEFAULT_CLASSES_DIR =
             projectRoot.resolve("examples/java/build/classes/java/main");
 
     // Default JAR output
-    protected static final Path DEFAULT_JAR_PATH =
+    private static final Path DEFAULT_JAR_PATH =
             Path.of("build/libs/deploymentunit-example-1.0.0.jar");
 
-    protected static volatile String jarPathAsString = "";
-    protected static volatile Path jarPath = DEFAULT_JAR_PATH;
-    protected static volatile boolean runFromIDE = true;
+    protected static String jarPathAsString = "";
+    protected static Path jarPath = DEFAULT_JAR_PATH;
+    protected static boolean runFromIDE = true;
     // ---------------------------------------------------
 
     /**
@@ -31,7 +31,7 @@ public class AbstractDeploymentUnitExample {
      * @param args Arguments passed to the deployment process.
      * @throws IOException if any error occurs.
      */
-    protected static synchronized void processDeploymentUnit(String[] args)
+    protected static void processDeploymentUnit(String[] args)
             throws IOException {
 
         Map<String, Object> p = DeployComputeUnit.processArguments(args);

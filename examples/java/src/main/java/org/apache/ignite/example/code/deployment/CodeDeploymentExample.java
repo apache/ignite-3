@@ -17,8 +17,7 @@
 
 package org.apache.ignite.example.code.deployment;
 
-import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
-import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import org.apache.ignite.client.IgniteClient;
@@ -108,13 +107,7 @@ public class CodeDeploymentExample extends AbstractDeploymentUnitExample {
 
             System.out.println("\nConfiguring compute job...");
 
-            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
-                System.out.println("Deployment unit already exists. Skip deploy.");
-            } else {
-                System.out.println("Deployment unit not found. Deploying...");
-                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
-                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
-            }
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
 
             JobDescriptor<String, String> job = JobDescriptor.builder(MyJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)).resultClass(String.class).build();
