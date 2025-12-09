@@ -1,8 +1,5 @@
 if (!project.hasProperty('disableShipkit')) {
 
-    // ------------------------------------------
-    // CHECK TOKEN PRESENT
-    // ------------------------------------------
     task checkGitHubToken {
         doFirst {
             def token = System.getenv("GITHUB_TOKEN")
@@ -13,9 +10,6 @@ if (!project.hasProperty('disableShipkit')) {
         }
     }
 
-    // ------------------------------------------
-    // CONFIGURE CHANGELOG
-    // ------------------------------------------
     tasks.named("generateChangelog") {
         dependsOn checkGitHubToken
 
@@ -25,41 +19,30 @@ if (!project.hasProperty('disableShipkit')) {
 
         previousRevision = project.ext.'shipkit-auto-version.previous-tag'
         githubToken = System.getenv("GITHUB_TOKEN")
-
-        // Default repo name locally
         repository = System.getenv("GITHUB_REPOSITORY") ?: "linkedin/ignite-3"
     }
 
-    // ------------------------------------------
-    // CONFIGURE GITHUB RELEASE
-    // ------------------------------------------
     tasks.named("githubRelease") {
         dependsOn tasks.named("generateChangelog")
         dependsOn checkGitHubToken
 
         repository = System.getenv("GITHUB_REPOSITORY") ?: "linkedin/ignite-3"
 
-        // Shipkit automatically writes changelog.md
-        changelog = file("CHANGELOG.md")
+        //This is the REAL fix
+        changelog = tasks.named("generateChangelog").get().outputFile
 
         githubToken = System.getenv("GITHUB_TOKEN")
         writeToken = System.getenv("GITHUB_TOKEN")
 
-        // MUST BE A TAG, NOT SHA
-        newTagRevision = project.version
+        // Correct behavior: tag points to this commit
+        newTagRevision = System.getenv("GITHUB_SHA") ?: "HEAD"
     }
 }
 
-// ------------------------------------------
-// GLOBAL GROUP
-// ------------------------------------------
 allprojects {
     group = "com.linkedin.ignite-3"
 }
 
-// ------------------------------------------
-// APPLY CI RELEASE RULES
-// ------------------------------------------
 if (!project.hasProperty('disableShipkit')) {
     apply from: file("gradle/ci-release.gradle")
 }

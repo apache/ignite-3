@@ -3,11 +3,11 @@ name: Create GitHub & Artifactory Release
 on:
   push:
     branches:
-      - master
       - main
+      - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
 
 jobs:
   release:
@@ -31,7 +31,7 @@ jobs:
         id: version
         run: echo "version=$(./gradlew -q getVersion)" >> $GITHUB_OUTPUT
 
-      - name: Build + Publish to Artifactory
+      - name: Build & Publish to Artifactory
         run: |
           ./gradlew build \
             -x integrationTest \
@@ -39,7 +39,7 @@ jobs:
             -PprojectVersion=${{ steps.version.outputs.version }} \
             --no-configuration-cache
 
-      - name: GitHub Release
+      - name: Github release
         run: |
           ./gradlew githubRelease \
             -PprojectVersion=${{ steps.version.outputs.version }} \
