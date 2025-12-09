@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 
 import java.net.InetAddress;
@@ -45,6 +44,7 @@ import org.apache.ignite.network.NetworkAddress;
  */
 public class StaticNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
+    private static final long RETRY_WAIT_FACTOR = 500;
 
     /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
@@ -97,15 +97,17 @@ public class StaticNodeFinder implements NodeFinder {
                 inetAddresses = InetAddress.getAllByName(host);
                 resolved = true;
             } catch (UnknownHostException e) {
-                if  (tryCount == maxTries) {
+                if (tryCount == maxTries) {
                     LOG.warn("Cannot resolve {}", host);
                     return ArrayUtils.STRING_EMPTY_ARRAY;
                 }
 
                 try {
-                    Thread.sleep(tryCount * 500L);
+                    Thread.sleep(tryCount * RETRY_WAIT_FACTOR);
                 } catch (InterruptedException ex) {
-                    throw new IgniteInternalException(INTERNAL_ERR, ex);
+                    Thread.currentThread().interrupt();
+
+                    return ArrayUtils.STRING_EMPTY_ARRAY;
                 }
             }
         } while (!resolved);
