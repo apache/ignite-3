@@ -24,12 +24,11 @@ import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
-import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
@@ -119,27 +117,48 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
 
         BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
-        storage.runConsistently(locker -> {
-            var rowUuids = new ArrayList<>(command.rowIds());
+        List<RowId> rowIds = command.rowIds().stream()
+                // Natural UUID order matches RowId order within the same partition.
+                .sorted()
+                .map(this::toRowId)
+                .collect(Collectors.toList());
+        @Nullable RowId lastRowId = last(rowIds);
 
-            // Natural UUID order matches RowId order within the same partition.
-            Collections.sort(rowUuids);
+        AtomicInteger rowIdsIterationIndex = new AtomicInteger(0);
+        boolean finished = false;
+        while (!finished) {
+            finished = storage.runConsistently(locker -> {
+                if (rowIds.isEmpty()) {
+                    // necessary to bump `nextRowIdToBuild` to null
+                    storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), Stream.of(), null);
+                } else {
+                    int index = rowIdsIterationIndex.get();
+                    while (index < rowIds.size()) {
+                        RowId rowId = rowIds.get(index);
+                        locker.lock(rowId);
+                        Stream<BinaryRowAndRowId> rowVersions = rowVersionChooser.chooseForBuildIndex(rowId)
+                                .stream()
+                                .map(row -> upgradeBinaryRow(binaryRowUpgrader, row));
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
-                    rowUuids,
-                    locker,
-                    rowVersionChooser,
-                    binaryRowUpgrader
-            );
+                        RowId nextRowIdToBuild = null;
+                        if (index != rowIds.size() - 1) {
+                            nextRowIdToBuild = rowIds.get(index + 1);
+                        } else if (!command.finish()) {
+                            nextRowIdToBuild = requireNonNull(lastRowId).increment();
+                        }
 
-            RowId nextRowIdToBuild = command.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
+                        storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), rowVersions, nextRowIdToBuild);
+                        index = rowIdsIterationIndex.incrementAndGet();
 
-            storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), buildIndexRowStream, nextRowIdToBuild);
-
-            storage.lastApplied(commandIndex, commandTerm);
-
-            return null;
-        });
+                        if (locker.shouldRelease() && index < rowIds.size()) {
+                            return false;
+                        }
+                    }
+                }
+                storage.lastApplied(commandIndex, commandTerm);
+                return true;
+            });
+        }
 
         if (command.finish()) {
             LOG.info(
@@ -169,22 +188,9 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         return new BinaryRowUpgrader(schemaRegistry, schema);
     }
 
-    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(
-            List<UUID> rowUuids,
-            Locker locker,
-            BuildIndexRowVersionChooser rowVersionChooser,
-            BinaryRowUpgrader binaryRowUpgrader
-    ) {
-        return rowUuids.stream()
-                .map(this::toRowId)
-                .peek(locker::lock)
-                .map(rowVersionChooser::chooseForBuildIndex)
-                .flatMap(Collection::stream)
-                .map(binaryRowAndRowId -> upgradeBinaryRow(binaryRowUpgrader, binaryRowAndRowId));
-    }
-
     private static BinaryRowAndRowId upgradeBinaryRow(BinaryRowUpgrader upgrader, BinaryRowAndRowId source) {
         BinaryRow sourceBinaryRow = source.binaryRow();
+        assert sourceBinaryRow != null : "rowId=" + source.rowId();
         BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
 
         return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());

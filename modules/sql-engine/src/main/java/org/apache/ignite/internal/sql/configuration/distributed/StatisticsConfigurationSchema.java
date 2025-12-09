@@ -20,18 +20,10 @@ package org.apache.ignite.internal.sql.configuration.distributed;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 
-/** Configuration schema for distributed sql endpoint subtree. */
+/** Configuration related to statistics . */
 @Config
-public class SqlDistributedConfigurationSchema {
-    /** Represent a configuration related to SQL planner. */
+public class StatisticsConfigurationSchema {
+    /** Auto-fresh settings. */
     @ConfigValue
-    public SqlPlannerDistributedConfigurationSchema planner;
-
-    /** Represent a configuration related to initial table creation. */
-    @ConfigValue
-    public CreateTableDefaultsConfigurationSchema createTable;
-
-    /** Represent a configuration related to statistics collection. */
-    @ConfigValue
-    public StatisticsConfigurationSchema statistics;
+    public StatisticsAutoRefreshConfigurationSchema autoRefresh;
 }

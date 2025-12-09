@@ -1598,8 +1598,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return writeLockAcquisitionFuture.thenCompose(stamp -> {
                 CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
-                //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24345
+                //  Partitions should be stopped on the assignments change event triggered by zone drop or alter.
+                //  Stop replica asynchronously, out of metastorage event pipeline.
                 for (int partitionId = 0; partitionId < partitions; partitionId++) {
                     CompletableFuture<Void> resourcesUnloadFuture;
 

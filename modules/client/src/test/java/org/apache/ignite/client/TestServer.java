@@ -106,6 +106,10 @@ public class TestServer implements AutoCloseable {
 
     private final FakeIgnite ignite;
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     /**
      * Constructor.
      *
@@ -151,6 +155,7 @@ public class TestServer implements AutoCloseable {
                 securityConfiguration,
                 port,
                 true,
+                null,
                 null
         );
     }
@@ -171,7 +176,8 @@ public class TestServer implements AutoCloseable {
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             boolean enableRequestHandling,
-            @Nullable BitSet features
+            @Nullable BitSet features,
+            String @Nullable [] listenAddresses
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -199,6 +205,7 @@ public class TestServer implements AutoCloseable {
                         .changePort(port != null ? port : getFreePort())
                         .changeIdleTimeoutMillis(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
+                        .changeListenAddresses(listenAddresses == null ? new String[0] : listenAddresses)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkExtensionConfiguration.KEY).network(), "TestServer-");
@@ -388,6 +395,99 @@ public class TestServer implements AutoCloseable {
             return serverSocket.getLocalPort();
         } catch (IOException e) {
             throw new IOError(e);
+        }
+    }
+
+    /**
+     * Builder.
+     */
+    public static class Builder {
+        private long idleTimeout = 1000;
+        private @Nullable FakeIgnite ignite;
+        private @Nullable Function<Integer, Boolean> shouldDropConnection;
+        private @Nullable Function<Integer, Integer> responseDelay;
+        private @Nullable String nodeName;
+        private UUID clusterId = UUID.randomUUID();
+        private @Nullable SecurityConfiguration securityConfiguration;
+        private @Nullable Integer port;
+        private boolean enableRequestHandling = true;
+        private @Nullable BitSet features;
+        private @Nullable String[] listenAddresses;
+
+        public Builder idleTimeout(long idleTimeout) {
+            this.idleTimeout = idleTimeout;
+            return this;
+        }
+
+        public Builder ignite(FakeIgnite ignite) {
+            this.ignite = ignite;
+            return this;
+        }
+
+        public Builder shouldDropConnection(@Nullable Function<Integer, Boolean> shouldDropConnection) {
+            this.shouldDropConnection = shouldDropConnection;
+            return this;
+        }
+
+        public Builder responseDelay(@Nullable Function<Integer, Integer> responseDelay) {
+            this.responseDelay = responseDelay;
+            return this;
+        }
+
+        public Builder nodeName(@Nullable String nodeName) {
+            this.nodeName = nodeName;
+            return this;
+        }
+
+        public Builder clusterId(UUID clusterId) {
+            this.clusterId = clusterId;
+            return this;
+        }
+
+        public Builder securityConfiguration(@Nullable SecurityConfiguration securityConfiguration) {
+            this.securityConfiguration = securityConfiguration;
+            return this;
+        }
+
+        public Builder port(@Nullable Integer port) {
+            this.port = port;
+            return this;
+        }
+
+        public Builder enableRequestHandling(boolean enableRequestHandling) {
+            this.enableRequestHandling = enableRequestHandling;
+            return this;
+        }
+
+        public Builder features(@Nullable BitSet features) {
+            this.features = features;
+            return this;
+        }
+
+        public Builder listenAddresses(@Nullable String... listenAddresses) {
+            this.listenAddresses = listenAddresses;
+            return this;
+        }
+
+        /**
+         * Builds the test server.
+         *
+         * @return Test server.
+         */
+        public TestServer build() {
+            return new TestServer(
+                    idleTimeout,
+                    ignite == null ? new  FakeIgnite() : ignite,
+                    shouldDropConnection,
+                    responseDelay,
+                    nodeName,
+                    clusterId != null ? clusterId : UUID.randomUUID(),
+                    securityConfiguration,
+                    port,
+                    enableRequestHandling,
+                    features,
+                    listenAddresses
+            );
         }
     }
 }

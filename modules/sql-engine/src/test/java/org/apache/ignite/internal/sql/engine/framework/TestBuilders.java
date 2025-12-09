@@ -61,6 +61,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -694,6 +695,11 @@ public class TestBuilders {
             Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
                     DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
+            @SuppressWarnings("unchecked")
+            ConfigurationValue<Integer> configurationValue = mock(ConfigurationValue.class);
+            when(configurationValue.value()).thenReturn(5);
+            when(configurationValue.key()).thenReturn("staleRowsCheckIntervalSeconds");
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
@@ -707,7 +713,8 @@ public class TestBuilders {
                     schemaManager,
                     clockService::currentLong,
                     scheduledExecutor,
-                    mock(AbstractEventProducer.class)
+                    mock(AbstractEventProducer.class),
+                    configurationValue
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
