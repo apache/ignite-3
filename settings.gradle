@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 
+pluginManagement {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+}
+
 rootProject.name = 'Apache Ignite 3'
 include(':ignite-page-memory')
 include(':ignite-storage-api')
@@ -219,6 +227,11 @@ def ignite2Version = properties["ignite2.version"].toString()
 def ignite2Vendor = properties["ignite2.vendor"].toString()
 
 dependencyResolutionManagement {
+    repositories {
+        maven { url 'https://plugins.gradle.org/m2/' }
+        maven { url 'https://repo.maven.apache.org/maven2/' }
+    }
+
     versionCatalogs {
         libs {
             version('ignite2', ignite2Version)
