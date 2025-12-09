@@ -60,6 +60,15 @@ repositories {
     mavenCentral()
 }
 
+// Configure root-level Artifactory tasks (Artifactory v5 plugin)
+afterEvaluate {
+    // The root project itself shouldn't publish, only aggregate subproject publishes
+    tasks.matching { it.name == 'artifactoryDeploy' }.configureEach {
+        enabled = false
+        logger.lifecycle("ℹ️  Root artifactoryDeploy task is disabled - use artifactoryPublishAll instead")
+    }
+}
+
 ext {
     repos = [
             'apache-release' : "https://repo.maven.apache.org/maven2/",

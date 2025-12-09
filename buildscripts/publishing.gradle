@@ -39,6 +39,13 @@ signing {
 
 // Configure Artifactory after evaluation to avoid serialization issues
 afterEvaluate {
+  def artifactoryUser = System.getenv('ARTIFACTORY_USER')
+  def artifactoryKey = System.getenv('ARTIFACTORY_KEY')
+  
+  if (!artifactoryUser || !artifactoryKey) {
+    logger.warn("⚠️  Artifactory credentials not set for ${project.name} - publishing will be skipped")
+  }
+
   artifactory {
     clientConfig.setIncludeEnvVars(false)
 
@@ -46,8 +53,8 @@ afterEvaluate {
       contextUrl = 'https://linkedin.jfrog.io/artifactory'
       repository {
         repoKey = 'ignite'
-        username = System.getenv('ARTIFACTORY_USER')
-        password = System.getenv('ARTIFACTORY_KEY')
+        username = artifactoryUser
+        password = artifactoryKey
       }
 
       defaults {
@@ -60,23 +67,34 @@ afterEvaluate {
   }
 
   tasks.named('artifactoryPublish').configure {
-    skip = project.hasProperty('artifactory.dryRun')
+    skip = project.hasProperty('artifactory.dryRun') || !artifactoryUser || !artifactoryKey
 
     // Always re-run this task, don't use up-to-date checks
     outputs.upToDateWhen { false }
 
     doFirst {
-      if (project.hasProperty('artifactory.dryRun')) {
-        logger.lifecycle("DRY RUN: Would publish ${project.name} to Artifactory")
+      if (!artifactoryUser || !artifactoryKey) {
+        logger.warn("⚠️  Skipping Artifactory publish for ${project.name} - credentials not set")
+      } else if (project.hasProperty('artifactory.dryRun')) {
+        logger.lifecycle("🔍 DRY RUN: Would publish ${project.name} to Artifactory")
+        logger.lifecycle("   → Repository: https://linkedin.jfrog.io/artifactory/ignite")
+        logger.lifecycle("   → User: ${artifactoryUser}")
       } else {
-        logger.lifecycle("Publishing ${project.name} to Artifactory")
+        logger.lifecycle("📦 Publishing ${project.name} to Artifactory")
+        logger.lifecycle("   → Repository: https://linkedin.jfrog.io/artifactory/ignite")
+        logger.lifecycle("   → User: ${artifactoryUser}")
       }
     }
 
     doLast {
-      if (!project.hasProperty('artifactory.dryRun')) {
-        logger.lifecycle("✓ Completed publishing ${project.name}")
+      if (!project.hasProperty('artifactory.dryRun') && artifactoryUser && artifactoryKey) {
+        logger.lifecycle("✅ Successfully published ${project.name} to Artifactory")
       }
     }
+  }
+
+  // Fix task dependency issue with Artifactory v5
+  tasks.matching { it.name == 'artifactoryDeploy' }.configureEach {
+    dependsOn tasks.matching { it.name in ['build', 'assemble', 'jar'] }
   }
 }
