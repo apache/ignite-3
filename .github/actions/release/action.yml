@@ -1,16 +1,29 @@
-name: 'Publish Releases'
-description: 'Runs gradle tasks to publish versions to Artifactory and GitHub.'
+name: "Publish Releases"
+description: "Runs gradle tasks to publish versions to Artifactory and GitHub."
+
 outputs:
   version:
     description: "The version tag this created."
     value: ${{ steps.get-tag.outputs.tag }}
+
 runs:
   using: "composite"
   steps:
+    # 1️⃣ Compute version via Shipkit (getVersion task)
     - id: get-tag
+      shell: bash
       run: echo "::set-output name=tag::$(./gradlew -q getVersion)"
-      shell: bash
-    - run: echo Got version ${{ steps.get-tag.outputs.tag }}
-      shell: bash
-    - run: ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish --no-configuration-cache
-      shell: bash
+
+    - shell: bash
+      run:
+        echo "Releasing version: ${{ steps.get-tag.outputs.tag }}"
+
+    # 2️⃣ Build + publish artifacts (non-dry-run)
+    - shell: bash
+      run: ./gradlew build -x integrationTest publishToMavenLocal artifactoryPublish --no-configuration-cache
+
+    # 3️⃣ Full release: version bump, GitHub Release, Artifactory release
+    - shell: bash
+      run: ./gradlew ciPerformRelease \
+        -PprojectVersion=${{ steps.get-tag.outputs.tag }} \
+        --no-configuration-cache
