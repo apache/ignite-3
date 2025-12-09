@@ -125,10 +125,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         IgniteImpl futureLeaseholderNode = findNodeByFilter(n -> {
             String nodeName = n.name();
 
-            return !(
-                    nodeName.equals(leaseholderNode.name())
-                            || nodeName.equals(transactionCoordinatorNode.name())
-            );
+            return !(nodeName.equals(leaseholderNode.name()) || nodeName.equals(transactionCoordinatorNode.name()));
         });
 
         DefaultMessagingService messagingService = (DefaultMessagingService) leaseholderNode.clusterService().messagingService();
