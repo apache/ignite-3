@@ -45,20 +45,4 @@ public class SqlPlannerDistributedConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 0)
     public final int planCacheExpiresAfterSeconds = 30 * 60;
-
-    /**
-     * The initial delay before running updating the plan cache update routine in seconds.
-     * See {@code planCacheUpdateRefreshIntervalSeconds}.
-     */
-    @Value(hasDefault = true)
-    @Range(min = 0)
-    public final int planCacheUpdateInitialDelaySeconds = 5;
-
-    /**
-     * The interval between running the plan cache update routine in seconds. 
-     * This parameter controls how often plans in the plan cache are recomputed. 
-     */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public final int planCacheUpdateIntervalSeconds = 5;
 }
