@@ -412,7 +412,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void onDisappearedListenerErrorIsRethrown() {
         doThrow(new TestError()).when(listener).onNodeLeft(any(), any());
 
-        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1024));
 
         topology.putNode(node);
 
