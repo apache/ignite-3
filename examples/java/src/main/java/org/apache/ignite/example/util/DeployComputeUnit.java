@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.example.util;
 
 import java.io.IOException;
@@ -219,5 +236,28 @@ public class DeployComputeUnit {
         response.put("jarPath", jarPath);
 
         return response;
+    }
+
+    /**
+     * Checks if a deployment unit exists. If it does not exist, deploys the unit and prints relevant messages. If the deployment unit
+     * already exists, it skips the deployment and prints a message indicating that.
+     *
+     * <p>The method first checks if a deployment unit with the specified name and version already exists.
+     * If it exists, it skips the deployment process. If it doesn't exist, the method initiates the deployment of the unit using the
+     * provided JAR file path, and prints messages about the deployment status.</p>
+     *
+     * @param deploymentUnitName The name of the deployment unit to check and deploy.
+     * @param deploymentUnitVersion The version of the deployment unit to check and deploy.
+     * @param jarPath The file path to the JAR file that will be used for deployment, if necessary.
+     * @throws Exception If an error occurs during the deployment process, such as a failure to deploy the unit.
+     */
+    public static void deployIfNotExist(String deploymentUnitName, String deploymentUnitVersion, Path jarPath) throws Exception {
+        if (deploymentExists(deploymentUnitName, deploymentUnitVersion)) {
+            System.out.println("Deployment unit already exists. Skip deploy.");
+        } else {
+            System.out.println("Deployment unit not found. Deploying...");
+            deployUnit(deploymentUnitName, deploymentUnitVersion, jarPath);
+            System.out.println("Deployment completed " + deploymentUnitName + ".");
+        }
     }
 }
