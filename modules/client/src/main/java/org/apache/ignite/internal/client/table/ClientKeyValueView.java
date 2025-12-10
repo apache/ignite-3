@@ -747,7 +747,6 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
                     var noValueSet = new BitSet();
 
-                    // TODO: reuse writeKeyValueRaw
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
                         ClientColumn[] columns = del ? s.keyColumns() : s.columns();
