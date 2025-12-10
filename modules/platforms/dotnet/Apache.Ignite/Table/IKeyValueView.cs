@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Internal.Linq;
 using Sql;
 using Transactions;
 
@@ -211,5 +213,6 @@ public interface IKeyValueView<TK, TV> : IDataStreamerTarget<KeyValuePair<TK, TV
     /// <param name="transaction">Optional transaction.</param>
     /// <param name="options">Options.</param>
     /// <returns><see cref="IQueryable{T}"/>.</returns>
+    [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
     IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
 }
