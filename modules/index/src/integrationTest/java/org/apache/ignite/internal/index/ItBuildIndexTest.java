@@ -187,7 +187,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         return  new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex);
     }
 
-    private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
+    private static void changePrimaryReplica(IgniteImpl currentPrimary) {
         IgniteImpl nextPrimary = CLUSTER.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> n != currentPrimary)

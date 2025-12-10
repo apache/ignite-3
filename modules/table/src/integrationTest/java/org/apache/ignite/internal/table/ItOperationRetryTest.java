@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.zoneId;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -37,19 +43,22 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Tests of transaction operation retry.
  */
+@Timeout(value = 3, unit = MINUTES)
 public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
@@ -57,6 +66,14 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final int PART_ID = 0;
+
+    private static final int NEW_RECORD_KEY = 1;
+
+    private static final String NEW_RECORD_VALUE = "new value";
+
+    private static final Tuple NEW_RECORD_KEY_TUPLE = Tuple.create().set("key", NEW_RECORD_KEY);
+
+    private static final Tuple NEW_RECORD_TUPLE = Tuple.create().set("key", NEW_RECORD_KEY).set("val", NEW_RECORD_VALUE);
 
     @BeforeEach
     public void setup() {
@@ -71,14 +88,8 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testLockExceptionRetry() {
-        IgniteImpl node0 = unwrapIgniteImpl(node(0));
-
-        ZonePartitionId partitionGroupId = extractPartitionGroupId(node0, ZONE_NAME, PART_ID);
-
-        String leaseholder = waitAndGetPrimaryReplica(node0, partitionGroupId).getLeaseholder();
-
-        IgniteImpl leaseholderNode = findNodeByName(leaseholder);
-        IgniteImpl otherNode = findNonLeaseholderNode(leaseholderNode);
+        IgniteImpl leaseholderNode = findLeaseholderNode(testPartitionGroupId());
+        IgniteImpl otherNode = findNonLeaseholderNode(leaseholderNode.name());
 
         log.info("Transactions are executed from a non-primary node [node={}, primary={}].", otherNode.name(), leaseholderNode.name());
 
@@ -87,7 +98,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         Transaction tx1 = otherNode.transactions().begin();
         Transaction tx2 = otherNode.transactions().begin();
 
-        view.get(tx1, Tuple.create().set("key", 1));
+        view.get(tx1, NEW_RECORD_KEY_TUPLE);
 
         DefaultMessagingService messagingService = (DefaultMessagingService) leaseholderNode.clusterService().messagingService();
 
@@ -103,42 +114,124 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        view.upsert(tx2, Tuple.create().set("key", 1).set("val", "new value"));
+        view.upsert(tx2, NEW_RECORD_TUPLE);
 
         tx2.commit();
 
-        assertEquals("new value", view.get(null, Tuple.create().set("key", 1)).value("val"));
+        assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
     }
 
     @Test
-    public void retryImplicitTransactionsTest() throws InterruptedException {
-        IgniteImpl node0 = unwrapIgniteImpl(node(0));
+    public void retryImplicitTransactionsDueToReplicationTimeoutTest() {
+        ZonePartitionId partitionGroupId = testPartitionGroupId();
+        String leaseholderNodeName = waitAndGetPrimaryReplica(partitionGroupId);
+        IgniteImpl transactionCoordinatorNode = findNonLeaseholderNode(leaseholderNodeName);
 
-        ZonePartitionId partitionGroupId = extractPartitionGroupId(node0, ZONE_NAME, PART_ID);
-
-        String leaseholderNodeName = waitAndGetPrimaryReplica(node0, partitionGroupId).getLeaseholder();
-
-        IgniteImpl leaseholderNode = findNodeByName(leaseholderNodeName);
-
-        IgniteImpl transactionCoordinatorNode = findNonLeaseholderNode(leaseholderNode);
-
-        IgniteImpl futureLeaseholderNode = findNodeByFilter(n -> {
-            String nodeName = n.name();
-
-            return !(nodeName.equals(leaseholderNode.name()) || nodeName.equals(transactionCoordinatorNode.name()));
-        });
-
-        DefaultMessagingService messagingService = (DefaultMessagingService) leaseholderNode.clusterService().messagingService();
-        messagingService.dropMessages((nodeName, msg) -> msg instanceof PrimaryReplicaRequest);
+        // Prevent upsert operation to reach leaseholder node from the coordinator that should leads to timeout exception.
+        DefaultMessagingService messagingService = (DefaultMessagingService) transactionCoordinatorNode.clusterService().messagingService();
+        messagingService.dropMessages(
+                (nodeName, msg) -> nodeName.equals(leaseholderNodeName) && msg instanceof ReadWriteSingleRowReplicaRequest
+        );
 
         RecordView<Tuple> view = transactionCoordinatorNode.tables().table(TABLE_NAME).recordView();
-        view.upsert(null, Tuple.create().set("key", 1).set("val", "new value"));
 
-        Collection<IgniteImpl> nodes = runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toList());
+        // Check that without lease transfer there will be an exceptional timeout result for the corresponding group.
+        assertThrows(
+                TransactionException.class,
+                () -> view.upsert(null, NEW_RECORD_TUPLE),
+                format("Replication is timed out [replicaGrpId={}]", partitionGroupId)
+        );
 
-        NodeUtils.transferPrimary(nodes, partitionGroupId, futureLeaseholderNode.name());
+        // Try to do upsert with lease transfer after the operation is triggered.
+        CompletableFuture<Void> futureUpsert = view.upsertAsync(null, NEW_RECORD_TUPLE);
+        transferPrimaryToNonCoordinatorNode(leaseholderNodeName, transactionCoordinatorNode.name(), partitionGroupId);
 
-        assertEquals("new value", view.get(null, Tuple.create().set("key", 1)).value("val"));
+        // Finally we expect the triggered upsert will succeed eventually because of retry with new leaseholder enlisted.
+        assertThat(futureUpsert, willSucceedIn(10, SECONDS));
+        // And we can also read the expected value too.
+        assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
+    }
+
+    @Test
+    public void retryImplicitTransactionsDueToReplicaMissTest() {
+        ZonePartitionId partitionGroupId = testPartitionGroupId();
+        String leaseholderNodeName = waitAndGetPrimaryReplica(partitionGroupId);
+        IgniteImpl transactionCoordinatorNode = findNonLeaseholderNode(leaseholderNodeName);
+
+        // When upsert will be triggered then we have to pull the latch down and transfer lease to another leaseholder node.
+        CountDownLatch upsertIsTriggeredLatch = new CountDownLatch(1);
+
+        // When the latch is arisen, then in case of RW request to the current leaseholder we will wait. When latch is pulled down we
+        // additionally transfer lease and still pass a message, so actually the follow doesn't drop any message, but moves lease at
+        // the moment after upsert was triggered.
+        DefaultMessagingService messagingService = (DefaultMessagingService) transactionCoordinatorNode.clusterService().messagingService();
+        messagingService.dropMessages((nodeName, msg) -> {
+            boolean isMessageForCurrentLeaseholder = nodeName.equals(leaseholderNodeName);
+            boolean isLatchArisen = upsertIsTriggeredLatch.getCount() > 0;
+            boolean isUpsertRequestMessage = msg instanceof ReadWriteSingleRowReplicaRequest;
+
+            boolean shouldWaitForLatchDownAndTransferLease = isMessageForCurrentLeaseholder && isUpsertRequestMessage && isLatchArisen;
+
+            if (!shouldWaitForLatchDownAndTransferLease) {
+                // Just pass the message then.
+                return false;
+            }
+
+            log.info("Test: awaiting for upsert triggering and lease transfer.");
+
+            try {
+                upsertIsTriggeredLatch.await();
+            } catch (InterruptedException e) {
+                fail("Test: awaiting for upsert triggering and lease transfer were interrupted.", e);
+            }
+
+            log.info("Test: lease transfer begins.");
+
+            String newLeaseholderNodeName = transferPrimaryToNonCoordinatorNode(
+                    leaseholderNodeName,
+                    transactionCoordinatorNode.name(),
+                    partitionGroupId
+            );
+
+            log.info("Test: lease transfer is done [from={}, to={}].", leaseholderNodeName, newLeaseholderNodeName);
+
+            return false;
+        });
+
+        RecordView<Tuple> view = transactionCoordinatorNode.tables().table(TABLE_NAME).recordView();
+
+        // Trigger upsert and pull down the latch to trigger lease transfer. We need to do the first step in a separate thread because
+        // drop message handler may be executed in the same thread with the test worker one from upsertAsync's internals.
+        CompletableFuture<Void> futureUpsert = CompletableFuture
+                .supplyAsync(() -> view.upsertAsync(null, NEW_RECORD_TUPLE))
+                .thenCompose(identity());
+        upsertIsTriggeredLatch.countDown();
+
+        log.info("Test: upsert is triggered, latch is pulled down.");
+
+        // Finally we expect the triggered upsert will succeed eventually because of retry with new leaseholder enlisted.
+        assertThat(futureUpsert, willSucceedIn(20, SECONDS));
+        // And we can also read the expected value too.
+        assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
+    }
+
+    private String  transferPrimaryTo(String newLeaseholderNodeName, ZonePartitionId replicationGroup) {
+        return NodeUtils.transferPrimary(
+                runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toList()),
+                replicationGroup,
+                newLeaseholderNodeName
+        );
+    }
+
+    private String  transferPrimaryToNonCoordinatorNode(
+            String leaseholderNodeName,
+            String transactionCoordinatorNodeName,
+            ZonePartitionId replicationGroupId
+    ) {
+        return transferPrimaryTo(
+                findNodeByFilter(n -> !(n.name().equals(leaseholderNodeName) || n.name().equals(transactionCoordinatorNodeName))).name(),
+                replicationGroupId
+        );
     }
 
     private static ZonePartitionId extractPartitionGroupId(IgniteImpl node, String zoneName, int partitionId) {
@@ -162,20 +255,41 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
                 .get();
     }
 
-    private IgniteImpl findNonLeaseholderNode(IgniteImpl leaseholderNode) {
-        return findNodeByFilter(ignite -> !leaseholderNode.name().equals(ignite.name()));
+    private IgniteImpl findNonLeaseholderNode(String leaseholderNodeName) {
+        return findNodeByFilter(ignite -> !leaseholderNodeName.equals(ignite.name()));
     }
 
-    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ZonePartitionId replicationGroup) {
+    private IgniteImpl findLeaseholderNode(ZonePartitionId replicationGroupId) {
+        return findNodeByName(waitAndGetPrimaryReplica(replicationGroupId));
+    }
+
+    private ZonePartitionId testPartitionGroupId() {
+        return extractPartitionGroupId(node0(), ZONE_NAME, PART_ID);
+    }
+
+    private static String waitAndGetPrimaryReplica(IgniteImpl node, ZonePartitionId replicationGroupId) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
-                replicationGroup,
+                replicationGroupId,
                 node.clock().now(),
                 10,
                 SECONDS
         );
-
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
-        return primaryReplicaFut.join();
+        ReplicaMeta replicaMeta = primaryReplicaFut.join();
+        assertNotNull(replicaMeta);
+
+        String leaseholderNodeName = replicaMeta.getLeaseholder();
+        assertNotNull(leaseholderNodeName);
+
+        return leaseholderNodeName;
+    }
+
+    private String waitAndGetPrimaryReplica(ZonePartitionId replicationGroup) {
+        return waitAndGetPrimaryReplica(node0(), replicationGroup);
+    }
+
+    private IgniteImpl node0() {
+        return unwrapIgniteImpl(node(0));
     }
 }
