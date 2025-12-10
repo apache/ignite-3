@@ -521,9 +521,9 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private HandshakeManager createAcceptorHandshakeManager() {
         // Do not just use localNodeFuture.join() to make sure the wait is time-limited.
-        waitForLocalNodeToBeSet();
+        InternalClusterNode localNode = waitForLocalNodeToBeSet();
 
-        return newRecoveryAcceptorHandshakeManager(localNodeFuture.join());
+        return newRecoveryAcceptorHandshakeManager(localNode);
     }
 
     private RecoveryAcceptorHandshakeManager newRecoveryAcceptorHandshakeManager(InternalClusterNode localNode) {
@@ -541,9 +541,9 @@ public class ConnectionManager implements ChannelCreationListener {
         );
     }
 
-    private void waitForLocalNodeToBeSet() {
+    private InternalClusterNode waitForLocalNodeToBeSet() {
         try {
-            localNodeFuture.get(10, SECONDS);
+            return localNodeFuture.get(10, SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
