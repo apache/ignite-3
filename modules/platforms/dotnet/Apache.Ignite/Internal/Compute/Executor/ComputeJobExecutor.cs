@@ -32,12 +32,6 @@ using Table.StreamerReceiverExecutor;
 internal static class ComputeJobExecutor
 {
     /// <summary>
-    /// AOT and trimming warning.
-    /// </summary>
-    internal const string TrimWarning =
-        ".NET compute executor runs compute jobs on the server and does not support AOT and trimming scenarios.";
-
-    /// <summary>
     /// Compute executor id.
     /// </summary>
     internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
@@ -51,7 +45,6 @@ internal static class ComputeJobExecutor
     /// <param name="response">Response.</param>
     /// <param name="context">Context.</param>
     /// <returns>Task.</returns>
-    [RequiresUnreferencedCode(TrimWarning)]
     internal static async Task ExecuteJobAsync(
         PooledBuffer request,
         PooledArrayBuffer response,
@@ -90,7 +83,6 @@ internal static class ComputeJobExecutor
         }
     }
 
-    [RequiresUnreferencedCode(TrimWarning)]
     private static async ValueTask ExecuteJobAsync(
         JobExecuteRequest req,
         PooledBuffer argBuf,

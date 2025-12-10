@@ -25,7 +25,7 @@ using System.Runtime.Loader;
 /// <summary>
 /// Loader for deployment units in Apache Ignite compute execution context.
 /// </summary>
-[RequiresUnreferencedCode(".NET compute executor runs compute jobs on the server and does not support AOT and trimming scenarios.")]
+[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
 internal static class DeploymentUnitLoader
 {
     private static readonly Assembly IgniteAssembly = typeof(DeploymentUnitLoader).Assembly;
