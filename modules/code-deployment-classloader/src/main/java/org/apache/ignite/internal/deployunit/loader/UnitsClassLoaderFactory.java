@@ -21,7 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 
 /**
- * Creates a class loader for a job.
+ * Deployment units classloader factory.
  */
 public class UnitsClassLoaderFactory {
     /**

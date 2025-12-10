@@ -22,6 +22,7 @@ import static org.apache.ignite.deployment.version.Version.LATEST;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getPath;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -186,7 +187,7 @@ class UnitsContextManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 classLoaderManager.acquireClassLoader(units),
-                CompletableFutureExceptionMatcher.willThrow(DeploymentUnitNotFoundException.class, "Unit non-existing:1.0.0 not found")
+                willThrow(ClassNotFoundException.class, "Deployment unit non-existing:1.0.0 doesn't exist")
         );
     }
 
@@ -203,8 +204,8 @@ class UnitsContextManagerTest extends BaseIgniteAbstractTest {
         assertThat(
                 classLoaderManager.acquireClassLoader(List.of(new DeploymentUnit("unit", "1.0.0"))),
                 willThrowFast(
-                        DeploymentUnitUnavailableException.class,
-                        "Unit unit:1.0.0 is unavailable. Cluster status: OBSOLETE, node status: REMOVING"
+                        ClassNotFoundException.class,
+                        "Deployment unit unit:1.0.0 can't be used: [clusterStatus = OBSOLETE, nodeStatus = REMOVING]"
                 )
         );
     }
