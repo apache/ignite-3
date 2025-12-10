@@ -63,6 +63,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
             IJobTarget<TTarget> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
