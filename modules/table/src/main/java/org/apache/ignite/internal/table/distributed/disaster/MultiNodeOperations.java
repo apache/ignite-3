@@ -82,4 +82,8 @@ class MultiNodeOperations {
             operationsById.remove(operationId);
         }
     }
+
+    public boolean isEmpty() {
+        return operationsById.isEmpty();
+    }
 }

@@ -20,11 +20,11 @@ package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 
 /** Exception is thrown when remote node encounters an error during disaster recovery processing. */
-public class RemoteProcessingDisasterRecoveryException extends DisasterRecoveryException {
+public class RemoteOperationException extends DisasterRecoveryException {
     private static final long serialVersionUID = 1L;
 
     /** Constructor. */
-    public RemoteProcessingDisasterRecoveryException(String message, String nodeName) {
+    public RemoteOperationException(String message, String nodeName) {
         super(
                 DisasterRecovery.REMOTE_NODE_ERR,
                 "Processing error on node " + nodeName + " during disaster recovery: " + message

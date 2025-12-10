@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.Map;
+import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
-/** Response with statuses of disaster recovery operations completed by the node. */
-@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_STATUS_RESPONSE)
-public interface DisasterRecoveryStatusResponseMessage extends NetworkMessage {
-    /** Status of completed operation by operation IDs. */
-    Map<UUID, String> operationStatuses();
+/** Request completed disaster recovery operations. */
+@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_STATUS_REQUEST)
+public interface OperationStatusesRequestMessage extends NetworkMessage {
+    /** IDs of the operations to get statuses of. */
+    Collection<UUID> operationIds();
 }

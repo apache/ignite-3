@@ -107,8 +107,6 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryRequestMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryResponseMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryStatusRequestMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryStatusResponseMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
@@ -116,6 +114,8 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesRequestMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesResponseMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
@@ -137,7 +137,7 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalN
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.RemoteProcessingDisasterRecoveryException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.RemoteOperationException;
 import org.apache.ignite.internal.table.distributed.storage.NullMvTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -244,7 +244,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private final Map<UUID, String> operationStatusByOperationId = new ConcurrentHashMap<>();
 
     /** Runs {@link #pollMultiNodeOperations()} at a fixed rate. */
-    private ScheduledFuture<?> pollingFuture;
+    private ScheduledFuture<?> pollingScheduledFuture;
+
+    private CompletableFuture<Void> pollingFuture;
 
     /** Constructor. */
     public DisasterRecoveryManager(
@@ -299,7 +301,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             registerMetricSources();
 
-            pollingFuture = threadPool.scheduleWithFixedDelay(
+            pollingScheduledFuture = threadPool.scheduleWithFixedDelay(
                     () -> inBusyLock(busyLock, this::pollMultiNodeOperations),
                     0,
                     POLLING_RATE_MILLIS,
@@ -320,9 +322,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             future.completeExceptionally(new NodeStoppingException());
         }
 
-        ScheduledFuture<?> pollingFuture = this.pollingFuture;
-        if (pollingFuture != null) {
-            pollingFuture.cancel(true);
+        ScheduledFuture<?> pollingScheduledFuture = this.pollingScheduledFuture;
+        if (pollingScheduledFuture != null) {
+            pollingScheduledFuture.cancel(true);
         }
 
         return nullCompletedFuture();
@@ -1224,53 +1226,42 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     /**
      * Sends status request to nodes participating in MULTI_NODE operations and completes corresponding futures in
-     * {@link #operationsByNodeName}. Doesn't send identical requests.
+     * {@link #operationsByNodeName}.
     */
     private void pollMultiNodeOperations() {
+        operationsByNodeName.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+
         for (Map.Entry<String, MultiNodeOperations> entry : operationsByNodeName.entrySet()) {
-            // We already sent the latest version, skip.
-            if (!entry.getValue().startPollingIfNeeded()) {
-                continue;
-            }
-
             String nodeName = entry.getKey();
-            MultiNodeOperations operations = entry.getValue();
+            pollingFuture = pollingFuture.handle((v, ignored) -> {
+                MultiNodeOperations operations = entry.getValue();
 
-            DisasterRecoveryStatusRequestMessage request = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusRequestMessage()
-                            .operationIds(operations.operationsIds())
-                            .build();
+                OperationStatusesRequestMessage request = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusRequestMessage()
+                        .operationIds(operations.operationsIds())
+                        .build();
 
-            messagingService.invoke(nodeName, request, TimeUnit.SECONDS.toMillis(1))
-                    .whenComplete((message, ex) -> {
-                        if (ex != null) {
-                            if (hasCause(ex, TimeoutException.class)) {
-                                operations.triggerNextRequest();
-                            } else {
-                                operations.exceptionally(ex);
+                return messagingService.invoke(nodeName, request, TimeUnit.SECONDS.toMillis(1))
+                        .whenComplete((message, ex) -> {
+                            if (ex != null && !hasCause(ex, TimeoutException.class)) {
+                                return;
                             }
 
-                            return;
-                        }
+                            OperationStatusesResponseMessage responseMessage = (OperationStatusesResponseMessage) message;
 
-                        DisasterRecoveryStatusResponseMessage responseMessage = (DisasterRecoveryStatusResponseMessage) message;
+                            for (Map.Entry<UUID, String> operationResponse : responseMessage.operationStatuses().entrySet()) {
+                                UUID operationId = operationResponse.getKey();
+                                String operationStatus = operationResponse.getValue();
 
-                        for (Map.Entry<UUID, String> operationResponse : responseMessage.operationStatuses().entrySet()) {
-                            UUID operationId = operationResponse.getKey();
-                            String operationStatus = operationResponse.getValue();
-
-                            if (!COMPLETED_STATUS.equals(operationStatus)) {
-                                operations.remove(operationId)
-                                        .completeExceptionally(new RemoteProcessingDisasterRecoveryException(operationStatus, nodeName));
-                            } else {
-                                operations.remove(operationId).complete(null);
+                                if (!COMPLETED_STATUS.equals(operationStatus)) {
+                                    operations.remove(operationId)
+                                            .completeExceptionally(
+                                                    new RemoteOperationException(operationStatus, nodeName));
+                                } else {
+                                    operations.remove(operationId).complete(null);
+                                }
                             }
-                        }
-
-                        // Not all operations were completed, increase version to poll again.
-                        if (!operations.operationsIds().isEmpty()) {
-                            operations.triggerNextRequest();
-                        }
-                    });
+                        });
+            });
         }
     }
 
@@ -1435,8 +1426,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
-        } else if (message instanceof DisasterRecoveryStatusRequestMessage) {
-            handleDisasterRecoveryStatusRequest((DisasterRecoveryStatusRequestMessage) message, sender, correlationId);
+        } else if (message instanceof OperationStatusesRequestMessage) {
+            handleDisasterRecoveryStatusRequest((OperationStatusesRequestMessage) message, sender, correlationId);
         }
     }
 
@@ -1569,7 +1560,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private void handleDisasterRecoveryStatusRequest(
-            DisasterRecoveryStatusRequestMessage request,
+            OperationStatusesRequestMessage request,
             InternalClusterNode sender,
             @Nullable Long correlationId
     ) {
@@ -1579,7 +1570,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Map<UUID, String> statusByOperationId = request.operationIds().stream()
                     .collect(toMap(Function.identity(), operationStatusByOperationId::get));
 
-            DisasterRecoveryStatusResponseMessage response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusResponseMessage()
+            OperationStatusesResponseMessage response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusResponseMessage()
                     .operationStatuses(statusByOperationId)
                     .build();
 
