@@ -459,6 +459,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)]
     public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>
