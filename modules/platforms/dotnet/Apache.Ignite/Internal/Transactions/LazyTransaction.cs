@@ -22,6 +22,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Common;
 using Ignite.Transactions;
+using Microsoft.Extensions.Logging;
 using Proto;
 using Tx;
 
@@ -48,6 +49,8 @@ internal sealed class LazyTransaction : ITransaction
 
     private readonly long _observableTimestamp;
 
+    private readonly ILogger<LazyTransaction> _logger;
+
     private int _state = StateOpen;
 
     private volatile Task<Transaction>? _tx;
@@ -57,10 +60,12 @@ internal sealed class LazyTransaction : ITransaction
     /// </summary>
     /// <param name="options">Options.</param>
     /// <param name="observableTimestamp">Observable timestamp.</param>
-    public LazyTransaction(TransactionOptions options, long observableTimestamp)
+    /// <param name="logger">Logger.</param>
+    public LazyTransaction(TransactionOptions options, long observableTimestamp, ILogger<LazyTransaction> logger)
     {
         _options = options;
         _observableTimestamp = observableTimestamp;
+        _logger = logger;
     }
 
     /// <inheritdoc/>

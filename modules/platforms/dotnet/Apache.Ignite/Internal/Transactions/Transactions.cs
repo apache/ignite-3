@@ -21,6 +21,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Common;
 using Ignite.Transactions;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Transactions API.
@@ -38,7 +39,10 @@ internal class Transactions : ITransactions
     /// <inheritdoc/>
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Tx is returned.")]
     public ValueTask<ITransaction> BeginAsync(TransactionOptions options) =>
-        ValueTask.FromResult<ITransaction>(new LazyTransaction(options, _socket.ObservableTimestamp));
+        ValueTask.FromResult<ITransaction>(new LazyTransaction(
+            options: options,
+            observableTimestamp: _socket.ObservableTimestamp,
+            logger: _socket.Configuration.Configuration.LoggerFactory.CreateLogger<LazyTransaction>()));
 
     /// <inheritdoc />
     public override string ToString() => IgniteToStringBuilder.Build(GetType());
