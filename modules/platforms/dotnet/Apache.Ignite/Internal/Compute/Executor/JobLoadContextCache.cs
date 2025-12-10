@@ -36,7 +36,6 @@ using System.Threading.Tasks;
 /// <para />
 /// If a deployment unit U is undeployed, all job load contexts with U in their set will be removed from the cache immediately.
 /// </summary>
-[RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
 internal sealed class JobLoadContextCache : IDisposable
 {
     private static readonly long TicksPerMs = Stopwatch.Frequency / 1000L;
@@ -70,6 +69,7 @@ internal sealed class JobLoadContextCache : IDisposable
     /// </summary>
     /// <param name="paths">Deployment unit paths.</param>
     /// <returns>Job load context.</returns>
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     public async ValueTask<JobLoadContext> GetOrAddJobLoadContext(DeploymentUnitPaths paths)
     {
         await _cacheLock.WaitAsync().ConfigureAwait(false);

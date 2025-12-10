@@ -26,6 +26,7 @@ using Compute.Executor;
 using Proto;
 using Proto.MsgPack;
 
+#pragma warning disable IL2026 // No trimming or AOT in server mode.
 /// <summary>
 /// Server -> client request handling logic.
 /// </summary>

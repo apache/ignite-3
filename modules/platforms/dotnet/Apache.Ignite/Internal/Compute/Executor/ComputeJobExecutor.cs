@@ -29,7 +29,6 @@ using Table.StreamerReceiverExecutor;
 /// <summary>
 /// Compute executor utilities.
 /// </summary>
-[RequiresUnreferencedCode(TrimWarning)]
 internal static class ComputeJobExecutor
 {
     /// <summary>
@@ -52,6 +51,7 @@ internal static class ComputeJobExecutor
     /// <param name="response">Response.</param>
     /// <param name="context">Context.</param>
     /// <returns>Task.</returns>
+    [RequiresUnreferencedCode(TrimWarning)]
     internal static async Task ExecuteJobAsync(
         PooledBuffer request,
         PooledArrayBuffer response,
@@ -90,6 +90,7 @@ internal static class ComputeJobExecutor
         }
     }
 
+    [RequiresUnreferencedCode(TrimWarning)]
     private static async ValueTask ExecuteJobAsync(
         JobExecuteRequest req,
         PooledBuffer argBuf,
