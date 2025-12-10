@@ -255,4 +255,16 @@ internal static partial class LogMessages
         EventId = 1034)]
     internal static partial void LogTxStartedTrace(
         this ILogger logger, TransactionOptions options, long readTimestamp, long txId);
+
+    [LoggerMessage(
+        Message = "Tx committed [txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1035)]
+    internal static partial void LogTxCommitTrace(this ILogger logger, long txId);
+
+    [LoggerMessage(
+        Message = "Tx rolled back [txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1036)]
+    internal static partial void LogTxRollbackTrace(this ILogger logger, long txId);
 }

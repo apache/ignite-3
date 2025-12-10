@@ -96,7 +96,12 @@ internal sealed class LazyTransaction : ITransaction
     {
         if (TrySetState(StateCommitted))
         {
-            await DoOpAsync(_tx, ClientOp.TxCommit).ConfigureAwait(false);
+            var tx = await DoOpAsync(_tx, ClientOp.TxCommit).ConfigureAwait(false);
+
+            if (tx != null)
+            {
+                _logger.LogTxCommitTrace(tx.Id);
+            }
         }
     }
 
@@ -105,7 +110,12 @@ internal sealed class LazyTransaction : ITransaction
     {
         if (TrySetState(StateRolledBack))
         {
-            await DoOpAsync(_tx, ClientOp.TxRollback).ConfigureAwait(false);
+            var tx = await DoOpAsync(_tx, ClientOp.TxRollback).ConfigureAwait(false);
+
+            if (tx != null)
+            {
+                _logger.LogTxRollbackTrace(tx.Id);
+            }
         }
     }
 
@@ -166,12 +176,12 @@ internal sealed class LazyTransaction : ITransaction
     /// <returns>True when the underlying lazy transaction is started, false otherwise.</returns>
     internal static bool IsStarted(ITransaction? tx) => Get(tx)?._tx != null;
 
-    private static async Task DoOpAsync(Task<Transaction>? txTask, ClientOp op)
+    private static async Task<Transaction?> DoOpAsync(Task<Transaction>? txTask, ClientOp op)
     {
         if (txTask == null)
         {
             // No operations were performed, nothing to commit or roll back.
-            return;
+            return null;
         }
 
         var tx = await txTask.ConfigureAwait(false);
@@ -179,6 +189,8 @@ internal sealed class LazyTransaction : ITransaction
         using var writer = ProtoCommon.GetMessageWriter();
         writer.MessageWriter.Write(tx.Id);
         using var buffer = await tx.Socket.DoOutInOpAsync(op, writer).ConfigureAwait(false);
+
+        return tx;
     }
 
     private Task<Transaction> EnsureStartedAsync(ClientFailoverSocket socket, PreferredNode preferredNode)
