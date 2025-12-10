@@ -260,8 +260,6 @@ tasks.register('runnerPlatformTest', JavaExec) {
     jvmArgs += defaultJvmArgs
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('runnerPlatformBenchmark', JavaExec) {
@@ -270,8 +268,6 @@ tasks.register('runnerPlatformBenchmark', JavaExec) {
     jvmArgs += defaultJvmArgs
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('runUpsertBenchmark', JavaExec) {
@@ -280,8 +276,6 @@ tasks.register('runUpsertBenchmark', JavaExec) {
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('runClientPutBenchmark', JavaExec) {
@@ -290,8 +284,6 @@ tasks.register('runClientPutBenchmark', JavaExec) {
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('runClientGetBenchmark', JavaExec) {
@@ -300,8 +292,6 @@ tasks.register('runClientGetBenchmark', JavaExec) {
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('runClientGetAllBenchmark', JavaExec) {
@@ -310,8 +300,6 @@ tasks.register('runClientGetAllBenchmark', JavaExec) {
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('runClientGetAllExplicitBenchmark', JavaExec) {
@@ -320,8 +308,6 @@ tasks.register('runClientGetAllExplicitBenchmark', JavaExec) {
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 jar {
