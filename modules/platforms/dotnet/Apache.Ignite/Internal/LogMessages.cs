@@ -243,9 +243,16 @@ internal static partial class LogMessages
         this ILogger logger, long prev, long current);
 
     [LoggerMessage(
-        Message = "Lazy transaction created [options={Options}, readTimestamp={ReadTimestamp}]",
+        Message = "Lazy tx created [options={Options}, readTimestamp={ReadTimestamp}]",
         Level = LogLevel.Trace,
         EventId = 1033)]
     internal static partial void LogLazyTxCreatedTrace(
         this ILogger logger, TransactionOptions options, long readTimestamp);
+
+    [LoggerMessage(
+        Message = "Tx started [options={Options}, readTimestamp={ReadTimestamp}, txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1034)]
+    internal static partial void LogTxStartedTrace(
+        this ILogger logger, TransactionOptions options, long readTimestamp, long txId);
 }

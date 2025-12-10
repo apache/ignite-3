@@ -211,6 +211,7 @@ internal sealed class LazyTransaction : ITransaction
         using (resBuf)
         {
             var txId = resBuf.GetReader().ReadInt64();
+            _logger.LogTxStartedTrace(_options, _observableTimestamp, txId);
 
             return new Transaction(txId, socket, failoverSocket);
         }
