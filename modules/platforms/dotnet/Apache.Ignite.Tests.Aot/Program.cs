@@ -21,6 +21,7 @@ using Apache.Ignite.Network;
 // TODO: Logger
 var cfg = new IgniteClientConfiguration("localhost:10942");
 
+// TODO: Test Caching Extensions too. Or a separate assembly?
 using var ignite = await IgniteClient.StartAsync(cfg);
 
 var clusterNodes = await ignite.GetClusterNodesAsync();
