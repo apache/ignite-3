@@ -640,4 +640,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         return fut;
     }
+
+    @Override
+    public void markAsStopping() {
+        raftClient.markAsStopping();
+    }
 }

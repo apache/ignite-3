@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeS
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
@@ -57,6 +58,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -133,6 +135,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private final TopologyEventHandler topologyEventHandler;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    private volatile boolean stopping;
+
     /**
      * Constructor.
      *
@@ -170,6 +175,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.stoppingExceptionFactory = stoppingExceptionFactory;
         this.throttlingContextHolder = throttlingContextHolder;
         this.topologyEventHandler = topologyEventHandler();
+        this.stopping = false;
     }
 
     /**
@@ -716,8 +722,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             long requestStartTime = currentTimeMillis();
 
             if (requestStartTime >= retryContext.stopTime()) {
-                fut.completeExceptionally(retryContext.createTimeoutException());
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+                if (stopping) {
+                    fut.completeExceptionally(new NodeStoppingException());
+                    return;
+                }
 
+                fut.completeExceptionally(retryContext.createTimeoutException());
                 return;
             }
 
@@ -727,8 +738,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     ? peerThrottlingContextHolder.peerRequestTimeoutMillis() : retryContext.responseTimeoutMillis();
 
             resolvePeer(retryContext.targetPeer())
-                    .thenCompose(node -> cluster.messagingService()
-                            .invoke(node, retryContext.request(), responseTimeout))
+                    .thenCompose(node -> {
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+                        if (stopping) {
+                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                        }
+
+                        return cluster.messagingService()
+                                .invoke(node, retryContext.request(), responseTimeout);
+                    })
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
@@ -1103,5 +1121,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 }
             }
         };
+    }
+
+    @Override
+    public void markAsStopping() {
+        stopping = true;
     }
 }
