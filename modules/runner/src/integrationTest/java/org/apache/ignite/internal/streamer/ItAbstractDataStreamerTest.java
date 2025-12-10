@@ -94,11 +94,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrationTest {
     public static final String TABLE_NAME = "test_table";
 
+    private static final String TABLE_NAME_COMPOSITE_KEY = "test_table_composite_key";
+
     abstract Ignite ignite();
 
     @BeforeAll
     public void createTable() {
         createTable(TABLE_NAME, 2, 10);
+        sql("CREATE TABLE test_table_composite_key (\n"
+                + "    name VARCHAR,\n"
+                + "    data VARCHAR,\n"
+                + "    uniqueId VARCHAR,\n"
+                + "    data2 VARCHAR,\n"
+                + "    PRIMARY KEY (name, uniqueId)\n"
+                + ")");
     }
 
     @BeforeEach
@@ -888,6 +897,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     private Table defaultTable() {
         return ignite().tables().table(TABLE_NAME);
+    }
+
+    private Table compositeKeyTable() {
+        return ignite().tables().table(TABLE_NAME_COMPOSITE_KEY);
     }
 
     private static Tuple tuple(int id, String name) {
