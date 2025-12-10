@@ -66,6 +66,6 @@ public class ItVaultStorageCompatibilityTest extends CompatibilityTestBase {
     }
 
     private void runPutVaultEntriesJob() {
-        runJob(cluster, PutVaultEntriesJob.class, "");
+        runJob(cluster, PutVaultEntriesJob.class, null);
     }
 }

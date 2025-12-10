@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
@@ -58,7 +59,7 @@ public class PutVaultEntriesJob implements ComputeJob<String, Void> {
 
             return nullCompletedFuture();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return failedFuture(e);
         }
     }
 }

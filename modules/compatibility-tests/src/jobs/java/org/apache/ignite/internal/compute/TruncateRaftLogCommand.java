@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -48,7 +48,7 @@ public class TruncateRaftLogCommand implements ComputeJob<String, Void> {
                     .thenCompose(ignored -> messagingService.invoke(igniteImpl.name(), request, 10_000L))
                     .thenApply(ignored -> null);
         } catch (Exception e) {
-            throw new CompletionException(e);
+            return failedFuture(e);
         }
     }
 }

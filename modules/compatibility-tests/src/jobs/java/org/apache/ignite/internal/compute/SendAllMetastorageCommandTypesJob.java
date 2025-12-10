@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -62,7 +63,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
                     sendCompactionCommand(metastorage)
             ).thenCompose((v) -> metastorage.storage().flush());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return failedFuture(e);
         }
     }
 
