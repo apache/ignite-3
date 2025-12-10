@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.REMOTE_NODE_ERR;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.RemoteOperationException;
 
-/** Used to poll statuses of multi node operations from other nodes. */
+/** Contains operations that should be processed by remote node. */
 class MultiNodeOperations {
     private final Map<UUID, CompletableFuture<Void>> operationsById = new ConcurrentHashMap<>();
 
@@ -36,7 +34,7 @@ class MultiNodeOperations {
     }
 
     /**
-     * Removes operation tracking. Doesn't require new polling request.
+     * Removes operation tracking.
      *
      * @return Removed operation future.
      */
@@ -45,16 +43,16 @@ class MultiNodeOperations {
     }
 
     /** Completes all tracked operations with a given exception. */
-    void exceptionally(Throwable ex) {
+    void exceptionally(String nodeName, Throwable e) {
         Set<UUID> operationIds = Set.copyOf(operationsById.keySet());
 
         for (UUID operationId : operationIds) {
-            operationsById.get(operationId).completeExceptionally(new DisasterRecoveryException(
-                    REMOTE_NODE_ERR,
-                    "Couldn't get multi node operation status: " + ex.getMessage()
-            ));
-
-            operationsById.remove(operationId);
+            operationsById.remove(operationId).completeExceptionally(new RemoteOperationException(e.getMessage(), nodeName));
         }
+    }
+
+    /** If there are no ongoing operations. */
+    public boolean isEmpty() {
+        return operationsById.isEmpty();
     }
 }

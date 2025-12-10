@@ -24,7 +24,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.jetbrains.annotations.Nullable;
 
 /** Notifies that disaster recovery operation was completed. */
-@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_STATUS_REQUEST)
+@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_OPERATION_COMPLETED)
 public interface OperationCompletedMessage extends NetworkMessage {
     /** ID of the completed operation. */
     UUID operationId();

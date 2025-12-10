@@ -60,7 +60,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -188,7 +188,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Thread pool executor for async parts. */
-    private final ScheduledExecutorService threadPool;
+    private final ExecutorService threadPool;
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -241,7 +241,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     /** Constructor. */
     public DisasterRecoveryManager(
-            ScheduledExecutorService threadPool,
+            ExecutorService threadPool,
             MessagingService messagingService,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
@@ -279,7 +279,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         nodeLeftListener = new LogicalTopologyEventListener() {
             @Override
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-                operationsByNodeName.get(leftNode.name()).exceptionally(new NodeStoppingException());
+                operationsByNodeName.get(leftNode.name()).exceptionally(leftNode.name(), new NodeStoppingException());
             }
         };
     }
@@ -1158,6 +1158,21 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
+        CompletableFuture<Void> resultFuture = operationFuture.thenCompose(v -> {
+            if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
+                return allOf(getNodeNames(request.nodeNames())
+                        .stream()
+                        .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
+                        .toArray(CompletableFuture[]::new))
+                        .whenComplete((ignored, e) -> {
+                            operationsByNodeName.values().forEach(operations -> operations.remove(operationId));
+                            operationsByNodeName.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+                        });
+            } else {
+                return nullCompletedFuture();
+            }
+        });
+
         operationFuture.whenComplete((v, throwable) -> ongoingOperationsById.remove(operationId));
 
         byte[] serializedRequest = VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE);
@@ -1177,16 +1192,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
         }
 
-        return operationFuture.thenCompose(v -> {
-            if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
-                return allOf(getNodeNames(request.nodeNames())
-                        .stream()
-                        .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
-                        .toArray(CompletableFuture[]::new));
-            } else {
-                return nullCompletedFuture();
-            }
-        });
+        return resultFuture;
     }
 
     /** If request node names is empty, returns all nodes in the logical topology. */
@@ -1511,6 +1517,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             LocalPartitionStatesResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesResponse()
                     .states(statesList)
                     .build();
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Responding with state for local partitions [response={}]", response);
+            }
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);

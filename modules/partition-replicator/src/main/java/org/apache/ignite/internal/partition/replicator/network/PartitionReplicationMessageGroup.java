@@ -42,7 +42,6 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTab
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
 import org.apache.ignite.internal.partition.replicator.network.disaster.OperationCompletedMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesResponseMessage;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
@@ -318,9 +317,6 @@ public interface PartitionReplicationMessageGroup {
         short DISASTER_RECOVERY_RESPONSE = 111;
 
         /** Message type for {@link OperationCompletedMessage}. */
-        short DISASTER_RECOVERY_STATUS_REQUEST = 112;
-
-        /** Message type for {@link OperationStatusesResponseMessage}. */
-        short DISASTER_RECOVERY_STATUS_RESPONSE = 113;
+        short DISASTER_RECOVERY_OPERATION_COMPLETED = 112;
     }
 }
