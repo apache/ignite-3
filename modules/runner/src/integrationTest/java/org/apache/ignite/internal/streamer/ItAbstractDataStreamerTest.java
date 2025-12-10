@@ -276,16 +276,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testBasicStreamingCompositeKeyKvBinaryView() {
         KeyValueView<Tuple, Tuple> view = compositeKeyTable().keyValueView();
-        view.put(null, compositeKeyTupleKey(1), Tuple.create().set("data", "data1").set("foo", "foo1"));
-        view.put(null, compositeKeyTupleKey(2), Tuple.create().set("data", "data2").set("foo", "foo2"));
+        view.put(null, compositeKeyTupleKey(1), compositeKeyTupleVal(1));
+        view.put(null, compositeKeyTupleKey(2), compositeKeyTupleVal(2));
 
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Tuple, Tuple>>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(DataStreamerItem.of(Map.entry(compositeKeyTupleKey(3), Tuple.create().set("data", "data3").set("foo", "foo3"))));
-            publisher.submit(DataStreamerItem.of(Map.entry(compositeKeyTupleKey(4), Tuple.create().set("data", "data4").set("foo", "foo4"))));
+            publisher.submit(DataStreamerItem.of(Map.entry(compositeKeyTupleKey(3), compositeKeyTupleVal(3))));
+            publisher.submit(DataStreamerItem.of(Map.entry(compositeKeyTupleKey(4), compositeKeyTupleVal(4))));
 
             publisher.submit(DataStreamerItem.removed(Map.entry(compositeKeyTupleKey(1), Tuple.create())));
         }
@@ -1047,6 +1047,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         return Tuple.create()
                 .set("name", "name" + id)
                 .set("uniqueId", "uniqueId" + id);
+    }
+
+    private static Tuple compositeKeyTupleVal(int id) {
+        return Tuple.create()
+                .set("data", "data" + id)
+                .set("foo", "foo" + id);
     }
 
     @SuppressWarnings("unused")
