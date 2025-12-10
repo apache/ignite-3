@@ -2,7 +2,10 @@
 
 ## Run Tests
 
-TBD
+```shell
+dotnet publish --runtime linux-x64 --configuration Release
+bin/Release/net8.0/linux-x64/publish/Apache.Ignite.Tests.Aot
+```
 
 ## Design Considerations
 
