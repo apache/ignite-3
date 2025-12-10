@@ -950,14 +950,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         return Tuple.create()
                 .set("name", "name" + id)
                 .set("data", "data" + id)
-                .set("uniqueId", "id" + id)
+                .set("uniqueId", "uniqueId" + id)
                 .set("foo", "foo" + id);
     }
 
     private static Tuple compositeKeyTupleKey(int id) {
         return Tuple.create()
                 .set("name", "name" + id)
-                .set("uniqueId", "id" + id);
+                .set("uniqueId", "uniqueId" + id);
     }
 
     @SuppressWarnings("unused")
