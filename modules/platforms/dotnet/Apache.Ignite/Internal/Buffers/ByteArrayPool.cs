@@ -20,7 +20,9 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Buffers;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Reflection;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -53,11 +55,13 @@ namespace Apache.Ignite.Internal.Buffers
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
+#pragma warning disable IL2026 // 'StackFrame.GetMethod()' has 'RequiresUnreferencedCodeAttribute'
             var stackTrace = new StackTrace();
             var frame = stackTrace.GetFrame(1);
 
             CurrentlyRentedArrays.TryAdd(bytes, frame!.GetMethod()!);
             ReturnedArrays.Remove(bytes);
+#pragma warning restore IL2026
 #endif
 
             return bytes;
