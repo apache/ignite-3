@@ -66,6 +66,8 @@ internal sealed class LazyTransaction : ITransaction
         _options = options;
         _observableTimestamp = observableTimestamp;
         _logger = logger;
+
+        _logger.LogLazyTxCreatedTrace(options, observableTimestamp);
     }
 
     /// <inheritdoc/>

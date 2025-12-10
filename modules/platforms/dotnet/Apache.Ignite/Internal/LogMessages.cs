@@ -21,6 +21,7 @@ using System;
 using System.Net;
 using System.Net.Security;
 using Ignite.Sql;
+using Ignite.Transactions;
 using Microsoft.Extensions.Logging;
 using Proto;
 
@@ -240,4 +241,11 @@ internal static partial class LogMessages
         EventId = 1032)]
     internal static partial void LogObservableTsUpdatedTrace(
         this ILogger logger, long prev, long current);
+
+    [LoggerMessage(
+        Message = "Lazy transaction created [options={Options}, readTimestamp={ReadTimestamp}]",
+        Level = LogLevel.Trace,
+        EventId = 1033)]
+    internal static partial void LogLazyTxCreatedTrace(
+        this ILogger logger, TransactionOptions options, long readTimestamp);
 }
