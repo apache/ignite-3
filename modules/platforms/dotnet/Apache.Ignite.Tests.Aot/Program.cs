@@ -18,12 +18,18 @@
 using Apache.Ignite;
 using Apache.Ignite.Network;
 
+// TODO: JavaServer
 // TODO: Logger
 var cfg = new IgniteClientConfiguration("localhost:10942");
 
-// TODO: Test Caching Extensions too. Or a separate assembly?
 using var ignite = await IgniteClient.StartAsync(cfg);
 
+// TODO: Tests
+// - Table views with tuples and mappers
+// - SQL
+// - Compute
+// - Streamer
+// - PartitionManager
 var clusterNodes = await ignite.GetClusterNodesAsync();
 
 foreach (IClusterNode node in clusterNodes)
