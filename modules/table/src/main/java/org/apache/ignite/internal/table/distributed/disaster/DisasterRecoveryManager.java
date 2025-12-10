@@ -241,7 +241,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private final Map<String, MultiNodeOperations> operationsByNodeName = new ConcurrentHashMap<>();
 
     /** Multi node operations completed by current node and not yet reported to initiator. */
-    private final Map<UUID, String> operationStatusByOperationId = new HashMap<>();
+    private final Map<UUID, String> operationStatusByOperationId = new ConcurrentHashMap<>();
 
     /** Runs {@link #pollMultiNodeOperations()} at a fixed rate. */
     private ScheduledFuture<?> pollingFuture;
@@ -300,7 +300,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             registerMetricSources();
 
             pollingFuture = threadPool.scheduleWithFixedDelay(
-                    this::pollMultiNodeOperations,
+                    () -> inBusyLock(busyLock, this::pollMultiNodeOperations),
                     0,
                     POLLING_RATE_MILLIS,
                     TimeUnit.MILLISECONDS
@@ -1259,13 +1259,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             String operationStatus = operationResponse.getValue();
 
                             if (!COMPLETED_STATUS.equals(operationStatus)) {
-                                operations.get(operationId)
+                                operations.remove(operationId)
                                         .completeExceptionally(new RemoteProcessingDisasterRecoveryException(operationStatus, nodeName));
                             } else {
-                                operations.get(operationId).complete(null);
+                                operations.remove(operationId).complete(null);
                             }
-
-                            operations.remove(operationId);
                         }
 
                         // Not all operations were completed, increase version to poll again.
@@ -1585,7 +1583,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     .operationStatuses(statusByOperationId)
                     .build();
 
-            messagingService.respond(sender, response, correlationId);
+            messagingService.respond(sender, response, correlationId)
+                    .thenRun(() -> operationStatusByOperationId.keySet().removeAll(request.operationIds()));
         }, threadPool);
     }
 

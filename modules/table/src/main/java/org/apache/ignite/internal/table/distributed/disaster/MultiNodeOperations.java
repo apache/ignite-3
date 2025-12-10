@@ -45,9 +45,13 @@ class MultiNodeOperations {
         shouldPoll.set(true);
     }
 
-    /** Removes operation tracking. Doesn't require new polling request. */
-    void remove(UUID operationId) {
-        operationsById.remove(operationId);
+    /**
+     * Removes operation tracking. Doesn't require new polling request.
+     *
+     * @return Removed operation future.
+     */
+    CompletableFuture<Void> remove(UUID operationId) {
+        return operationsById.remove(operationId);
     }
 
     /** Returns operation future by operation id. */
