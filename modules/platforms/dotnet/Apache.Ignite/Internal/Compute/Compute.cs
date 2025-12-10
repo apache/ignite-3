@@ -602,6 +602,7 @@ namespace Apache.Ignite.Internal.Compute
             return await ExecuteOnNodes(nodesCol, jobDescriptor, arg, cancellationToken).ConfigureAwait(false);
         }
 
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         private async Task<IJobExecution<TResult>> SubmitColocatedAsync<TArg, TResult, TKey>(
             JobTarget.ColocatedTarget<TKey> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
