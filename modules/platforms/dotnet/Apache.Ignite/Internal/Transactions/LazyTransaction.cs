@@ -49,7 +49,7 @@ internal sealed class LazyTransaction : ITransaction
 
     private readonly long _observableTimestamp;
 
-    private readonly ILogger<LazyTransaction> _logger;
+    private readonly ILogger _logger;
 
     private int _state = StateOpen;
 
@@ -61,7 +61,7 @@ internal sealed class LazyTransaction : ITransaction
     /// <param name="options">Options.</param>
     /// <param name="observableTimestamp">Observable timestamp.</param>
     /// <param name="logger">Logger.</param>
-    public LazyTransaction(TransactionOptions options, long observableTimestamp, ILogger<LazyTransaction> logger)
+    public LazyTransaction(TransactionOptions options, long observableTimestamp, ILogger logger)
     {
         _options = options;
         _observableTimestamp = observableTimestamp;

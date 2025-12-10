@@ -30,19 +30,22 @@ internal class Transactions : ITransactions
 {
     private readonly ClientFailoverSocket _socket;
 
+    private readonly ILogger<Transactions> _logger;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="Transactions"/> class.
     /// </summary>
     /// <param name="socket">Socket.</param>
-    public Transactions(ClientFailoverSocket socket) => _socket = socket;
+    public Transactions(ClientFailoverSocket socket)
+    {
+        _socket = socket;
+        _logger = _socket.Configuration.Configuration.LoggerFactory.CreateLogger<Transactions>();
+    }
 
     /// <inheritdoc/>
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Tx is returned.")]
     public ValueTask<ITransaction> BeginAsync(TransactionOptions options) =>
-        ValueTask.FromResult<ITransaction>(new LazyTransaction(
-            options: options,
-            observableTimestamp: _socket.ObservableTimestamp,
-            logger: _socket.Configuration.Configuration.LoggerFactory.CreateLogger<LazyTransaction>()));
+        ValueTask.FromResult<ITransaction>(new LazyTransaction(options, _socket.ObservableTimestamp, _logger));
 
     /// <inheritdoc />
     public override string ToString() => IgniteToStringBuilder.Build(GetType());
