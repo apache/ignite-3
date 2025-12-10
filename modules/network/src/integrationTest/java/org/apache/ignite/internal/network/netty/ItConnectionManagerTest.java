@@ -60,8 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -569,7 +568,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     defaultChannelTypeRegistry(),
                     new DefaultIgniteProductVersionSource(),
                     mock(TopologyService.class),
-                    new FailureManager(new NoOpFailureHandler())
+                    new NoOpFailureManager()
             );
 
             manager.start();

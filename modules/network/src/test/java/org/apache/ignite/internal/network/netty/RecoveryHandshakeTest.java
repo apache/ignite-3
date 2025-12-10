@@ -39,8 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
@@ -777,7 +776,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 () -> false,
                 new DefaultIgniteProductVersionSource(),
                 topologyService,
-                new FailureManager(new NoOpFailureHandler())
+                new NoOpFailureManager()
         );
     }
 
