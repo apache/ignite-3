@@ -26,12 +26,12 @@ using Compute.Executor;
 using Proto;
 using Proto.MsgPack;
 
-#pragma warning disable IL2026 // No trimming or AOT in server mode.
 /// <summary>
 /// Server -> client request handling logic.
 /// </summary>
 internal sealed partial class ClientSocket
 {
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
     private static async Task HandleServerOpInnerAsync(
         ServerOp op,
         PooledBuffer request,
