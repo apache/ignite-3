@@ -380,9 +380,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleAcceptorId(HandshakeStartMessage msg) {
-
-
-
         String message = String.format("%s:%s is stale, node should be restarted so that other nodes can connect",
                 msg.serverNode().name(), msg.serverNode().id()
         );
