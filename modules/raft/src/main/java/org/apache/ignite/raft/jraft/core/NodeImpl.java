@@ -297,7 +297,7 @@ public class NodeImpl implements Node, RaftServerService {
         public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
                 if (!this.tasks.isEmpty()) {
-                    executeApplyingTasks(this.tasks);
+                    executeApplyingTasks(this.tasks, false);
                     reset();
                 }
                 event.shutdownLatch.countDown();
@@ -323,7 +323,7 @@ public class NodeImpl implements Node, RaftServerService {
 
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
-                executeApplyingTasks(this.tasks);
+                executeApplyingTasks(this.tasks, false);
                 reset();
             }
         }
@@ -1685,7 +1685,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    private void executeApplyingTasks(final List<LogEntryAndClosure> tasks) {
+    private void executeApplyingTasks(List<LogEntryAndClosure> tasks, boolean patch) {
         if (!this.logManager.hasAvailableCapacityToAppendEntries(1)) {
             // It's overload, fail-fast
             final List<Closure> dones = tasks.stream().map(ele -> ele.done).filter(Objects::nonNull)
@@ -1718,6 +1718,10 @@ public class NodeImpl implements Node, RaftServerService {
             final List<LogEntry> entries = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 final LogEntryAndClosure task = tasks.get(i);
+                if (patch) {
+                   patch(task);
+                }
+
                 if (task.expectedTerm != -1 && task.expectedTerm != this.currTerm) {
                     LOG.debug("Node {} can't apply task whose expectedTerm={} doesn't match currTerm={}.", getNodeId(),
                         task.expectedTerm, this.currTerm);
@@ -2133,6 +2137,33 @@ public class NodeImpl implements Node, RaftServerService {
                     }
             }
             break;
+        }
+    }
+
+    @Override
+    public void applyBypassQueue(Task task) {
+        final LogEntry entry = new LogEntry();
+        entry.setData(task.getData());
+
+        LogEntryAndClosure event = new LogEntryAndClosure();
+        event.nodeId = getNodeId();
+        event.done = task.getDone();
+        event.entry = entry;
+        event.expectedTerm = task.getExpectedTerm();
+
+        executeApplyingTasks(List.of(event), true);
+    }
+
+    private void patch(LogEntryAndClosure event) {
+        if (event.done instanceof SafeTimeAwareCommandClosure) {
+            SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.done;
+            WriteCommand command = clo.command();
+            HybridTimestamp timestamp = command.initiatorTime();
+
+            if (timestamp != null) {
+                // Atomically generate and set id, so it's monotonic
+                clo.safeTimestamp(clock.update(timestamp));
+            }
         }
     }
 

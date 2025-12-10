@@ -979,7 +979,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         localNodeId = topologyService.localMember().id();
 
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+        messagingService.addMessageHandler(ReplicaMessageGroup.class, msg -> partitionOperationsExecutor, this);
 
         persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
                 replicaService,
