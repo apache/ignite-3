@@ -31,7 +31,6 @@ using Proto.MsgPack;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
     private static async Task HandleServerOpInnerAsync(
         ServerOp op,
         PooledBuffer request,
