@@ -24,9 +24,11 @@ import java.util.Map;
 /**
  * Represents data in configuration storage.
  */
-public class Data {
+public class ReadEntry {
     /** Values. */
     private final Map<String, ? extends Serializable> values;
+
+    private final Map<String, ? extends Serializable> invariant;
 
     /** Configuration storage version. */
     private final long changeId;
@@ -37,14 +39,25 @@ public class Data {
      * @param values   Values.
      * @param changeId Version.
      */
-    public Data(Map<String, ? extends Serializable> values, long changeId) {
+    public ReadEntry(Map<String, ? extends Serializable> values, long changeId) {
         this.values = Collections.unmodifiableMap(values);
         this.changeId = changeId;
+        this.invariant = Collections.emptyMap();
+    }
+
+    public ReadEntry(Map<String, ? extends Serializable> values, long changeId, Map<String, ? extends Serializable> invariant) {
+        this.values = values;
+        this.changeId = changeId;
+        this.invariant = invariant;
     }
 
     /** Get values. */
     public Map<String, ? extends Serializable> values() {
         return values;
+    }
+
+    public Map<String, ? extends Serializable> invariant() {
+        return invariant;
     }
 
     /**
