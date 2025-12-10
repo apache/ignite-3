@@ -8,6 +8,9 @@
         <PublishAot>true</PublishAot>
         <InvariantGlobalization>true</InvariantGlobalization>
         <TrimmerSingleWarn>false</TrimmerSingleWarn>
+        <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <WarningsAsErrors>$(WarningsAsErrors);IL3050</WarningsAsErrors>
     </PropertyGroup>
 
     <ItemGroup>
