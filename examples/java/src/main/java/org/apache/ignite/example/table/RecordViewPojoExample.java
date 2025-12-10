@@ -17,9 +17,6 @@
 
 package org.apache.ignite.example.table;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 
@@ -42,81 +39,73 @@ public class RecordViewPojoExample {
         //
         //--------------------------------------------------------------------------------------
 
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate(
-                    "CREATE TABLE accounts ("
-                            + "accountNumber INT PRIMARY KEY,"
-                            + "firstName     VARCHAR,"
-                            + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
-            );
-        }
-
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
-        //
-        //--------------------------------------------------------------------------------------
-
-        System.out.println("\nConnecting to server...");
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating a record view for the 'accounts' table.
-            //
-            //--------------------------------------------------------------------------------------
+            try {
+                client.sql().executeScript(
+                        "CREATE TABLE accounts ("
+                                + "accountNumber INT PRIMARY KEY,"
+                                + "firstName     VARCHAR,"
+                                + "lastName      VARCHAR,"
+                                + "balance       DOUBLE)"
+                );
 
-            RecordView<Account> accounts = client.tables()
-                    .table("accounts")
-                    .recordView(Account.class);
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a client to connect to the cluster.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'insert' operation.
-            //
-            //--------------------------------------------------------------------------------------
+                System.out.println("\nConnecting to server...");
 
-            System.out.println("\nInserting a record into the 'accounts' table...");
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a record view for the 'accounts' table.
+                //
+                //--------------------------------------------------------------------------------------
 
-            Account newAccount = new Account(
-                    123456,
-                    "Val",
-                    "Kulichenko",
-                    100.00d
-            );
+                RecordView<Account> accounts = client.tables()
+                        .table("accounts")
+                        .recordView(Account.class);
 
-            accounts.insert(null, newAccount);
+                //--------------------------------------------------------------------------------------
+                //
+                // Performing the 'insert' operation.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'get' operation.
-            //
-            //--------------------------------------------------------------------------------------
+                System.out.println("\nInserting a record into the 'accounts' table...");
 
-            System.out.println("\nRetrieving a record using RecordView API...");
+                Account newAccount = new Account(
+                        123456,
+                        "Val",
+                        "Kulichenko",
+                        100.00d
+                );
 
-            Account account = accounts.get(null, new Account(123456));
+                accounts.insert(null, newAccount);
 
-            System.out.println(
-                    "\nRetrieved record:\n"
-                        + "    Account Number: " + account.accountNumber + '\n'
-                        + "    Owner: " + account.firstName + " " + account.lastName + '\n'
-                        + "    Balance: $" + account.balance);
-        } finally {
-            System.out.println("\nDropping the table...");
+                //--------------------------------------------------------------------------------------
+                //
+                // Performing the 'get' operation.
+                //
+                //--------------------------------------------------------------------------------------
 
-            try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE accounts");
+                System.out.println("\nRetrieving a record using RecordView API...");
+
+                Account account = accounts.get(null, new Account(123456));
+
+                System.out.println(
+                        "\nRetrieved record:\n"
+                                + "    Account Number: " + account.accountNumber + '\n'
+                                + "    Owner: " + account.firstName + " " + account.lastName + '\n'
+                                + "    Balance: $" + account.balance);
+            } finally {
+                System.out.println("\nDropping the table...");
+
+                client.sql().executeScript("DROP TABLE accounts");
             }
         }
     }
