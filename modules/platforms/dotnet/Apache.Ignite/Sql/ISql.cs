@@ -59,6 +59,7 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction, SqlStatement statement, params object?[]? args)
             => ExecuteAsync<T>(transaction, statement, CancellationToken.None, args);

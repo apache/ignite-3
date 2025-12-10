@@ -56,6 +56,7 @@ public interface ICompute
     /// <typeparam name="TArg">Job argument type.</typeparam>
     /// <typeparam name="TResult">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
         IJobTarget<TTarget> target,
         JobDescriptor<TArg, TResult> jobDescriptor,
