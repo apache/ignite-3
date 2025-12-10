@@ -376,6 +376,9 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark service as stopping.
+     */
     public void markAsStopping() {
         raftService.markAsStopping();
     }

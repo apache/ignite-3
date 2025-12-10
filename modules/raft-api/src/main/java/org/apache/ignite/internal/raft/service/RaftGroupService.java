@@ -259,7 +259,7 @@ public interface RaftGroupService extends RaftCommandRunner {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
     /**
-     * Mark component as stopping.
+     * Mark service as stopping.
      */
     default void markAsStopping() {
         // No-op
