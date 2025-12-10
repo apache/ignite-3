@@ -70,7 +70,6 @@ class AssertMarshaller {
         IgniteTestUtils.assertThrows(expectedType, () -> assertMarshaller(expectedKey, expectedVal), msgSubstring);
     }
 
-
     static <T> void assertView(Table table, T expected) {
         RecordView<T> view = (RecordView<T>) table.recordView(expected.getClass());
 

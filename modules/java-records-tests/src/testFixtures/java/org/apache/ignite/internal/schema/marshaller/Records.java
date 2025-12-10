@@ -40,8 +40,11 @@ class Records {
             });
 
     static class ComponentsExact {
+
         record RecordK(@Column("key") Integer id) { }
+
         record RecordV(@Column("val") String val) { }
+
         record Record(@Column("key") Integer id, @Column("val") String val) { }
 
         record ExplicitCanonical(@Column("key") Integer id, @Column("val") String val) {
@@ -302,8 +305,8 @@ class Records {
                     return false;
                 }
                 var that = (Class) obj;
-                return Objects.equals(this.val, that.val) &&
-                        Objects.equals(this.id, that.id);
+                return Objects.equals(this.val, that.val)
+                        && Objects.equals(this.id, that.id);
             }
 
             @Override
@@ -314,8 +317,11 @@ class Records {
     }
 
     static class ComponentsWrongTypes {
+
         record RecordK(@Column("key") Short id) { }
+
         record RecordV(@Column("val") Integer val) { }
+
         record Record(@Column("key") Short id, @Column("val") Integer val) { }
 
         static final class Class {
@@ -340,8 +346,8 @@ class Records {
                     return false;
                 }
                 var that = (Class) obj;
-                return Objects.equals(this.id, that.id) &&
-                        Objects.equals(this.val, that.val);
+                return Objects.equals(this.id, that.id)
+                        && Objects.equals(this.val, that.val);
             }
 
             @Override
@@ -408,7 +414,9 @@ class Records {
     }
 
     static class ComponentsEmpty {
+
         record Record() { }
+
         static final class Class {}
     }
 
@@ -433,8 +441,8 @@ class Records {
                     return false;
                 }
                 var that = (Class) obj;
-                return Objects.equals(this.id, that.id) &&
-                        Objects.equals(this.value, that.value);
+                return Objects.equals(this.id, that.id)
+                        && Objects.equals(this.value, that.value);
             }
 
             @Override
