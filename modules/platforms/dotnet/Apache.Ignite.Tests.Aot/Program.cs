@@ -18,6 +18,7 @@
 using Apache.Ignite;
 using Apache.Ignite.Network;
 
+// TODO: Logger
 var cfg = new IgniteClientConfiguration("localhost:10942");
 
 using var ignite = await IgniteClient.StartAsync(cfg);
