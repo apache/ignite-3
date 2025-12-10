@@ -105,7 +105,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 + "    name VARCHAR,\n"
                 + "    data VARCHAR,\n"
                 + "    uniqueId VARCHAR,\n"
-                + "    data2 VARCHAR,\n"
+                + "    foo VARCHAR,\n"
                 + "    PRIMARY KEY (name, uniqueId)\n"
                 + ")");
     }
@@ -210,6 +210,38 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar", view.get(null, 2).name);
         assertNull(view.get(null, 3));
     }
+
+    @Test
+    public void testBasicStreamingCompositeKeyRecordBinaryView() {
+        RecordView<Tuple> view = compositeKeyTable().recordView();
+        view.upsert(null, compositeKeyTuple(1));
+        view.upsert(null, compositeKeyTuple(2));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(DataStreamerItem.of(compositeKeyTuple(3)));
+            publisher.submit(DataStreamerItem.of(compositeKeyTuple(4)));
+
+            publisher.submit(DataStreamerItem.removed(compositeKeyTupleKey(1)));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertNull(view.get(null, compositeKeyTupleKey(1)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(2)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(3)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(4)));
+
+        Tuple resTuple = view.get(null, compositeKeyTupleKey(3));
+        assertEquals("name3", resTuple.stringValue("name"));
+        assertEquals("data3", resTuple.stringValue("data"));
+        assertEquals("uniqueId3", resTuple.stringValue("uniqueId"));
+        assertEquals("foo3", resTuple.stringValue("foo"));
+    }
+
 
     @Test
     public void testAutoFlushByTimer() throws InterruptedException {
@@ -912,6 +944,20 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static Tuple tupleKey(int id) {
         return Tuple.create()
                 .set("id", id);
+    }
+
+    private static Tuple compositeKeyTuple(int id) {
+        return Tuple.create()
+                .set("name", "name" + id)
+                .set("data", "data" + id)
+                .set("uniqueId", "id" + id)
+                .set("foo", "foo" + id);
+    }
+
+    private static Tuple compositeKeyTupleKey(int id) {
+        return Tuple.create()
+                .set("name", "name" + id)
+                .set("uniqueId", "id" + id);
     }
 
     @SuppressWarnings("unused")
