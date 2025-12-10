@@ -106,7 +106,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 + "    data VARCHAR,\n"
                 + "    uniqueId VARCHAR,\n"
                 + "    foo VARCHAR,\n"
-                + "    PRIMARY KEY (name, uniqueId)\n"
+                + "    PRIMARY KEY (uniqueId, name)\n"
                 + ")");
     }
 
