@@ -124,7 +124,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public K unmarshalKeyOnly(Row row) throws MarshallerException {
         assert row.elementCount() == keyPositions.length : "Number of key columns does not match";
 
-        Object o = keyMarsh.readObject(new RowReader(row), null);
+        Object o = keyMarsh.readObject(new RowReader(row));
 
         assert keyClass.isInstance(o);
 
@@ -134,7 +134,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public K unmarshalKey(Row row) throws MarshallerException {
-        Object o = keyMarsh.readObject(new RowReader(row, keyPositions), null);
+        Object o = keyMarsh.readObject(new RowReader(row, keyPositions));
 
         assert keyClass.isInstance(o);
 
@@ -145,7 +145,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(Row row) throws MarshallerException {
-        Object o = valMarsh.readObject(new RowReader(row, valPositions), null);
+        Object o = valMarsh.readObject(new RowReader(row, valPositions));
 
         assert o == null || valClass.isInstance(o);
 
