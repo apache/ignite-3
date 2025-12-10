@@ -18,12 +18,14 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.Loader;
 
 /// <summary>
 /// Loader for deployment units in Apache Ignite compute execution context.
 /// </summary>
+[RequiresUnreferencedCode(".NET compute executor runs compute jobs on the server and does not support AOT and trimming scenarios.")]
 internal static class DeploymentUnitLoader
 {
     private static readonly Assembly IgniteAssembly = typeof(DeploymentUnitLoader).Assembly;
