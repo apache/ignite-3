@@ -185,7 +185,7 @@ public abstract class Marshaller {
      * @return Object.
      * @throws MarshallerException If failed.
      */
-    public abstract Object readObject(MarshallerReader reader) throws MarshallerException;
+    public abstract Object readObject(MarshallerReader reader, Object target) throws MarshallerException;
 
     /**
      * Write an object to a row.
@@ -233,7 +233,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(MarshallerReader reader) {
+        public Object readObject(MarshallerReader reader, Object target) {
             return fieldAccessor.read(reader);
         }
 
@@ -281,7 +281,8 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(MarshallerReader reader) throws MarshallerException {
+        public Object readObject(MarshallerReader reader, Object target) throws MarshallerException {
+            // target is always null, but this exact API is used by migration tools
             return creator.createInstance(fieldAccessors, reader);
         }
 
@@ -307,7 +308,7 @@ public abstract class Marshaller {
         }
 
         @Override
-        public Object readObject(MarshallerReader reader) {
+        public Object readObject(MarshallerReader reader, Object target) {
             return null;
         }
 
