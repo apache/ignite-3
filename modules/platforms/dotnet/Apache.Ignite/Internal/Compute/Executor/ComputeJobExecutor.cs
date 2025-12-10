@@ -35,7 +35,7 @@ internal static class ComputeJobExecutor
     /// AOT and trimming warning.
     /// </summary>
     internal const string TrimWarning =
-        ".NET compute executor runs compute jobs on the server and does not support AOT and trimming scenarios";
+        ".NET compute executor runs compute jobs on the server and does not support AOT and trimming scenarios.";
 
     /// <summary>
     /// Compute executor id.
