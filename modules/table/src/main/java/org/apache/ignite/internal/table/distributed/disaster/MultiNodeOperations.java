@@ -24,25 +24,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 
 /** Used to poll statuses of multi node operations from other nodes. */
 class MultiNodeOperations {
     private final Map<UUID, CompletableFuture<Void>> operationsById = new ConcurrentHashMap<>();
 
-    private final AtomicBoolean shouldPoll = new AtomicBoolean(true);
-
-    /** Returns ids of all tracked operations. */
-    Set<UUID> operationsIds() {
-        return Set.copyOf(operationsById.keySet());
-    }
-
-    /** Adds new operation to track. Requires new polling request to be sent. */
+    /** Adds new operation to track. */
     void add(UUID operationId, CompletableFuture<Void> operationFuture) {
         operationsById.put(operationId, operationFuture);
-
-        shouldPoll.set(true);
     }
 
     /**
@@ -52,21 +42,6 @@ class MultiNodeOperations {
      */
     CompletableFuture<Void> remove(UUID operationId) {
         return operationsById.remove(operationId);
-    }
-
-    /** Returns operation future by operation id. */
-    CompletableFuture<Void> get(UUID operationId) {
-        return operationsById.get(operationId);
-    }
-
-    /** Marks that new polling request should be sent. */
-    void triggerNextRequest() {
-        shouldPoll.set(true);
-    }
-
-    /** Returns {@code true} if new request should be sent, and unsets the {@link #shouldPoll} flag. */
-    boolean startPollingIfNeeded() {
-        return shouldPoll.getAndSet(false);
     }
 
     /** Completes all tracked operations with a given exception. */
@@ -81,9 +56,5 @@ class MultiNodeOperations {
 
             operationsById.remove(operationId);
         }
-    }
-
-    public boolean isEmpty() {
-        return operationsById.isEmpty();
     }
 }

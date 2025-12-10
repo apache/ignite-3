@@ -41,7 +41,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
-import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesRequestMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.OperationCompletedMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesResponseMessage;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
@@ -317,7 +317,7 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link DisasterRecoveryResponseMessage}. */
         short DISASTER_RECOVERY_RESPONSE = 111;
 
-        /** Message type for {@link OperationStatusesRequestMessage}. */
+        /** Message type for {@link OperationCompletedMessage}. */
         short DISASTER_RECOVERY_STATUS_REQUEST = 112;
 
         /** Message type for {@link OperationStatusesResponseMessage}. */

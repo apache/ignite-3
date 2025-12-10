@@ -21,7 +21,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -62,9 +61,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -75,6 +72,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -96,6 +97,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -114,8 +116,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
-import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesRequestMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.OperationStatusesResponseMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.OperationCompletedMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
@@ -183,12 +184,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      */
     private static final int CATCH_UP_THRESHOLD = 100;
 
-    /** How often to check status of running multi node operations. */
-    private static final long POLLING_RATE_MILLIS = 100;
-
-    /** Multi node operation was successfully completed. */
-    private static final String COMPLETED_STATUS = "COMPLETED";
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -213,8 +208,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Cluster physical topology service.  */
     private final TopologyService topologyService;
 
+    private final LogicalTopologyService logicalTopology;
+
     /** Watch listener for {@link #RECOVERY_TRIGGER_KEY}. */
     private final WatchListener watchListener;
+
+    private final LogicalTopologyEventListener nodeLeftListener;
 
     /** Table manager. */
     final TableManager tableManager;
@@ -240,14 +239,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private final Map<String, MultiNodeOperations> operationsByNodeName = new ConcurrentHashMap<>();
 
-    /** Multi node operations completed by current node and not yet reported to initiator. */
-    private final Map<UUID, String> operationStatusByOperationId = new ConcurrentHashMap<>();
-
-    /** Runs {@link #pollMultiNodeOperations()} at a fixed rate. */
-    private ScheduledFuture<?> pollingScheduledFuture;
-
-    private CompletableFuture<Void> pollingFuture;
-
     /** Constructor. */
     public DisasterRecoveryManager(
             ScheduledExecutorService threadPool,
@@ -257,6 +248,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             DistributionZoneManager dzManager,
             Loza raftManager,
             TopologyService topologyService,
+            LogicalTopologyService logicalTopology,
             TableManager tableManager,
             MetricManager metricManager,
             FailureManager failureManager,
@@ -270,6 +262,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.dzManager = dzManager;
         this.raftManager = raftManager;
         this.topologyService = topologyService;
+        this.logicalTopology = logicalTopology;
         this.tableManager = tableManager;
         this.metricManager = metricManager;
         this.failureManager = failureManager;
@@ -282,6 +275,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             // There is no need to block a watch thread any longer.
             return nullCompletedFuture();
         });
+
+        nodeLeftListener = new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                operationsByNodeName.get(leftNode.name()).exceptionally(new NodeStoppingException());
+            }
+        };
     }
 
     @Override
@@ -301,12 +301,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             registerMetricSources();
 
-            pollingScheduledFuture = threadPool.scheduleWithFixedDelay(
-                    () -> inBusyLock(busyLock, this::pollMultiNodeOperations),
-                    0,
-                    POLLING_RATE_MILLIS,
-                    TimeUnit.MILLISECONDS
-            );
+            logicalTopology.addEventListener(nodeLeftListener);
 
             return nullCompletedFuture();
         });
@@ -318,13 +313,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         metaStorageManager.unregisterWatch(watchListener);
 
+        logicalTopology.removeEventListener(nodeLeftListener);
+
         for (CompletableFuture<Void> future : ongoingOperationsById.values()) {
             future.completeExceptionally(new NodeStoppingException());
-        }
-
-        ScheduledFuture<?> pollingScheduledFuture = this.pollingScheduledFuture;
-        if (pollingScheduledFuture != null) {
-            pollingScheduledFuture.cancel(true);
         }
 
         return nullCompletedFuture();
@@ -1225,47 +1217,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Sends status request to nodes participating in MULTI_NODE operations and completes corresponding futures in
-     * {@link #operationsByNodeName}.
-    */
-    private void pollMultiNodeOperations() {
-        operationsByNodeName.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
-        for (Map.Entry<String, MultiNodeOperations> entry : operationsByNodeName.entrySet()) {
-            String nodeName = entry.getKey();
-            pollingFuture = pollingFuture.handle((v, ignored) -> {
-                MultiNodeOperations operations = entry.getValue();
-
-                OperationStatusesRequestMessage request = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusRequestMessage()
-                        .operationIds(operations.operationsIds())
-                        .build();
-
-                return messagingService.invoke(nodeName, request, TimeUnit.SECONDS.toMillis(1))
-                        .whenComplete((message, ex) -> {
-                            if (ex != null && !hasCause(ex, TimeoutException.class)) {
-                                return;
-                            }
-
-                            OperationStatusesResponseMessage responseMessage = (OperationStatusesResponseMessage) message;
-
-                            for (Map.Entry<UUID, String> operationResponse : responseMessage.operationStatuses().entrySet()) {
-                                UUID operationId = operationResponse.getKey();
-                                String operationStatus = operationResponse.getValue();
-
-                                if (!COMPLETED_STATUS.equals(operationStatus)) {
-                                    operations.remove(operationId)
-                                            .completeExceptionally(
-                                                    new RemoteOperationException(operationStatus, nodeName));
-                                } else {
-                                    operations.remove(operationId).complete(null);
-                                }
-                            }
-                        });
-            });
-        }
-    }
-
-    /**
      * Put the {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY}
      * if the revision of the trigger event is not processed for this zone yet.
      *
@@ -1383,9 +1334,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                 copyStateTo(operationFuture).accept(res, ex);
                             }
 
-                            if (ex != null) {
-                                operationStatusByOperationId.put(request.operationId(), ex.getMessage());
+                            for (String node : getNodeNames(request.nodeNames())) {
+                                messagingService.send(
+                                        node,
+                                        ChannelType.DEFAULT,
+                                        PARTITION_REPLICATION_MESSAGES_FACTORY.operationCompletedMessage()
+                                                .operationId(request.operationId())
+                                                .exceptionMessage(ex == null ? null : ex.getMessage()).build()
+                                );
+                            }
 
+                            if (ex != null) {
                                 if (!hasCause(
                                         ex,
                                         NodeStoppingException.class,
@@ -1395,8 +1354,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                 )) {
                                     failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
                                 }
-                            } else {
-                                operationStatusByOperationId.put(request.operationId(), COMPLETED_STATUS);
                             }
 
                             return null;
@@ -1426,8 +1383,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
-        } else if (message instanceof OperationStatusesRequestMessage) {
-            handleDisasterRecoveryStatusRequest((OperationStatusesRequestMessage) message, sender, correlationId);
+        } else if (message instanceof OperationCompletedMessage) {
+            handleOperationCompletedMessage((OperationCompletedMessage) message, sender);
         }
     }
 
@@ -1559,24 +1516,22 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }, threadPool);
     }
 
-    private void handleDisasterRecoveryStatusRequest(
-            OperationStatusesRequestMessage request,
-            InternalClusterNode sender,
-            @Nullable Long correlationId
+    private void handleOperationCompletedMessage(
+            OperationCompletedMessage message,
+            InternalClusterNode sender
     ) {
-        assert correlationId != null : "request=" + request + ", sender=" + sender;
+        MultiNodeOperations multiNodeOperations = operationsByNodeName.get(sender.name());
+        if (multiNodeOperations != null) {
+            CompletableFuture<Void> operationFuture = multiNodeOperations.remove(message.operationId());
 
-        runAsync(() -> {
-            Map<UUID, String> statusByOperationId = request.operationIds().stream()
-                    .collect(toMap(Function.identity(), operationStatusByOperationId::get));
-
-            OperationStatusesResponseMessage response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryStatusResponseMessage()
-                    .operationStatuses(statusByOperationId)
-                    .build();
-
-            messagingService.respond(sender, response, correlationId)
-                    .thenRun(() -> operationStatusByOperationId.keySet().removeAll(request.operationIds()));
-        }, threadPool);
+            if (operationFuture != null) {
+                if (message.exceptionMessage() != null) {
+                    operationFuture.completeExceptionally(new RemoteOperationException(message.exceptionMessage(), sender.name()));
+                } else {
+                    operationFuture.complete(null);
+                }
+            }
+        }
     }
 
     private @Nullable LocalTablePartitionStateMessage handleSizeRequestForTablesInZone(

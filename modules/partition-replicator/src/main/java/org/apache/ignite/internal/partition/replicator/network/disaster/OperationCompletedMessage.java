@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
+import org.jetbrains.annotations.Nullable;
 
-/** Request completed disaster recovery operations. */
+/** Notifies that disaster recovery operation was completed. */
 @Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_STATUS_REQUEST)
-public interface OperationStatusesRequestMessage extends NetworkMessage {
-    /** IDs of the operations to get statuses of. */
-    Collection<UUID> operationIds();
+public interface OperationCompletedMessage extends NetworkMessage {
+    /** ID of the completed operation. */
+    UUID operationId();
+
+    @Nullable String exceptionMessage();
 }
