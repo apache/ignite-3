@@ -17,9 +17,6 @@
 
 package org.apache.ignite.example.table;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -43,80 +40,72 @@ public class RecordViewExample {
         //
         //--------------------------------------------------------------------------------------
 
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate(
-                    "CREATE TABLE accounts ("
-                            + "accountNumber INT PRIMARY KEY,"
-                            + "firstName     VARCHAR,"
-                            + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
-            );
-        }
-
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
-        //
-        //--------------------------------------------------------------------------------------
-
-        System.out.println("\nConnecting to server...");
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating a record view for the 'accounts' table.
-            //
-            //--------------------------------------------------------------------------------------
+            try {
+                client.sql().executeScript(
+                        "CREATE TABLE accounts ("
+                                + "accountNumber INT PRIMARY KEY,"
+                                + "firstName     VARCHAR,"
+                                + "lastName      VARCHAR,"
+                                + "balance       DOUBLE)"
+                );
 
-            RecordView<Tuple> accounts = client.tables().table("accounts").recordView();
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a client to connect to the cluster.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'insert' operation.
-            //
-            //--------------------------------------------------------------------------------------
+                System.out.println("\nConnecting to server...");
 
-            System.out.println("\nInserting a record into the 'accounts' table...");
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a record view for the 'accounts' table.
+                //
+                //--------------------------------------------------------------------------------------
 
-            Tuple newAccountTuple = Tuple.create()
-                    .set("accountNumber", 123456)
-                    .set("firstName", "Val")
-                    .set("lastName", "Kulichenko")
-                    .set("balance", 100.00d);
+                RecordView<Tuple> accounts = client.tables().table("accounts").recordView();
 
-            accounts.insert(null, newAccountTuple);
+                //--------------------------------------------------------------------------------------
+                //
+                // Performing the 'insert' operation.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'get' operation.
-            //
-            //--------------------------------------------------------------------------------------
+                System.out.println("\nInserting a record into the 'accounts' table...");
 
-            System.out.println("\nRetrieving a record using RecordView API...");
+                Tuple newAccountTuple = Tuple.create()
+                        .set("accountNumber", 123456)
+                        .set("firstName", "Val")
+                        .set("lastName", "Kulichenko")
+                        .set("balance", 100.00d);
 
-            Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
+                accounts.insert(null, newAccountTuple);
 
-            Tuple accountTuple = accounts.get(null, accountNumberTuple);
+                //--------------------------------------------------------------------------------------
+                //
+                // Performing the 'get' operation.
+                //
+                //--------------------------------------------------------------------------------------
 
-            System.out.println(
-                    "\nRetrieved record:\n"
-                            + "    Account Number: " + accountTuple.intValue("accountNumber") + '\n'
-                            + "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n'
-                            + "    Balance: $" + accountTuple.doubleValue("balance"));
-        } finally {
-            System.out.println("\nDropping the table...");
+                System.out.println("\nRetrieving a record using RecordView API...");
 
-            try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE accounts");
+                Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
+
+                Tuple accountTuple = accounts.get(null, accountNumberTuple);
+
+                System.out.println(
+                        "\nRetrieved record:\n"
+                                + "    Account Number: " + accountTuple.intValue("accountNumber") + '\n'
+                                + "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n'
+                                + "    Balance: $" + accountTuple.doubleValue("balance"));
+            } finally {
+                System.out.println("\nDropping the table...");
+
+                client.sql().executeScript("DROP TABLE accounts");
             }
         }
     }
