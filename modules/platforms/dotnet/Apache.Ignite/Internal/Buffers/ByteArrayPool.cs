@@ -50,18 +50,20 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="minimumLength">The minimum length of the array.</param>
         /// <returns>An byte array that is at least <paramref name="minimumLength" /> in length.</returns>
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Debug mode, guarded.")]
         public static byte[] Rent(int minimumLength)
         {
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
-#pragma warning disable IL2026 // 'StackFrame.GetMethod()' has 'RequiresUnreferencedCodeAttribute'
-            var stackTrace = new StackTrace();
-            var frame = stackTrace.GetFrame(1);
+            if (RuntimeFeature.IsDynamicCodeSupported)
+            {
+                var stackTrace = new StackTrace();
+                var frame = stackTrace.GetFrame(1);
 
-            CurrentlyRentedArrays.TryAdd(bytes, frame!.GetMethod()!);
-            ReturnedArrays.Remove(bytes);
-#pragma warning restore IL2026
+                CurrentlyRentedArrays.TryAdd(bytes, frame!.GetMethod()!);
+                ReturnedArrays.Remove(bytes);
+            }
 #endif
 
             return bytes;
