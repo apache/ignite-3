@@ -29,8 +29,15 @@ using Table.StreamerReceiverExecutor;
 /// <summary>
 /// Compute executor utilities.
 /// </summary>
+[RequiresUnreferencedCode(TrimWarning)]
 internal static class ComputeJobExecutor
 {
+    /// <summary>
+    /// AOT and trimming warning.
+    /// </summary>
+    internal const string TrimWarning =
+        ".NET compute executor runs compute jobs on the server and does not support AOT and trimming scenarios";
+
     /// <summary>
     /// Compute executor id.
     /// </summary>
