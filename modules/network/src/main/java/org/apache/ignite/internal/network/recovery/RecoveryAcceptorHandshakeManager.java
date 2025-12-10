@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.sh
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -107,7 +108,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     private RecoveryDescriptor recoveryDescriptor;
 
     /** Cluster topology service. */
-    protected final TopologyService topologyService;
+    private final TopologyService topologyService;
 
     /**
      * Constructor.
@@ -128,7 +129,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource, TopologyService topologyService
+            IgniteProductVersionSource productVersionSource,
+            TopologyService topologyService
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;

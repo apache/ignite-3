@@ -117,10 +117,12 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private RecoveryDescriptor recoveryDescriptor;
 
     /** Cluster topology service. */
-    protected final TopologyService topologyService;
+    @SuppressWarnings("FieldCanBeLocal")
+    private final TopologyService topologyService;
 
     /** Failure processor. */
-    protected final FailureProcessor failureProcessor;
+    @SuppressWarnings("FieldCanBeLocal")
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.

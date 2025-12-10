@@ -126,7 +126,7 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
     private final AtomicBoolean initiatorHandshakeManagerStopping = new AtomicBoolean(false);
 
     @Mock
-    protected TopologyService topologyService;
+    private TopologyService topologyService;
 
     @BeforeEach
     void initMocks() {

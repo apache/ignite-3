@@ -104,7 +104,7 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
     private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
 
     @Mock
-    protected TopologyService topologyService;
+    private TopologyService topologyService;
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
