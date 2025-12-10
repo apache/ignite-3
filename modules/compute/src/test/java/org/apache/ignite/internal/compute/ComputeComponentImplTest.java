@@ -94,7 +94,7 @@ import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
-import org.apache.ignite.internal.deployunit.loader.UnitsContext;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -164,7 +164,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
         UnitsClassLoader classLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
-        UnitsContext jobContext = new UnitsContext(classLoader, ignored -> {});
+        UnitsClassLoaderContext jobContext = new UnitsClassLoaderContext(classLoader, ignored -> {});
         lenient().when(jobContextManager.acquireClassLoader(anyList()))
                 .thenReturn(completedFuture(jobContext));
 

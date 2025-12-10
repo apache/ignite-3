@@ -19,6 +19,7 @@ package org.apache.ignite.internal.deployunit.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.deployunit.loader.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
@@ -77,19 +78,30 @@ public class UnitsContextManager {
     }
 
     /**
-     * Acquires a class loader for the given deployment units.
+     * Acquires a class loader for the given deployment units with acquire identifier built from unit names.
      *
      * @param units The deployment units.
      * @return The class loader.
      */
-    public CompletableFuture<UnitsContext> acquireClassLoader(List<DeploymentUnit> units) {
-        CompletableFuture<UnitsContext> loaderFut = normalizeVersions(units)
+    public CompletableFuture<UnitsClassLoaderContext> acquireClassLoader(List<DeploymentUnit> units) {
+        return acquireClassLoader(units, units.stream().map(DeploymentUnit::toString).collect(Collectors.joining(", ")));
+    }
+
+    /**
+     * Acquires a class loader for the given deployment units.
+     *
+     * @param units The deployment units.
+     * @param id Acquire identifier.
+     * @return The class loader.
+     */
+    public CompletableFuture<UnitsClassLoaderContext> acquireClassLoader(List<DeploymentUnit> units, String id) {
+        CompletableFuture<UnitsClassLoaderContext> loaderFut = normalizeVersions(units)
                 .thenCompose(normalizedUnits -> checkUnitStatuses(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
-                .thenApply(loader -> new UnitsContext(loader, this::releaseClassLoader));
+                .thenApply(loader -> new UnitsClassLoaderContext(loader, this::releaseClassLoader));
 
-        CompletableFuture<UnitsContext> contextFut = loaderFut
+        CompletableFuture<UnitsClassLoaderContext> contextFut = loaderFut
                 .whenComplete((context, error) -> {
                     if (error != null) {
                         LOG.error("Failed to acquire class loader for units: " + units, error);
@@ -102,11 +114,11 @@ public class UnitsContextManager {
         // completes. We need to close the context in any case. The successful path should be handled in the caller. We can't handle it
         // there because we don't have the access to the context if the future failed.
         contextFut.exceptionally(e -> {
-            loaderFut.thenAccept(UnitsContext::close);
+            loaderFut.thenAccept(UnitsClassLoaderContext::close);
             return null;
         });
 
-        return contextFut;
+        return mapClassLoaderExceptions(contextFut, id);
     }
 
     /**
@@ -124,7 +136,7 @@ public class UnitsContextManager {
      * Releases a class loader. If the class loader is not used by any other job, it will be closed and the deployment units will be
      * released.
      */
-    private void releaseClassLoader(UnitsContext jobContext) {
+    private void releaseClassLoader(UnitsClassLoaderContext jobContext) {
         List<DeploymentUnit> units = jobContext.classLoader().units().stream()
                 .map(DisposableDeploymentUnit::unit)
                 .collect(Collectors.toList());

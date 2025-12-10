@@ -22,13 +22,13 @@ import java.util.function.Consumer;
 /**
  * Job context.
  */
-public class UnitsContext implements AutoCloseable {
+public class UnitsClassLoaderContext implements AutoCloseable {
 
     private final UnitsClassLoader classLoader;
 
-    private final Consumer<UnitsContext> onClose;
+    private final Consumer<UnitsClassLoaderContext> onClose;
 
-    public UnitsContext(UnitsClassLoader classLoader, Consumer<UnitsContext> onClose) {
+    public UnitsClassLoaderContext(UnitsClassLoader classLoader, Consumer<UnitsClassLoaderContext> onClose) {
         this.classLoader = classLoader;
         this.onClose = onClose;
     }

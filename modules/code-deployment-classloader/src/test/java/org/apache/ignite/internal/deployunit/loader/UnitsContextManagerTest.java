@@ -63,7 +63,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class JobContextManagerTest extends BaseIgniteAbstractTest {
+class UnitsContextManagerTest extends BaseIgniteAbstractTest {
 
     private final Path unitsDir = getPath(UnitsClassLoaderFactory.class.getClassLoader().getResource("units"));
 
@@ -109,7 +109,7 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
         doReturn(toBeReturned)
                 .when(jobClassLoaderFactory).createClassLoader(deploymentUnits);
 
-        UnitsContext context = classLoaderManager.acquireClassLoader(units).join();
+        UnitsClassLoaderContext context = classLoaderManager.acquireClassLoader(units).join();
         assertSame(toBeReturned, context.classLoader());
 
         verify(jobClassLoaderFactory, times(1)).createClassLoader(deploymentUnits); // verify that class loader was created
@@ -148,16 +148,16 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
             Files.createDirectories(version1path).toFile().deleteOnExit();
 
             List<DeploymentUnit> units = List.of(new DeploymentUnit(unitName, LATEST));
-            UnitsContext context1 = classLoaderManager.acquireClassLoader(units).join();
+            UnitsClassLoaderContext context1 = classLoaderManager.acquireClassLoader(units).join();
 
             assertSame(toBeReturned1, context1.classLoader());
 
-            UnitsContext context2 = classLoaderManager.acquireClassLoader(units).join();
+            UnitsClassLoaderContext context2 = classLoaderManager.acquireClassLoader(units).join();
             assertSame(context1.classLoader(), context2.classLoader());
 
             Files.createDirectories(version2path).toFile().deleteOnExit();
 
-            UnitsContext context3 = classLoaderManager.acquireClassLoader(units).join();
+            UnitsClassLoaderContext context3 = classLoaderManager.acquireClassLoader(units).join();
             assertSame(toBeReturned2, context3.classLoader());
         }
     }

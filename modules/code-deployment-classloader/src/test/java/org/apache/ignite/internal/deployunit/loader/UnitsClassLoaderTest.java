@@ -45,7 +45,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JobClassLoaderTest extends BaseIgniteAbstractTest {
+class UnitsClassLoaderTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ClassLoader parentClassLoader;

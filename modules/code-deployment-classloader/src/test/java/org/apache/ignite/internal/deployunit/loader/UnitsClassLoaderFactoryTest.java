@@ -48,7 +48,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
+class UnitsClassLoaderFactoryTest extends BaseIgniteAbstractTest {
     private static final String UNIT_JOB_CLASS_NAME = "org.apache.ignite.internal.compute.UnitJob";
 
     private static final String JOB1_UTILITY_CLASS_NAME = "org.apache.ignite.internal.compute.Job1Utility";
