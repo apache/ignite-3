@@ -361,7 +361,7 @@ public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
                     var reader = new ClientMarshallerReader(tupleReader, null, TuplePart.KEY_AND_VAL);
 
-                    res.add((T) marshaller.readObject(reader));
+                    res.add((T) marshaller.readObject(reader, null));
                 }
             } catch (MarshallerException e) {
                 assert mapper != null;

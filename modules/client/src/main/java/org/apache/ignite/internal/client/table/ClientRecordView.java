@@ -557,6 +557,6 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
         String[] cols = columnNames(schema.columns());
         Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
 
-        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)));
+        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
     }
 }
