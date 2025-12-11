@@ -844,7 +844,7 @@ public class Cluster {
      * @param nodeIndex Destination node index.
      * @param groupId ID of the replication group.
      */
-    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) {
         String proposedPrimaryName = node(nodeIndex).name();
 
         if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {
