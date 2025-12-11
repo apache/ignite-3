@@ -134,7 +134,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
 
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
-        StringAssert.StartsWith(".NET job failed: Failed to load type 'Apache.Ignite.Tests.Compute.DotNetJobs+EchoJob", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Failed to load type 'Apache.Ignite.Tests.Common.Compute.DotNetJobs+EchoJob", ex.Message);
         StringAssert.Contains("Could not load file or assembly 'Apache.Ignite.Tests", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
@@ -153,8 +153,8 @@ public class PlatformComputeTests : IgniteTestsBase
 
         StringAssert.Contains(
             "System.ArithmeticException: Test exception: arg" +
-            $"{Environment.NewLine}   at Apache.Ignite.Tests.Compute.DotNetJobs.ErrorJob.Throw(Object arg)" +
-            $"{Environment.NewLine}   at Apache.Ignite.Tests.Compute.DotNetJobs.ErrorJob.ExecuteAsync",
+            $"{Environment.NewLine}   at Apache.Ignite.Tests.Common.Compute.DotNetJobs.ErrorJob.Throw(Object arg)" +
+            $"{Environment.NewLine}   at Apache.Ignite.Tests.Common.Compute.DotNetJobs.ErrorJob.ExecuteAsync",
             ex.InnerException?.Message);
     }
 
