@@ -22,7 +22,6 @@ using Ignite.Sql;
 using Ignite.Table;
 using JetBrains.Annotations;
 using NodaTime;
-using Transactions;
 
 public class SqlTests(IIgniteClient client)
 {
