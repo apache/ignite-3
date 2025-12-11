@@ -22,8 +22,11 @@ namespace Apache.Ignite.Tests.Table
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common;
+    using Common.Table;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for POCO view.
@@ -850,7 +853,7 @@ namespace Apache.Ignite.Tests.Table
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, poco));
             Assert.AreEqual(
                 "Can't map field 'PocoUnsignedByteEnum.<Int8>k__BackingField' of type " +
-                "'Apache.Ignite.Tests.Table.PocoEnums+UnsignedByteEnum' to column 'INT8' of type 'System.SByte' - types do not match.",
+                "'Apache.Ignite.Tests.Common.Table.PocoEnums+UnsignedByteEnum' to column 'INT8' of type 'System.SByte' - types do not match.",
                 ex!.Message);
         }
 

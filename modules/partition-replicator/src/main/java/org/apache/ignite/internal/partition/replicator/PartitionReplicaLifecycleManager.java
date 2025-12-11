@@ -700,7 +700,6 @@ public class PartitionReplicaLifecycleManager extends
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision, onRecovery);
 
             ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(
                     zonePartitionId,
@@ -708,9 +707,40 @@ public class PartitionReplicaLifecycleManager extends
                     storageIndexTracker
             );
 
+            var eventParams = new LocalBeforeReplicaStartEventParameters(
+                    zonePartitionId,
+                    revision,
+                    onRecovery,
+                    zoneResources.txStatePartitionStorageIsInRebalanceState()
+            );
+
             startedReplicationGroups.beforeStartingGroup(zonePartitionId);
 
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
+                    .thenCompose(v -> {
+                        if (eventParams.anyStorageIsInRebalanceState()) {
+                            // We must destroy protocol storages first. If we do so, then, as MV and TX state storages sync Raft log
+                            // before being flushed, there is a guarantee that, after a possible crash, we will either see some storage
+                            // still in the rebalance state (and hence we'll repeat the destruction on the next start), or the Raft log
+                            // destruction will be persisted (and we'll just recover normally).
+                            try {
+                                replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, isVolatileZone);
+                            } catch (NodeStoppingException e) {
+                                return failedFuture(e);
+                            }
+
+                            CompletableFuture<Void> clearTxStateStorage = zoneResources.txStatePartitionStorage().clear();
+
+                            CompletableFuture<?>[] registeredCleanupFutures = eventParams.cleanupActions().stream()
+                                    .map(Supplier::get)
+                                    .toArray(CompletableFuture[]::new);
+                            CompletableFuture<Void> clearMvStorages = allOf(registeredCleanupFutures);
+
+                            return allOf(clearTxStateStorage, clearMvStorages);
+                        } else {
+                            return nullCompletedFuture();
+                        }
+                    })
                     .thenCompose(v -> {
                         try {
                             // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.

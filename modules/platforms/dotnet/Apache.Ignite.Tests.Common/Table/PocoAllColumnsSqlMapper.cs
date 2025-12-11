@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
 using System;
-using Ignite.Table.Mapper;
+using Apache.Ignite.Table.Mapper;
+using NodaTime;
 
-public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
+public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
 {
-    public void Write(PocoAllColumnsBigDecimal obj, ref RowWriter rowWriter, IMapperSchema schema)
+    public void Write(PocoAllColumnsSql obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
         foreach (var col in schema.Columns)
         {
@@ -60,12 +61,36 @@ public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
                     rowWriter.WriteDouble(obj.Double);
                     break;
 
+                case "DATE":
+                    rowWriter.WriteDate(obj.Date);
+                    break;
+
+                case "TIME":
+                    rowWriter.WriteTime(obj.Time);
+                    break;
+
+                case "DATETIME":
+                    rowWriter.WriteDateTime(obj.DateTime);
+                    break;
+
+                case "TIMESTAMP":
+                    rowWriter.WriteTimestamp(obj.Timestamp);
+                    break;
+
+                case "BLOB":
+                    rowWriter.WriteBytes(obj.Blob);
+                    break;
+
+                case "DECIMAL":
+                    rowWriter.WriteDecimal(obj.Decimal);
+                    break;
+
                 case "UUID":
                     rowWriter.WriteGuid(obj.Uuid);
                     break;
 
-                case "DECIMAL":
-                    rowWriter.WriteBigDecimal(obj.Decimal);
+                case "BOOLEAN":
+                    rowWriter.WriteBool(obj.Boolean);
                     break;
 
                 default:
@@ -74,7 +99,7 @@ public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
         }
     }
 
-    public PocoAllColumnsBigDecimal Read(ref RowReader rowReader, IMapperSchema schema)
+    public PocoAllColumnsSql Read(ref RowReader rowReader, IMapperSchema schema)
     {
         long key = default;
         string? str = null;
@@ -84,8 +109,14 @@ public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
         long int64 = default;
         float @float = default;
         double @double = default;
+        LocalDate date = default;
+        LocalTime time = default;
+        LocalDateTime dateTime = default;
+        Instant timestamp = default;
+        byte[] blob = default!;
+        decimal @decimal = default;
         Guid uuid = default;
-        BigDecimal @decimal = default;
+        bool boolean = default;
 
         foreach (var col in schema.Columns)
         {
@@ -123,12 +154,36 @@ public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
                     @double = rowReader.ReadDouble()!.Value;
                     break;
 
+                case "DATE":
+                    date = rowReader.ReadDate()!.Value;
+                    break;
+
+                case "TIME":
+                    time = rowReader.ReadTime()!.Value;
+                    break;
+
+                case "DATETIME":
+                    dateTime = rowReader.ReadDateTime()!.Value;
+                    break;
+
+                case "TIMESTAMP":
+                    timestamp = rowReader.ReadTimestamp()!.Value;
+                    break;
+
+                case "BLOB":
+                    blob = rowReader.ReadBytes()!;
+                    break;
+
+                case "DECIMAL":
+                    @decimal = rowReader.ReadDecimal()!.Value;
+                    break;
+
                 case "UUID":
                     uuid = rowReader.ReadGuid()!.Value;
                     break;
 
-                case "DECIMAL":
-                    @decimal = rowReader.ReadBigDecimal()!.Value;
+                case "BOOLEAN":
+                    boolean = rowReader.ReadBool()!.Value;
                     break;
 
                 default:
@@ -136,6 +191,6 @@ public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
             }
         }
 
-        return new PocoAllColumnsBigDecimal(key, str, int8, int16, int32, int64, @float, @double, uuid, @decimal);
+        return new PocoAllColumnsSql(key, str, int8, int16, int32, int64, @float, @double, date, time, dateTime, timestamp, blob, @decimal, uuid, boolean);
     }
 }

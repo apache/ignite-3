@@ -15,40 +15,30 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
-using System.Collections.Generic;
-using Ignite.Table.Mapper;
-using Internal.Common;
+using Apache.Ignite.Table.Mapper;
 
-public class KeyValPocoMapper : IMapper<KeyValuePair<KeyPoco, ValPoco>>
+public class PocoMapper : IMapper<Poco>
 {
-    public void Write(KeyValuePair<KeyPoco, ValPoco> obj, ref RowWriter rowWriter, IMapperSchema schema)
+    public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
-        rowWriter.WriteLong(obj.Key.Key);
+        rowWriter.WriteLong(obj.Key);
 
         if (schema.Columns.Count > 1)
         {
-            IgniteArgumentCheck.NotNull(obj.Value, "val");
-
-            rowWriter.WriteString(obj.Value.Val);
+            rowWriter.WriteString(obj.Val);
         }
     }
 
-    public KeyValuePair<KeyPoco, ValPoco> Read(ref RowReader rowReader, IMapperSchema schema)
+    public Poco Read(ref RowReader rowReader, IMapperSchema schema)
     {
-        var key = new KeyPoco
+        var obj = new Poco
         {
-            Key = rowReader.ReadLong()!.Value
+            Key = rowReader.ReadLong()!.Value,
+            Val = schema.Columns.Count > 1 ? rowReader.ReadString() : null
         };
 
-        var val = schema.Columns.Count > 1
-            ? new ValPoco
-            {
-                Val = rowReader.ReadString()
-            }
-            : null;
-
-        return new KeyValuePair<KeyPoco, ValPoco>(key, val!);
+        return obj;
     }
 }

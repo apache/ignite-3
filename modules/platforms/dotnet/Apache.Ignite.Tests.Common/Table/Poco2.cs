@@ -15,22 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Tests.Common.Table;
+
+public class Poco2
 {
-    using System;
-    using System.ComponentModel.DataAnnotations.Schema;
+    public int Id { get; set; }
 
-    /// <summary>
-    /// Test user object.
-    /// </summary>
-    public class ValPoco
-    {
-        public string? Val { get; set; }
+    public sbyte? Prop1 { get; set; }
 
-        [NotMapped]
-        public Guid UnmappedId { get; set; }
+    public short? Prop2 { get; set; }
 
-        [NotMapped]
-        public string? UnmappedStr { get; set; }
-    }
+    public int? Prop3 { get; set; }
+
+    public long? Prop4 { get; set; }
+
+    public float? Prop5 { get; set; }
+
+    public double? Prop6 { get; set; }
+
+    public long? Prop7 { get; set; }
+
+    public string? Prop8 { get; set; }
+
+    public int? Prop9 { get; set; }
+
+    public int? Prop10 { get; set; }
 }

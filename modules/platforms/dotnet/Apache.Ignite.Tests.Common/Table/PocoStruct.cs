@@ -15,31 +15,11 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests
-{
-    using System;
+namespace Apache.Ignite.Tests.Common.Table;
 
-    /// <summary>
-    /// Wraps an action to be executed on Dispose call.
-    /// </summary>
-    public sealed class DisposeAction : IDisposable
-    {
-        /** */
-        private readonly Action _action;
+using System.ComponentModel.DataAnnotations.Schema;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DisposeAction"/> class.
-        /// </summary>
-        /// <param name="action">Action.</param>
-        public DisposeAction(Action action)
-        {
-            _action = action;
-        }
-
-        /** <inheritdoc /> */
-        public void Dispose()
-        {
-            _action();
-        }
-    }
-}
+/// <summary>
+/// Test user struct.
+/// </summary>
+public record struct PocoStruct(long Key, string? Val, [property:NotMapped] string? UnmappedStr = null);

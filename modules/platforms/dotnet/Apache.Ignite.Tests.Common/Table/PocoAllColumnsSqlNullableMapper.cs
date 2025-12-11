@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
 using System;
-using Ignite.Table.Mapper;
+using Apache.Ignite.Table.Mapper;
 using NodaTime;
 
-public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
+public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable>
 {
-    public void Write(PocoAllColumnsSql obj, ref RowWriter rowWriter, IMapperSchema schema)
+    public void Write(PocoAllColumnsSqlNullable obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
         foreach (var col in schema.Columns)
         {
@@ -99,24 +99,24 @@ public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
         }
     }
 
-    public PocoAllColumnsSql Read(ref RowReader rowReader, IMapperSchema schema)
+    public PocoAllColumnsSqlNullable Read(ref RowReader rowReader, IMapperSchema schema)
     {
         long key = default;
         string? str = null;
-        sbyte int8 = default;
-        short int16 = default;
-        int int32 = default;
-        long int64 = default;
-        float @float = default;
-        double @double = default;
-        LocalDate date = default;
-        LocalTime time = default;
-        LocalDateTime dateTime = default;
-        Instant timestamp = default;
-        byte[] blob = default!;
-        decimal @decimal = default;
-        Guid uuid = default;
-        bool boolean = default;
+        sbyte? int8 = null;
+        short? int16 = null;
+        int? int32 = null;
+        long? int64 = null;
+        float? @float = null;
+        double? @double = null;
+        LocalDate? date = null;
+        LocalTime? time = null;
+        LocalDateTime? dateTime = null;
+        Instant? timestamp = null;
+        byte[]? blob = null;
+        decimal? @decimal = null;
+        Guid? uuid = null;
+        bool? boolean = null;
 
         foreach (var col in schema.Columns)
         {
@@ -131,59 +131,59 @@ public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
                     break;
 
                 case "INT8":
-                    int8 = rowReader.ReadByte()!.Value;
+                    int8 = rowReader.ReadByte();
                     break;
 
                 case "INT16":
-                    int16 = rowReader.ReadShort()!.Value;
+                    int16 = rowReader.ReadShort();
                     break;
 
                 case "INT32":
-                    int32 = rowReader.ReadInt()!.Value;
+                    int32 = rowReader.ReadInt();
                     break;
 
                 case "INT64":
-                    int64 = rowReader.ReadLong()!.Value;
+                    int64 = rowReader.ReadLong();
                     break;
 
                 case "FLOAT":
-                    @float = rowReader.ReadFloat()!.Value;
+                    @float = rowReader.ReadFloat();
                     break;
 
                 case "DOUBLE":
-                    @double = rowReader.ReadDouble()!.Value;
+                    @double = rowReader.ReadDouble();
                     break;
 
                 case "DATE":
-                    date = rowReader.ReadDate()!.Value;
+                    date = rowReader.ReadDate();
                     break;
 
                 case "TIME":
-                    time = rowReader.ReadTime()!.Value;
+                    time = rowReader.ReadTime();
                     break;
 
                 case "DATETIME":
-                    dateTime = rowReader.ReadDateTime()!.Value;
+                    dateTime = rowReader.ReadDateTime();
                     break;
 
                 case "TIMESTAMP":
-                    timestamp = rowReader.ReadTimestamp()!.Value;
+                    timestamp = rowReader.ReadTimestamp();
                     break;
 
                 case "BLOB":
-                    blob = rowReader.ReadBytes()!;
+                    blob = rowReader.ReadBytes();
                     break;
 
                 case "DECIMAL":
-                    @decimal = rowReader.ReadDecimal()!.Value;
+                    @decimal = rowReader.ReadDecimal();
                     break;
 
                 case "UUID":
-                    uuid = rowReader.ReadGuid()!.Value;
+                    uuid = rowReader.ReadGuid();
                     break;
 
                 case "BOOLEAN":
-                    boolean = rowReader.ReadBool()!.Value;
+                    boolean = rowReader.ReadBool();
                     break;
 
                 default:
@@ -191,6 +191,6 @@ public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
             }
         }
 
-        return new PocoAllColumnsSql(key, str, int8, int16, int32, int64, @float, @double, date, time, dateTime, timestamp, blob, @decimal, uuid, boolean);
+        return new PocoAllColumnsSqlNullable(key, str, int8, int16, int32, int64, @float, @double, date, time, dateTime, timestamp, blob, @decimal, uuid, boolean);
     }
 }

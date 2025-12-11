@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table.Serialization;
 
 using System;
+using Common.Table;
 using Ignite.Table.Mapper;
 using Internal.Table.Serialization;
 using NUnit.Framework;
