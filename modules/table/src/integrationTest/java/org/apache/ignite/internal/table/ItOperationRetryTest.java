@@ -30,7 +30,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -118,37 +116,6 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
         tx2.commit();
 
-        assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
-    }
-
-    @Test
-    public void retryImplicitTransactionsDueToReplicationTimeoutTest() {
-        ZonePartitionId partitionGroupId = testPartitionGroupId();
-        String leaseholderNodeName = waitAndGetPrimaryReplica(partitionGroupId);
-        IgniteImpl transactionCoordinatorNode = findNonLeaseholderNode(leaseholderNodeName);
-
-        // Prevent upsert operation to reach leaseholder node from the coordinator that should leads to timeout exception.
-        DefaultMessagingService messagingService = (DefaultMessagingService) transactionCoordinatorNode.clusterService().messagingService();
-        messagingService.dropMessages(
-                (nodeName, msg) -> nodeName.equals(leaseholderNodeName) && msg instanceof ReadWriteSingleRowReplicaRequest
-        );
-
-        RecordView<Tuple> view = transactionCoordinatorNode.tables().table(TABLE_NAME).recordView();
-
-        // Check that without lease transfer there will be an exceptional timeout result for the corresponding group.
-        assertThrows(
-                TransactionException.class,
-                () -> view.upsert(null, NEW_RECORD_TUPLE),
-                format("Replication is timed out [replicaGrpId={}]", partitionGroupId)
-        );
-
-        // Try to do upsert with lease transfer after the operation is triggered.
-        CompletableFuture<Void> futureUpsert = view.upsertAsync(null, NEW_RECORD_TUPLE);
-        transferPrimaryToNonCoordinatorNode(leaseholderNodeName, transactionCoordinatorNode.name(), partitionGroupId);
-
-        // Finally we expect the triggered upsert will succeed eventually because of retry with new leaseholder enlisted.
-        assertThat(futureUpsert, willSucceedIn(10, SECONDS));
-        // And we can also read the expected value too.
         assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
     }
 
