@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -173,11 +174,14 @@ public class CheckpointManager {
         );
 
         // Create checkpoint read lock metrics with lazy supplier for waiting threads count
-        // Use array as mutable container to work around final field initialization order
-        CheckpointTimeoutLock[] lockHolder = new CheckpointTimeoutLock[1];
+        // Use AtomicReference to work around final field initialization order
+        AtomicReference<CheckpointTimeoutLock> lockHolder = new AtomicReference<>();
 
         CheckpointReadLockMetricSource readLockMetricSource = new CheckpointReadLockMetricSource(
-                () -> lockHolder[0] != null ? lockHolder[0].waitingThreadsCount() : 0
+                () -> {
+                    CheckpointTimeoutLock lock = lockHolder.get();
+                    return lock != null ? lock.waitingThreadsCount() : 0;
+                }
         );
         CheckpointReadLockMetrics readLockMetrics = new CheckpointReadLockMetrics(readLockMetricSource);
 
@@ -190,7 +194,7 @@ public class CheckpointManager {
                 readLockMetrics
         );
 
-        lockHolder[0] = checkpointTimeoutLock;
+        lockHolder.set(checkpointTimeoutLock);
     }
 
     /**
