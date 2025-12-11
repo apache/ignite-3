@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Compute
     using Network;
     using NodaTime;
     using NUnit.Framework;
-    using Table;
+    using static Common.Table.TestTables;
     using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>

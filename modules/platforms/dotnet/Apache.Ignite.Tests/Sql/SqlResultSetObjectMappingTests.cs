@@ -25,7 +25,7 @@ using Common.Table;
 using Ignite.Sql;
 using NodaTime;
 using NUnit.Framework;
-using Table;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests result set object mapping with <see cref="ISql.ExecuteAsync{T}"/>.

@@ -27,7 +27,7 @@ namespace Apache.Ignite.Tests
     using Internal.Proto;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
-    using Table;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Base class for client tests.
@@ -36,33 +36,6 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "TBL1";
-        protected const int TablePartitionCount = 10;
-
-        protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
-        protected const string TableAllColumnsNotNullName = "TBL_ALL_COLUMNS_NOT_NULL";
-        protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
-
-        protected const string TableInt8Name = "TBL_INT8";
-        protected const string TableBoolName = "TBL_BOOLEAN";
-        protected const string TableInt16Name = "TBL_INT16";
-        protected const string TableInt32Name = "TBL_INT32";
-        protected const string TableInt64Name = "TBL_INT64";
-        protected const string TableFloatName = "TBL_FLOAT";
-        protected const string TableDoubleName = "TBL_DOUBLE";
-        protected const string TableDecimalName = "TBL_DECIMAL";
-        protected const string TableStringName = "TBL_STRING";
-        protected const string TableDateName = "TBL_DATE";
-        protected const string TableDateTimeName = "TBL_DATETIME";
-        protected const string TableTimeName = "TBL_TIME";
-        protected const string TableTimestampName = "TBL_TIMESTAMP";
-        protected const string TableNumberName = "TBL_NUMBER";
-        protected const string TableBytesName = "TBL_BYTE_ARRAY";
-
-        protected const string KeyCol = "key";
-
-        protected const string ValCol = "val";
-
         protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;

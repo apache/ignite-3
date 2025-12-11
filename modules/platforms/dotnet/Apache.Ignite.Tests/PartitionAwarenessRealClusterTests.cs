@@ -26,6 +26,7 @@ using Ignite.Table;
 using Internal.Proto;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests partition awareness in real cluster.

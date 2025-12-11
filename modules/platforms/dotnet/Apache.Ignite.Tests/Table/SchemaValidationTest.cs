@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Common.Table;
 using Ignite.Table;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests schema validation.

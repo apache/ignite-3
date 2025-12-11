@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for key-value tuple view.

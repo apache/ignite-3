@@ -26,8 +26,8 @@ namespace Apache.Ignite.Tests.Transactions
     using Internal;
     using Internal.Transactions;
     using NUnit.Framework;
-    using Table;
     using Tx;
+    using static Common.Table.TestTables;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>

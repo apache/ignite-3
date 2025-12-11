@@ -33,6 +33,7 @@ using Internal.Proto;
 using Microsoft.Extensions.Logging;
 using NodaTime;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IDataStreamerTarget{T}"/>.

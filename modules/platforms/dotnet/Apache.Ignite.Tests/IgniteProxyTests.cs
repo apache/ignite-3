@@ -22,6 +22,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Internal.Proto;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IgniteProxy"/>.
