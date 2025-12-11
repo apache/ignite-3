@@ -88,6 +88,7 @@ public static class DotNetJobs
 
     public class ApiTestJob : IComputeJob<string, string>
     {
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming on server.")]
         public async ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken)
         {
             IIgnite ignite = context.Ignite;
