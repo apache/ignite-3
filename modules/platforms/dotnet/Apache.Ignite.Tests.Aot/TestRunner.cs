@@ -21,12 +21,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Common;
 
-public class TestRunner
+public class TestRunner(ConsoleLogger logger)
 {
     public int TestCount { get; private set; }
 
-    public async Task Run<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(
-        T testClass, ConsoleLogger logger)
+    public async Task Run<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(T testClass)
     {
         var methods = typeof(T).GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance);
 

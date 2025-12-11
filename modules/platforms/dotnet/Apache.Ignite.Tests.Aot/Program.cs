@@ -39,10 +39,10 @@ logger.Flush();
 var sw = Stopwatch.StartNew();
 Console.WriteLine(">>> Starting tests...");
 
-var runner = new TestRunner();
-await runner.Run(new TableTests(ignite), logger);
-await runner.Run(new ComputeTests(ignite), logger);
-await runner.Run(new SqlTests(ignite), logger);
-await runner.Run(new TransactionsTests(ignite), logger);
+var runner = new TestRunner(logger);
+await runner.Run(new TableTests(ignite));
+await runner.Run(new ComputeTests(ignite));
+await runner.Run(new SqlTests(ignite));
+await runner.Run(new TransactionsTests(ignite));
 
 Console.WriteLine($">>> {runner.TestCount} tests completed in {sw.Elapsed}.");
