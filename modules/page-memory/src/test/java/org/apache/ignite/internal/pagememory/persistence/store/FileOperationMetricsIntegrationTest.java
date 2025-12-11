@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.LATEST_FILE_PAGE_STORE_VERSION;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 
@@ -30,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,7 +82,10 @@ class FileOperationMetricsIntegrationTest {
         assertThat(metrics.fileOpenTotal().value(), is(0L));
 
         // Create new file (should trigger create metrics)
-        FilePageStoreIo storeIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics);
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        FilePageStoreIo storeIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics, ioMetrics);
 
         // Ensure initializes the file (should increment fileCreateTotal)
         ByteBuffer buffer = createPageByteBuffer(0L, PAGE_SIZE);
@@ -108,7 +112,10 @@ class FileOperationMetricsIntegrationTest {
         FilePageStoreHeader header = new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, PAGE_SIZE);
 
         // Create file first
-        FilePageStoreIo createIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics);
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        FilePageStoreIo createIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics, ioMetrics);
         ByteBuffer buffer = createPageByteBuffer(0L, PAGE_SIZE);
         createIo.write(0L, buffer);
         createIo.stop(false);
@@ -117,7 +124,10 @@ class FileOperationMetricsIntegrationTest {
         long initialCreateCount = metrics.fileCreateTotal().value();
 
         // Open existing file (should trigger open metrics)
-        FilePageStoreIo openIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics);
+        PageMemoryIoMetricSource ioMetricSource2 = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics2 = new PageMemoryIoMetrics(ioMetricSource2);
+
+        FilePageStoreIo openIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics, ioMetrics2);
         // Trigger ensure() by attempting to sync
         openIo.sync();
 
@@ -141,7 +151,10 @@ class FileOperationMetricsIntegrationTest {
         Path filePath = workDir.resolve("test-sync.bin");
         FilePageStoreHeader header = new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, PAGE_SIZE);
 
-        FilePageStoreIo storeIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics);
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        FilePageStoreIo storeIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics, ioMetrics);
         ByteBuffer buffer = createPageByteBuffer(0L, PAGE_SIZE);
         storeIo.write(0L, buffer);
 
@@ -180,11 +193,15 @@ class FileOperationMetricsIntegrationTest {
         assertThat(metrics.deltaFileCreateTotal().value(), is(0L));
 
         // Create delta file (should increment deltaFileCreateTotal in constructor)
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
         DeltaFilePageStoreIo deltaIo = new DeltaFilePageStoreIo(
                 new RandomAccessFileIoFactory(),
                 filePath,
                 header,
-                metrics
+                metrics,
+                ioMetrics
         );
 
         // Verify delta file creation was tracked
@@ -201,7 +218,10 @@ class FileOperationMetricsIntegrationTest {
         // Verify initial state
         assertThat(metrics.fileOpenErrors().value(), is(0L));
 
-        FilePageStoreIo storeIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics);
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        FilePageStoreIo storeIo = new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, metrics, ioMetrics);
 
         try {
             // Try to write to file in non-existent directory (should fail and increment error counter)
@@ -222,14 +242,17 @@ class FileOperationMetricsIntegrationTest {
         FilePageStoreHeader header = new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, PAGE_SIZE);
 
         // Create first file
-        FilePageStoreIo store1 = new FilePageStoreIo(new RandomAccessFileIoFactory(), file1, header, metrics);
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        FilePageStoreIo store1 = new FilePageStoreIo(new RandomAccessFileIoFactory(), file1, header, metrics, ioMetrics);
         ByteBuffer buffer = createPageByteBuffer(0L, PAGE_SIZE);
         store1.write(0L, buffer);
 
         assertThat("fileCreateTotal should be 1 after first file", metrics.fileCreateTotal().value(), is(1L));
 
         // Create second file
-        FilePageStoreIo store2 = new FilePageStoreIo(new RandomAccessFileIoFactory(), file2, header, metrics);
+        FilePageStoreIo store2 = new FilePageStoreIo(new RandomAccessFileIoFactory(), file2, header, metrics, ioMetrics);
         store2.write(0L, createPageByteBuffer(0L, PAGE_SIZE));
 
         assertThat("fileCreateTotal should be 2 after second file", metrics.fileCreateTotal().value(), is(2L));

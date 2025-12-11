@@ -27,7 +27,7 @@ import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
  * <p>Tracks actual bytes transferred and latencies of physical I/O operations at the file level.
  * Complements existing page count metrics with byte-level granularity.
  */
-class PageMemoryIoMetrics {
+public class PageMemoryIoMetrics {
     private final LongAdderMetric totalBytesRead;
 
     private final LongAdderMetric totalBytesWritten;
@@ -49,7 +49,7 @@ class PageMemoryIoMetrics {
      *
      * @param source Metric source to register metrics with.
      */
-    PageMemoryIoMetrics(PageMemoryIoMetricSource source) {
+    public PageMemoryIoMetrics(PageMemoryIoMetricSource source) {
         totalBytesRead = source.addMetric(new LongAdderMetric(
                 "TotalBytesRead",
                 "Cumulative bytes read from disk since startup."

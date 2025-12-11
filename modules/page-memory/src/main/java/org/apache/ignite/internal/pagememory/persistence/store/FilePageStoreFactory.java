@@ -27,6 +27,7 @@ import java.util.Arrays;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 
 /**
  * Factory for creating {@link FilePageStore}.
@@ -38,17 +39,26 @@ public class FilePageStoreFactory {
 
     private final StorageFilesMetrics metrics;
 
+    private final PageMemoryIoMetrics ioMetrics;
+
     /**
      * Constructor.
      *
      * @param fileIoFactory File IO factory.
      * @param pageSize Page size in bytes.
      * @param metrics Storage files metrics.
+     * @param ioMetrics Page memory I/O metrics.
      */
-    public FilePageStoreFactory(FileIoFactory fileIoFactory, int pageSize, StorageFilesMetrics metrics) {
+    public FilePageStoreFactory(
+            FileIoFactory fileIoFactory,
+            int pageSize,
+            StorageFilesMetrics metrics,
+            PageMemoryIoMetrics ioMetrics
+    ) {
         this.fileIoFactory = fileIoFactory;
         this.pageSize = pageSize;
         this.metrics = metrics;
+        this.ioMetrics = ioMetrics;
     }
 
     /**
@@ -116,7 +126,7 @@ public class FilePageStoreFactory {
             DeltaFilePageStoreIo... deltaFileIos
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(new FilePageStoreIo(fileIoFactory, filePath, header, metrics), deltaFileIos);
+            return new FilePageStore(new FilePageStoreIo(fileIoFactory, filePath, header, metrics, ioMetrics), deltaFileIos);
         }
 
         throw new IgniteInternalCheckedException(String.format(
@@ -131,7 +141,7 @@ public class FilePageStoreFactory {
             DeltaFilePageStoreIoHeader header
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.DELTA_FILE_VERSION_1) {
-            return new DeltaFilePageStoreIo(fileIoFactory, filePath, header, metrics);
+            return new DeltaFilePageStoreIo(fileIoFactory, filePath, header, metrics, ioMetrics);
         }
 
         throw new IgniteInternalCheckedException(String.format(

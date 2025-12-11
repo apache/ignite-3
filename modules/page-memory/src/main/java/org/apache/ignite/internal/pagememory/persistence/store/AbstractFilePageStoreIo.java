@@ -41,6 +41,7 @@ import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.util.FastCrc;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,17 +75,22 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     /** Storage files metrics. */
     protected final StorageFilesMetrics metrics;
 
+    /** Page memory I/O metrics. */
+    protected final PageMemoryIoMetrics ioMetrics;
+
     /**
      * Constructor.
      *
      * @param ioFactory {@link FileIo} factory.
      * @param filePath File page store path.
      * @param metrics Storage files metrics.
+     * @param ioMetrics Page memory I/O metrics.
      */
-    AbstractFilePageStoreIo(FileIoFactory ioFactory, Path filePath, StorageFilesMetrics metrics) {
+    AbstractFilePageStoreIo(FileIoFactory ioFactory, Path filePath, StorageFilesMetrics metrics, PageMemoryIoMetrics ioMetrics) {
         this.ioFactory = ioFactory;
         this.filePath = filePath;
         this.metrics = metrics;
+        this.ioMetrics = ioMetrics;
     }
 
     /**
@@ -192,7 +198,15 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                     long pageOff = pageOffset(pageId);
 
+                    long startNanos = System.nanoTime();
+                    int bytesWritten = pageBuf.remaining();
+
                     fileIo.writeFully(pageBuf, pageOff);
+
+                    long durationNanos = System.nanoTime() - startNanos;
+                    ioMetrics.totalBytesWritten().add(bytesWritten);
+                    ioMetrics.bytesPerWrite().add(bytesWritten);
+                    ioMetrics.physicalWritesTime().add(durationNanos);
 
                     PageIo.setCrc(pageBuf, 0);
 
@@ -227,6 +241,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                         cause = e0;
                     }
                 }
+
+                ioMetrics.pageWriteErrors().increment();
 
                 throw new IgniteInternalCheckedException(
                         "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + "]",
@@ -547,6 +563,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                 PageIo.setCrc(pageBuf, savedCrc32);
             }
         } catch (IOException e) {
+            ioMetrics.pageReadErrors().increment();
+
             throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }
     }
@@ -573,7 +591,16 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             try {
                 assert destBuf.remaining() > 0;
 
+                long startNanos = System.nanoTime();
+
                 int bytesRead = fileIo.readFully(destBuf, position);
+
+                if (bytesRead > 0) {
+                    long durationNanos = System.nanoTime() - startNanos;
+                    ioMetrics.totalBytesRead().add(bytesRead);
+                    ioMetrics.bytesPerRead().add(bytesRead);
+                    ioMetrics.physicalReadsTime().add(durationNanos);
+                }
 
                 if (interrupted) {
                     Thread.currentThread().interrupt();

@@ -35,6 +35,8 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -115,10 +117,22 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     @Override
     protected FilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
-        return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE), filesMetrics, ioMetrics);
     }
 
     private static FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
-        return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, filesMetrics, ioMetrics);
     }
 }
