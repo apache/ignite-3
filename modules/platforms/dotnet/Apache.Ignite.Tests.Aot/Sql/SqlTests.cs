@@ -101,22 +101,22 @@ public class SqlTests(IIgniteClient client)
         bool hasRow = await reader.ReadAsync();
         Assert.AreEqual(true, hasRow);
 
-        Assert.AreEqual(poco.Key, reader.GetInt64("KEY"));
-        Assert.AreEqual(poco.Str, reader.GetString("STR"));
-        Assert.AreEqual(poco.Int8, reader.GetByte("INT8"));
-        Assert.AreEqual(poco.Int16, reader.GetInt16("INT16"));
-        Assert.AreEqual(poco.Int32, reader.GetInt32("INT32"));
-        Assert.AreEqual(poco.Int64, reader.GetInt64("INT64"));
-        Assert.AreEqual(poco.Float, reader.GetFloat("FLOAT"));
-        Assert.AreEqual(poco.Double, reader.GetDouble("DOUBLE"));
-        Assert.AreEqual(poco.Date, reader.GetFieldValue<LocalDate>("DATE"));
-        Assert.AreEqual(poco.Time, reader.GetFieldValue<LocalTime>("TIME"));
-        Assert.AreEqual(poco.DateTime, reader.GetFieldValue<LocalDateTime>("DATETIME"));
-        Assert.AreEqual(poco.Timestamp, reader.GetFieldValue<Instant>("TIMESTAMP"));
-        Assert.AreEqual(poco.Blob, reader.GetFieldValue<byte[]>("BLOB"));
-        Assert.AreEqual(poco.Decimal, reader.GetDecimal("DECIMAL"));
-        Assert.AreEqual(poco.Uuid, reader.GetGuid("UUID"));
-        Assert.AreEqual(poco.Boolean, reader.GetBoolean("BOOLEAN"));
+        Assert.AreEqual(poco.Key, reader.GetInt64(reader.GetOrdinal("KEY")));
+        Assert.AreEqual(poco.Str, reader.GetString(reader.GetOrdinal("STR")));
+        Assert.AreEqual(poco.Int8, reader.GetByte(reader.GetOrdinal("INT8")));
+        Assert.AreEqual(poco.Int16, reader.GetInt16(reader.GetOrdinal("INT16")));
+        Assert.AreEqual(poco.Int32, reader.GetInt32(reader.GetOrdinal("INT32")));
+        Assert.AreEqual(poco.Int64, reader.GetInt64(reader.GetOrdinal("INT64")));
+        Assert.AreEqual(poco.Float, reader.GetFloat(reader.GetOrdinal("FLOAT")));
+        Assert.AreEqual(poco.Double, reader.GetDouble(reader.GetOrdinal("DOUBLE")));
+        Assert.AreEqual(poco.Date, reader.GetFieldValue<LocalDate>(reader.GetOrdinal("DATE")));
+        Assert.AreEqual(poco.Time, reader.GetFieldValue<LocalTime>(reader.GetOrdinal("TIME")));
+        Assert.AreEqual(poco.DateTime, reader.GetFieldValue<LocalDateTime>(reader.GetOrdinal("DATETIME")));
+        Assert.AreEqual(poco.Timestamp, reader.GetFieldValue<Instant>(reader.GetOrdinal("TIMESTAMP")));
+        Assert.AreEqual(poco.Blob, reader.GetFieldValue<byte[]>(reader.GetOrdinal("BLOB")));
+        Assert.AreEqual(poco.Decimal, reader.GetDecimal(reader.GetOrdinal("DECIMAL")));
+        Assert.AreEqual(poco.Uuid, reader.GetGuid(reader.GetOrdinal("UUID")));
+        Assert.AreEqual(poco.Boolean, reader.GetBoolean(reader.GetOrdinal("BOOLEAN")));
 
         bool hasMoreRows = await reader.ReadAsync();
         Assert.AreEqual(false, hasMoreRows);
