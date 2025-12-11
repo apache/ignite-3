@@ -20,15 +20,30 @@ namespace Apache.Ignite.Tests.Aot.Compute;
 using Common.Compute;
 using Ignite.Compute;
 using JetBrains.Annotations;
+using Network;
 
 public class ComputeTests(IIgniteClient client)
 {
     [UsedImplicitly]
     public async Task TestJavaJob()
     {
-        var nodes = JobTarget.AnyNode(await client.GetClusterNodesAsync());
-        IJobExecution<object> resExec = await client.Compute.SubmitAsync(nodes, JavaJobs.EchoJob, "hello");
+        IJobTarget<IEnumerable<IClusterNode>> target = JobTarget.AnyNode(await client.GetClusterNodesAsync());
+
+        IJobExecution<object> resExec = await client.Compute.SubmitAsync(target, JavaJobs.EchoJob, "hello");
         object res = await resExec.GetResultAsync();
+
+        Assert.AreEqual("hello", res);
+    }
+
+    [UsedImplicitly]
+    public async Task TestDotNetJob()
+    {
+        IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
+        IJobTarget<IEnumerable<IClusterNode>> target = JobTarget.AnyNode(nodes.Where(x => !x.Name.Contains('_')));
+
+        IJobExecution<object?> resExec = await client.Compute.SubmitAsync(target, DotNetJobs.Echo, "hello");
+        object? res = await resExec.GetResultAsync();
+
         Assert.AreEqual("hello", res);
     }
 }
