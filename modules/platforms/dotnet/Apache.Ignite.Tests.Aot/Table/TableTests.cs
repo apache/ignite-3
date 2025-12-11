@@ -106,4 +106,73 @@ public class TableTests(IIgniteClient client)
         Assert.AreEqual(poco.Str, res.Str);
         Assert.AreEqual(poco.Uuid, res.Uuid);
     }
+
+    [UsedImplicitly]
+    public async Task TestDataStreamer()
+    {
+        var table = await client.Tables.GetTableAsync(TableAllColumnsSqlName);
+        var view = table!.GetRecordView(new PocoAllColumnsSqlMapper());
+
+        // Delete any existing data first
+        await client.Sql.ExecuteAsync(null, $"DELETE FROM {TableAllColumnsSqlName} WHERE KEY >= 9000 AND KEY < 9010");
+
+        // Create test data
+        var pocos = Enumerable.Range(0, 10).Select(i => new PocoAllColumnsSql(
+            Key: 9000 + i,
+            Str: $"streamer-test-{i}",
+            Int8: (sbyte)(10 + i),
+            Int16: (short)(100 + i),
+            Int32: 1000 + i,
+            Int64: 10000 + i,
+            Float: 1.1f * i,
+            Double: 2.2 * i,
+            Date: new LocalDate(2025, 12, 11),
+            Time: new LocalTime(12, 30, 45),
+            DateTime: new LocalDateTime(2025, 12, 11, 12, 30, 45),
+            Timestamp: Instant.FromUtc(2025, 12, 11, 12, 30, 45),
+            Blob: [(byte)i, (byte)(i + 1), (byte)(i + 2)],
+            Decimal: 100m + i,
+            Uuid: Guid.NewGuid(),
+            Boolean: i % 2 == 0)).ToList();
+
+        // Stream data
+        var options = DataStreamerOptions.Default with { PageSize = 3 };
+        await view.StreamDataAsync(GetData(), options);
+
+        // Verify data was inserted
+        await using var rs = await client.Sql.ExecuteAsync(
+            transaction: null, $"SELECT * FROM {TableAllColumnsSqlName} WHERE KEY >= 9000 AND KEY < 9010 ORDER BY KEY");
+
+        int index = 0;
+        await foreach (var row in rs)
+        {
+            var expected = pocos[index];
+            Assert.AreEqual(expected.Key, row["KEY"]);
+            Assert.AreEqual(expected.Str, row["STR"]);
+            Assert.AreEqual(expected.Int8, row["INT8"]);
+            Assert.AreEqual(expected.Int16, row["INT16"]);
+            Assert.AreEqual(expected.Int32, row["INT32"]);
+            Assert.AreEqual(expected.Int64, row["INT64"]);
+            Assert.AreEqual(expected.Float, row["FLOAT"]);
+            Assert.AreEqual(expected.Double, row["DOUBLE"]);
+            Assert.AreEqual(expected.Date, row["DATE"]);
+            Assert.AreEqual(expected.Time, row["TIME"]);
+            Assert.AreEqual(expected.DateTime, row["DATETIME"]);
+            Assert.AreEqual(expected.Timestamp, row["TIMESTAMP"]);
+            Assert.AreEqual(expected.Blob, row["BLOB"]!);
+            Assert.AreEqual(expected.Decimal, row["DECIMAL"]);
+            Assert.AreEqual(expected.Uuid, row["UUID"]);
+            Assert.AreEqual(expected.Boolean, row["BOOLEAN"]);
+        }
+
+        async IAsyncEnumerable<DataStreamerItem<PocoAllColumnsSql>> GetData()
+        {
+            await Task.Yield();
+
+            foreach (var item in pocos)
+            {
+                yield return DataStreamerItem.Create(item);
+            }
+        }
+    }
 }
