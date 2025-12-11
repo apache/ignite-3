@@ -141,12 +141,12 @@ public class TableTests(IIgniteClient client)
 
         // Verify data was inserted
         await using var rs = await client.Sql.ExecuteAsync(
-            transaction: null, $"SELECT * FROM {TableAllColumnsSqlName} WHERE KEY >= 9000 AND KEY < 9010 ORDER BY KEY");
+            transaction: null, $"SELECT * FROM {table.Name} WHERE KEY >= 9000 AND KEY < 9010 ORDER BY KEY");
 
         int index = 0;
         await foreach (var row in rs)
         {
-            var expected = pocos[index];
+            var expected = pocos[index++];
             Assert.AreEqual(expected.Key, row["KEY"]);
             Assert.AreEqual(expected.Str, row["STR"]);
             Assert.AreEqual(expected.Int8, row["INT8"]);
@@ -164,6 +164,8 @@ public class TableTests(IIgniteClient client)
             Assert.AreEqual(expected.Uuid, row["UUID"]);
             Assert.AreEqual(expected.Boolean, row["BOOLEAN"]);
         }
+
+        Assert.AreEqual(pocos.Count, index);
 
         async IAsyncEnumerable<DataStreamerItem<PocoAllColumnsSql>> GetData()
         {
