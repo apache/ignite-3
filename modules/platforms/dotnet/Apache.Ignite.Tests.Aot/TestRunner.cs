@@ -43,11 +43,11 @@ public static class TestRunner
                 logger.Flush();
                 Console.WriteLine($">>> {method.Name} passed.");
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 logger.Flush();
-                Console.WriteLine(e);
                 Console.WriteLine($">>> {method.Name} failed.");
+                throw;
             }
         }
     }

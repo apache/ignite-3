@@ -38,16 +38,8 @@ logger.Flush();
 var sw = Stopwatch.StartNew();
 Console.WriteLine(">>> Starting tests...");
 
-var tests = new object[]
-{
-    new TableTests(ignite),
-    new ComputeTests(ignite),
-    new SqlTests(ignite)
-};
-
-foreach (var test in tests)
-{
-    await TestRunner.Run(test, logger);
-}
+await TestRunner.Run(new TableTests(ignite), logger);
+await TestRunner.Run(new ComputeTests(ignite), logger);
+await TestRunner.Run(new SqlTests(ignite), logger);
 
 Console.WriteLine($">>> All tests completed in {sw.Elapsed}.");
