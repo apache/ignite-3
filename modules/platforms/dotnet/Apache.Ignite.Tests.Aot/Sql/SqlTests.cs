@@ -103,7 +103,7 @@ public class SqlTests(IIgniteClient client)
 
         Assert.AreEqual(poco.Key, reader.GetInt64(reader.GetOrdinal("KEY")));
         Assert.AreEqual(poco.Str, reader.GetString(reader.GetOrdinal("STR")));
-        Assert.AreEqual(poco.Int8, reader.GetByte(reader.GetOrdinal("INT8")));
+        Assert.AreEqual(poco.Int8, (sbyte)reader.GetByte(reader.GetOrdinal("INT8")));
         Assert.AreEqual(poco.Int16, reader.GetInt16(reader.GetOrdinal("INT16")));
         Assert.AreEqual(poco.Int32, reader.GetInt32(reader.GetOrdinal("INT32")));
         Assert.AreEqual(poco.Int64, reader.GetInt64(reader.GetOrdinal("INT64")));
