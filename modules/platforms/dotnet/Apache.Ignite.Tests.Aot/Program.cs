@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using System.Diagnostics;
 using Apache.Ignite;
 using Apache.Ignite.Tests.Aot;
 using Apache.Ignite.Tests.Aot.Table;
@@ -38,4 +39,12 @@ using var ignite = await IgniteClient.StartAsync(cfg);
 // - Streamer
 // - PartitionManager
 // TODO: Documentation section.
+logger.Flush();
+
+var sw = Stopwatch.StartNew();
+Console.WriteLine(">>> Starting tests...");
+
 await TestRunner.Run(new TableTests(ignite), logger);
+
+logger.Flush();
+Console.WriteLine($">>> All tests completed in {sw.Elapsed}.");

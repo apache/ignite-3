@@ -77,7 +77,7 @@ public class TableTests(IIgniteClient client)
     [UsedImplicitly]
     public async Task TestAllColumnsPoco()
     {
-        var table = await client.Tables.GetTableAsync(TableAllColumnsName);
+        var table = await client.Tables.GetTableAsync(TableAllColumnsNotNullName);
         var pocoView = table!.GetRecordView(new PocoAllColumnsMapper());
 
         var poco = new PocoAllColumns(
