@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System;
 using System.Linq;
+using Common.Table;
 using Ignite.Sql;
 using Ignite.Table;
 using NUnit.Framework;

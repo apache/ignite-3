@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
-using Ignite.Table.Mapper;
+using Apache.Ignite.Table.Mapper;
 
 public class PocoMapper : IMapper<Poco>
 {

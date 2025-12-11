@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Linq;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Common.Table;
 using NUnit.Framework;
 using Table;
 

@@ -15,33 +15,32 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
-{
-    using System;
-    using System.Diagnostics.CodeAnalysis;
-    using NodaTime;
+namespace Apache.Ignite.Tests.Common.Table;
 
-    /// <summary>
-    /// Test user object.
-    /// </summary>
-    [SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
-    [SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
-    [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
-    public record PocoAllColumnsNullable(
-        long Key,
-        string? Str = null,
-        sbyte? Int8 = null,
-        short? Int16 = null,
-        int? Int32 = null,
-        long? Int64 = null,
-        float? Float = null,
-        double? Double = null,
-        Guid? Uuid = null,
-        LocalDate? Date = null,
-        LocalTime? Time = null,
-        LocalDateTime? DateTime = null,
-        Instant? Timestamp = null,
-        byte[]? Blob = null,
-        decimal? Decimal = null,
-        bool? Boolean = null);
-}
+using System;
+using System.Diagnostics.CodeAnalysis;
+using NodaTime;
+
+/// <summary>
+/// Test user object.
+/// </summary>
+[SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
+[SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
+[SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
+public record PocoAllColumnsNullable(
+    long Key,
+    string? Str = null,
+    sbyte? Int8 = null,
+    short? Int16 = null,
+    int? Int32 = null,
+    long? Int64 = null,
+    float? Float = null,
+    double? Double = null,
+    Guid? Uuid = null,
+    LocalDate? Date = null,
+    LocalTime? Time = null,
+    LocalDateTime? DateTime = null,
+    Instant? Timestamp = null,
+    byte[]? Blob = null,
+    decimal? Decimal = null,
+    bool? Boolean = null);

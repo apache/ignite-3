@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common.Table;
     using Ignite.Transactions;
     using Internal;
     using Internal.Transactions;

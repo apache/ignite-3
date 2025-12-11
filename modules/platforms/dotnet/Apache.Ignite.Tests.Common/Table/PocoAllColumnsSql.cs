@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
 using System;
 using System.ComponentModel.DataAnnotations.Schema;

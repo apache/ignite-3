@@ -24,6 +24,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Common.Table;
 using Ignite.Table;
 using NodaTime;
 using NUnit.Framework;

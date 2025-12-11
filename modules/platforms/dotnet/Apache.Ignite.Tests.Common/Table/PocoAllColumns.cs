@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
-{
-    using System;
-    using System.Diagnostics.CodeAnalysis;
+namespace Apache.Ignite.Tests.Common.Table;
 
-    /// <summary>
-    /// Test user object.
-    /// </summary>
-    [SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
-    [SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
-    [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
-    public record PocoAllColumns(
-        long Key,
-        string? Str,
-        sbyte Int8,
-        short Int16,
-        int Int32,
-        long Int64,
-        float Float,
-        double Double,
-        Guid Uuid,
-        decimal Decimal);
-}
+using System;
+using System.Diagnostics.CodeAnalysis;
+
+/// <summary>
+/// Test user object.
+/// </summary>
+[SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
+[SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
+[SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
+public record PocoAllColumns(
+    long Key,
+    string? Str,
+    sbyte Int8,
+    short Int16,
+    int Int32,
+    long Int64,
+    float Float,
+    double Double,
+    Guid Uuid,
+    decimal Decimal);

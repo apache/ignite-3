@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Tests.Common.Table;
+
+using System;
+using System.ComponentModel.DataAnnotations.Schema;
+
+/// <summary>
+/// Test user object.
+/// </summary>
+public class Poco
 {
-    using System;
-    using System.ComponentModel.DataAnnotations.Schema;
+    public long Key { get; set; }
 
-    /// <summary>
-    /// Test user object.
-    /// </summary>
-    public class Poco
-    {
-        public long Key { get; set; }
+    public string? Val { get; set; }
 
-        public string? Val { get; set; }
+    [NotMapped]
+    public Guid UnmappedId { get; set; }
 
-        [NotMapped]
-        public Guid UnmappedId { get; set; }
+    [NotMapped]
+    public string? UnmappedStr { get; set; }
 
-        [NotMapped]
-        public string? UnmappedStr { get; set; }
-
-        public override string ToString() => $"Poco [Key={Key}, Val={Val}]";
-    }
+    public override string ToString() => $"Poco [Key={Key}, Val={Val}]";
 }

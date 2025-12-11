@@ -25,6 +25,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Common;
+using Common.Table;
 using Compute;
 using Ignite.Marshalling;
 using Ignite.Table;

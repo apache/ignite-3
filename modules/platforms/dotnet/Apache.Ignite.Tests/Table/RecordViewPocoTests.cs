@@ -22,6 +22,8 @@ namespace Apache.Ignite.Tests.Table
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common;
+    using Common.Table;
     using NodaTime;
     using NUnit.Framework;
 

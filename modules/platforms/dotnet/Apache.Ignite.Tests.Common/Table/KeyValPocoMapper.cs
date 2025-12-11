@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
 using System.Collections.Generic;
-using Ignite.Table.Mapper;
-using Internal.Common;
+using Apache.Ignite.Internal.Common;
+using Apache.Ignite.Table.Mapper;
 
 public class KeyValPocoMapper : IMapper<KeyValuePair<KeyPoco, ValPoco>>
 {

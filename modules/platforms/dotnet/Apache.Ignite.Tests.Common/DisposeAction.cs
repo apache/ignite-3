@@ -15,31 +15,30 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests
+namespace Apache.Ignite.Tests.Common;
+
+using System;
+
+/// <summary>
+/// Wraps an action to be executed on Dispose call.
+/// </summary>
+public sealed class DisposeAction : IDisposable
 {
-    using System;
+    /** */
+    private readonly Action _action;
 
     /// <summary>
-    /// Wraps an action to be executed on Dispose call.
+    /// Initializes a new instance of the <see cref="DisposeAction"/> class.
     /// </summary>
-    public sealed class DisposeAction : IDisposable
+    /// <param name="action">Action.</param>
+    public DisposeAction(Action action)
     {
-        /** */
-        private readonly Action _action;
+        _action = action;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DisposeAction"/> class.
-        /// </summary>
-        /// <param name="action">Action.</param>
-        public DisposeAction(Action action)
-        {
-            _action = action;
-        }
-
-        /** <inheritdoc /> */
-        public void Dispose()
-        {
-            _action();
-        }
+    /** <inheritdoc /> */
+    public void Dispose()
+    {
+        _action();
     }
 }

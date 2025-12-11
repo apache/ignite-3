@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Table;
 using Ignite.Sql;
 using Ignite.Table;
 using NUnit.Framework;

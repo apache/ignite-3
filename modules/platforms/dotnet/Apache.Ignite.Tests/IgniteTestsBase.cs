@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Common;
+    using Common.Table;
     using Ignite.Table;
     using Internal.Proto;
     using Microsoft.Extensions.Logging;
