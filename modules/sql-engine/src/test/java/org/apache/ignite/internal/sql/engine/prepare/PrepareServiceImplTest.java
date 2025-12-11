@@ -351,7 +351,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         CacheFactory cacheFactory = new DummyCacheFactory(cache);
 
-        PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 100);
+        // Set planning timeout 1 millisecond, this value is small enough to cause a planning timeout exception. 
+        PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 1);
 
         StringBuilder stmt = new StringBuilder();
         for (int i = 0; i < 100; i++) {
