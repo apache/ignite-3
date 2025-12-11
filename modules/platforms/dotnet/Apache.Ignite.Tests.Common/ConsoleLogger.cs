@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests;
+namespace Apache.Ignite.Tests.Common;
 
 using System;
 using System.Collections.Concurrent;
@@ -92,7 +92,6 @@ public class ConsoleLogger : ILogger, ILoggerFactory
     public bool IsEnabled(LogLevel logLevel) => logLevel >= _minLevel;
 
     public IDisposable BeginScope<TState>(TState state)
-        where TState : notnull
         => new DisposeAction(() => { });
 
     public void Dispose() => Flush();

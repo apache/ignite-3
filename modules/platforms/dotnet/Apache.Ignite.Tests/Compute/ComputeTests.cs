@@ -28,6 +28,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Compute;
     using Ignite.Marshalling;
     using Ignite.Table;
