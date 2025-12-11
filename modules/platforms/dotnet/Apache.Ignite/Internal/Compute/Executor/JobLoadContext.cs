@@ -88,6 +88,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     }
 
     [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
+    [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "No AOT on server side.")]
     private static (Type Type, Type ClosedWrapperType) GetClosedWrapperType(
         string typeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
     {
