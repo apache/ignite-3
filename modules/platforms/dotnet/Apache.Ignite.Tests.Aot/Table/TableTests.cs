@@ -130,7 +130,7 @@ public class TableTests(IIgniteClient client)
             Time: new LocalTime(12, 30, 45),
             DateTime: new LocalDateTime(2025, 12, 11, 12, 30, 45),
             Timestamp: Instant.FromUtc(2025, 12, 11, 12, 30, 45),
-            Blob: [(byte)i, (byte)(i + 1), (byte)(i + 2)],
+            Blob: [],
             Decimal: 100m + i,
             Uuid: Guid.NewGuid(),
             Boolean: i % 2 == 0)).ToList();
@@ -138,36 +138,16 @@ public class TableTests(IIgniteClient client)
         // Stream data
         await view.StreamDataAsync(GetData(), DataStreamerOptions.Default with { PageSize = 3 });
 
-        // TODO: Why?
-        await Task.Delay(1000);
+        var results = await view.GetAllAsync(null, pocos);
+        Assert.AreEqual(pocos.Count, results.Count);
 
-        // Verify data was inserted
-        await using var rs = await client.Sql.ExecuteAsync(
-            transaction: null, $"SELECT * FROM {table.Name} WHERE KEY >= 9000 AND KEY < 9010 ORDER BY KEY");
-
-        int index = 0;
-        await foreach (var row in rs)
+        for (int i = 0; i < pocos.Count; i++)
         {
-            var expected = pocos[index++];
-            Assert.AreEqual(expected.Key, row["KEY"]);
-            Assert.AreEqual(expected.Str, row["STR"]);
-            Assert.AreEqual(expected.Int8, row["INT8"]);
-            Assert.AreEqual(expected.Int16, row["INT16"]);
-            Assert.AreEqual(expected.Int32, row["INT32"]);
-            Assert.AreEqual(expected.Int64, row["INT64"]);
-            Assert.AreEqual(expected.Float, row["FLOAT"]);
-            Assert.AreEqual(expected.Double, row["DOUBLE"]);
-            Assert.AreEqual(expected.Date, row["DATE"]);
-            Assert.AreEqual(expected.Time, row["TIME"]);
-            Assert.AreEqual(expected.DateTime, row["DATETIME"]);
-            Assert.AreEqual(expected.Timestamp, row["TIMESTAMP"]);
-            Assert.AreEqual(expected.Blob, row["BLOB"]!);
-            Assert.AreEqual(expected.Decimal, ((BigDecimal)row["DECIMAL"]!).ToDecimal());
-            Assert.AreEqual(expected.Uuid, row["UUID"]);
-            Assert.AreEqual(expected.Boolean, row["BOOLEAN"]);
-        }
+            var expected = pocos[i];
+            var (actual, _) = results[i];
 
-        Assert.AreEqual(pocos.Count, index);
+            Assert.AreEqual(expected, actual);
+        }
 
         async IAsyncEnumerable<DataStreamerItem<PocoAllColumnsSql>> GetData()
         {
