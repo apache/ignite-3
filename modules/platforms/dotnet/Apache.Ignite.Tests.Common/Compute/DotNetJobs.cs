@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Compute;
+namespace Apache.Ignite.Tests.Common.Compute;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
@@ -26,7 +26,7 @@ using System.Runtime.Loader;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Ignite.Compute;
+using Apache.Ignite.Compute;
 
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public static class DotNetJobs
@@ -39,6 +39,7 @@ public static class DotNetJobs
     public static readonly JobDescriptor<object?, object?> ProcessExit = JobDescriptor.Of(new ProcessExitJob());
     public static readonly JobDescriptor<string, string> ApiTest = new(typeof(ApiTestJob));
     public static readonly JobDescriptor<object?, int> AssemblyLoadContextCount = JobDescriptor.Of(new AssemblyLoadContextCountJob());
+
     public static readonly JobDescriptor<string, string> NewerDotNetJob = new(
         JobClassName: "NewerDotnetJobs.EchoJob, NewerDotnetJobs",
         Options: new JobExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar));

@@ -25,6 +25,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
+using Common.Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Buffers;

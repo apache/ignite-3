@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Compute;
 using Common.Table;
 using Compute;
 using Ignite.Compute;

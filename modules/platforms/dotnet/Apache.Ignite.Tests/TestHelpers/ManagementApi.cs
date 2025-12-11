@@ -26,6 +26,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Apache.Ignite.Compute;
+using Common.Compute;
 using Compute;
 using Internal.Common;
 using NUnit.Framework;

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Threading.Tasks;
 using Common;
+using Common.Compute;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;

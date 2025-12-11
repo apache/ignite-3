@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Compute.Executor;
 
 using System;
 using System.Threading.Tasks;
+using Common.Compute;
 using Internal.Compute.Executor;
 using NUnit.Framework;
 using TestHelpers;

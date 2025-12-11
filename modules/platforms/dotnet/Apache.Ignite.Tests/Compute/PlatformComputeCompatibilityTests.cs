@@ -23,6 +23,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Common;
+using Common.Compute;
 using Executor;
 using Ignite.Compute;
 using NUnit.Framework;

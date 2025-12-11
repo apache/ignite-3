@@ -40,8 +40,8 @@ namespace Apache.Ignite.Tests.Compute
     using Network;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Compute.JavaJobs;
     using static Common.Table.TestTables;
-    using static JavaJobs;
     using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>
