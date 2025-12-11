@@ -547,7 +547,9 @@ public class PartitionReplicaLifecycleManager extends
             int zoneId = zoneDescriptor.id();
 
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
-                    .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, zoneDescriptor.consistencyMode(), assignments))
+                    .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, zoneDescriptor,
+                            assignments, causalityToken
+                    ))
                     .thenCompose(
                             stableAssignments -> createZoneReplicationNodes(
                                     zoneId,
@@ -866,12 +868,13 @@ public class PartitionReplicaLifecycleManager extends
      */
     private CompletableFuture<List<Assignments>> writeZoneAssignmentsToMetastore(
             int zoneId,
-            ConsistencyMode consistencyMode,
-            List<Assignments> newAssignments
+            CatalogZoneDescriptor zoneDescriptor,
+            List<Assignments> newAssignments,
+            long causalityToken
     ) {
         assert !newAssignments.isEmpty();
 
-        boolean haMode = consistencyMode == ConsistencyMode.HIGH_AVAILABILITY;
+        boolean haMode = zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY;
 
         List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
@@ -915,6 +918,17 @@ public class PartitionReplicaLifecycleManager extends
 
                         return completedFuture(newAssignments);
                     } else {
+                        if (zonePartitionAssignmentsGetLocally(metaStorageMgr, zoneDescriptor.id(), 0, causalityToken) != null) {
+                            return completedFuture(
+                                    zoneAssignmentsGetLocally(
+                                            metaStorageMgr,
+                                            zoneDescriptor.id(),
+                                            zoneDescriptor.partitions(),
+                                            causalityToken
+                                    )
+                            );
+                        }
+
                         Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
                                 .mapToObj(p -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)))
                                 .collect(toSet());
