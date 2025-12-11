@@ -649,7 +649,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clockService,
                 safeTimeTracker,
-                txStateStorage,
                 transactionStateResolver,
                 new StorageUpdateHandler(
                         PART_ID,
@@ -1333,14 +1332,11 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> {
             UUID txId = invocation.getArgument(6);
 
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                    ABORTED,
-                    localNode.id(),
-                    commitPartitionId,
-                    null,
-                    null,
-                    null
-            ));
+            txManager.updateTxMeta(txId, old -> TxStateMeta.builder(ABORTED)
+                    .txCoordinatorId(localNode.id())
+                    .commitPartitionId(commitPartitionId)
+                    .build()
+            );
 
             return nullCompletedFuture();
         }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());

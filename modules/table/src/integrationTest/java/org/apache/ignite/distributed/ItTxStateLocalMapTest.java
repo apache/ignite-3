@@ -170,14 +170,11 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         } else {
             checkLocalTxStateOnNodes(
                     tx.id(),
-                    new TxStateMeta(
-                            commit ? COMMITTED : ABORTED,
-                            coordinatorId,
-                            tx.commitPartition(),
-                            commit ? testCluster.clockServices.get(coord.name()).now() : null,
-                            null,
-                            null
-                    )
+                    TxStateMeta.builder(commit ? COMMITTED : ABORTED)
+                            .txCoordinatorId(coordinatorId)
+                            .commitPartitionId(tx.commitPartition())
+                            .commitTimestamp(commit ? testCluster.clockServices.get(coord.name()).now() : null)
+                            .build()
             );
         }
     }

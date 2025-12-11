@@ -27,14 +27,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
@@ -391,14 +390,6 @@ public interface InternalTable extends ManuallyCloseable {
      */
     int partitions();
 
-    /**
-     * Storage of transaction states for this table.
-     *
-     * @return Transaction states' storage.
-     */
-    // TODO: remove this method as a part of https://issues.apache.org/jira/browse/IGNITE-22522.
-    TxStateStorage txStateStorage();
-
     // TODO: IGNITE-14488. Add invoke() methods.
 
     /**
@@ -460,7 +451,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId Partition id.
      * @return The id.
      */
-    ReplicationGroupId targetReplicationGroupId(int partId);
+    ZonePartitionId targetReplicationGroupId(int partId);
 
     /**
      * Returns a metric source for this table.

@@ -169,7 +169,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
 
         // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
         // columns never change (so they are the same for all schema versions of the table),
-        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        Row keyRow = new TupleMarshallerImpl(table::name, schemaReg.lastKnownSchema()).marshalKey(key);
 
         return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }

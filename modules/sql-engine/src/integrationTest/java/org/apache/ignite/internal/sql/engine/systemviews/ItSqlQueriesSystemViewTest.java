@@ -128,7 +128,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
             assertThat(res, hasSize(1));
 
             verifyQueryInfo(res.get(0), initiator.name(), schema, query, tsBefore, tsAfter,
-                    equalTo(tx.id().toString()), SqlQueryType.QUERY.name(), null);
+                    equalTo(tx.id().toString()), SqlQueryType.QUERY.displayName(), null);
         } finally {
             tx.rollback();
         }
@@ -146,7 +146,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
             assertThat(res, hasSize(1));
 
             verifyQueryInfo(res.get(0), initiator.name(), schema, query, tsBefore, tsAfter,
-                    hasLength(36), SqlQueryType.QUERY.name(), null);
+                    hasLength(36), SqlQueryType.QUERY.displayName(), null);
         }
     }
 
@@ -198,7 +198,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
                 List<Object> row = res.get(i);
 
                 verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, expectedQueries.get(i), timeBefore, timeAfter,
-                        hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).name(), i);
+                        hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).displayName(), i);
 
                 transactionIds.add((String) row.get(7));
             }
@@ -238,7 +238,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         waitUntilRunningQueriesCount(is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
-                + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
+                + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='Script') "
                 + "ORDER BY STATEMENT_NUM";
 
         List<List<Object>> res = sql(0, sql);
@@ -249,13 +249,13 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
 
         // Expecting 3 queries with same transaction.
         verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO test VALUES (0), (1);",
-                timeBefore, timeAfter, hasLength(36), SqlQueryType.DML.name(), 1);
+                timeBefore, timeAfter, hasLength(36), SqlQueryType.DML.displayName(), 1);
 
         verifyQueryInfo(res.get(1), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "SELECT * FROM test;",
-                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.name(), 3);
+                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.displayName(), 3);
 
         verifyQueryInfo(res.get(2), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO test VALUES (2), (3);",
-                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.name(), 4);
+                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.displayName(), 4);
 
         for (AsyncSqlCursor<InternalSqlRow> cursor : cursors) {
             await(cursor.closeAsync());

@@ -215,7 +215,7 @@ public class RecordMarshallerTest {
                 }
         );
 
-        Throwable ex = assertThrows(ClassCastException.class, () -> factory.create(schema, TestSimpleObject.class));
+        Throwable ex = assertThrows(MarshallerException.class, () -> factory.create(schema, TestSimpleObject.class));
 
         assertThat(
                 ex.getMessage(),

@@ -133,4 +133,44 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
 
         runRace(writerTaskFactory.apply(1), writerTaskFactory.apply(2));
     }
+
+    @Test
+    void testFirstIndexAfterTruncatePrefix() {
+        List<LogEntry> entries = TestUtils.mockEntries();
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            SegstoreLogStorage logStorage = newLogStorage(groupId);
+
+            try {
+                assertThat(logStorage.getFirstLogIndex(), is(1L));
+                assertThat(logStorage.getLastLogIndex(), is(0L));
+
+                long firstLogIndex = 0;
+
+                for (int i = 0; i < entries.size(); i++) {
+                    LogEntry entry = entries.get(i);
+
+                    logStorage.appendEntry(entry);
+
+                    long logIndex = entry.getId().getIndex();
+
+                    if (i > 0 && i % 10 == 0) {
+                        logStorage.truncatePrefix(logIndex);
+
+                        firstLogIndex = logIndex;
+                    }
+
+                    assertThat(logStorage.getFirstLogIndex(), is(firstLogIndex));
+                    assertThat(logStorage.getLastLogIndex(), is(logIndex));
+                }
+
+                assertThat(logStorage.getFirstLogIndex(), is(firstLogIndex));
+                assertThat(logStorage.getLastLogIndex(), is((long) entries.size() - 1));
+            } finally {
+                logStorage.shutdown();
+            }
+        };
+
+        runRace(writerTaskFactory.apply(1), writerTaskFactory.apply(2));
+    }
 }

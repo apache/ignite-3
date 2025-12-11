@@ -94,13 +94,6 @@ public class RowVersion implements Storable {
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp commitTimestamp, long nextLink, int valueSize) {
-        this(partitionId, link, commitTimestamp, nextLink, valueSize, null);
-    }
-
-    /**
-     * Constructor.
-     */
     public RowVersion(
             int partitionId,
             long link,
@@ -230,7 +223,7 @@ public class RowVersion implements Storable {
 
     protected void writeHeader(long pageAddr, int dataOff) {
         PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, dataType());
-        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
+        writeTimestamp(pageAddr, dataOff);
         writePartitionless(pageAddr + dataOff + NEXT_LINK_OFFSET, nextLink());
         PageUtils.putInt(pageAddr, dataOff + VALUE_SIZE_OFFSET, valueSize());
         PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, schemaVersionOrZero());
@@ -238,15 +231,27 @@ public class RowVersion implements Storable {
 
     protected void writeHeader(ByteBuffer pageBuf) {
         pageBuf.put(dataType());
-        HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
+        writeToTimestampSlot(pageBuf);
         PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
         pageBuf.putInt(valueSize());
         pageBuf.putShort(schemaVersionOrZero());
     }
 
+    protected void writeTimestamp(long pageAddr, int dataOff) {
+        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
+    }
+
+    protected void writeToTimestampSlot(ByteBuffer pageBuf) {
+        HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
+    }
+
     private short schemaVersionOrZero() {
         //noinspection NumericCastThatLosesPrecision
         return value == null ? 0 : (short) value.schemaVersion();
+    }
+
+    RowVersionOperations operations() {
+        return PlainRowVersionOperations.INSTANCE;
     }
 
     static long readNextLink(int partitionId, long pageAddr, int offset) {

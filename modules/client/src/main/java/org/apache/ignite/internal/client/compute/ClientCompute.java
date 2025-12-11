@@ -385,9 +385,10 @@ public class ClientCompute implements IgniteCompute {
             JobDescriptor<T, R> descriptor,
             T arg
     ) {
+        ClientTupleSerializer ser = new ClientTupleSerializer(t.tableId(), t::qualifiedName);
         return executeColocatedInternal(
                 t,
-                (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),
+                (outputChannel, schema) -> ser.writeTupleRaw(key, schema, outputChannel, true),
                 ClientTupleSerializer.getPartitionAwarenessProvider(key),
                 descriptor,
                 arg

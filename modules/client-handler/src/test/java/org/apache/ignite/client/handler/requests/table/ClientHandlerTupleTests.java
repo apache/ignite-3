@@ -42,7 +42,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
@@ -87,7 +87,7 @@ public class ClientHandlerTupleTests {
     public void testTupleEquality() {
         Tuple tuple = createTuple();
 
-        BinaryTupleReader binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
+        BinaryTupleReader binaryTuple = KeyValueTestUtils.createMarshaller(fullSchema).marshal(tuple).binaryTuple();
         Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, false);
 
         assertEquals(tuple, clientHandlerTuple);
@@ -97,7 +97,7 @@ public class ClientHandlerTupleTests {
     public void testTupleEqualityKeyOnly() {
         Tuple tuple = createKeyTuple();
 
-        BinaryTupleReader binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();
+        BinaryTupleReader binaryTuple = KeyValueTestUtils.createMarshaller(fullSchema).marshalKey(tuple).binaryTuple();
         Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, true);
 
         assertEquals(tuple, clientHandlerTuple);

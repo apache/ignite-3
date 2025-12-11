@@ -96,7 +96,7 @@ import org.jetbrains.annotations.Nullable;
  *          <br>If not set then system default on client timezone will be used.</td>
  *   </tr>
  *   <tr>
- *      <td>queryTimeout</td>
+ *      <td>queryTimeoutSeconds</td>
  *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
  *   </tr>
@@ -110,8 +110,8 @@ import org.jetbrains.annotations.Nullable;
  *      <th colspan="2">Connection properties</th>
  *   </tr>
  *   <tr>
- *      <td>connectionTimeout</td>
- *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
+ *      <td>connectionTimeoutMillis</td>
+ *      <td>Number of milliseconds JDBC client will wait for server to respond. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
@@ -320,7 +320,8 @@ public class IgniteJdbcDriver implements Driver {
                 extractAuthenticationConfiguration(connectionProperties),
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
                 connectionProperties.getPartitionAwarenessMetadataCacheSize(),
-                JdbcDatabaseMetadata.DRIVER_NAME
+                JdbcDatabaseMetadata.DRIVER_NAME,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL
         );
 
         ChannelValidator channelValidator = ctx -> {
