@@ -58,7 +58,7 @@ public interface IPartitionManager
     /// <param name="key">Table key.</param>
     /// <returns>Partition that contains the specified key.</returns>
     /// <typeparam name="TK">Key type.</typeparam>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
+    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)] // TODO: IGNITE-27278
     ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull;
 }

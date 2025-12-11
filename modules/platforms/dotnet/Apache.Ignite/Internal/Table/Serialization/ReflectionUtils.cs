@@ -47,8 +47,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// AOT and trimming warning.
         /// </summary>
         internal const string TrimWarning =
-            "Object mapping requires reflection and IL emit and does not support AOT and trimming scenarios. " +
-            "Use overloads with IMapper<T> instead.";
+            "Object mapping uses runtime codegen and does not support AOT. Use overloads with IMapper<T> instead.";
 
         private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
 

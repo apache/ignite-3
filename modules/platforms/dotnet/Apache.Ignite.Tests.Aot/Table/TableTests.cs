@@ -79,6 +79,7 @@ public class TableTests(IIgniteClient client)
     {
         var table = await client.Tables.GetTableAsync(TableAllColumnsNotNullName);
         var pocoView = table!.GetRecordView(new PocoAllColumnsMapper());
+        var voew2 = table.GetRecordView<PocoAllColumns>();
 
         var poco = new PocoAllColumns(
             Key: 123,
