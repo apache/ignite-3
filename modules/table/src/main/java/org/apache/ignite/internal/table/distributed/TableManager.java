@@ -730,7 +730,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogSchemaDescriptor schemaDescriptor
     ) {
         return inBusyLockAsync(busyLock, () -> {
-            TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor, true);
+            TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
             int tableId = tableDescriptor.id();
 
@@ -763,7 +763,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogTableDescriptor tableDescriptor,
             CatalogSchemaDescriptor schemaDescriptor
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor, false);
+        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
         int tableId = tableDescriptor.id();
 
@@ -1161,8 +1161,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            CatalogSchemaDescriptor schemaDescriptor,
-            boolean onRecovery
+            CatalogSchemaDescriptor schemaDescriptor
     ) {
         QualifiedName tableName = QualifiedNameHelper.fromNormalized(schemaDescriptor.name(), tableDescriptor.name());
 
@@ -1191,7 +1190,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName, onRecovery)
+                createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
         CatalogTableProperties descProps = tableDescriptor.properties();
@@ -2165,26 +2164,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private TableMetricSource createAndRegisterMetricsSource(
-            StorageTableDescriptor tableDescriptor,
-            QualifiedName tableName,
-            boolean onRecovery
-    ) {
+    private TableMetricSource createAndRegisterMetricsSource(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
         // The table might be created during the recovery phase.
         // In that case, we should only register the metric source for the actual tables that exist in the latest catalog.
         boolean registrationNeeded =
                 catalogService.latestCatalog().table(tableName.schemaName(), tableName.objectName()) != null;
 
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
-
-        LOG.warn(">>>>> createAndRegisterMetricsSource [name=" + tableName
-                + ", id=" + tableDescriptor.getId()
-                + ", profile=" + tableDescriptor.getStorageProfile()
-                + ", registrationNeeded=" + registrationNeeded
-                + ", onRecovery=" + onRecovery
-                + ", engineFound=" + (engine != null)
-                + ']'
-        );
 
         // Engine can be null sometimes, see "TableManager.createTableStorage".
         if (engine != null && registrationNeeded) {
@@ -2217,7 +2203,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void unregisterMetricsSource(TableViewInternal table) {
         if (table == null) {
-            LOG.warn(">>>>> unregisterMetricsSource [name=unknown table]");
             return;
         }
 
@@ -2231,13 +2216,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(storageProfile);
-
-        LOG.warn(">>>>> unregisterMetricsSource [name=" + tableName
-                + ", id=" + table.tableId()
-                + ", profile=" + storageProfile
-                + ", engineFound=" + (engine != null)
-                + ']'
-        );
 
         // Engine can be null sometimes, see "TableManager.createTableStorage".
         if (engine != null) {
