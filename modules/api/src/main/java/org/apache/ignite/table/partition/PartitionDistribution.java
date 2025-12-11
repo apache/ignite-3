@@ -70,9 +70,11 @@ public interface PartitionDistribution {
     Map<Partition, ClusterNode> primaryReplicas();
 
     /**
-     * Gets all partitions hosted by the specified node as a primary replica.
+     * Gets all partitions hosted by the specified node as a primary replica as of the time of the call.
      *
-     * @return List with all partitions hosted by the specified node as a primary replica.
+     * <p>Note: This assignment may become outdated if a re-assigment happens on the cluster.
+     *
+     * @return List with all partitions hosted by the specified node as a primary replica as of the time of the call.
      */
     List<Partition> primaryReplicas(ClusterNode node);
 

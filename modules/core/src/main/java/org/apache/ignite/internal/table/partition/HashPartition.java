@@ -37,11 +37,6 @@ public class HashPartition implements Partition {
         return partitionId;
     }
 
-    @Deprecated(since = "3.2", forRemoval = true)
-    public int partitionId() {
-        return Math.toIntExact(id());
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
