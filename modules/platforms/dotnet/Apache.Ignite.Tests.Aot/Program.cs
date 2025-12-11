@@ -21,6 +21,7 @@ using Apache.Ignite.Tests.Aot;
 using Apache.Ignite.Tests.Aot.Compute;
 using Apache.Ignite.Tests.Aot.Sql;
 using Apache.Ignite.Tests.Aot.Table;
+using Apache.Ignite.Tests.Aot.Transactions;
 using Apache.Ignite.Tests.Common;
 using Microsoft.Extensions.Logging;
 
@@ -41,5 +42,6 @@ Console.WriteLine(">>> Starting tests...");
 await TestRunner.Run(new TableTests(ignite), logger);
 await TestRunner.Run(new ComputeTests(ignite), logger);
 await TestRunner.Run(new SqlTests(ignite), logger);
+await TestRunner.Run(new TransactionsTests(ignite), logger);
 
 Console.WriteLine($">>> All tests completed in {sw.Elapsed}.");
