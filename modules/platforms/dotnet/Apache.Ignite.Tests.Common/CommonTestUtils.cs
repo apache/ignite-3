@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Common;
 
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 public static class CommonTestUtils
@@ -30,7 +29,7 @@ public static class CommonTestUtils
 
     private static string GetSolutionDir()
     {
-        var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        var dir = AppContext.BaseDirectory;
 
         while (dir != null && !File.Exists(Path.Combine(dir, "Apache.Ignite.sln")))
         {
