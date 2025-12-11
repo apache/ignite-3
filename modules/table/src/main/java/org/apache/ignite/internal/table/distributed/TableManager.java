@@ -618,7 +618,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         List<CompletableFuture<?>> storageCreationFutures = zoneTables.stream()
                 .map(tbl -> inBusyLockAsync(busyLock, () -> {
-                    return createPartitionStoragesIfNotCreated(tbl, singlePartitionIdSet)
+                    return createPartitionStoragesIfAbsent(tbl, singlePartitionIdSet)
                             // If the table is already closed, it's not a problem (probably the node is stopping).
                             .exceptionally(ignoreTableClosedException());
                 }))
@@ -836,7 +836,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
                     }
 
-                    return createPartitionStoragesIfNotCreated(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
+                    return createPartitionStoragesIfAbsent(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
                 }, ioExecutor))
                 // If the table is already closed, it's not a problem (probably the node is stopping).
                 .exceptionally(ignoreTableClosedException())
@@ -1525,7 +1525,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
-    private CompletableFuture<Void> createPartitionStoragesIfNotCreated(TableViewInternal table, PartitionSet partitions) {
+    private CompletableFuture<Void> createPartitionStoragesIfAbsent(TableViewInternal table, PartitionSet partitions) {
         InternalTable internalTable = table.internalTable();
 
         List<CompletableFuture<MvPartitionStorage>> storageFuts = partitions.stream().mapToObj(partitionId -> {
