@@ -127,7 +127,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowAccessor(), rows, schemaSupplier);
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx, rows, schemaSupplier);
 
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -206,7 +206,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, ectx.rowAccessor(), row, schemaSupplier);
+        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(
+                rowType,
+                ectx.rowAccessor(),
+                ectx.rowFactoryFactory(),
+                row,
+                schemaSupplier
+        );
 
         BinaryRowEx tableRow = rowConverter.toFullRow(ectx, validatedRow);
 
@@ -237,7 +243,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowAccessor(), rows, schemaSupplier);
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx, rows, schemaSupplier);
 
         assert commitPartitionId != null;
 
@@ -363,7 +369,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
                     RowHandler<RowT> handler = ectx.rowAccessor();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowFactory<RowT> rowFactory = handler.create(convertStructuredType(rowType(desc, typeFactory)));
+                    RowFactory<RowT> rowFactory = ectx.rowFactoryFactory().create(convertStructuredType(rowType(desc, typeFactory)));
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
 
@@ -392,14 +398,20 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private static <RowT> List<RowT> validateCharactersOverflowAndTrimIfPossible(
             RelDataType rowType,
-            RowHandler<RowT> rowHandler,
+            ExecutionContext<RowT> context,
             List<RowT> rows,
             Supplier<StructNativeType> schemaSupplier
     ) {
         List<RowT> out = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
-            out.add(TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, rowHandler, row, schemaSupplier));
+            out.add(TypeUtils.validateStringTypesOverflowAndTrimIfPossible(
+                    rowType,
+                    context.rowAccessor(),
+                    context.rowFactoryFactory(),
+                    row,
+                    schemaSupplier
+            ));
         }
 
         return out;

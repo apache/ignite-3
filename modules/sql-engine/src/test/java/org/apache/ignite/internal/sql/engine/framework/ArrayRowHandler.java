@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -43,8 +44,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Handler for rows that implemented as a simple objects array.
  */
-public class ArrayRowHandler implements RowHandler<Object[]> {
-    public static final RowHandler<Object[]> INSTANCE = new ArrayRowHandler();
+public class ArrayRowHandler implements RowHandler<Object[]>, RowFactoryFactory<Object[]> {
+    public static final ArrayRowHandler INSTANCE = new ArrayRowHandler();
 
     private ArrayRowHandler() {
     }

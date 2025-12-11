@@ -585,6 +585,7 @@ public class TestBuilders {
                     node.id(),
                     description,
                     ArrayRowHandler.INSTANCE,
+                    ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     zoneId,

@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -62,7 +61,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for {@link SqlRowHandler}.
  */
 public class SqlRowHandlerTest extends IgniteAbstractTest {
-    private static final RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+    private static final SqlRowHandler handler = SqlRowHandler.INSTANCE;
 
     private final long seed = ThreadLocalRandom.current().nextLong();
 
@@ -141,7 +140,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     @Test
     public void testUpdateRowSchemaOnMapping() {
-        RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+        SqlRowHandler handler = SqlRowHandler.INSTANCE;
 
         StructNativeType rowSchema = NativeTypes.rowBuilder()
                 .addField("C1", NativeTypes.INT32, false)

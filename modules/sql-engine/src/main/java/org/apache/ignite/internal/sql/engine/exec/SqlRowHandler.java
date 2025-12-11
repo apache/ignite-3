@@ -58,8 +58,8 @@ import org.jetbrains.annotations.Nullable;
  * create rows without any additional conversions. But the fields in
  * binary tuple must match the factory {@link StructNativeType row schema}.
  */
-public class SqlRowHandler implements RowHandler<RowWrapper> {
-    public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
+public class SqlRowHandler implements RowHandler<RowWrapper>, RowFactoryFactory<RowWrapper> {
+    public static final SqlRowHandler INSTANCE = new SqlRowHandler();
 
     private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.rowBuilder().build(), new Object[0]);
 

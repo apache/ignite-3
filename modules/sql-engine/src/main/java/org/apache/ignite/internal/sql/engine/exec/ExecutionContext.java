@@ -84,6 +84,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
+    private final RowFactoryFactory<RowT> rowFactoryFactory;
 
     private final ExpressionFactory expressionFactory;
 
@@ -121,6 +122,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
      * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
      * @param handler Row handler.
+     * @param rowFactoryFactory Factory that produces factories to create row..
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
@@ -138,6 +140,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
             UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
@@ -151,6 +154,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
         this.executionId = executionId;
         this.description = description;
         this.handler = handler;
+        this.rowFactoryFactory = rowFactoryFactory;
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
@@ -233,7 +237,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
 
     @Override
     public RowFactoryFactory<RowT> rowFactoryFactory() {
-        return handler;
+        return rowFactoryFactory;
     }
 
     /**

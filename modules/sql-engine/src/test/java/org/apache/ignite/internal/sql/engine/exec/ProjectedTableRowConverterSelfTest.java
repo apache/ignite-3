@@ -74,7 +74,7 @@ public class ProjectedTableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.create(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
         ByteBuffer tupleBuf = new BinaryTupleBuilder(schema.length())
                 .appendUuid(UUID.randomUUID())

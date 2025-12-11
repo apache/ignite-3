@@ -45,6 +45,7 @@ import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
@@ -489,12 +490,17 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     private static Node<RowWrapper> createSource(int rowCount, ExecutionContext<RowWrapper> context) {
         return new ScanNode<>(
-                context, DataProvider.fromRow(context.rowAccessor().create(INT_LONG_SCHEMA).create(1, 1L), rowCount)
+                context, DataProvider.fromRow(context.rowFactoryFactory().create(INT_LONG_SCHEMA).create(1, 1L), rowCount)
         );
     }
 
     @Override
     protected RowHandler<RowWrapper> rowHandler() {
+        return SqlRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<RowWrapper> rowFactoryFactory() {
         return SqlRowHandler.INSTANCE;
     }
 

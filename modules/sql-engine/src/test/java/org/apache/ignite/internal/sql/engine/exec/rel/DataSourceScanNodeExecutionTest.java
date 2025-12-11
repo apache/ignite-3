@@ -43,6 +43,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
@@ -243,7 +244,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         ExecutionContext<RowWrapper> ctx = executionContext(bufferSize);
 
         StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, true).build();
-        RowFactory<RowWrapper> rowFactory = ctx.rowAccessor().create(schema);
+        RowFactory<RowWrapper> rowFactory = ctx.rowFactoryFactory().create(schema);
         BinaryTupleSchema tupleSchema = fromRowSchema(schema);
         TupleFactory tupleFactory = tupleFactoryFromSchema(tupleSchema);
 
@@ -335,6 +336,11 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
 
     @Override
     protected RowHandler<RowWrapper> rowHandler() {
+        return SqlRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<RowWrapper> rowFactoryFactory() {
         return SqlRowHandler.INSTANCE;
     }
 

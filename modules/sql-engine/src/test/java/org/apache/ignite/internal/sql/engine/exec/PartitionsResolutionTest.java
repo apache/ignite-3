@@ -41,7 +41,7 @@ public class PartitionsResolutionTest {
     @Test
     public void partitionsResolver() {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> factory = rowHandler.create(rowSchema);
+        RowFactory<RowWrapper> factory = SqlRowHandler.INSTANCE.create(rowSchema);
         RowWrapper row = factory.create("1", 100, 200, 100);
 
         int part1 = getPartition(row, rowHandler, List.of(0, 1));
@@ -55,7 +55,7 @@ public class PartitionsResolutionTest {
     @Test
     public void rehashingPartitionsResolver() {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> factory = rowHandler.create(rowSchema);
+        RowFactory<RowWrapper> factory = SqlRowHandler.INSTANCE.create(rowSchema);
         RowWrapper row = factory.create("1", 100, 200, 100);
         int[] keys1 = {0, 1};
         int[] keys2 = {0, 2};

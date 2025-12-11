@@ -23,7 +23,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 /**
  * Universal accessor for rows. It also has factory methods.
  */
-public interface RowHandler<RowT> extends RowAccessor<RowT>, RowFactoryFactory<RowT> {
+public interface RowHandler<RowT> extends RowAccessor<RowT> {
     /**
      * Assembly row representation as BinaryTuple.
      *

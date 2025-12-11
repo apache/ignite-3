@@ -177,7 +177,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         RowHandler<RowT> rowHandler = ctx.rowAccessor();
         StructNativeType nativeType = convertStructuredType(rowType);
 
-        RowFactory<RowT> rowFactory = rowHandler.create(nativeType);
+        RowFactory<RowT> rowFactory = ctx.rowFactoryFactory().create(nativeType);
 
         List<RexNode> keyExpressions = lookupNode.keyExpressions();
         SqlRowProvider keySupplier = ctx.expressionFactory().rowSource(keyExpressions);

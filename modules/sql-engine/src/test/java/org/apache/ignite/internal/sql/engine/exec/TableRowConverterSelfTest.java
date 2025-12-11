@@ -82,7 +82,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.create(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
         ByteBuffer tupleBuf = new BinaryTupleBuilder(schema.length())
                 .appendString("ABC")
@@ -123,7 +123,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.create(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
         when(executionContext.rowAccessor()).thenReturn(rowHandler);
 
@@ -171,7 +171,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.create(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
         when(executionContext.rowAccessor()).thenReturn(rowHandler);
 

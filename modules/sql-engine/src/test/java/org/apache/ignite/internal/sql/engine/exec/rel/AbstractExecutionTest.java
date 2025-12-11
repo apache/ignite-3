@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
@@ -107,6 +108,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     protected abstract RowHandler<T> rowHandler();
 
+    protected abstract RowFactoryFactory<T> rowFactoryFactory();
+
     protected ExecutionContext<T> executionContext() {
         return executionContext(-1, false);
     }
@@ -154,6 +157,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 node.id(),
                 fragmentDesc,
                 rowHandler(),
+                rowFactoryFactory(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
                 SqlCommon.DEFAULT_TIME_ZONE_ID,
