@@ -76,10 +76,13 @@ namespace Apache.Ignite.Internal.Buffers
         public static void Return(byte[] array)
         {
 #if DEBUG
-            CurrentlyRentedArrays.TryRemove(array, out _);
+            if (RuntimeFeature.IsDynamicCodeSupported)
+            {
+                CurrentlyRentedArrays.TryRemove(array, out _);
 
-            // Will throw when key exists.
-            ReturnedArrays.Add(array, null);
+                // Will throw when key exists.
+                ReturnedArrays.Add(array, null);
+            }
 #endif
 
             ArrayPool<byte>.Shared.Return(array);
