@@ -780,7 +780,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         Assert.IsInstanceOf<IgniteClientException>(ex.InnerException);
 
-        Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Table.Poco", ex.Message);
+        Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Common.Table.Poco", ex.Message);
     }
 
     [Test]
