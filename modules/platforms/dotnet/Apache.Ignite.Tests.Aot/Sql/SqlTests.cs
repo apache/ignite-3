@@ -53,7 +53,7 @@ public class SqlTests(IIgniteClient client)
     [UsedImplicitly]
     public async Task TestAllColumnTypes()
     {
-        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsName);
+        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsNotNullName);
         var view = table!.GetRecordView(new PocoAllColumnsMapper());
 
         var poco = new PocoAllColumns(
