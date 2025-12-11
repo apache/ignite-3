@@ -45,34 +45,36 @@ class SearchBoundsImplementor {
      * @param indexKeyType The type of the index key.
      * @param comparator Optional comparator to sort resulting ranges in order to provide result matching index collation.
      * @param rowProviderImplementor The function to use to implement every single bound within a compound bounds.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of scalar.
      * @see SqlScalar
      */
-    <RowT> SqlScalar<RowT, RangeIterable<RowT>> implement(
+    SqlRangeConditionsProvider implement(
             List<SearchBounds> searchBounds,
             RelDataType indexKeyType,
-            @Nullable SqlComparator<RowT> comparator,
-            Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderImplementor,
-            Function<RexNode, SqlScalar<RowT, Boolean>> scalarImplementor
+            @Nullable SqlComparator comparator,
+            Function<List<RexNode>, SqlRowProvider> rowProviderImplementor,
+            Function<RexNode, SqlScalar<Boolean>> scalarImplementor
     ) {
-        return context -> {
-            List<RangeCondition<RowT>> ranges = new ArrayList<>();
+        return new SqlRangeConditionsProvider() {
+            @Override
+            public <RowT> RangeIterable<RowT> get(ExecutionContext<RowT> context) {
+                List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
-            expandBounds(
-                    rowProviderImplementor,
-                    scalarImplementor,
-                    context,
-                    ranges,
-                    searchBounds,
-                    0,
-                    Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
-                    Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
-                    true,
-                    true
-            );
+                expandBounds(
+                        rowProviderImplementor,
+                        scalarImplementor,
+                        context,
+                        ranges,
+                        searchBounds,
+                        0,
+                        Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
+                        Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
+                        true,
+                        true
+                );
 
-            return new RangeIterableImpl<>(context, ranges, comparator);
+                return new RangeIterableImpl<>(context, ranges, comparator);
+            }
         };
     }
 
@@ -106,8 +108,8 @@ class SearchBoundsImplementor {
      * @param upperInclude Include current upper row.
      */
     private <RowT> void expandBounds(
-            Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderFunction,
-            Function<RexNode, SqlScalar<RowT, Boolean>> scalarImplementor,
+            Function<List<RexNode>, SqlRowProvider> rowProviderFunction,
+            Function<RexNode, SqlScalar<Boolean>> scalarImplementor,
             ExecutionContext<RowT> context,
             List<RangeCondition<RowT>> ranges,
             List<SearchBounds> searchBounds,
@@ -201,10 +203,10 @@ class SearchBoundsImplementor {
         private final ExecutionContext<RowT> context;
 
         /** Lower bound expression. */
-        private final @Nullable SqlRowProvider<RowT> lowerBound;
+        private final @Nullable SqlRowProvider lowerBound;
 
         /** Upper bound expression. */
-        private final @Nullable SqlRowProvider<RowT> upperBound;
+        private final @Nullable SqlRowProvider upperBound;
 
         /** Inclusive lower bound flag. */
         private final boolean lowerInclude;
@@ -220,8 +222,8 @@ class SearchBoundsImplementor {
 
         private RangeConditionImpl(
                 ExecutionContext<RowT> context,
-                @Nullable SqlRowProvider<RowT> lowerScalar,
-                @Nullable SqlRowProvider<RowT> upperScalar,
+                @Nullable SqlRowProvider lowerScalar,
+                @Nullable SqlRowProvider upperScalar,
                 boolean lowerInclude,
                 boolean upperInclude
         ) {
@@ -273,7 +275,7 @@ class SearchBoundsImplementor {
 
     private static class RangeIterableImpl<RowT> implements RangeIterable<RowT> {
         private final ExecutionContext<RowT> context;
-        private final @Nullable SqlComparator<RowT> comparator;
+        private final @Nullable SqlComparator comparator;
 
         private List<RangeCondition<RowT>> ranges;
 
@@ -282,7 +284,7 @@ class SearchBoundsImplementor {
         RangeIterableImpl(
                 ExecutionContext<RowT> context,
                 List<RangeCondition<RowT>> ranges,
-                @Nullable SqlComparator<RowT> comparator
+                @Nullable SqlComparator comparator
         ) {
             this.context = context;
             this.ranges = ranges;
@@ -396,7 +398,7 @@ class SearchBoundsImplementor {
                 return null;
             }
 
-            SqlRowProvider<RowT> newLowerBound;
+            SqlRowProvider newLowerBound;
             RowT newLowerRow;
             boolean newLowerInclude;
 
@@ -412,7 +414,7 @@ class SearchBoundsImplementor {
                 newLowerInclude = second.lowerInclude();
             }
 
-            SqlRowProvider<RowT> newUpperBound;
+            SqlRowProvider newUpperBound;
             RowT newUpperRow;
             boolean newUpperInclude;
 
@@ -439,7 +441,7 @@ class SearchBoundsImplementor {
     }
 
     private static <RowT> @Nullable RexNode deriveBound(
-            Function<RexNode, SqlScalar<RowT, Boolean>> scalarImplementor,
+            Function<RexNode, SqlScalar<Boolean>> scalarImplementor,
             ExecutionContext<RowT> context,
             RangeBounds bounds,
             boolean lower
@@ -461,7 +463,7 @@ class SearchBoundsImplementor {
         boolean shouldCompute = shouldComputeExpression.isAlwaysTrue();
 
         if (!shouldCompute) {
-            SqlScalar<RowT, Boolean> scalar = scalarImplementor.apply(shouldComputeExpression);
+            SqlScalar<Boolean> scalar = scalarImplementor.apply(shouldComputeExpression);
 
             shouldCompute = scalar.get(context) == Boolean.TRUE;
         }

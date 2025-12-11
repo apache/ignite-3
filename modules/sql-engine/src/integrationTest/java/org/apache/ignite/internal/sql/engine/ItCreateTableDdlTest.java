@@ -52,7 +52,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
@@ -294,23 +293,23 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("SELECT __partition_id FROM t0")
-                .returns((long) partitionForKey(table, key1))
-                .returns((long) partitionForKey(table, key2))
-                .check();
-
-        assertQuery("SELECT __partition_id, id FROM t0")
-                .returns((long) partitionForKey(table, key1), 101L)
-                .returns((long) partitionForKey(table, key2), 102L)
-                .check();
-
-        assertQuery("SELECT \"__part\" FROM t0")
                 .returns(partitionForKey(table, key1))
                 .returns(partitionForKey(table, key2))
                 .check();
 
-        assertQuery("SELECT \"__part\", id FROM t0")
+        assertQuery("SELECT __partition_id, id FROM t0")
                 .returns(partitionForKey(table, key1), 101L)
                 .returns(partitionForKey(table, key2), 102L)
+                .check();
+
+        assertQuery("SELECT \"__part\" FROM t0")
+                .returns((int) partitionForKey(table, key1))
+                .returns((int) partitionForKey(table, key2))
+                .check();
+
+        assertQuery("SELECT \"__part\", id FROM t0")
+                .returns((int) partitionForKey(table, key1), 101L)
+                .returns((int) partitionForKey(table, key2), 102L)
                 .check();
     }
 
@@ -779,8 +778,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         return Objects.requireNonNull(catalog.defaultZone());
     }
 
-    private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
-        return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
+    private static long partitionForKey(Table table, Tuple keyTuple) throws Exception {
+        return table.partitionDistribution().partitionAsync(keyTuple).get().id();
     }
 
     @Test

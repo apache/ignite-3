@@ -171,8 +171,8 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
 
         RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
 
-        SqlPredicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory().predicate(filterExpr, rowType);
-        SqlProjection<RowT> projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
+        SqlPredicate filter = filterExpr == null ? null : ctx.expressionFactory().predicate(filterExpr, rowType);
+        SqlProjection projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
         StructNativeType nativeType = convertStructuredType(rowType);
@@ -180,7 +180,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         RowFactory<RowT> rowFactory = rowHandler.factory(nativeType);
 
         List<RexNode> keyExpressions = lookupNode.keyExpressions();
-        SqlRowProvider<RowT> keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
+        SqlRowProvider keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
 
         RelDataType resultType = lookupNode.getRowType();
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
@@ -217,7 +217,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final ScannableTable table;
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
-        private final SqlRowProvider<RowT> keySupplier;
+        private final SqlRowProvider keySupplier;
         private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
@@ -225,7 +225,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 ScannableTable table,
                 RowHandler<RowT> rowHandler,
                 RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier,
+                SqlRowProvider keySupplier,
                 @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {
@@ -254,9 +254,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final ScannableTable table;
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
-        private final SqlRowProvider<RowT> keySupplier;
-        private final @Nullable SqlPredicate<RowT> filter;
-        private final @Nullable SqlProjection<RowT> projection;
+        private final SqlRowProvider keySupplier;
+        private final @Nullable SqlPredicate filter;
+        private final @Nullable SqlProjection projection;
         private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
@@ -264,9 +264,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 ScannableTable table,
                 RowHandler<RowT> rowHandler,
                 RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier,
-                @Nullable SqlPredicate<RowT> filter,
-                @Nullable SqlProjection<RowT> projection,
+                SqlRowProvider keySupplier,
+                @Nullable SqlPredicate filter,
+                @Nullable SqlProjection projection,
                 @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {

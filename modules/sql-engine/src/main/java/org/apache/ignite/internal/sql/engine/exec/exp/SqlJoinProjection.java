@@ -22,23 +22,22 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 /**
  * A functional interface representing a projection specifically designed for SQL join operations.
  *
- * <p>This interface defines a single method, {@link #project(ExecutionContext, RowT, RowT)}, 
+ * <p>This interface defines a single method, {@link #project(ExecutionContext, Object, Object)}, 
  * which computes projection based on two rows (the left and right rows) within the context of a join operation. 
  * It allows to fuse rows concatenation and consequent projection (for example, restoring original order of columns
  * after join input was switched), reducing the need for additional post-join transformations and optimizing
  * query execution.
- *
- * @param <RowT> The type of the execution row.
  */
 @FunctionalInterface
-public interface SqlJoinProjection<RowT> {
+public interface SqlJoinProjection {
     /**
      * Applies a projection to the given execution rows.
      *
      * @param context The execution context, providing access to query-related data.
      * @param left The left row in the join operation.
      * @param right The right row in the join operation.
+     * @param <RowT> The type of the execution row.
      * @return The projected row, which may be a modified version of the input rows or a new row.
      */
-    RowT project(ExecutionContext<RowT> context, RowT left, RowT right);
+    <RowT> RowT project(ExecutionContext<RowT> context, RowT left, RowT right);
 }

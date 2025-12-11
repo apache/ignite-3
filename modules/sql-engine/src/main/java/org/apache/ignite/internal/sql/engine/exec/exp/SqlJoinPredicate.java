@@ -22,25 +22,24 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 /**
  * A functional interface representing a predicate specifically designed for SQL join operations.
  *
- * <p>This interface defines a single method, {@link #test(ExecutionContext, RowT, RowT)}, 
+ * <p>This interface defines a single method, {@link #test(ExecutionContext, Object, Object)}, 
  * which evaluates a condition between two rows (the left and right rows) within the context of a join operation. 
  * It allows the predicate to be applied before the rows are fully joined, enabling efficient filtering 
  * of row pairs that do not satisfy the join condition.
  *
  * <p>By evaluating the predicate early, this interface can optimize join operations by avoiding 
  * unnecessary materialization of non-matching row pairs.
- *
- * @param <RowT> The type of the execution row.
  */
 @FunctionalInterface
-public interface SqlJoinPredicate<RowT> {
+public interface SqlJoinPredicate {
     /**
      * Evaluates the predicate between the left and right rows within the execution context.
      *
      * @param context The execution context, providing access to query-related data.
      * @param left The left row in the join operation.
      * @param right The right row in the join operation.
+     * @param <RowT> The type of the execution row.
      * @return {@code true} if the pair of rows satisfies the predicate, {@code false} otherwise.
      */
-    boolean test(ExecutionContext<RowT> context, RowT left, RowT right);
+    <RowT> boolean test(ExecutionContext<RowT> context, RowT left, RowT right);
 }

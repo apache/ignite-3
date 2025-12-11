@@ -98,7 +98,6 @@ import org.apache.ignite.internal.security.configuration.SecurityExtensionChange
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -898,9 +897,9 @@ public class PlatformTestNodeRunner {
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
             Table table = context.ignite().tables().table(TABLE_NAME);
             Tuple key = Tuple.create().set("key", id);
-            Partition partition = table.partitionManager().partitionAsync(key).join();
+            Partition partition = table.partitionDistribution().partitionAsync(key).join();
 
-            return completedFuture(((HashPartition) partition).partitionId());
+            return completedFuture((int) partition.id());
         }
     }
 

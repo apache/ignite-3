@@ -22,7 +22,6 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
@@ -33,8 +32,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Expression factory.
  */
-public interface ExpressionFactory<RowT> {
-    AccumulatorsFactory<RowT> accumulatorsFactory(
+public interface ExpressionFactory {
+    <RowT> AccumulatorsFactory<RowT> accumulatorsFactory(
             AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
@@ -46,7 +45,7 @@ public interface ExpressionFactory<RowT> {
      * @param collations Collations.
      * @return Row comparator.
      */
-    SqlComparator<RowT> comparator(RelCollation collations);
+    SqlComparator comparator(RelCollation collations);
 
     /**
      * Creates a comparator for different rows by given field collations. Mainly used for merge join rows comparison. Note: Both list has to
@@ -58,7 +57,7 @@ public interface ExpressionFactory<RowT> {
      * @param equalNulls Bitset with null comparison strategy, use in case of NOT DISTINCT FROM syntax.
      * @return Rows comparator.
      */
-    SqlComparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls);
+    SqlComparator comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls);
 
     /**
      * Creates a Filter predicate.
@@ -67,7 +66,7 @@ public interface ExpressionFactory<RowT> {
      * @param rowType Input row type.
      * @return Filter predicate.
      */
-    SqlPredicate<RowT> predicate(RexNode filter, RelDataType rowType);
+    SqlPredicate predicate(RexNode filter, RelDataType rowType);
 
     /**
      * Creates a Filter predicate.
@@ -77,7 +76,7 @@ public interface ExpressionFactory<RowT> {
      * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
      * @return Filter predicate.
      */
-    SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize);
+    SqlJoinPredicate joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
@@ -86,7 +85,7 @@ public interface ExpressionFactory<RowT> {
      * @param inputRowType  Input row type.
      * @return Project function.
      */
-    SqlProjection<RowT> project(List<RexNode> projects, RelDataType inputRowType);
+    SqlProjection project(List<RexNode> projects, RelDataType inputRowType);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
@@ -96,16 +95,7 @@ public interface ExpressionFactory<RowT> {
      * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
      * @return Project function.
      */
-    SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize);
-
-    /**
-     * Creates a Values relational node rows source.
-     *
-     * @param values  Values.
-     * @param rowType Output row type.
-     * @return Values relational node rows source.
-     */
-    SqlScalar<RowT, List<RowT>> values(List<List<RexLiteral>> values, RelDataType rowType);
+    SqlJoinProjection joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize);
 
     /**
      * Creates row from RexNodes.
@@ -113,7 +103,7 @@ public interface ExpressionFactory<RowT> {
      * @param values Values.
      * @return Row.
      */
-    SqlRowProvider<RowT> rowSource(List<RexNode> values);
+    SqlRowProvider rowSource(List<RexNode> values);
 
     /**
      * Creates iterable search bounds tuples (lower row/upper row) by search bounds expressions.
@@ -122,14 +112,14 @@ public interface ExpressionFactory<RowT> {
      * @param rowType Row type.
      * @param comparator Comparator to return bounds in particular order.
      */
-    SqlScalar<RowT, RangeIterable<RowT>> ranges(
+    SqlRangeConditionsProvider ranges(
             List<SearchBounds> searchBounds,
             RelDataType rowType,
-            @Nullable SqlComparator<RowT> comparator
+            @Nullable SqlComparator comparator
     );
 
     /**
      * Executes expression.
      */
-    <T> SqlScalar<RowT, T> scalar(RexNode node);
+    <T> SqlScalar<T> scalar(RexNode node);
 }

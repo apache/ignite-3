@@ -76,7 +76,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         if (group) {
             RelCollation collation = createOutCollation(grpSets);
 
-            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
             // Create sort node on the top to check sorted results
             SortNode<Object[]> sort = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
@@ -160,7 +160,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = createOutCollation(grpSets);
 
-        SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
         if (group) {
             // Create sort node on the top to check sorted results
