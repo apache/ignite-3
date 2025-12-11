@@ -374,7 +374,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             AggregateCall call
     ) {
         List<AccumulatorWrapper<Object[]>> accumulators =
-                ctx.expressionFactory().accumulatorsFactory(aggregateType, List.of(call), inputType).get(ctx);
+                ctx.expressionFactory().<Object[]>accumulatorsFactory(aggregateType, List.of(call), inputType).get(ctx);
 
         RowFactory<Object[]> rowFactory = rowHandler().factory(TypeUtils.convertStructuredType(outputType));
 

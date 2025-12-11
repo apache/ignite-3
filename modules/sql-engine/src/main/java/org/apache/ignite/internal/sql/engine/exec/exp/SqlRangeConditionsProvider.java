@@ -20,26 +20,22 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
- * A functional interface representing a predicate specifically designed for SQL join operations.
+ * A functional interface representing a provider of range-based conditions for SQL execution.
  *
- * <p>This interface defines a single method, {@link #test(ExecutionContext, Object, Object)}, 
- * which evaluates a condition between two rows (the left and right rows) within the context of a join operation. 
- * It allows the predicate to be applied before the rows are fully joined, enabling efficient filtering 
- * of row pairs that do not satisfy the join condition.
+ * <p>This interface defines a single method, {@link #get(ExecutionContext)}, which produces a {@link RangeIterable} instance based on the
+ * given execution context.
  *
- * <p>By evaluating the predicate early, this interface can optimize join operations by avoiding 
- * unnecessary materialization of non-matching row pairs.
+ * <p>For example, an implementation may supply range boundaries derived from literal expressions, dynamic parameters, or other
+ * context-dependent sources used during index range scans.
  */
 @FunctionalInterface
-public interface SqlJoinPredicate {
+public interface SqlRangeConditionsProvider {
     /**
-     * Evaluates the predicate between the left and right rows within the execution context.
+     * Produces a {@link RangeIterable} instance based on the provided execution context.
      *
      * @param context The execution context, providing access to query-related data.
-     * @param left The left row in the join operation.
-     * @param right The right row in the join operation.
      * @param <RowT> The type of the execution row.
-     * @return {@code true} if the pair of rows satisfies the predicate, {@code false} otherwise.
+     * @return A range iterable representing the computed range conditions.
      */
-    <RowT> boolean test(ExecutionContext<RowT> context, RowT left, RowT right);
+    <RowT> RangeIterable<RowT> get(ExecutionContext<RowT> context);
 }

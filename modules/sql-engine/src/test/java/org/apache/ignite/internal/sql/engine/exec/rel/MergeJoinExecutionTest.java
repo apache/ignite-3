@@ -674,14 +674,14 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(
+        ExpressionFactoryImpl expFactory = new ExpressionFactoryImpl(
                 Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
         );
 
         RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
         RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);
 
-        SqlComparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nulls);
+        SqlComparator comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nulls);
 
         return MergeJoinNode.create(
                 ctx, leftType, rightType, joinType, (r1, r2) -> comp.compare(ctx, r1, r2), createIdentityProjectionIfNeeded(joinType)

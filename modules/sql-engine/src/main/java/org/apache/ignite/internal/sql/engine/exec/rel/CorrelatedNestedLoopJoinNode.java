@@ -44,7 +44,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private final JoinRelType joinType;
 
-    private final SqlJoinProjection<RowT> joinProjection;
+    private final SqlJoinProjection joinProjection;
 
     private final int leftInBufferSize;
 
@@ -90,7 +90,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             Set<CorrelationId> correlationIds,
             JoinRelType joinType,
             RowFactory<RowT> rightRowFactory,
-            SqlJoinProjection<RowT> joinProjection
+            SqlJoinProjection joinProjection
     ) {
         super(ctx);
 

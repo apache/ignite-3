@@ -68,18 +68,17 @@ class PredicateImplementor {
      *
      * @param predicateExpression The expression to implement.
      * @param type The type of the input row.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of predicate.
      * @see SqlPredicate
      */
-    <RowT> SqlPredicate<RowT> implement(RexNode predicateExpression, RelDataType type) {
+    SqlPredicate implement(RexNode predicateExpression, RelDataType type) {
         String digest = digest(SqlPredicate.class, List.of(predicateExpression), type);
-        Cache<String, SqlPredicate<RowT>> cache = cast(this.cache);
+        Cache<String, SqlPredicate> cache = cast(this.cache);
 
         return cache.get(digest, ignored -> implementInternal(predicateExpression, type));
     }
 
-    private <RowT> SqlPredicate<RowT> implementInternal(RexNode predicateExpression, RelDataType type) {
+    private SqlPredicate implementInternal(RexNode predicateExpression, RelDataType type) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
         programBuilder.addCondition(predicateExpression);
@@ -119,7 +118,7 @@ class PredicateImplementor {
                 Modifier.PUBLIC, boolean.class, "test",
                 params, tryCatchBlock.toBlock());
 
-        Class<SqlPredicate<RowT>> clazz = cast(SqlPredicate.class);
+        Class<SqlPredicate> clazz = cast(SqlPredicate.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 

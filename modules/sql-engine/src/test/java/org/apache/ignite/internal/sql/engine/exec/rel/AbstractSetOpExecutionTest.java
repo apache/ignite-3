@@ -144,7 +144,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest<O
         }
 
         RelCollation collation = RelCollations.of(ImmutableIntList.of(IntStream.range(0, COLUMN_NUN).toArray()));
-        SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results.
         SortNode<Object[]> sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));

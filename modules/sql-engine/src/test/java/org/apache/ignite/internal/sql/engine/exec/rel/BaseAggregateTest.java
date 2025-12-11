@@ -761,7 +761,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             AggregateType type,
             RelDataType inRowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), inRowType).get(ctx);
+        return ctx.expressionFactory().<Object[]>accumulatorsFactory(type, asList(call), inRowType).get(ctx);
     }
 
     protected static StructNativeType createOutputSchema(

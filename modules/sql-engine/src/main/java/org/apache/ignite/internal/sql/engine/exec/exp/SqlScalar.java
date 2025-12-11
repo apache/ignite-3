@@ -28,16 +28,16 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
  * <p>For example, a scalar might compute a value based on the literal expression 
  * or dynamic parameter value provided in the execution context.
  *
- * @param <RowT> The type of the execution row.
  * @param <T> The type of the computed result.
  */
 @FunctionalInterface
-public interface SqlScalar<RowT, T> {
+public interface SqlScalar<T> {
     /**
      * Computes a value based on the provided execution context.
      *
      * @param context The execution context, providing access to query-related data.
+     * @param <RowT> The type of the execution row.
      * @return The computed value.
      */
-    T get(ExecutionContext<RowT> context);
+    <RowT> T get(ExecutionContext<RowT> context);
 }

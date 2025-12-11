@@ -421,13 +421,13 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         if (setOf(SEMI, ANTI).contains(joinType)) {
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
             RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1));
-            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
             sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         } else {
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
             RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1, 4));
-            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
             sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         }
