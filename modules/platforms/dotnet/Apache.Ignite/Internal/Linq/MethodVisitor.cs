@@ -34,7 +34,6 @@ using NodaTime;
 /// <para />
 /// Refer to https://calcite.apache.org/docs/reference.html for supported SQL functions.
 /// </summary>
-[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal static class MethodVisitor
 {
     private const string TrimBoth = "both";

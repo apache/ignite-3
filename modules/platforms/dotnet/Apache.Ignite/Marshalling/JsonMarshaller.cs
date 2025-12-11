@@ -19,7 +19,6 @@ namespace Apache.Ignite.Marshalling;
 
 using System;
 using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Internal.Common;
 
@@ -27,8 +26,6 @@ using Internal.Common;
 /// JSON marshaller. Uses <see cref="System.Text.Json.JsonSerializer"/>.
 /// </summary>
 /// <typeparam name="T">Object type.</typeparam>
-[RequiresUnreferencedCode(
-    "JsonMarshaller uses System.Text.Json in reflection mode. For AOT scenarios prefer source-generated serialization.")]
 public sealed class JsonMarshaller<T> : IMarshaller<T>
 {
     /// <summary>

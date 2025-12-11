@@ -36,7 +36,6 @@ using Remotion.Linq.Clauses.ResultOperators;
 /// <summary>
 /// Query visitor, transforms LINQ expression to SQL.
 /// </summary>
-[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 {
     /** */

@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
-using Internal.Table.Serialization;
 using Network;
 
 /// <summary>
@@ -58,7 +56,6 @@ public interface IPartitionManager
     /// <param name="key">Table key.</param>
     /// <returns>Partition that contains the specified key.</returns>
     /// <typeparam name="TK">Key type.</typeparam>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull;
 }

@@ -21,7 +21,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -39,7 +38,6 @@ using Table.Serialization;
 /// <summary>
 /// Expression visitor, transforms query subexpressions (such as Where clauses) to SQL.
 /// </summary>
-[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 {
     /** */

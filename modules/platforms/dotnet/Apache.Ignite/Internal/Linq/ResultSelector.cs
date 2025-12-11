@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -39,7 +38,6 @@ using static ResultSelectorOptions;
 /// <summary>
 /// Result selector cache.
 /// </summary>
-[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal static class ResultSelector
 {
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();

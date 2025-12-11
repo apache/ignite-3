@@ -29,7 +29,6 @@ using Serialization;
 /// Internal compute job that executes user-defined data streamer receiver.
 /// </summary>
 [SuppressMessage("ReSharper", "UnusedType.Global", Justification = "Called via reflection from Java.")]
-[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
 internal static class StreamerReceiverJob
 {
     /// <summary>

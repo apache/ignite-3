@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics.CodeAnalysis;
     using System.Reflection;
     using NodaTime;
     using Proto.BinaryTuple;
@@ -27,7 +26,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// <summary>
     /// MethodInfos for <see cref="BinaryTupleBuilder"/> and <see cref="BinaryTupleReader"/>.
     /// </summary>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     internal static class BinaryTupleMethods
     {
         /// <summary>

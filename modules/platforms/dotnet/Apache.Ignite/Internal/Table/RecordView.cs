@@ -85,7 +85,6 @@ namespace Apache.Ignite.Internal.Table
         public Sql Sql => _sql;
 
         /// <inheritdoc/>
-        [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
             var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration.Configuration);

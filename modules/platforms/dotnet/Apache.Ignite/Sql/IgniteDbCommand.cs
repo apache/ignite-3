@@ -103,7 +103,7 @@ public sealed class IgniteDbCommand : DbCommand
 
         try
         {
-            await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
+            await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
                 transaction: GetIgniteTx(),
                 statement,
                 linkedCts.Token,

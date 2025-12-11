@@ -18,14 +18,12 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.Loader;
 
 /// <summary>
 /// Loader for deployment units in Apache Ignite compute execution context.
 /// </summary>
-[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
 internal static class DeploymentUnitLoader
 {
     private static readonly Assembly IgniteAssembly = typeof(DeploymentUnitLoader).Assembly;
