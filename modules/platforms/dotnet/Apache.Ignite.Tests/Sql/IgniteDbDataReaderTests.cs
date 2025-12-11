@@ -29,7 +29,6 @@ using Internal.Proto.BinaryTuple;
 using Internal.Sql;
 using NodaTime;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Tests for <see cref="ISql.ExecuteReaderAsync"/>.

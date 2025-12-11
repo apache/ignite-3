@@ -27,6 +27,7 @@ using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IPartitionManager"/>.

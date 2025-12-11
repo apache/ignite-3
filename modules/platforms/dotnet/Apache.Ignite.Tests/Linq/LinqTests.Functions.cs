@@ -28,7 +28,7 @@ using Common.Table;
 using Ignite.Table;
 using NodaTime;
 using NUnit.Framework;
-using Table;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Linq functions tests.

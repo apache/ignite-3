@@ -22,7 +22,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Common.Table;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Linq aggregate tests.

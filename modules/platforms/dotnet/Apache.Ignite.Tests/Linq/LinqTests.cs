@@ -29,7 +29,7 @@ using Ignite.Table;
 using Microsoft.Extensions.Logging;
 using NodaTime;
 using NUnit.Framework;
-using Table;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Basic LINQ provider tests.

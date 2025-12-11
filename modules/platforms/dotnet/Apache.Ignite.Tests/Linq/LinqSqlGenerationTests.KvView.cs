@@ -23,7 +23,6 @@ using Common.Table;
 using Ignite.Sql;
 using Ignite.Table;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Tests LINQ to SQL conversion for <see cref="IKeyValueView{TK,TV}"/>.

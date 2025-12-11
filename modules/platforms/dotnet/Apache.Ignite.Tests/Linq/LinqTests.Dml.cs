@@ -24,7 +24,6 @@ using System.Threading.Tasks;
 using Common.Table;
 using Ignite.Sql;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Linq DML tests.

@@ -26,6 +26,7 @@ namespace Apache.Ignite.Tests.Table
     using Common.Table;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for POCO view.
