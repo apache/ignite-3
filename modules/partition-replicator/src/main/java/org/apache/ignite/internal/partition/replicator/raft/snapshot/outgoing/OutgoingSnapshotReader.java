@@ -45,7 +45,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     /**
      * Constructor.
      */
-    public OutgoingSnapshotReader(UUID snapshotId, PartitionSnapshotStorage snapshotStorage) {
+    public OutgoingSnapshotReader(UUID snapshotId, PartitionSnapshotStorage snapshotStorage, OutgoingSnapshotMetricsSource metricSource) {
         this.snapshotStorage = snapshotStorage;
 
         id = snapshotId;
@@ -55,7 +55,8 @@ public class OutgoingSnapshotReader extends SnapshotReader {
                 snapshotStorage.partitionKey(),
                 snapshotStorage.partitionsByTableId(),
                 snapshotStorage.txState(),
-                snapshotStorage.catalogService()
+                snapshotStorage.catalogService(),
+                metricSource
         );
 
         LOG.info("Starting snapshot reader [{}, snapshotId={}]", createPartitionInfo(), id);

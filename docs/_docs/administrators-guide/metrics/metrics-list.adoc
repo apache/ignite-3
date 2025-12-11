@@ -296,3 +296,28 @@ Transaction metrics.
 | LocalUnrebalancedPartitionsCount | The number of partitions that should be moved to this node.
 | TotalUnrebalancedPartitionsCount | The total number of partitions that should be moved to a new owner.
 |=======================================================================
+
+== snapshots.outgoing.{snapshotId}
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+| RowsSent | The number of rows that sent during snapshot installation, commited before rebalance.
+| RowVersionsSent | The number of row versions that sent during snapshot installation, commited before rebalance.
+| TotalBytesSent | The number of bytes sent during snapshot installation, for rows commited before rebalance.
+| OutOfOrderRowsSent | The number of rows that sent during snapshot installation, from transactions running or commited during rebalance.
+| OutOfOrderVersionsSent | The number of row versions that sent during snapshot installation, from transactions running or commited during
+rebalance.
+| OutOfOrderTotalBytesSent | number of bytes sent during snapshot installation, from transactions running or commited during rebalance.
+| TotalBatches | The number of batches sent during snapshot installation.
+| AvgBatchProcessingTime | The average time for processing single batch during snapshot installation.
+| MinBatchProcessingTime | The minimum time for processing single batch during snapshot installation.
+| MaxBatchProcessingTime | The maximum time for processing single batch during snapshot installation.
+| TotalSnapshotInstallationTime | The total time take to install the snapshot.
+| LastAppliedIndex | The last applied index of raft group associated with installed snapshot.
+| LastAppliedTerm | The last applied term of raft group associated with installed snapshot.
+| PeerList | The raft group peer list valid during snapshot installation process.
+| LearnerList | The raft group leaner list valid during snapshot installation process.
+| CatalogVersion | The catalog version associated with the installed snapshot.
+
+|=======================================================================

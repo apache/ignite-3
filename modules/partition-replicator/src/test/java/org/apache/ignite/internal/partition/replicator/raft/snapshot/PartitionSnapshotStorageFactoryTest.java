@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.startup.StartupPartitionSnapshotReader;
@@ -50,7 +51,8 @@ class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
             mock(CatalogService.class),
             mock(FailureProcessor.class),
             mock(Executor.class),
-            mock(LogStorageAccess.class)
+            mock(LogStorageAccess.class),
+            new NoOpMetricManager()
     );
 
     @Mock

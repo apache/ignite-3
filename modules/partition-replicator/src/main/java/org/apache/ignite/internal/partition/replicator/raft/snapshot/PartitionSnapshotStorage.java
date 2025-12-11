@@ -33,9 +33,11 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotReader;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -100,6 +102,8 @@ public class PartitionSnapshotStorage {
 
     private final LogStorageAccess logStorage;
 
+    private final MetricManager metricManager;
+
     /** Constructor. */
     public PartitionSnapshotStorage(
             ZonePartitionKey partitionKey,
@@ -109,7 +113,8 @@ public class PartitionSnapshotStorage {
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
-            LogStorageAccess logStorage
+            LogStorageAccess logStorage,
+            MetricManager metricManager
     ) {
         this(
                 partitionKey,
@@ -120,7 +125,7 @@ public class PartitionSnapshotStorage {
                 failureProcessor,
                 incomingSnapshotsExecutor,
                 DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS,
-                logStorage
+                logStorage, metricManager
         );
     }
 
@@ -134,7 +139,8 @@ public class PartitionSnapshotStorage {
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
             long waitForMetadataCatchupMs,
-            LogStorageAccess logStorage
+            LogStorageAccess logStorage,
+            MetricManager metricManager
     ) {
         this.partitionKey = partitionKey;
         this.topologyService = topologyService;
@@ -145,6 +151,7 @@ public class PartitionSnapshotStorage {
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
         this.logStorage = logStorage;
+        this.metricManager = metricManager;
     }
 
     public PartitionKey partitionKey() {
@@ -257,7 +264,12 @@ public class PartitionSnapshotStorage {
 
         startSnapshotOperation(snapshotId);
 
-        return new OutgoingSnapshotReader(snapshotId, this) {
+        var metricSource = new OutgoingSnapshotMetricsSource(snapshotId, partitionKey);
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
+
+        return new OutgoingSnapshotReader(snapshotId, this, metricSource) {
             @Override
             public void close() throws IOException {
                 try {
@@ -280,6 +292,8 @@ public class PartitionSnapshotStorage {
 
     private void completeSnapshotOperation(UUID snapshotId) {
         synchronized (snapshotOperationLock) {
+            LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
             CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 
             assert operationFuture != null :

@@ -125,6 +125,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
@@ -292,6 +293,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param schemaManager Schema manager.
      * @param dataStorageManager Data storage manager.
      * @param outgoingSnapshotsManager Outgoing snapshots manager.
+     * @param metricManager Metric manager.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -313,7 +315,8 @@ public class PartitionReplicaLifecycleManager extends
             TxManager txManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            OutgoingSnapshotsManager outgoingSnapshotsManager
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            MetricManager metricManager
     ) {
         this(
                 catalogService,
@@ -342,7 +345,8 @@ public class PartitionReplicaLifecycleManager extends
                         catalogService,
                         failureProcessor,
                         partitionOperationsExecutor,
-                        replicaMgr
+                        replicaMgr,
+                        metricManager
                 )
         );
     }

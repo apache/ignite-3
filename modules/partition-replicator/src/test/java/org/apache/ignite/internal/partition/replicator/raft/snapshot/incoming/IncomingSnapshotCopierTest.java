@@ -75,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -404,7 +405,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 mock(FailureProcessor.class),
                 executorService,
                 0,
-                new LogStorageAccessImpl(replicaManager)
+                new LogStorageAccessImpl(replicaManager),
+                new NoOpMetricManager()
         );
 
         storage.addMvPartition(TABLE_ID, spy(new PartitionMvStorageAccessImpl(

@@ -143,6 +143,8 @@ public class OutgoingSnapshot {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean closedGuard = new AtomicBoolean();
 
+    private final OutgoingSnapshotMetricsSource metricSource;
+
     /**
      * Creates a new instance.
      */
@@ -151,13 +153,15 @@ public class OutgoingSnapshot {
             PartitionKey partitionKey,
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
-            CatalogService catalogService
+            CatalogService catalogService,
+            OutgoingSnapshotMetricsSource metricSource
     ) {
         this.id = id;
         this.partitionKey = partitionKey;
         this.partitionsByTableId = partitionsByTableId;
         this.txState = txState;
         this.catalogService = catalogService;
+        this.metricSource = metricSource;
     }
 
     /**
@@ -183,6 +187,8 @@ public class OutgoingSnapshot {
         acquireMvLock();
 
         try {
+            metricSource.onSnapshotStart();
+
             int catalogVersion = catalogService.latestCatalogVersion();
 
             List<PartitionMvStorageAccess> partitionStorages = freezePartitionStorages();
@@ -217,6 +223,8 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
+            metricSource.updateSnapshotMeta(txState.lastAppliedIndex(), txState.lastAppliedTerm(), config, catalogVersion);
+
             return snapshotMetaAt(
                     txState.lastAppliedIndex(),
                     txState.lastAppliedTerm(),
@@ -229,6 +237,13 @@ public class OutgoingSnapshot {
             RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
 
             assert config != null : "Configuration should never be null when installing a snapshot";
+
+            metricSource.updateSnapshotMeta(
+                    partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
+                    partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
+                    config,
+                    catalogVersion
+            );
 
             return snapshotMetaAt(
                     partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
@@ -320,6 +335,8 @@ public class OutgoingSnapshot {
         long totalBatchSize = 0;
         List<ResponseEntry> batch = new ArrayList<>();
 
+        metricSource.onStartMvDataBatchProcessing();
+
         while (true) {
             acquireMvLock();
 
@@ -331,6 +348,8 @@ public class OutgoingSnapshot {
                 // As out-of-order rows are added under the same lock that we hold, and we always send OOO data first,
                 // exhausting the partition means that no MV data to send is left, we are finished with it.
                 if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
+                    metricSource.onEndMvDataBatchProcessing();
+
                     return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMvDataResponse()
                             .rows(batch)
                             .finish(finishedMvData())
@@ -359,7 +378,12 @@ public class OutgoingSnapshot {
             }
 
             rowEntries.add(rowEntry);
-            totalBytesAfter += rowSizeInBytes(rowEntry.rowVersions());
+
+            long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+            metricSource.onProcessOutOfOrderRow(rowEntry.rowVersions().size(), rowSize);
+
+            totalBytesAfter += rowSize;
         }
 
         return totalBytesAfter;
@@ -403,7 +427,11 @@ public class OutgoingSnapshot {
 
                 batch.add(rowEntry);
 
-                totalBatchSize += rowSizeInBytes(rowEntry.rowVersions());
+                long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+                totalBatchSize += rowSize;
+
+                metricSource.onProcessRow(rowEntry.rowVersions().size(), rowSize);
             }
         }
 
@@ -633,6 +661,10 @@ public class OutgoingSnapshot {
         }
 
         busyLock.block();
+
+        metricSource.onSnapshotEnd();
+
+        metricSource.printSnapshotStats();
 
         if (!finishedTxData) {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
