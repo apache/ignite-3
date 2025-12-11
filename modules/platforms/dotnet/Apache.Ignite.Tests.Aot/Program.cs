@@ -33,16 +33,21 @@ var cfg = new IgniteClientConfiguration("localhost:10942")
 };
 
 using var ignite = await IgniteClient.StartAsync(cfg);
-
-// TODO: Documentation section.
 logger.Flush();
 
 var sw = Stopwatch.StartNew();
 Console.WriteLine(">>> Starting tests...");
 
-await TestRunner.Run(new TableTests(ignite), logger);
-await TestRunner.Run(new ComputeTests(ignite), logger);
-await TestRunner.Run(new SqlTests(ignite), logger);
+var tests = new object[]
+{
+    new TableTests(ignite),
+    new ComputeTests(ignite),
+    new SqlTests(ignite)
+};
 
-logger.Flush();
+foreach (var test in tests)
+{
+    await TestRunner.Run(test, logger);
+}
+
 Console.WriteLine($">>> All tests completed in {sw.Elapsed}.");
