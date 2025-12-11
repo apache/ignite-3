@@ -40,6 +40,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// </summary>
     /// <param name="typeName">Job type name.</param>
     /// <returns>Job execution delegate.</returns>
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
         CreateWrapper<IComputeJobWrapper>(
             typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>));
@@ -49,6 +50,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// </summary>
     /// <param name="typeName">Receiver type name.</param>
     /// <returns>Receiver execution delegate.</returns>
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     public IDataStreamerReceiverWrapper CreateReceiverWrapper(string typeName) =>
         CreateWrapper<IDataStreamerReceiverWrapper>(
             typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>));
@@ -56,6 +58,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <inheritdoc/>
     public void Dispose() => AssemblyLoadContext.Unload();
 
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType)
     {
         var (type, closedWrapperType) = _typeCache.GetOrAdd(
@@ -84,6 +87,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private static (Type Type, Type ClosedWrapperType) GetClosedWrapperType(
         string typeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
     {
@@ -104,7 +108,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
-    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
     {
         try

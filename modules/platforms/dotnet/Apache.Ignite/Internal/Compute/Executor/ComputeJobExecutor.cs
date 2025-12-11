@@ -32,6 +32,11 @@ using Table.StreamerReceiverExecutor;
 internal static class ComputeJobExecutor
 {
     /// <summary>
+    /// Trim warning.
+    /// </summary>
+    internal const string TrimWarning = "Loads types dynamically.";
+
+    /// <summary>
     /// Compute executor id.
     /// </summary>
     internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
@@ -45,7 +50,7 @@ internal static class ComputeJobExecutor
     /// <param name="response">Response.</param>
     /// <param name="context">Context.</param>
     /// <returns>Task.</returns>
-    [RequiresUnreferencedCode("Calls ExecuteJobAsync")]
+    [RequiresUnreferencedCode(TrimWarning)]
     internal static async Task ExecuteJobAsync(
         PooledBuffer request,
         PooledArrayBuffer response,
@@ -84,7 +89,7 @@ internal static class ComputeJobExecutor
         }
     }
 
-    [RequiresUnreferencedCode("Calls GetOrAddJobLoadContext")]
+    [RequiresUnreferencedCode(TrimWarning)]
     private static async ValueTask ExecuteJobAsync(
         JobExecuteRequest req,
         PooledBuffer argBuf,

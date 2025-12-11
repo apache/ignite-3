@@ -32,7 +32,7 @@ using Proto.MsgPack;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    [RequiresUnreferencedCode("Compute executor uses reflection to create job instances.")]
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private static async Task HandleServerOpInnerAsync(
         ServerOp op,
         PooledBuffer request,
