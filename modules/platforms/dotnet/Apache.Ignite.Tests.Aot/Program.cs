@@ -17,9 +17,12 @@
 
 using Apache.Ignite;
 using Apache.Ignite.Network;
+using Apache.Ignite.Tests.Common;
+using Microsoft.Extensions.Logging;
 
 // TODO: JavaServer
 // TODO: Logger
+using var logger = new ConsoleLogger(LogLevel.Trace);
 var cfg = new IgniteClientConfiguration("localhost:10942");
 
 using var ignite = await IgniteClient.StartAsync(cfg);
