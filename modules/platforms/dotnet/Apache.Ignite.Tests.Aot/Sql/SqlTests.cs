@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Aot.Sql;
 
+using Common.Table;
 using Ignite.Sql;
 using Ignite.Table;
 using JetBrains.Annotations;
@@ -47,5 +48,45 @@ public class SqlTests(IIgniteClient client)
 
         Assert.AreEqual(1, rows.Count);
         Assert.AreEqual("IgniteTuple { NUM = 1, STR = hello }", rows[0].ToString());
+    }
+
+    [UsedImplicitly]
+    public async Task TestAllColumnTypes()
+    {
+        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsName);
+        var view = table!.GetRecordView(new PocoAllColumnsMapper());
+
+        var poco = new PocoAllColumns(
+            Key: 123,
+            Str: "str",
+            Int8: 8,
+            Int16: 16,
+            Int32: 32,
+            Int64: 64,
+            Float: 32.32f,
+            Double: 64.64,
+            Uuid: Guid.NewGuid(),
+            Decimal: 123.456m);
+
+        await view.UpsertAsync(null, poco);
+
+        await using IResultSet<IIgniteTuple> resultSet = await client.Sql.ExecuteAsync(
+            null, $"select * from {TestTables.TableAllColumnsName} where KEY = 123");
+
+        List<IIgniteTuple> rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(1, rows.Count);
+        var row = rows[0];
+
+        Assert.AreEqual(poco.Key, row["KEY"]);
+        Assert.AreEqual(poco.Str, row["STR"]);
+        Assert.AreEqual(poco.Int8, row["INT8"]);
+        Assert.AreEqual(poco.Int16, row["INT16"]);
+        Assert.AreEqual(poco.Int32, row["INT32"]);
+        Assert.AreEqual(poco.Int64, row["INT64"]);
+        Assert.AreEqual(poco.Float, row["FLOAT"]);
+        Assert.AreEqual(poco.Double, row["DOUBLE"]);
+        Assert.AreEqual(poco.Uuid, row["UUID"]);
+        Assert.AreEqual(poco.Decimal, row["DECIMAL"]);
     }
 }
