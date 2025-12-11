@@ -47,4 +47,29 @@ public class ComputeTests(IIgniteClient client)
 
         Assert.AreEqual(JavaJobs.PlatformTestNodeRunner, res);
     }
+
+    [UsedImplicitly]
+    public async Task TestTupleWithSchemaRoundTrip()
+    {
+        var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+
+        var nodes = JobTarget.AnyNode(await client.GetClusterNodesAsync());
+        IJobExecution<object> resExec = await client.Compute.SubmitAsync(nodes, JavaJobs.EchoJob, tuple);
+        var res = await resExec.GetResultAsync();
+
+        Assert.AreEqual(tuple, res);
+    }
+
+    [UsedImplicitly]
+    public async Task TestDeepNestedTupleWithSchemaRoundTrip()
+    {
+        var tuple = TestCases.GetNestedTuple(100);
+
+        var nodes = JobTarget.AnyNode(await client.GetClusterNodesAsync());
+        IJobExecution<object> resExec = await client.Compute.SubmitAsync(nodes, JavaJobs.EchoJob, tuple);
+        var res = await resExec.GetResultAsync();
+
+        Assert.AreEqual(tuple, res);
+    }
 }
