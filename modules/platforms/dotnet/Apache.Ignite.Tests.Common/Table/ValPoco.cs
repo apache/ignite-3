@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
-using Ignite.Table.Mapper;
+using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
-public class PocoMapper : IMapper<Poco>
+/// <summary>
+/// Test user object.
+/// </summary>
+public class ValPoco
 {
-    public void Write(Poco obj, ref RowWriter rowWriter, IMapperSchema schema)
-    {
-        rowWriter.WriteLong(obj.Key);
+    public string? Val { get; set; }
 
-        if (schema.Columns.Count > 1)
-        {
-            rowWriter.WriteString(obj.Val);
-        }
-    }
+    [NotMapped]
+    public Guid UnmappedId { get; set; }
 
-    public Poco Read(ref RowReader rowReader, IMapperSchema schema)
-    {
-        var obj = new Poco
-        {
-            Key = rowReader.ReadLong()!.Value,
-            Val = schema.Columns.Count > 1 ? rowReader.ReadString() : null
-        };
-
-        return obj;
-    }
+    [NotMapped]
+    public string? UnmappedStr { get; set; }
 }

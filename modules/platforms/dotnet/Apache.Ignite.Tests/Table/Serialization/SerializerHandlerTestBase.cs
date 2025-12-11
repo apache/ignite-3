@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table.Serialization;
 
 using System;
+using Common.Table;
 using Ignite.Sql;
 using Internal.Buffers;
 using Internal.Proto.BinaryTuple;

@@ -15,25 +15,30 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common;
 
 using System;
-using System.ComponentModel.DataAnnotations.Schema;
 
 /// <summary>
-/// Test user object.
+/// Wraps an action to be executed on Dispose call.
 /// </summary>
-public class PocoCustomNames
+public sealed class DisposeAction : IDisposable
 {
-    [Column("KEY")]
-    public long Id { get; set; }
+    /** */
+    private readonly Action _action;
 
-    [Column("VAL")]
-    public string? Name { get; set; }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DisposeAction"/> class.
+    /// </summary>
+    /// <param name="action">Action.</param>
+    public DisposeAction(Action action)
+    {
+        _action = action;
+    }
 
-    [NotMapped]
-    public Guid UnmappedId { get; set; }
-
-    [NotMapped]
-    public string? UnmappedStr { get; set; }
+    /** <inheritdoc /> */
+    public void Dispose()
+    {
+        _action();
+    }
 }

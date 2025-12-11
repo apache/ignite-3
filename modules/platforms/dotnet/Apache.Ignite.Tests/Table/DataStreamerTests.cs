@@ -24,6 +24,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Common;
+using Common.Compute;
+using Common.Table;
 using Compute;
 using Ignite.Marshalling;
 using Ignite.Table;
@@ -31,6 +34,7 @@ using Internal.Proto;
 using Microsoft.Extensions.Logging;
 using NodaTime;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IDataStreamerTarget{T}"/>.
@@ -39,15 +43,15 @@ using NUnit.Framework;
 /// </summary>
 public class DataStreamerTests : IgniteTestsBase
 {
-    private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
+    private const string TestReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$TestReceiver";
 
-    private const string EchoReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoReceiver";
+    private const string EchoReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$EchoReceiver";
 
-    private const string EchoArgsReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoArgsReceiver";
+    private const string EchoArgsReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$EchoArgsReceiver";
 
-    private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
+    private const string UpsertElementTypeNameReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
 
-    private const string MarshallerReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$MarshallerReceiver";
+    private const string MarshallerReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$MarshallerReceiver";
 
     private const int Count = 100;
 
@@ -776,7 +780,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         Assert.IsInstanceOf<IgniteClientException>(ex.InnerException);
 
-        Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Table.Poco", ex.Message);
+        Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Common.Table.Poco", ex.Message);
     }
 
     [Test]

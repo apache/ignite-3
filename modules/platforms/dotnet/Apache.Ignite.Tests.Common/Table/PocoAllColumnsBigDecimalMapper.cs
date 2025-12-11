@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Common.Table;
 
 using System;
-using Ignite.Table.Mapper;
-using NodaTime;
+using Apache.Ignite.Table.Mapper;
 
-public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable>
+public class PocoAllColumnsBigDecimalMapper : IMapper<PocoAllColumnsBigDecimal>
 {
-    public void Write(PocoAllColumnsSqlNullable obj, ref RowWriter rowWriter, IMapperSchema schema)
+    public void Write(PocoAllColumnsBigDecimal obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
         foreach (var col in schema.Columns)
         {
@@ -61,36 +60,12 @@ public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable
                     rowWriter.WriteDouble(obj.Double);
                     break;
 
-                case "DATE":
-                    rowWriter.WriteDate(obj.Date);
-                    break;
-
-                case "TIME":
-                    rowWriter.WriteTime(obj.Time);
-                    break;
-
-                case "DATETIME":
-                    rowWriter.WriteDateTime(obj.DateTime);
-                    break;
-
-                case "TIMESTAMP":
-                    rowWriter.WriteTimestamp(obj.Timestamp);
-                    break;
-
-                case "BLOB":
-                    rowWriter.WriteBytes(obj.Blob);
-                    break;
-
-                case "DECIMAL":
-                    rowWriter.WriteDecimal(obj.Decimal);
-                    break;
-
                 case "UUID":
                     rowWriter.WriteGuid(obj.Uuid);
                     break;
 
-                case "BOOLEAN":
-                    rowWriter.WriteBool(obj.Boolean);
+                case "DECIMAL":
+                    rowWriter.WriteBigDecimal(obj.Decimal);
                     break;
 
                 default:
@@ -99,24 +74,18 @@ public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable
         }
     }
 
-    public PocoAllColumnsSqlNullable Read(ref RowReader rowReader, IMapperSchema schema)
+    public PocoAllColumnsBigDecimal Read(ref RowReader rowReader, IMapperSchema schema)
     {
         long key = default;
         string? str = null;
-        sbyte? int8 = null;
-        short? int16 = null;
-        int? int32 = null;
-        long? int64 = null;
-        float? @float = null;
-        double? @double = null;
-        LocalDate? date = null;
-        LocalTime? time = null;
-        LocalDateTime? dateTime = null;
-        Instant? timestamp = null;
-        byte[]? blob = null;
-        decimal? @decimal = null;
-        Guid? uuid = null;
-        bool? boolean = null;
+        sbyte int8 = default;
+        short int16 = default;
+        int int32 = default;
+        long int64 = default;
+        float @float = default;
+        double @double = default;
+        Guid uuid = default;
+        BigDecimal @decimal = default;
 
         foreach (var col in schema.Columns)
         {
@@ -131,59 +100,35 @@ public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable
                     break;
 
                 case "INT8":
-                    int8 = rowReader.ReadByte();
+                    int8 = rowReader.ReadByte()!.Value;
                     break;
 
                 case "INT16":
-                    int16 = rowReader.ReadShort();
+                    int16 = rowReader.ReadShort()!.Value;
                     break;
 
                 case "INT32":
-                    int32 = rowReader.ReadInt();
+                    int32 = rowReader.ReadInt()!.Value;
                     break;
 
                 case "INT64":
-                    int64 = rowReader.ReadLong();
+                    int64 = rowReader.ReadLong()!.Value;
                     break;
 
                 case "FLOAT":
-                    @float = rowReader.ReadFloat();
+                    @float = rowReader.ReadFloat()!.Value;
                     break;
 
                 case "DOUBLE":
-                    @double = rowReader.ReadDouble();
-                    break;
-
-                case "DATE":
-                    date = rowReader.ReadDate();
-                    break;
-
-                case "TIME":
-                    time = rowReader.ReadTime();
-                    break;
-
-                case "DATETIME":
-                    dateTime = rowReader.ReadDateTime();
-                    break;
-
-                case "TIMESTAMP":
-                    timestamp = rowReader.ReadTimestamp();
-                    break;
-
-                case "BLOB":
-                    blob = rowReader.ReadBytes();
-                    break;
-
-                case "DECIMAL":
-                    @decimal = rowReader.ReadDecimal();
+                    @double = rowReader.ReadDouble()!.Value;
                     break;
 
                 case "UUID":
-                    uuid = rowReader.ReadGuid();
+                    uuid = rowReader.ReadGuid()!.Value;
                     break;
 
-                case "BOOLEAN":
-                    boolean = rowReader.ReadBool();
+                case "DECIMAL":
+                    @decimal = rowReader.ReadBigDecimal()!.Value;
                     break;
 
                 default:
@@ -191,6 +136,6 @@ public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable
             }
         }
 
-        return new PocoAllColumnsSqlNullable(key, str, int8, int16, int32, int64, @float, @double, date, time, dateTime, timestamp, blob, @decimal, uuid, boolean);
+        return new PocoAllColumnsBigDecimal(key, str, int8, int16, int32, int64, @float, @double, uuid, @decimal);
     }
 }

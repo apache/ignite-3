@@ -40,6 +40,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Apache.Ignite.Tests.Common\Apache.Ignite.Tests.Common.csproj" />
       <ProjectReference Include="..\Apache.Ignite\Apache.Ignite.csproj" />
     </ItemGroup>
 

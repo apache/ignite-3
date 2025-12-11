@@ -15,30 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Tests.Common.Table;
+
+using System;
+using System.ComponentModel.DataAnnotations.Schema;
+
+/// <summary>
+/// Test user object.
+/// </summary>
+public class PocoCustomNames
 {
-    public class Poco2
-    {
-        public int Id { get; set; }
+    [Column("KEY")]
+    public long Id { get; set; }
 
-        public sbyte? Prop1 { get; set; }
+    [Column("VAL")]
+    public string? Name { get; set; }
 
-        public short? Prop2 { get; set; }
+    [NotMapped]
+    public Guid UnmappedId { get; set; }
 
-        public int? Prop3 { get; set; }
-
-        public long? Prop4 { get; set; }
-
-        public float? Prop5 { get; set; }
-
-        public double? Prop6 { get; set; }
-
-        public long? Prop7 { get; set; }
-
-        public string? Prop8 { get; set; }
-
-        public int? Prop9 { get; set; }
-
-        public int? Prop10 { get; set; }
-    }
+    [NotMapped]
+    public string? UnmappedStr { get; set; }
 }
