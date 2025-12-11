@@ -79,7 +79,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
                 NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
 
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, identityProjection(), leftType, rightType, INNER,
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
@@ -177,7 +177,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, identityProjection(), leftType, rightType, LEFT,
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
@@ -233,7 +233,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, identityProjection(), leftType, rightType, FULL,
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));

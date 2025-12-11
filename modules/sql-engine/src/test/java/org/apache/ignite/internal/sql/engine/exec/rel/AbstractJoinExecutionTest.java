@@ -703,7 +703,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         if (joinAlgo() == JoinAlgo.NESTED_LOOP) {
-            RowHandler<Object[]> hnd = ctx.rowHandler();
+            RowHandler<Object[]> hnd = ctx.rowAccessor();
 
             BiPredicate<Object[], Object[]> condition = nonEquiCondition != null
                     ? nonEquiCondition

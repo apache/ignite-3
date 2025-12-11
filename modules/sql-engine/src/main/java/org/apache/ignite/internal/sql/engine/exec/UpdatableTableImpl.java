@@ -122,12 +122,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         assert commitPartitionId != null;
 
-        validateNotNullConstraint(ectx.rowHandler(), rows);
+        validateNotNullConstraint(ectx.rowAccessor(), rows);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowAccessor(), rows, schemaSupplier);
 
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -201,12 +201,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         assert tx != null;
 
-        validateNotNullConstraint(ectx.rowHandler(), row);
+        validateNotNullConstraint(ectx.rowAccessor(), row);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
+        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, ectx.rowAccessor(), row, schemaSupplier);
 
         BinaryRowEx tableRow = rowConverter.toFullRow(ectx, validatedRow);
 
@@ -216,7 +216,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                         return null;
                     }
 
-                    RowHandler<RowT> rowHandler = ectx.rowHandler();
+                    RowHandler<RowT> rowHandler = ectx.rowAccessor();
 
                     throw conflictKeysException(List.of(rowHandler.toString(validatedRow)));
                 });
@@ -232,12 +232,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
         TxAttributes txAttributes = ectx.txAttributes();
         ZonePartitionId commitPartitionId = txAttributes.commitPartition();
 
-        validateNotNullConstraint(ectx.rowHandler(), rows);
+        validateNotNullConstraint(ectx.rowAccessor(), rows);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowAccessor(), rows, schemaSupplier);
 
         assert commitPartitionId != null;
 
@@ -361,9 +361,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
                         return null;
                     }
 
-                    RowHandler<RowT> handler = ectx.rowHandler();
+                    RowHandler<RowT> handler = ectx.rowAccessor();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(convertStructuredType(rowType(desc, typeFactory)));
+                    RowFactory<RowT> rowFactory = handler.create(convertStructuredType(rowType(desc, typeFactory)));
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
 

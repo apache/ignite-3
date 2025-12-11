@@ -1020,7 +1020,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
                 AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
                         node,
-                        inRow -> new InternalSqlRowImpl<>(inRow, ectx.rowHandler(), internalTypeConverter));
+                        inRow -> new InternalSqlRowImpl<>(inRow, ectx.rowAccessor(), internalTypeConverter));
                 node.onRegister(rootNode);
 
                 rootNode.startPrefetch()

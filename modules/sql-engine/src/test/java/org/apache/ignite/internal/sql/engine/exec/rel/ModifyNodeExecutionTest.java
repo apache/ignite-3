@@ -43,9 +43,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
@@ -323,7 +323,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         // MergeRow:  src_c1, src_c2, null, dst_c1, dst_c2, dst_c3, update_col1, ...,
 
         ExecutionContext<RowWrapper> context = executionContext();
-        RowHandler<RowWrapper> rowHandler = context.rowHandler();
+        RowHandler<RowWrapper> rowHandler = context.rowAccessor();
 
         RowTypeBuilder dstRowSchemaBuilder = NativeTypes.rowBuilder();
 
@@ -363,7 +363,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
             when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
         }
 
-        RowFactory<RowWrapper> dstFactory = rowHandler.factory(dstRowSchema);
+        RowFactory<RowWrapper> dstFactory = context.rowFactoryFactory().create(dstRowSchema);
 
         Object[] dstRow1Data = new Object[colCount];
         dstRow1Data[0] = 1;
@@ -371,7 +371,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         RowWrapper dstRow2 = dstFactory.create(dstRow2Data);
 
-        RowFactory<RowWrapper> srcFactory = rowHandler.factory(srcRowSchema);
+        RowFactory<RowWrapper> srcFactory = context.rowFactoryFactory().create(srcRowSchema);
 
         Object[] srcRow1Data = new Object[colCount];
         srcRow1Data[0] = 2;
@@ -382,12 +382,12 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         srcRow2Data[1] = 5;
         RowWrapper srcRow2 = srcFactory.create(srcRow2Data);
 
-        RowFactory<RowWrapper> updateFactory = rowHandler.factory(updateSchema);
+        RowFactory<RowWrapper> updateFactory = context.rowFactoryFactory().create(updateSchema);
 
         RowWrapper update = updateFactory.create(4);
         RowWrapper noUpdate = updateFactory.create(new Object[]{null});
 
-        RowFactory<RowWrapper> mergeRowFactory = rowHandler.factory(mergeRowSchema);
+        RowFactory<RowWrapper> mergeRowFactory = context.rowFactoryFactory().create(mergeRowSchema);
 
         RowWrapper mergeRow1 = concatRow(mergeRowFactory, srcRow1, dstRow1, noUpdate);
         RowWrapper mergeRow2 = concatRow(mergeRowFactory, srcRow2, dstRow2, update);
@@ -432,12 +432,12 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         }
     }
 
-    private static RowWrapper concatRow(RowFactory<RowWrapper> rowFactory, RowWrapper...  rows) {
-        RowHandler<RowWrapper> handler = rowFactory.handler();
+    private RowWrapper concatRow(RowFactory<RowWrapper> rowFactory, RowWrapper...  rows) {
+        RowHandler<RowWrapper> handler = rowHandler();
         RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
 
         for (RowWrapper row : rows) {
-            int cols = handler.columnCount(row);
+            int cols = handler.columnsCount(row);
             for (int i = 0; i < cols; i++) {
                 builder.addField(handler.get(i, row));
             }
@@ -469,7 +469,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     }
 
     private static void expectRow(RowWrapper row, RowHandler<RowWrapper> rowHandler, int expectedRowSize, List<Object> expectRowPrefix) {
-        int rowSize = rowHandler.columnCount(row);
+        int rowSize = rowHandler.columnsCount(row);
 
         assertEquals(expectedRowSize, rowSize);
         assertTrue(expectRowPrefix.size() <= rowSize, "Incorrect number of expected vals");
@@ -489,7 +489,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     private static Node<RowWrapper> createSource(int rowCount, ExecutionContext<RowWrapper> context) {
         return new ScanNode<>(
-                context, DataProvider.fromRow(context.rowHandler().factory(INT_LONG_SCHEMA).create(1, 1L), rowCount)
+                context, DataProvider.fromRow(context.rowAccessor().create(INT_LONG_SCHEMA).create(1, 1L), rowCount)
         );
     }
 

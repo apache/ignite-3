@@ -52,9 +52,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -894,7 +894,7 @@ public class TypeUtils {
     private static <RowT> RowBuilder<RowT> buildPartialRow(
             RowHandler<RowT> rowHandler, Supplier<StructNativeType> schema, int endPos, RowT row
     ) {
-        RowFactory<RowT> factory = rowHandler.factory(schema.get());
+        RowFactory<RowT> factory = rowHandler.create(schema.get());
         RowBuilder<RowT> bldr = factory.rowBuilder();
 
         for (int i = 0; i < endPos; ++i) {

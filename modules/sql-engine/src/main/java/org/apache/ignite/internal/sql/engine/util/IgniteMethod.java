@@ -32,8 +32,10 @@ import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowAccessor;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 
 /**
@@ -44,10 +46,10 @@ public enum IgniteMethod {
     ROW_BUILDER_ADD_FIELD(RowBuilder.class, "addField", Object.class),
 
     /** See {@link RowHandler#get(int, Object)}. */
-    ROW_HANDLER_GET(RowHandler.class, "get", int.class, Object.class),
+    ROW_ACCESSOR_GET(RowAccessor.class, "get", int.class, Object.class),
 
-    /** See {@link ExecutionContext#rowHandler()}. */
-    CONTEXT_ROW_HANDLER(ExecutionContext.class, "rowHandler"),
+    /** See {@link SqlEvaluationContext#rowAccessor()}. */
+    CONTEXT_ROW_HANDLER(SqlEvaluationContext.class, "rowAccessor"),
 
     /** See {@link ExecutionContext#correlatedVariable(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),

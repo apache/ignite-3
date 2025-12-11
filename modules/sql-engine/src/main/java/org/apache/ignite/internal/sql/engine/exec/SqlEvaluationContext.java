@@ -17,25 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.calcite.DataContext;
 
 /**
- * Universal accessor for rows. It also has factory methods.
+ * Provides the contextual environment required for evaluating SQL expressions.
+ *
+ * <p>This context provides necessary information for evaluation context-depended functions, such as {@code CURRENT_USER}
+ * or {@code CURRENT_TIMESTAMP}, as well as the means to read input rows and create new row instances when expressions produce derived
+ * values.
+ *
+ * @param <RowT> The type of the execution row.
  */
-public interface RowHandler<RowT> extends RowAccessor<RowT>, RowFactoryFactory<RowT> {
-    /**
-     * Assembly row representation as BinaryTuple.
-     *
-     * @param row Incoming data to be processed.
-     * @return {@link BinaryTuple} representation.
-     */
-    BinaryTuple toBinaryTuple(RowT row);
+public interface SqlEvaluationContext<RowT> extends DataContext {
+    /** Returns an accessor allowing expression evaluators to retrieve column values from an input row. */
+    RowAccessor<RowT> rowAccessor();
 
-    default ByteBuffer toByteBuffer(RowT row) {
-        return toBinaryTuple(row).byteBuffer();
-    }
-
-    /** String representation. */
-    String toString(RowT row);
+    /** Returns a factory capable of producing {@link RowFactory} instances for the {@code RowT} row representation. */
+    RowFactoryFactory<RowT> rowFactoryFactory();
 }

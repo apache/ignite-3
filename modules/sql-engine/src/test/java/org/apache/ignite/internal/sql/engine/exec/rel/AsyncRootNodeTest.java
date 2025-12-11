@@ -41,8 +41,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
@@ -71,7 +71,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
         var dataSourceScanNode = new DataSourceScanNode<>(
                 context,
-                rowHandler().factory(SINGLE_INT_ROW_SCHEMA),
+                context.rowFactoryFactory().create(SINGLE_INT_ROW_SCHEMA),
                 SINGLE_INT_SCHEMA,
                 () -> subscriber -> publisherRequestedLatch.countDown(),
                 null,
@@ -114,7 +114,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
         DataSourceScanNode<RowWrapper> dataSourceScanNode = new DataSourceScanNode<>(
                 context,
-                rowHandler().factory(SINGLE_INT_ROW_SCHEMA),
+                context.rowFactoryFactory().create(SINGLE_INT_ROW_SCHEMA),
                 SINGLE_INT_SCHEMA,
                 dataSource,
                 null,
@@ -159,7 +159,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
         var scanNodeLatch = new CountDownLatch(1);
         ExecutionContext<RowWrapper> context = executionContext();
 
-        RowFactory<RowWrapper> factory = rowHandler().factory(SINGLE_INT_ROW_SCHEMA);
+        RowFactory<RowWrapper> factory = context.rowFactoryFactory().create(SINGLE_INT_ROW_SCHEMA);
         ScanNode<RowWrapper> scanNode = new ScanNode<>(context, () -> {
             try {
                 scanNodeLatch.await();

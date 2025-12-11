@@ -17,25 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Universal accessor for rows. It also has factory methods.
+ * Class representing a reader for the input row.
+ *
+ * @param <RowT> Type of the supported row.
  */
-public interface RowHandler<RowT> extends RowAccessor<RowT>, RowFactoryFactory<RowT> {
-    /**
-     * Assembly row representation as BinaryTuple.
-     *
-     * @param row Incoming data to be processed.
-     * @return {@link BinaryTuple} representation.
-     */
-    BinaryTuple toBinaryTuple(RowT row);
+public interface RowAccessor<RowT> {
+    /** Reads the specified field of the given row. */
+    @Nullable Object get(int field, RowT row);
 
-    default ByteBuffer toByteBuffer(RowT row) {
-        return toBinaryTuple(row).byteBuffer();
-    }
+    /** Checks whether the given field is {@code null}. */
+    boolean isNull(int field, RowT row);
 
-    /** String representation. */
-    String toString(RowT row);
+    /** Return columns count contained in the incoming row. */
+    int columnsCount(RowT row);
 }

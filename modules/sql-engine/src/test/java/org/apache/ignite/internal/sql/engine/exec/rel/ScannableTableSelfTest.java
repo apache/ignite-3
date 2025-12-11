@@ -63,8 +63,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
@@ -518,7 +518,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             );
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            RowFactory<Object[]> rowFactory = rowHandler.create(input.rowSchema);
 
             Publisher<Object[]> publisher = scannableTable.scan(
                     ctx,
@@ -552,7 +552,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             );
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            RowFactory<Object[]> rowFactory = rowHandler.create(input.rowSchema);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
             List<String> indexColumns = input.getIndexColumns();
 
@@ -585,7 +585,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(OperationContext.create(txContext)));
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            RowFactory<Object[]> rowFactory = rowHandler.create(input.rowSchema);
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(

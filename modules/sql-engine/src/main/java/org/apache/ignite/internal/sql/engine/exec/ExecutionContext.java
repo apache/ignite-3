@@ -32,7 +32,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -61,7 +60,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<RowT> implements DataContext {
+public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
     /**
@@ -227,10 +226,13 @@ public class ExecutionContext<RowT> implements DataContext {
         return description.group(sourceId);
     }
 
-    /**
-     * Get handler to access row fields.
-     */
-    public RowHandler<RowT> rowHandler() {
+    @Override
+    public RowHandler<RowT> rowAccessor() {
+        return handler;
+    }
+
+    @Override
+    public RowFactoryFactory<RowT> rowFactoryFactory() {
         return handler;
     }
 

@@ -24,8 +24,8 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowAccessor;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementor which implements {@link SqlComparator}. */
@@ -43,12 +43,12 @@ class ComparatorImplementor {
 
         return new SqlComparator() {
             @Override
-            public <RowT> int compare(ExecutionContext<RowT> context, RowT r1, RowT r2) {
-                RowHandler<RowT> hnd = context.rowHandler();
+            public <RowT> int compare(SqlEvaluationContext<RowT> context, RowT r1, RowT r2) {
+                RowAccessor<RowT> hnd = context.rowAccessor();
                 List<RelFieldCollation> collations = collation.getFieldCollations();
 
-                int colsCountRow1 = hnd.columnCount(r1);
-                int colsCountRow2 = hnd.columnCount(r2);
+                int colsCountRow1 = hnd.columnsCount(r1);
+                int colsCountRow2 = hnd.columnsCount(r2);
 
                 // The index range condition can contain the prefix of the index columns (not all index columns).
                 int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
@@ -122,9 +122,9 @@ class ComparatorImplementor {
 
         return new SqlComparator() {
             @Override
-            public <RowT> int compare(ExecutionContext<RowT> context, RowT r1, RowT r2) {
+            public <RowT> int compare(SqlEvaluationContext<RowT> context, RowT r1, RowT r2) {
                 boolean hasNulls = false;
-                RowHandler<RowT> hnd = context.rowHandler();
+                RowAccessor<RowT> hnd = context.rowAccessor();
 
                 for (int i = 0; i < left.size(); i++) {
                     RelFieldCollation leftField = left.get(i);

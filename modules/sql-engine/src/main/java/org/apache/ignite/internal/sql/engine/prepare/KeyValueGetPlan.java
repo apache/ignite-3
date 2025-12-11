@@ -39,8 +39,8 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
@@ -174,10 +174,10 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         SqlPredicate filter = filterExpr == null ? null : ctx.expressionFactory().predicate(filterExpr, rowType);
         SqlProjection projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
 
-        RowHandler<RowT> rowHandler = ctx.rowHandler();
+        RowHandler<RowT> rowHandler = ctx.rowAccessor();
         StructNativeType nativeType = convertStructuredType(rowType);
 
-        RowFactory<RowT> rowFactory = rowHandler.factory(nativeType);
+        RowFactory<RowT> rowFactory = rowHandler.create(nativeType);
 
         List<RexNode> keyExpressions = lookupNode.keyExpressions();
         SqlRowProvider keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
