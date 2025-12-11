@@ -136,8 +136,10 @@ public class TableTests(IIgniteClient client)
             Boolean: i % 2 == 0)).ToList();
 
         // Stream data
-        var options = DataStreamerOptions.Default with { PageSize = 3 };
-        await view.StreamDataAsync(GetData(), options);
+        await view.StreamDataAsync(GetData(), DataStreamerOptions.Default with { PageSize = 3 });
+
+        // TODO: Why?
+        await Task.Delay(1000);
 
         // Verify data was inserted
         await using var rs = await client.Sql.ExecuteAsync(
@@ -160,7 +162,7 @@ public class TableTests(IIgniteClient client)
             Assert.AreEqual(expected.DateTime, row["DATETIME"]);
             Assert.AreEqual(expected.Timestamp, row["TIMESTAMP"]);
             Assert.AreEqual(expected.Blob, row["BLOB"]!);
-            Assert.AreEqual(expected.Decimal, row["DECIMAL"]);
+            Assert.AreEqual(expected.Decimal, ((BigDecimal)row["DECIMAL"]!).ToDecimal());
             Assert.AreEqual(expected.Uuid, row["UUID"]);
             Assert.AreEqual(expected.Boolean, row["BOOLEAN"]);
         }
