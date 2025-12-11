@@ -19,31 +19,32 @@ namespace Apache.Ignite.Tests.Aot.Compute;
 
 using Common.Compute;
 using Ignite.Compute;
+using Ignite.Table;
 using JetBrains.Annotations;
 using Network;
+using static Common.Table.TestTables;
 
 public class ComputeTests(IIgniteClient client)
 {
     [UsedImplicitly]
-    public async Task TestJavaJob()
+    public async Task TestEcho()
     {
         IJobTarget<IEnumerable<IClusterNode>> target = JobTarget.AnyNode(await client.GetClusterNodesAsync());
 
-        IJobExecution<object> resExec = await client.Compute.SubmitAsync(target, JavaJobs.EchoJob, "hello");
-        object res = await resExec.GetResultAsync();
+        IJobExecution<object> exe = await client.Compute.SubmitAsync(target, JavaJobs.EchoJob, "hello");
+        object res = await exe.GetResultAsync();
 
         Assert.AreEqual("hello", res);
     }
 
     [UsedImplicitly]
-    public async Task TestDotNetJob()
+    public async Task TestColocated()
     {
-        IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-        IJobTarget<IEnumerable<IClusterNode>> target = JobTarget.AnyNode(nodes.Where(x => !x.Name.Contains('_')));
+        var keyTuple = new IgniteTuple { [KeyCol] = 42L };
 
-        IJobExecution<object?> resExec = await client.Compute.SubmitAsync(target, DotNetJobs.Echo, "hello");
-        object? res = await resExec.GetResultAsync();
+        IJobExecution<string> exec = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), JavaJobs.NodeNameJob, null);
+        var res = await exec.GetResultAsync();
 
-        Assert.AreEqual("hello", res);
+        Assert.AreEqual(JavaJobs.PlatformTestNodeRunner, res);
     }
 }
