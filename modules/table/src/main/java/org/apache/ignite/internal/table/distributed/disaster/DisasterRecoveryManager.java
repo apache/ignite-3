@@ -279,7 +279,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         nodeLeftListener = new LogicalTopologyEventListener() {
             @Override
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-                operationsByNodeName.get(leftNode.name()).exceptionally(leftNode.name(), new NodeStoppingException());
+                MultiNodeOperations operations = operationsByNodeName.get(leftNode.name());
+                if (operations != null) {
+                    operations.exceptionally(leftNode.name(), new NodeStoppingException());
+                }
             }
         };
     }

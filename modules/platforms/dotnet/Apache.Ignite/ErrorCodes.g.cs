@@ -726,6 +726,9 @@ namespace Apache.Ignite
 
             /// <summary> RequestForward error. </summary>
             public const int RequestForward = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> RemoteNode error. </summary>
+            public const int RemoteNode = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
