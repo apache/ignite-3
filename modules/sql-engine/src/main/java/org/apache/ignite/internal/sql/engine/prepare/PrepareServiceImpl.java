@@ -1139,8 +1139,9 @@ public class PrepareServiceImpl implements PrepareService {
             staleRowsCheckIntervalSeconds.listen(configListener);
 
             int intervalSeconds = staleRowsCheckIntervalSeconds.value();
+            long interval = calculateInterval(intervalSeconds);
 
-            schedule(intervalSeconds);
+            schedule(interval);
         }
 
         void stop() {
@@ -1155,16 +1156,20 @@ public class PrepareServiceImpl implements PrepareService {
             assert seconds != null;
 
             if (!Objects.equals(seconds, value.oldValue())) {
-                // To observe actual values of statistics, plan cache updates should happen more frequently
-                // (plan update interval must be less than statistics auto refresh interval).
-                int interval = Math.max(1, seconds / 2);
+                long interval = calculateInterval(seconds);
                 schedule(interval);
             }
 
             return nullCompletedFuture();
         }
 
-        private void schedule(int intervalSeconds) {
+        private static long calculateInterval(long value) {
+            // To observe actual values of statistics, plan cache updates should happen more frequently
+            // (plan update interval must be less than statistics auto refresh interval).
+            return Math.max(1, value / 2);
+        }
+
+        private void schedule(long intervalSeconds) {
             if (scheduledFuture != null) {
                 scheduledFuture.cancel(false);
             }

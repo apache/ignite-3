@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -48,23 +49,27 @@ import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParam
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
-import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mock.Strictness;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Test planning cache metrics.
  */
-@ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
     private final MetricManager metricManager = new MetricManagerImpl();
 
-    @InjectExecutorService
+    @Mock(strictness = Strictness.LENIENT)
     private ScheduledExecutorService commonExecutor;
+
+    @Mock
+    private DdlSqlToCommandConverter ddlCommandConverter;
 
     @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=5")
     private StatisticsConfiguration statisticsConfiguration;
@@ -90,8 +95,8 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
 
         PrepareService prepareService = new PrepareServiceImpl(
-                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),
-                clockService::currentLong, commonExecutor, producer,
+                "test", 2, cacheFactory, ddlCommandConverter, 15_000L, 2, Integer.MAX_VALUE, metricManager,
+                new PredefinedSchemaManager(schema), clockService::currentLong, commonExecutor, producer,
                 statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );
 

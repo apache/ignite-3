@@ -236,6 +236,10 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
         catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
         catalogService.removeListener(CatalogEvent.TABLE_CREATE, createTableEventListener);
         staleRowsCheckIntervalSeconds.stopListen(updateRefreshIntervalListener);
+
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
     }
 
     private void onTableDrop(DropTableEventParameters parameters) {
@@ -328,11 +332,5 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
     @TestOnly
     public void forceUpdateAll() {
         update(true);
-    }
-
-    /** Returns a future of that task that updates statistics. */
-    @TestOnly
-    public ScheduledFuture<?> currentScheduledFuture() {
-        return scheduledFuture;
     }
 }
