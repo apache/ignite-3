@@ -538,6 +538,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
+            when(ctx.rowAccessor()).thenReturn(ArrayRowHandler.INSTANCE);
 
             TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
@@ -571,6 +572,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
+            when(ctx.rowAccessor()).thenReturn(ArrayRowHandler.INSTANCE);
 
             TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
