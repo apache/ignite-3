@@ -22,24 +22,23 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 /**
  * A functional interface representing a comparator for SQL rows.
  *
- * <p>This interface defines a single method, {@link #compare(ExecutionContext, RowT, RowT)}, 
+ * <p>This interface defines a single method, {@link #compare(ExecutionContext, Object, Object)}, 
  * which compares two rows within the given execution context. The comparison respects the sorting 
  * order defined during the creation of the comparator, allowing for flexible custom ordering 
  * logic in SQL queries or operations that require row comparison.
- *
- * @param <RowT> The type of the execution row.
  */
 @FunctionalInterface
-public interface SqlComparator<RowT> {
+public interface SqlComparator {
     /**
      * Compares two rows within the execution context.
      *
      * @param context The execution context, providing access to query-related data.
      * @param r1 The first row to be compared.
-     * @param r2 The second row to be compared.
+     * @param r2 The second row to be compared
+     * @param <RowT> The type of the execution row..
      * @return A negative integer, zero, or a positive integer as the first row stands before
      *         or after the second one according to the sorting order defined during the
      *         comparator's creation.
      */
-    int compare(ExecutionContext<RowT> context, RowT r1, RowT r2);
+    <RowT> int compare(ExecutionContext<RowT> context, RowT r1, RowT r2);
 }

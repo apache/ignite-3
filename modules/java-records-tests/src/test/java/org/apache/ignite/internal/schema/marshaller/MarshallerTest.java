@@ -28,13 +28,14 @@ import org.apache.ignite.internal.schema.marshaller.Records.ComponentsWide;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsWrongTypes;
 import org.apache.ignite.internal.schema.marshaller.Records.NoDefaultConstructor;
 import org.apache.ignite.internal.schema.marshaller.Records.NotAnnotatedNotMapped;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.MarshallerException;
 import org.junit.jupiter.api.Test;
 
 /**
  * Ensures that records and classes behave the same way.
  */
-class MarshallerTest {
+class MarshallerTest extends BaseIgniteAbstractTest {
 
     @Test
     void marshalUnmarshalTest() {
@@ -83,15 +84,15 @@ class MarshallerTest {
         String msgSubstring = "Column's type mismatch";
 
         // recordView
-        assertMarshallerThrows(ClassCastException.class, msgSubstring, new ComponentsWrongTypes.Record((short) 1, 2));
-        assertMarshallerThrows(ClassCastException.class, msgSubstring, new ComponentsWrongTypes.Class((short) 1, 2));
+        assertMarshallerThrows(MarshallerException.class, msgSubstring, new ComponentsWrongTypes.Record((short) 1, 2));
+        assertMarshallerThrows(MarshallerException.class, msgSubstring, new ComponentsWrongTypes.Class((short) 1, 2));
 
         // kvView
-        assertMarshallerThrows(ClassCastException.class, msgSubstring,
+        assertMarshallerThrows(MarshallerException.class, msgSubstring,
                 new ComponentsWrongTypes.RecordK((short) 1),
                 new ComponentsWrongTypes.RecordV(2)
         );
-        assertMarshallerThrows(ClassCastException.class, msgSubstring,
+        assertMarshallerThrows(MarshallerException.class, msgSubstring,
                 new ComponentsWrongTypes.ClassK((short) 1),
                 new ComponentsWrongTypes.ClassV(2)
         );

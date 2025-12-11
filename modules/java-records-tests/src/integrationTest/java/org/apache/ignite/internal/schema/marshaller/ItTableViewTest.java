@@ -137,14 +137,14 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
     void componentsWrongTypesThrowsException(Table t) {
         String msgSubstring = "Column's type mismatch";
 
-        assertViewThrows(ClassCastException.class, msgSubstring, t, new ComponentsWrongTypes.Record((short) 1, 2));
-        assertViewThrows(ClassCastException.class, msgSubstring, t, new ComponentsWrongTypes.Class((short) 1, 2));
+        assertViewThrows(MarshallerException.class, msgSubstring, t, new ComponentsWrongTypes.Record((short) 1, 2));
+        assertViewThrows(MarshallerException.class, msgSubstring, t, new ComponentsWrongTypes.Class((short) 1, 2));
 
-        assertViewThrows(ClassCastException.class, msgSubstring, t,
+        assertViewThrows(MarshallerException.class, msgSubstring, t,
                 new ComponentsWrongTypes.RecordK((short) 1),
                 new ComponentsWrongTypes.RecordV(2)
         );
-        assertViewThrows(ClassCastException.class, msgSubstring, t,
+        assertViewThrows(MarshallerException.class, msgSubstring, t,
                 new ComponentsWrongTypes.ClassK((short) 1),
                 new ComponentsWrongTypes.ClassV(2)
         );

@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.table.partition;
 
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 
 /**
  * Embedded mode implementation of partition management test suite.
  */
-public class ItStandalonePartitionManagerTest extends ItAbstractPartitionManagerTest {
+public class ItStandalonePartitionDistributionTest extends ItAbstractPartitionDistributionTest {
     @Override
-    protected PartitionManager partitionManager() {
-        return cluster.aliveNode().tables().table(TABLE_NAME).partitionManager();
+    protected PartitionDistribution partitionDistribution() {
+        return cluster.aliveNode().tables().table(TABLE_NAME).partitionDistribution();
     }
 }

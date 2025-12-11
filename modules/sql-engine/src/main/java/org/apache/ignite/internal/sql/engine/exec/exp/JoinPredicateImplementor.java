@@ -69,18 +69,17 @@ class JoinPredicateImplementor {
      * @param predicateExpression The expression to implement.
      * @param type The type of the input row as if rows from both sides will be joined.
      * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of join predicate.
      * @see SqlJoinPredicate
      */
-    <RowT> SqlJoinPredicate<RowT> implement(RexNode predicateExpression, RelDataType type, int firstRowSize) {
+    SqlJoinPredicate implement(RexNode predicateExpression, RelDataType type, int firstRowSize) {
         String digest = digest(SqlJoinPredicate.class, List.of(predicateExpression), type, "firstRowSize=" + firstRowSize);
-        Cache<String, SqlJoinPredicate<RowT>> cache = cast(this.cache);
+        Cache<String, SqlJoinPredicate> cache = cast(this.cache);
 
         return cache.get(digest, ignored -> implementInternal(predicateExpression, type, firstRowSize));
     }
 
-    private <RowT> SqlJoinPredicate<RowT> implementInternal(RexNode predicateExpression, RelDataType type, int firstRowSize) {
+    private SqlJoinPredicate implementInternal(RexNode predicateExpression, RelDataType type, int firstRowSize) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
         programBuilder.addCondition(predicateExpression);
@@ -121,7 +120,7 @@ class JoinPredicateImplementor {
                 Modifier.PUBLIC, boolean.class, "test",
                 params, tryCatchBlock.toBlock());
 
-        Class<SqlJoinPredicate<RowT>> clazz = cast(SqlJoinPredicate.class);
+        Class<SqlJoinPredicate> clazz = cast(SqlJoinPredicate.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 

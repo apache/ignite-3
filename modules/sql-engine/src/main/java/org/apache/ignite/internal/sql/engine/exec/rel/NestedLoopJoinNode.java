@@ -89,7 +89,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
      */
     public static <RowT> NestedLoopJoinNode<RowT> create(
             ExecutionContext<RowT> ctx,
-            @Nullable SqlJoinProjection<RowT> joinProjection,
+            @Nullable SqlJoinProjection joinProjection,
             RelDataType leftRowType,
             RelDataType rightRowType,
             JoinRelType joinType,
@@ -147,7 +147,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
     }
 
     private static class InnerJoin<RowT> extends NestedLoopJoinNode<RowT> {
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private int rightIdx;
 
@@ -158,7 +158,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
          * @param cond Join expression.
          * @param outputProjection Output projection.
          */
-        private InnerJoin(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond, SqlJoinProjection<RowT> outputProjection) {
+        private InnerJoin(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond, SqlJoinProjection outputProjection) {
             super(ctx, cond);
 
             this.outputProjection = outputProjection;
@@ -238,7 +238,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         /** Right row factory. */
         private final RowFactory<RowT> rightRowFactory;
 
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         /** Whether current left row was matched or not. */
         private boolean matched;
@@ -256,7 +256,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         private LeftJoin(
                 ExecutionContext<RowT> ctx,
                 BiPredicate<RowT, RowT> cond,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> rightRowFactory
         ) {
             super(ctx, cond);
@@ -336,7 +336,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
     private static class RightJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /** Left row factory. */
         private final RowFactory<RowT> leftRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private @Nullable BitSet rightNotMatchedIndexes;
 
@@ -355,7 +355,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         private RightJoin(
                 ExecutionContext<RowT> ctx,
                 BiPredicate<RowT, RowT> cond,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory
         ) {
             super(ctx, cond);
@@ -485,7 +485,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         /** Right row factory. */
         private final RowFactory<RowT> rightRowFactory;
 
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         /** Whether current left row was matched or not. */
         private boolean leftMatched;
@@ -507,7 +507,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         private FullOuterJoin(
                 ExecutionContext<RowT> ctx,
                 BiPredicate<RowT, RowT> cond,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 RowFactory<RowT> rightRowFactory
         ) {

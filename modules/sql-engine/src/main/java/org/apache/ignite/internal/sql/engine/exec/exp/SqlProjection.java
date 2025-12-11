@@ -22,19 +22,18 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 /**
  * A functional interface representing a SQL projection operation.
  *
- * <p>This interface defines a single method, {@link #project(ExecutionContext, RowT)}, 
+ * <p>This interface defines a single method, {@link #project(ExecutionContext, Object)}, 
  * which applies a projection to a given row.
- *
- * @param <RowT> The type of the execution row.
  */
 @FunctionalInterface
-public interface SqlProjection<RowT> {
+public interface SqlProjection {
     /**
      * Applies a projection to the given execution row.
      *
      * @param context The execution context, providing access to query-related data.
      * @param row The current row to be projected.
+     * @param <RowT> The type of the execution row.
      * @return The projected row, which may be a modified version of the input row or a new row.
      */
-    RowT project(ExecutionContext<RowT> context, RowT row);
+    <RowT> RowT project(ExecutionContext<RowT> context, RowT row);
 }

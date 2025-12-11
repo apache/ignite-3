@@ -90,7 +90,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     /** Supplied algorithm implementation. */
-    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection<RowT> projection,
+    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection projection,
             RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, JoinInfo joinInfo,
             @Nullable BiPredicate<RowT, RowT> nonEquiCondition) {
 
@@ -145,7 +145,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private static class InnerHashJoin<RowT> extends HashJoinNode<RowT> {
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         /**
          * Creates HashJoinNode for INNER JOIN operator.
@@ -157,7 +157,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private InnerHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, nonEquiCondition);
@@ -249,7 +249,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static class LeftHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         /**
          * Creates HashJoinNode for LEFT OUTER JOIN operator.
@@ -262,7 +262,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private LeftHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> rightRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
@@ -336,7 +336,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static class RightHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
 
@@ -351,7 +351,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private RightHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
@@ -491,7 +491,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
 
@@ -507,7 +507,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private FullOuterHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 RowFactory<RowT> rightRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition

@@ -26,5 +26,5 @@ public interface RangeIterable<RowT> extends Iterable<RangeCondition<RowT>> {
      *
      * @return {@code True} if iterable can have more than one item.
      */
-    public boolean multiBounds();
+    boolean multiBounds();
 }

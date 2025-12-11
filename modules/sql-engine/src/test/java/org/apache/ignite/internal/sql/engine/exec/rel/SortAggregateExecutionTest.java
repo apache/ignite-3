@@ -68,7 +68,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
         } else {
-            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+            SqlComparator comparator = ctx.expressionFactory().comparator(collation);
 
             cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
@@ -118,7 +118,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
         } else {
-            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+            SqlComparator comparator = ctx.expressionFactory().comparator(collation);
 
             cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
@@ -159,7 +159,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         if (grpSet.isEmpty() && (rdcCollation == null || nullOrEmpty(rdcCollation.getFieldCollations()))) {
             rdcCmp = (k1, k2) -> 0;
         } else {
-            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(rdcCollation);
+            SqlComparator comparator = ctx.expressionFactory().comparator(rdcCollation);
 
             rdcCmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }

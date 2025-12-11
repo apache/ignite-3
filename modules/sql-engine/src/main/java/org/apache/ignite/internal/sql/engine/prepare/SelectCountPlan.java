@@ -167,7 +167,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
                 .build();
 
         RelDataType resultType = selectCountNode.getRowType();
-        SqlProjection<RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
+        SqlProjection projection = ctx.expressionFactory().project(expressions, getCountType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
