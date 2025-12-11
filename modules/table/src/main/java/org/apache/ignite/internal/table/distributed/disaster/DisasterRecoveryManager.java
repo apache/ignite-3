@@ -1161,9 +1161,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-        CompletableFuture<Void> resultFuture = operationFuture.thenCompose(v -> {
-            if (request.type() == DisasterRecoveryRequestType.MULTI_NODE) {
-                return allOf(getNodeNames(request.nodeNames())
+        CompletableFuture<Void> remoteProcessingFuture = request.type() == DisasterRecoveryRequestType.SINGLE_NODE
+                ? nullCompletedFuture()
+                : allOf(getNodeNames(request.nodeNames())
                         .stream()
                         .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
                         .toArray(CompletableFuture[]::new))
@@ -1171,10 +1171,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             operationsByNodeName.values().forEach(operations -> operations.remove(operationId));
                             operationsByNodeName.entrySet().removeIf(entry -> entry.getValue().isEmpty());
                         });
-            } else {
-                return nullCompletedFuture();
-            }
-        });
 
         operationFuture.whenComplete((v, throwable) -> ongoingOperationsById.remove(operationId));
 
@@ -1195,7 +1191,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
         }
 
-        return resultFuture;
+        return operationFuture.thenCompose(v -> remoteProcessingFuture);
     }
 
     /** If request node names is empty, returns all nodes in the logical topology. */
@@ -1349,7 +1345,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                         ChannelType.DEFAULT,
                                         PARTITION_REPLICATION_MESSAGES_FACTORY.operationCompletedMessage()
                                                 .operationId(request.operationId())
-                                                .exceptionMessage(ex == null ? null : ex.getMessage()).build()
+                                                .exceptionMessage(ex == null ? null : ex.getMessage())
+                                                .build()
                                 );
                             }
 
