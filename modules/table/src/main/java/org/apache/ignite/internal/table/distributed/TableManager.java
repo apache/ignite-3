@@ -672,6 +672,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             event.registerStorageInRebalanceState();
         }
 
+        // Adding the cleanup action even if no MV partition storage is in rebalance state as it might be that the TX state storage is.
         event.addCleanupAction(() -> {
             CompletableFuture<?>[] clearFutures = zoneTables.stream()
                     .map(table -> table.internalTable().storage().clearPartition(partitionIndex))
