@@ -16,7 +16,8 @@
  */
 
 using Apache.Ignite;
-using Apache.Ignite.Network;
+using Apache.Ignite.Tests.Aot;
+using Apache.Ignite.Tests.Aot.Table;
 using Apache.Ignite.Tests.Common;
 using Microsoft.Extensions.Logging;
 
@@ -37,9 +38,4 @@ using var ignite = await IgniteClient.StartAsync(cfg);
 // - Streamer
 // - PartitionManager
 // TODO: Documentation section.
-var clusterNodes = await ignite.GetClusterNodesAsync();
-
-foreach (IClusterNode node in clusterNodes)
-{
-    Console.WriteLine(node);
-}
+await TestRunner.Run(new TableTests(ignite), logger);
