@@ -402,7 +402,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .initiatorTime(hybridClock.now())
                 .build();
 
-        commandListener.processCommand(command, 3,2, hybridClock.now());
+        commandListener.processCommand(command, 3, 2, hybridClock.now());
 
         verify(mvPartitionStorage).lastApplied(3, 2);
     }
@@ -423,7 +423,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .initiatorTime(hybridClock.now())
                 .build();
 
-        commandListener.processCommand(command,3, 2, hybridClock.now());
+        commandListener.processCommand(command, 3, 2, hybridClock.now());
 
         verify(mvPartitionStorage).lastApplied(3, 2);
     }
@@ -631,7 +631,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private void applySafeTimeCommand(Class<? extends SafeTimePropagatingCommand> cls, HybridTimestamp timestamp) {
         SafeTimePropagatingCommand command = mock(cls);
 
-        commandListener.processCommand(command, 3,1, timestamp);
+        commandListener.processCommand(command, 3, 1, timestamp);
         assertEquals(timestamp, safeTimeTracker.current());
     }
 

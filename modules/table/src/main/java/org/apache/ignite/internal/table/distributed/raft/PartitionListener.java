@@ -181,57 +181,6 @@ public class PartitionListener implements RaftTableProcessor {
             return !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId());
         }
     }
-//
-//    @Override
-//    public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-//        iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
-//            WriteCommand command = clo.command();
-//
-//            long commandIndex = clo.index();
-//            long commandTerm = clo.term();
-//            @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
-//            assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
-//
-//            long storagesAppliedIndex = storage.lastAppliedIndex();
-//
-//            assert commandIndex > storagesAppliedIndex :
-//                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
-//                            + ", mvAppliedIndex=" + storage.lastAppliedIndex() + "]";
-//
-//            CommandResult result;
-//
-//            // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
-//            // storages!
-//            // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
-//            // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
-//            // in comparison with 'snapshot' state stored in our storages; and if we install a snapshot from our storages
-//            // to a follower at this point, for a subsequent AppendEntries the leader will not be able to get prevLogTerm
-//            // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
-//            // repeat same thing over and over again.
-//
-//            storage.acquirePartitionSnapshotsReadLock();
-//
-//            try {
-//                result = processCommand(command, commandIndex, commandTerm, safeTimestamp);
-//            } catch (Throwable t) {
-//                LOG.error(
-//                        "Got error while processing command [commandIndex={}, commandTerm={}, command={}]",
-//                        t,
-//                        clo.index(), clo.index(), command
-//                );
-//
-//                clo.result(t);
-//
-//                throw t;
-//            } finally {
-//                storage.releasePartitionSnapshotsReadLock();
-//            }
-//
-//            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
-//            // trigger other actions taking same locks.
-//            clo.result(result.result());
-//        });
-//    }
 
     @Override
     public CommandResult processCommand(
