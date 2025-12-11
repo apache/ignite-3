@@ -51,6 +51,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
@@ -107,12 +108,15 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
         lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
+        UUID snapshotId = UUID.randomUUID();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 singleton(1, partitionAccess),
                 txAccess,
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
     }
 

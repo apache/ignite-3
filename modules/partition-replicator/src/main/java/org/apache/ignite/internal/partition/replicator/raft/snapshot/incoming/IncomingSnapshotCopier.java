@@ -74,6 +74,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMv
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -137,6 +138,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private final IncomingSnapshotStats snapshotStats = new IncomingSnapshotStats();
 
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+
     /**
      * Constructor.
      *
@@ -145,23 +148,27 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      * @param executor Thread pool for IO operations.
      * @param waitForMetadataCatchupMs How much time to allow for metadata on this node to reach the catalog version required by an
      *         incoming snapshot.
+     * @param snapshotsMetricsSource Raft snapshots metrics source.
      */
     public IncomingSnapshotCopier(
             PartitionSnapshotStorage partitionSnapshotStorage,
             SnapshotUri snapshotUri,
             Executor executor,
-            long waitForMetadataCatchupMs
+            long waitForMetadataCatchupMs,
+            RaftSnapshotsMetricsSource snapshotsMetricsSource
     ) {
         this.partitionSnapshotStorage = partitionSnapshotStorage;
         this.snapshotUri = snapshotUri;
         this.executor = executor;
         this.throttledLogger = Loggers.toThrottledLogger(LOG, executor);
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
+        this.snapshotsMetricsSource = snapshotsMetricsSource;
     }
 
     @Override
     public void start() {
         snapshotStats.onSnapshotInstallationStart();
+        snapshotsMetricsSource.onSnapshotInstallationStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Rebalance is started [snapshotId={}, {}]", snapshotUri.snapshotId, createPartitionInfo());
@@ -226,6 +233,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private CompletableFuture<?> waitForMetadataWithTimeout(PartitionSnapshotMeta snapshotMeta) {
         snapshotStats.onWaitingCatalogPhaseStart();
+        snapshotsMetricsSource.onWaitingCatalogPhaseStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info(
@@ -243,6 +251,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return anyOf(metadataReadyFuture, readinessTimeoutFuture)
                 .whenComplete((ignored, throwable) -> {
                     snapshotStats.onWaitingCatalogPhaseEnd();
+                    snapshotsMetricsSource.onWaitingCatalogPhaseEnd();
 
                     if (LOG.isInfoEnabled()) {
                         LOG.info(
@@ -351,6 +360,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         snapshotStats.onLoadSnapshotPhaseStart();
+        snapshotsMetricsSource.onLoadSnapshotPhaseStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Start loading snapshot meta [snapshotId={}, {}]", snapshotUri.snapshotId, createPartitionInfo());
@@ -365,6 +375,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 PartitionSnapshotMeta snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
                 snapshotStats.onLoadSnapshotPhaseEnd();
+                snapshotsMetricsSource.onLoadSnapshotPhaseEnd();
 
                 if (LOG.isInfoEnabled()) {
                     LOG.info(
@@ -414,6 +425,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         snapshotStats.onLoadMvDataPhaseStart();
+        snapshotsMetricsSource.onLoadMvDataPhaseStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info(
@@ -453,6 +465,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 if (snapshotMvDataResponse.finish()) {
                     snapshotStats.onLoadMvDataPhaseEnd();
+                    snapshotsMetricsSource.onLoadMvDataPhaseEnd();
 
                     if (LOG.isInfoEnabled()) {
                         LOG.info(
@@ -496,6 +509,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         snapshotStats.onLoadTxMetasPhaseStart();
+        snapshotsMetricsSource.onLoadTxMetasPhaseStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info(
@@ -537,6 +551,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 if (snapshotTxDataResponse.finish()) {
                     snapshotStats.onLoadTxMetasPhaseEnd();
+                    snapshotsMetricsSource.onLoadTxMetasPhaseEnd();
 
                     if (LOG.isInfoEnabled()) {
                         LOG.info(
@@ -579,6 +594,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<Void> completeRebalance(SnapshotContext snapshotContext, @Nullable Throwable throwable) {
         snapshotStats.onSnapshotInstallationEnd();
+        snapshotsMetricsSource.onSnapshotInstallationEnd();
 
         if (!busyLock.enterBusy()) {
             if (isOk()) {
@@ -730,6 +746,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         snapshotStats.onSetRowIdToBuildPhaseStart();
+        snapshotsMetricsSource.onSetRowIdToBuildPhaseStart();
 
         try {
             Map<Integer, UUID> nextRowUuidToBuildByIndexId = snapshotContext.meta.nextRowIdToBuildByIndexId();
@@ -772,6 +789,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             }
 
             snapshotStats.onSetRowIdToBuildPhaseEnd();
+            snapshotsMetricsSource.onSetRowIdToBuildPhaseEnd();
 
             if (LOG.isInfoEnabled()) {
                 LOG.info("Finished setting next row ID for index building [snapshotId={}, {}, totalTime={}ms]",
@@ -817,6 +835,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         snapshotStats.onPreparingStoragePhaseStart();
+        snapshotsMetricsSource.onPreparingStoragePhaseStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info(
@@ -833,6 +852,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             ).thenComposeAsync(unused -> startRebalanceForReplicationLogStorages(snapshotContext), executor)
                     .whenComplete((ignore, throwable) -> {
                         snapshotStats.onPreparingStoragePhaseEnd();
+                        snapshotsMetricsSource.onPreparingStoragePhaseEnd();
 
                         if (LOG.isInfoEnabled()) {
                             LOG.info(

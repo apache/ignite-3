@@ -83,6 +83,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSn
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -311,7 +312,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 catalogService,
                 failureProcessor,
                 executor,
-                new LogStorageAccessImpl(replicaManager)
+                new LogStorageAccessImpl(replicaManager),
+                new RaftSnapshotsMetricsSource()
         );
     }
 
