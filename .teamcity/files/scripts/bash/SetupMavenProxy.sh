@@ -42,7 +42,7 @@ while IFS='|' read -r remote_url nexus_url; do
     echo ""
     echo "Replacing: $remote_url -> $nexus_url"
 
-    FILES_TO_UPDATE=$(find "$REPO_ROOT" \( -name "build.gradle" -o -name "gradle-wrapper.properties" \) -type f \
+    FILES_TO_UPDATE=$(find "$REPO_ROOT" \( -name "build.gradle" -o -name "settings.gradle" -o -name "gradle-wrapper.properties" \) -type f \
         -not -path "*/.git/*" \
         -not -path "*/.gradle/*" \
         -not -path "*/build/*" \
@@ -84,8 +84,88 @@ while IFS='|' read -r remote_url nexus_url; do
 done < "$TEMP_MAP"
 
 echo ""
+echo "========================================="
+echo "Processing GitHub URLs in dependencies.cmake files..."
+echo "========================================="
+
+GITHUB_PROXY_URL=$(echo "$REPOS_JSON" | jq -r '.[] | select(.name == "github-raw") | .url' | head -1)
+
+if [ -z "$GITHUB_PROXY_URL" ] || [ "$GITHUB_PROXY_URL" = "null" ]; then
+    echo "Warning: GitHub proxy repository not found in Nexus. Skipping GitHub URL replacements."
+    GITHUB_PROXY_PREFIX=""
+else
+    GITHUB_PROXY_PREFIX="${GITHUB_PROXY_URL%/}/"
+    echo "Using GitHub proxy: $GITHUB_PROXY_PREFIX"
+fi
+
+GITHUB_URL_PREFIX="https://github.com/"
+CMAKE_FILES_COUNT=0
+CMAKE_REPLACEMENTS=0
+
+CMAKE_FILES=$(find "$REPO_ROOT" -name "dependencies.cmake" -type f \
+    -not -path "*/.git/*" \
+    -not -path "*/.gradle/*" \
+    -not -path "*/build/*" \
+    -not -path "*/out/*" \
+    -not -path "*/.idea/*" \
+    -not -path "*/node_modules/*" \
+    -not -path "*/.run/*" \
+    2>/dev/null || true)
+
+if [ -z "$GITHUB_PROXY_PREFIX" ]; then
+    echo "Skipping GitHub URL replacements (proxy not configured)"
+elif [ -z "$CMAKE_FILES" ]; then
+    echo "No dependencies.cmake files found"
+else
+    echo "Found dependencies.cmake files:"
+    echo "$CMAKE_FILES" | while IFS= read -r cmake_file; do
+        echo "  $cmake_file"
+    done
+
+    while IFS= read -r cmake_file; do
+        if [ ! -f "$cmake_file" ]; then
+            continue
+        fi
+
+        echo ""
+        echo "Processing: $cmake_file"
+        CMAKE_FILES_COUNT=$((CMAKE_FILES_COUNT + 1))
+        REPLACEMENT_COUNT=0
+
+        TEMP_FILE=$(mktemp)
+
+        while IFS= read -r line || [ -n "$line" ]; do
+            if echo "$line" | grep -qF "$GITHUB_URL_PREFIX"; then
+                if echo "$line" | grep -qF "$GITHUB_PROXY_PREFIX"; then
+                    echo "$line" >> "$TEMP_FILE"
+                    continue
+                fi
+                NEW_LINE=$(echo "$line" | sed "s|${GITHUB_URL_PREFIX}|${GITHUB_PROXY_PREFIX}|g")
+                echo "$NEW_LINE" >> "$TEMP_FILE"
+                REPLACEMENT_COUNT=$((REPLACEMENT_COUNT + 1))
+            else
+                echo "$line" >> "$TEMP_FILE"
+            fi
+        done < "$cmake_file"
+
+        if [ $REPLACEMENT_COUNT -gt 0 ]; then
+            mv "$TEMP_FILE" "$cmake_file"
+            CMAKE_REPLACEMENTS=$((CMAKE_REPLACEMENTS + REPLACEMENT_COUNT))
+            echo "  Updated with $REPLACEMENT_COUNT replacement(s)"
+        else
+            rm -f "$TEMP_FILE"
+            echo "  No changes needed"
+        fi
+    done <<< "$CMAKE_FILES"
+fi
+
+echo ""
+echo "========================================="
 echo "Summary:"
-echo "  Files processed: $TOTAL_FILES"
-echo "  Total replacements: $TOTAL_REPLACEMENTS"
+echo "  Maven files processed: $TOTAL_FILES"
+echo "  Maven replacements: $TOTAL_REPLACEMENTS"
+echo "  dependencies.cmake files processed: $CMAKE_FILES_COUNT"
+echo "  GitHub URL replacements: $CMAKE_REPLACEMENTS"
+echo "========================================="
 echo "Done!"
 
