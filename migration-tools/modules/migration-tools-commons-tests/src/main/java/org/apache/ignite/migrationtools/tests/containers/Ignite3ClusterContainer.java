@@ -52,6 +52,9 @@ public class Ignite3ClusterContainer implements Startable {
 
     private @Nullable Map.Entry<String, String> credentials;
 
+    @Nullable
+    private String label = null;
+
     public Ignite3ClusterContainer() {
         this(Network.newNetwork());
     }
@@ -112,13 +115,25 @@ public class Ignite3ClusterContainer implements Startable {
         return this;
     }
 
+    /**
+     * Add a label to the cluster so that container assets, most notably logs, are easily identifiable.
+     *
+     * @param label Label.
+     * @return The cluster container.
+     */
+    public Ignite3ClusterContainer withLabel(String label) {
+        this.label = label;
+        this.node.withLabel("org.apache.ignite.migrationtools.label",  label);
+        return this;
+    }
+
     @Override
     public void start() {
         this.node.start();
 
         Path parentFolder = Path.of("build/test-logs");
-        // TODO: Check if we can do a better naming.
-        Path logFilePath = parentFolder.resolve("ignite-3-" + this.node.getContainerId().substring(0, 8));
+        String label = (this.label == null) ? "" : "-" + this.label;
+        Path logFilePath = parentFolder.resolve("ignite-3" + label + "-" + this.node.getContainerId().substring(0, 8));
         CountDownLatch startupLatch = new CountDownLatch(1);
 
         try {
