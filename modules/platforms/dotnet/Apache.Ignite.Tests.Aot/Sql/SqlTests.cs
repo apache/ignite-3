@@ -56,25 +56,7 @@ public class SqlTests(IIgniteClient client)
     {
         var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);
         var view = table!.GetRecordView(new PocoAllColumnsSqlMapper());
-
-        var poco = new PocoAllColumnsSql(
-            Key: 1234,
-            Str: "str!",
-            Int8: 88,
-            Int16: 166,
-            Int32: 322,
-            Int64: 644,
-            Float: 32.32f,
-            Double: 64.64,
-            Date: new LocalDate(2025, 12, 11),
-            Time: new LocalTime(10, 20, 30, 123),
-            DateTime: new LocalDateTime(2025, 12, 11, 10, 20, 30, 123),
-            Timestamp: Instant.FromUtc(2025, 12, 11, 10, 20, 30),
-            Blob: [1, 2, 3, 4, 5],
-            Decimal: 123.456m,
-            Uuid: Guid.Parse("123e4567-e89b-12d3-a456-426614174000"),
-            Boolean: true);
-
+        var poco = GetPoco();
         await view.UpsertAsync(null, poco);
 
         await using IResultSet<IIgniteTuple> resultSet = await client.Sql.ExecuteAsync(
@@ -95,5 +77,69 @@ public class SqlTests(IIgniteClient client)
         Assert.AreEqual(poco.Double, row["DOUBLE"]);
         Assert.AreEqual(poco.Uuid, row["UUID"]);
         Assert.AreEqual(new BigDecimal(poco.Decimal), row["DECIMAL"]);
+        Assert.AreEqual(poco.Date, row["DATE"]);
+        Assert.AreEqual(poco.Time, row["TIME"]);
+        Assert.AreEqual(poco.DateTime, row["DATETIME"]);
+        Assert.AreEqual(poco.Timestamp, row["TIMESTAMP"]);
+        Assert.AreEqual(poco.Blob, row["BLOB"]!);
+    }
+
+    [UsedImplicitly]
+    public async Task TestExecuteReaderAsync()
+    {
+        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);
+        var view = table!.GetRecordView(new PocoAllColumnsSqlMapper());
+        var poco = GetPoco();
+        await view.UpsertAsync(null, poco);
+
+        await using var reader = await client.Sql.ExecuteReaderAsync(
+            transaction: null, $"select * from {table.Name} where KEY = ?", poco.Key);
+
+        Assert.AreEqual(true, reader.HasRows);
+        Assert.AreEqual(false, reader.IsClosed);
+
+        bool hasRow = await reader.ReadAsync();
+        Assert.AreEqual(true, hasRow);
+
+        Assert.AreEqual(poco.Key, reader.GetInt64("KEY"));
+        Assert.AreEqual(poco.Str, reader.GetString("STR"));
+        Assert.AreEqual(poco.Int8, reader.GetByte("INT8"));
+        Assert.AreEqual(poco.Int16, reader.GetInt16("INT16"));
+        Assert.AreEqual(poco.Int32, reader.GetInt32("INT32"));
+        Assert.AreEqual(poco.Int64, reader.GetInt64("INT64"));
+        Assert.AreEqual(poco.Float, reader.GetFloat("FLOAT"));
+        Assert.AreEqual(poco.Double, reader.GetDouble("DOUBLE"));
+        Assert.AreEqual(poco.Date, reader.GetFieldValue<LocalDate>("DATE"));
+        Assert.AreEqual(poco.Time, reader.GetFieldValue<LocalTime>("TIME"));
+        Assert.AreEqual(poco.DateTime, reader.GetFieldValue<LocalDateTime>("DATETIME"));
+        Assert.AreEqual(poco.Timestamp, reader.GetFieldValue<Instant>("TIMESTAMP"));
+        Assert.AreEqual(poco.Blob, reader.GetFieldValue<byte[]>("BLOB"));
+        Assert.AreEqual(poco.Decimal, reader.GetDecimal("DECIMAL"));
+        Assert.AreEqual(poco.Uuid, reader.GetGuid("UUID"));
+        Assert.AreEqual(poco.Boolean, reader.GetBoolean("BOOLEAN"));
+
+        bool hasMoreRows = await reader.ReadAsync();
+        Assert.AreEqual(false, hasMoreRows);
+    }
+
+    private static PocoAllColumnsSql GetPoco()
+    {
+        return new PocoAllColumnsSql(
+            Key: 1234,
+            Str: "str!",
+            Int8: 88,
+            Int16: 166,
+            Int32: 322,
+            Int64: 644,
+            Float: 32.32f,
+            Double: 64.64,
+            Date: new LocalDate(2025, 12, 11),
+            Time: new LocalTime(10, 20, 30, 123),
+            DateTime: new LocalDateTime(2025, 12, 11, 10, 20, 30, 123),
+            Timestamp: Instant.FromUtc(2025, 12, 11, 10, 20, 30),
+            Blob: [1, 2, 3, 4, 5],
+            Decimal: 123.456m,
+            Uuid: Guid.Parse("123e4567-e89b-12d3-a456-426614174000"),
+            Boolean: true);
     }
 }
