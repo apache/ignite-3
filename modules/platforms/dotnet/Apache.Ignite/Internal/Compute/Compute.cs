@@ -63,7 +63,6 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
             IJobTarget<TTarget> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
@@ -603,7 +602,9 @@ namespace Apache.Ignite.Internal.Compute
             return await ExecuteOnNodes(nodesCol, jobDescriptor, arg, cancellationToken).ConfigureAwait(false);
         }
 
-        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
+        // TODO IGNITE-27278: Remove suppression and require mapper in trimmed mode.
+        // Otherwise colocated execution fails for custom types with AOT.
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "All column types are known.")]
         private async Task<IJobExecution<TResult>> SubmitColocatedAsync<TArg, TResult, TKey>(
             JobTarget.ColocatedTarget<TKey> target,
             JobDescriptor<TArg, TResult> jobDescriptor,

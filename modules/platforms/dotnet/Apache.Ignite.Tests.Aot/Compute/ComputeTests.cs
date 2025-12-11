@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Aot.Compute;
 
+using Common.Compute;
+using Ignite.Compute;
 using JetBrains.Annotations;
 
 public class ComputeTests(IIgniteClient client)
@@ -24,6 +26,9 @@ public class ComputeTests(IIgniteClient client)
     [UsedImplicitly]
     public async Task TestJavaJob()
     {
-
+        var nodes = JobTarget.AnyNode(await client.GetClusterNodesAsync());
+        IJobExecution<object> resExec = await client.Compute.SubmitAsync(nodes, JavaJobs.EchoJob, "hello");
+        object res = await resExec.GetResultAsync();
+        Assert.AreEqual("hello", res);
     }
 }

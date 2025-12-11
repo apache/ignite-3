@@ -18,6 +18,7 @@
 using System.Diagnostics;
 using Apache.Ignite;
 using Apache.Ignite.Tests.Aot;
+using Apache.Ignite.Tests.Aot.Compute;
 using Apache.Ignite.Tests.Aot.Table;
 using Apache.Ignite.Tests.Common;
 using Microsoft.Extensions.Logging;
@@ -45,6 +46,7 @@ var sw = Stopwatch.StartNew();
 Console.WriteLine(">>> Starting tests...");
 
 await TestRunner.Run(new TableTests(ignite), logger);
+await TestRunner.Run(new ComputeTests(ignite), logger);
 
 logger.Flush();
 Console.WriteLine($">>> All tests completed in {sw.Elapsed}.");
