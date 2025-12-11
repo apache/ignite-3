@@ -84,7 +84,7 @@ Project
                                       index: REASON_PK
                                       type: HASH
                                       predicate: =(R_REASON_SK, 1)
-                                      searchBounds: [ExactBounds [bound=1]]
+                                      searchBounds: <1>
                                       fieldNames: [R_REASON_SK]
                                       est: (rows=1)
                                 Project
