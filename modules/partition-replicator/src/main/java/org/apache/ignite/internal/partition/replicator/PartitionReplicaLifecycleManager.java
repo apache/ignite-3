@@ -731,10 +731,10 @@ public class PartitionReplicaLifecycleManager extends
 
                             CompletableFuture<Void> clearTxStateStorage = zoneResources.txStatePartitionStorage().clear();
 
-                            CompletableFuture<?>[] registeedCleanupFutures = eventParams.cleanupActions().stream()
+                            CompletableFuture<?>[] registeredCleanupFutures = eventParams.cleanupActions().stream()
                                     .map(Supplier::get)
                                     .toArray(CompletableFuture[]::new);
-                            CompletableFuture<Void> clearMvStorages = allOf(registeedCleanupFutures);
+                            CompletableFuture<Void> clearMvStorages = allOf(registeredCleanupFutures);
 
                             return allOf(clearTxStateStorage, clearMvStorages);
                         } else {
