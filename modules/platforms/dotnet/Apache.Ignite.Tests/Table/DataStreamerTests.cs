@@ -42,15 +42,15 @@ using static Common.Table.TestTables;
 /// </summary>
 public class DataStreamerTests : IgniteTestsBase
 {
-    private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
+    private const string TestReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$TestReceiver";
 
-    private const string EchoReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoReceiver";
+    private const string EchoReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$EchoReceiver";
 
-    private const string EchoArgsReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoArgsReceiver";
+    private const string EchoArgsReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$EchoArgsReceiver";
 
-    private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
+    private const string UpsertElementTypeNameReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
 
-    private const string MarshallerReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$MarshallerReceiver";
+    private const string MarshallerReceiverClassName = JavaJobs.PlatformTestNodeRunner + "$MarshallerReceiver";
 
     private const int Count = 100;
 

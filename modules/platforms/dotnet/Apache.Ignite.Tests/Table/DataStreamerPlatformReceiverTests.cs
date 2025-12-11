@@ -36,7 +36,7 @@ using TestHelpers;
 public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 {
     private static readonly JobDescriptor<JobInfo, object?> StreamerRunnerJob = new(
-        ComputeTests.PlatformTestNodeRunner + "$StreamerRunnerJob")
+        JavaJobs.PlatformTestNodeRunner + "$StreamerRunnerJob")
     {
         ArgMarshaller = new JsonMarshaller<JobInfo>()
     };

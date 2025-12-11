@@ -72,7 +72,7 @@ public class ExceptionCodeAsStringTests : IgniteTestsBase
     private async Task<string> GetCodeAsStringJava(int errorCode)
     {
         var nodes = await Client.GetClusterNodesAsync();
-        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), ComputeTests.ExceptionCodeAsStringJob, errorCode);
+        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), JavaJobs.ExceptionCodeAsStringJob, errorCode);
         return await jobExec.GetResultAsync();
     }
 }

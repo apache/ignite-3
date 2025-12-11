@@ -43,7 +43,7 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
-    private static readonly JobDescriptor<JobInfo, object?> JobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "$JobRunnerJob")
+    private static readonly JobDescriptor<JobInfo, object?> JobRunnerJob = new(JavaJobs.PlatformTestNodeRunner + "$JobRunnerJob")
     {
         ArgMarshaller = new JsonMarshaller<JobInfo>()
     };
@@ -302,7 +302,7 @@ public class PlatformComputeTests : IgniteTestsBase
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
-        var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
+        var nodeName = JavaJobs.PlatformTestNodeRunner + suffix;
 
         var nodes = await Client.GetClusterNodesAsync();
         return nodes.First(n => n.Name == nodeName);

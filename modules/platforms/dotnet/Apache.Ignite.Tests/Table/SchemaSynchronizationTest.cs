@@ -99,7 +99,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 case TestMode.Compute:
                     await Client.Compute.SubmitAsync(
                         JobTarget.Colocated(table.Name, rec2),
-                        ComputeTests.NodeNameJob,
+                        JavaJobs.NodeNameJob,
                         null);
                     break;
 
@@ -158,7 +158,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 // ExecuteColocated requires key part only.
                 await Client.Compute.SubmitAsync(
                     JobTarget.Colocated(table.Name, rec),
-                    ComputeTests.NodeNameJob,
+                    JavaJobs.NodeNameJob,
                     null);
                 break;
 
@@ -300,7 +300,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             case TestMode.Compute:
                 var jobExecution = await Client.Compute.SubmitAsync(
                     JobTarget.Colocated(table.Name, new Poco(1, "foo")),
-                    ComputeTests.NodeNameJob,
+                    JavaJobs.NodeNameJob,
                     null);
 
                 await jobExecution.GetResultAsync();

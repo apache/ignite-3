@@ -123,7 +123,7 @@ public class PartitionManagerTests : IgniteTestsBase
                 ? await Table.PartitionManager.GetPartitionAsync(GetPoco(id))
                 : await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
 
-            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, ComputeTests.PartitionJob, id);
+            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
 
             Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
