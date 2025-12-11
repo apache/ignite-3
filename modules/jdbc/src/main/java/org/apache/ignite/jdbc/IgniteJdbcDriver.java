@@ -336,7 +336,7 @@ public class IgniteJdbcDriver implements Driver {
                         IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
                                 + "the feature required by the driver being used. Please refer to the documentation and use a compatible "
                                 + "version of the JDBC driver to connect to this node "
-                                + "[nameName={}, nodeAddress={}, nodeVersion={}, driverVersion={}]",
+                                + "[nodeName={}, nodeAddress={}, nodeVersion={}, driverVersion={}]",
                                 node.name(), node.address(), ctx.productVersion(), FULL_VER),
                         null
                 );
