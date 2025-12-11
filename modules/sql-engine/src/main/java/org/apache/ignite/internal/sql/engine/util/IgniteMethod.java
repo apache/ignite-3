@@ -31,7 +31,6 @@ import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowAccessor;
 import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -51,8 +50,8 @@ public enum IgniteMethod {
     /** See {@link SqlEvaluationContext#rowAccessor()}. */
     CONTEXT_ROW_HANDLER(SqlEvaluationContext.class, "rowAccessor"),
 
-    /** See {@link ExecutionContext#correlatedVariable(int)}. */
-    CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
+    /** See {@link SqlEvaluationContext#correlatedVariable(int)}. */
+    CONTEXT_GET_CORRELATED_VALUE(SqlEvaluationContext.class, "correlatedVariable", int.class),
 
     /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
