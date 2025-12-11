@@ -21,9 +21,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Common;
 
-public static class TestRunner
+public class TestRunner
 {
-    public static async Task Run<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(
+    public int TestCount { get; private set; }
+
+    public async Task Run<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(
         T testClass, ConsoleLogger logger)
     {
         var methods = typeof(T).GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance);
@@ -31,6 +33,7 @@ public static class TestRunner
         foreach (var method in methods)
         {
             Console.WriteLine($">>> Starting {method.Name}...");
+            TestCount++;
 
             try
             {
