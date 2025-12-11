@@ -85,7 +85,7 @@ object PlatformDotnetTestsLinux : BuildType({
         }
         script {
             name = "Build AOT Tests"
-            scriptContent = "dotnet publish --runtime linux-x64 --configuration Release Apache.Ignite.Tests.Aot"
+            scriptContent = "dotnet publish --runtime linux-x64 --configuration Release Apache.Ignite.Tests.Aot/Apache.Ignite.Tests.Aot.csproj"
         }
         script {
             name = "Run AOT Tests"
