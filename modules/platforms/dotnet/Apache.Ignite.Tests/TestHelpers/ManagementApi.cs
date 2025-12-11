@@ -108,6 +108,7 @@ public static class ManagementApi
     {
         using var tempDir = new TempDir();
         var testsDll = typeof(ManagementApi).Assembly.Location;
+        var testsCommonDll = typeof(DotNetJobs).Assembly.Location;
         var newerDotNetDll = await DotNetJobUtils.WriteNewerDotnetJobsAssembly(tempDir.Path, "NewerDotnetJobs");
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
@@ -116,7 +117,7 @@ public static class ManagementApi
         return await UnitDeploy(
             unitId: unitId0,
             unitVersion: unitVersion0,
-            unitContent: [testsDll, newerDotNetDll]);
+            unitContent: [testsDll, testsCommonDll, newerDotNetDll]);
     }
 
     public static string GetRandomUnitVersion() => DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
