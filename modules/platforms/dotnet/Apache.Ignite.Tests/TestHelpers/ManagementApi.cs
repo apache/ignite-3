@@ -28,6 +28,7 @@ using System.Threading.Tasks;
 using Apache.Ignite.Compute;
 using Common.Compute;
 using Compute;
+using Compute.Executor;
 using Internal.Common;
 using NUnit.Framework;
 
@@ -107,7 +108,7 @@ public static class ManagementApi
     {
         using var tempDir = new TempDir();
         var testsDll = typeof(ManagementApi).Assembly.Location;
-        var newerDotNetDll = await DotNetJobs.WriteNewerDotnetJobsAssembly(tempDir.Path, "NewerDotnetJobs");
+        var newerDotNetDll = await DotNetJobUtils.WriteNewerDotnetJobsAssembly(tempDir.Path, "NewerDotnetJobs");
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
         var unitVersion0 = unitVersion ?? GetRandomUnitVersion();

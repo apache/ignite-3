@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Common.Compute;
+using Executor;
 using Ignite.Compute;
 using Ignite.Marshalling;
 using Ignite.Table;
@@ -291,7 +292,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public void TestNewerDotnetVersionAssembly()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async() => await ExecJobAsync(DotNetJobs.NewerDotNetJob, "test"));
+        var ex = Assert.ThrowsAsync<IgniteException>(async() => await ExecJobAsync(DotNetJobUtils.NewerDotNetJob, "test"));
 
         StringAssert.StartsWith(
             ".NET job failed: Failed to load type 'NewerDotnetJobs.EchoJob, NewerDotnetJobs' " +

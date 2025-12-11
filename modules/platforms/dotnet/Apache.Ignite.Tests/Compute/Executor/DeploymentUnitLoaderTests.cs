@@ -127,7 +127,7 @@ public class DeploymentUnitLoaderTests
     {
         using var tempDir = new TempDir();
         var asmName = "NewerDotnetJobs";
-        await DotNetJobs.WriteNewerDotnetJobsAssembly(tempDir.Path, asmName);
+        await DotNetJobUtils.WriteNewerDotnetJobsAssembly(tempDir.Path, asmName);
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
 
