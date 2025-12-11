@@ -117,7 +117,6 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -146,6 +145,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** For {@link IncomingSnapshotCopier} testing. */
 @ExtendWith(MockitoExtension.class)
 public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "node";
@@ -396,7 +396,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
         var storage = new PartitionSnapshotStorage(
-                new TablePartitionKey(TABLE_ID, PARTITION_ID),
+                new ZonePartitionKey(ZONE_ID, PARTITION_ID),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(incomingTxStateStorage.getPartitionStorage(PARTITION_ID)),
