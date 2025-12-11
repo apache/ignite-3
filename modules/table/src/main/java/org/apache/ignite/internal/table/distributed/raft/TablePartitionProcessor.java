@@ -75,8 +75,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-// TODO ignite-22522 Rename to TablePartitionProcessor and remove implements RaftGroupListener
-public class PartitionListener implements RaftTableProcessor {
+public class TablePartitionProcessor implements RaftTableProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -110,7 +109,7 @@ public class PartitionListener implements RaftTableProcessor {
     private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
-    public PartitionListener(
+    public TablePartitionProcessor(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,

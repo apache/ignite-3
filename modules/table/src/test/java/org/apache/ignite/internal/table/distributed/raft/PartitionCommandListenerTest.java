@@ -160,7 +160,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private static final SchemaRegistry SCHEMA_REGISTRY = new DummySchemaManagerImpl(SCHEMA);
 
-    private PartitionListener commandListener;
+    private TablePartitionProcessor commandListener;
 
     private final AtomicLong raftIndex = new AtomicLong();
 
@@ -274,7 +274,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
 
-        commandListener = new PartitionListener(
+        commandListener = new TablePartitionProcessor(
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,

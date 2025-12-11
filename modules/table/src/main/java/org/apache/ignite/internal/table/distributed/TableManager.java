@@ -166,7 +166,7 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
@@ -933,7 +933,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 raftClient
         );
 
-        var tablePartitionRaftListener = new PartitionListener(
+        var tablePartitionRaftListener = new TablePartitionProcessor(
                 txManager,
                 partitionDataStorage,
                 partitionUpdateHandlers.storageUpdateHandler,
