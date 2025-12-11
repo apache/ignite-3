@@ -19,6 +19,7 @@ using System.Diagnostics;
 using Apache.Ignite;
 using Apache.Ignite.Tests.Aot;
 using Apache.Ignite.Tests.Aot.Compute;
+using Apache.Ignite.Tests.Aot.Sql;
 using Apache.Ignite.Tests.Aot.Table;
 using Apache.Ignite.Tests.Common;
 using Microsoft.Extensions.Logging;
@@ -33,12 +34,6 @@ var cfg = new IgniteClientConfiguration("localhost:10942")
 
 using var ignite = await IgniteClient.StartAsync(cfg);
 
-// TODO: Tests
-// - Table views with tuples and mappers
-// - SQL
-// - Compute
-// - Streamer
-// - PartitionManager
 // TODO: Documentation section.
 logger.Flush();
 
@@ -47,6 +42,7 @@ Console.WriteLine(">>> Starting tests...");
 
 await TestRunner.Run(new TableTests(ignite), logger);
 await TestRunner.Run(new ComputeTests(ignite), logger);
+await TestRunner.Run(new SqlTests(ignite), logger);
 
 logger.Flush();
 Console.WriteLine($">>> All tests completed in {sw.Elapsed}.");
