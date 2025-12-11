@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.lang.Thread.sleep;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 
 import java.lang.reflect.Field;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that forces a checkpoint and optionally cancels the compaction process on the node. */
 public class CheckpointJob implements ComputeJob<Boolean, Void> {
@@ -41,7 +41,7 @@ public class CheckpointJob implements ComputeJob<Boolean, Void> {
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, Boolean shouldCancelCompaction) {
 
         try {
-            IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+            IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
 
             CheckpointManager checkpointManager = checkpointManager(igniteImpl);
 

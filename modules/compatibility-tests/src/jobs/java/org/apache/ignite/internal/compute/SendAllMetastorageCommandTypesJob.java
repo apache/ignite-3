@@ -35,16 +35,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
 // TODO IGNITE-26874 Add a check that all write commands are covered.
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-
-        try {
-            IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+            IgniteImpl igniteImpl = JobsCommon.unwrapIgniteImpl(context.ignite());
 
             byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
@@ -62,15 +59,16 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
                     metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
                     sendCompactionCommand(metastorage)
             ).thenCompose((v) -> metastorage.storage().flush());
+        }
+
+    private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage) {
+        try {
+            Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
+            sendCompactionCommand.setAccessible(true);
+
+            return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, metastorage.appliedRevision());
         } catch (Exception e) {
             return failedFuture(e);
         }
-    }
-
-    private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage)
-            throws Exception {
-        Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
-        sendCompactionCommand.setAccessible(true);
-        return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, metastorage.appliedRevision());
     }
 }

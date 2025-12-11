@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
 
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +32,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 public class TruncateRaftLogCommand implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String groupId) {
-        try {
             IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
 
             SnapshotRequest request = new RaftMessagesFactory().snapshotRequest()
@@ -47,8 +45,5 @@ public class TruncateRaftLogCommand implements ComputeJob<String, Void> {
             return messagingService.invoke(igniteImpl.name(), request, 10_000L)
                     .thenCompose(ignored -> messagingService.invoke(igniteImpl.name(), request, 10_000L))
                     .thenApply(ignored -> null);
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
     }
 }

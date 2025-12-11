@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.compute.PutVaultEntriesJob.NEW_VALUE;
 import static org.apache.ignite.internal.compute.PutVaultEntriesJob.OVERWRITTEN_KEY;
@@ -27,6 +26,7 @@ import static org.apache.ignite.internal.compute.PutVaultEntriesJob.TEST_VALUE;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -34,6 +34,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.PutVaultEntriesJob;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -52,17 +53,23 @@ public class ItVaultStorageCompatibilityTest extends CompatibilityTestBase {
     protected void setupBaseVersion(Ignite baseIgnite) {
         DeploymentUtils.deployJobs();
 
-        createDefaultTables(baseIgnite);
-
         runPutVaultEntriesJob();
     }
 
     @Test
     void testVaultStorageCompatibility() {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.node(0));
+
         assertThat(ignite.vault().get(TEST_KEY).value(), is(TEST_VALUE));
         assertThat(ignite.vault().get(OVERWRITTEN_KEY).value(), is(NEW_VALUE));
-        assertThat(ignite.vault().get(REMOVED_KEY), nullValue());
+        assertThat(ignite.vault().get(REMOVED_KEY), is(nullValue()));
+
+        for (var entry : PutVaultEntriesJob.PUT_ALL_ENTRIES.entrySet()) {
+            VaultEntry actual = ignite.vault().get(entry.getKey());
+
+            assertThat(actual, is(notNullValue()));
+            assertThat(actual.value(), is(entry.getValue()));
+        }
     }
 
     private void runPutVaultEntriesJob() {

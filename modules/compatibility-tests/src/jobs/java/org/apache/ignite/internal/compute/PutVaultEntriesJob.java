@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that writes values specified in constants to node's vault. */
 public class PutVaultEntriesJob implements ComputeJob<String, Void> {
@@ -43,11 +43,14 @@ public class PutVaultEntriesJob implements ComputeJob<String, Void> {
 
     public static final ByteArray REMOVED_KEY = new ByteArray("removed_key".getBytes(StandardCharsets.UTF_8));
 
+    public static final Map<ByteArray,byte[]> PUT_ALL_ENTRIES = Map.of(
+            new ByteArray("put_all_key1".getBytes(StandardCharsets.UTF_8)), "put_all_value1".getBytes(StandardCharsets.UTF_8),
+            new ByteArray("put_all_key2".getBytes(StandardCharsets.UTF_8)), "put_all_value2".getBytes(StandardCharsets.UTF_8)
+    );
+
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-
-        try {
-            IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+            IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
 
             VaultManager vault = igniteImpl.vault();
 
@@ -56,10 +59,8 @@ public class PutVaultEntriesJob implements ComputeJob<String, Void> {
             vault.put(REMOVED_KEY, INITIAL_VALUE);
             vault.put(OVERWRITTEN_KEY, NEW_VALUE);
             vault.remove(REMOVED_KEY);
+            vault.putAll(PUT_ALL_ENTRIES);
 
             return nullCompletedFuture();
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
     }
 }
