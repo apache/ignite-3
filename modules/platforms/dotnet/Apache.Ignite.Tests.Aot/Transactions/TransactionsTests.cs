@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Aot.Transactions;
 
+using Common.Table;
 using JetBrains.Annotations;
 
 public class TransactionsTests(IIgniteClient client)
@@ -24,10 +25,44 @@ public class TransactionsTests(IIgniteClient client)
     [UsedImplicitly]
     public async Task TestCommit()
     {
+        var table = await client.Tables.GetTableAsync(TestTables.TableName);
+        var view = table!.GetRecordView(new PocoMapper());
+
+        await using var tx = await client.Transactions.BeginAsync();
+
+        var poco = new Poco { Key = 8000, Val = "tx-commit-test" };
+        await view.UpsertAsync(tx, poco);
+
+        // Before commit.
+        var res1 = await view.GetAsync(tx, new Poco { Key = 8000 });
+        Assert.AreEqual("tx-commit-test", res1.Value.Val);
+
+        await tx.CommitAsync();
+
+        // After commit.
+        var res2 = await view.GetAsync(null, new Poco { Key = 8000 });
+        Assert.AreEqual("tx-commit-test", res2.Value.Val);
     }
 
     [UsedImplicitly]
     public async Task TestRollback()
     {
+        var table = await client.Tables.GetTableAsync(TestTables.TableName);
+        var view = table!.GetRecordView(new PocoMapper());
+
+        await using var tx = await client.Transactions.BeginAsync();
+
+        var poco = new Poco { Key = 8001, Val = "tx-rollback-test" };
+        await view.UpsertAsync(tx, poco);
+
+        // Before rollback.
+        var res1 = await view.GetAsync(tx, new Poco { Key = 8001 });
+        Assert.AreEqual("tx-rollback-test", res1.Value.Val);
+
+        await tx.RollbackAsync();
+
+        // After rollback.
+        var res2 = await view.GetAsync(null, new Poco { Key = 8001 });
+        Assert.AreEqual(false, res2.HasValue);
     }
 }
