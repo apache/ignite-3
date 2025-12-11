@@ -89,7 +89,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                         assertQuery(format("select {} from t", inc.incrementAndGet()))
                                 .matches(nodeRowCount("TableScan", is((int) update)))
                                 .check()
-                );
+        );
     }
 
     @Test
@@ -107,7 +107,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                                     .matches(nodeRowCount("TableScan", is((int) updates1)))
                                     .check();
                         }
-                );
+        );
 
         milestone = computeNextMilestone(milestone, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
@@ -126,7 +126,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                                     .matches(nodeRowCount("TableScan", is((int) updates2)))
                                     .check();
                         }
-                );
+        );
     }
 
     @Test
@@ -153,7 +153,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
                                     .returnNothing()
                                     .check()
-                    );
+            );
 
             sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 3 * DEFAULT_MIN_STALE_ROWS_COUNT);
 
@@ -166,7 +166,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
                                     .check()
-                    );
+            );
         } finally {
             sqlScript(""
                     + "DROP TABLE IF EXISTS j1;"
@@ -201,8 +201,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
                                     .returnNothing()
-                                    .check()
-                    );
+                                    .check());
 
             sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 3 * DEFAULT_MIN_STALE_ROWS_COUNT);
 
@@ -215,7 +214,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
                                     .check()
-                    );
+            );
         } finally {
             sqlScript(""
                     + "DROP TABLE IF EXISTS j1;"
