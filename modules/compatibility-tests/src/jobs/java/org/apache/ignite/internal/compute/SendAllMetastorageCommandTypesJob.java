@@ -41,25 +41,25 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-            IgniteImpl igniteImpl = JobsCommon.unwrapIgniteImpl(context.ignite());
+        IgniteImpl igniteImpl = JobsCommon.unwrapIgniteImpl(context.ignite());
 
-            byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
-            MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
+        MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
 
-            return allOf(
-                    metastorage.put(ByteArray.fromString("put"), value),
-                    metastorage.putAll(Map.of(ByteArray.fromString("putAll"), value)),
-                    metastorage.remove(ByteArray.fromString("remove")),
-                    metastorage.removeAll(Set.of(ByteArray.fromString("removeAll"))),
-                    metastorage.removeByPrefix(ByteArray.fromString("removeByPrefix")),
-                    metastorage.invoke(exists(ByteArray.fromString("key")), noop(), noop()),
-                    metastorage.invoke(
-                            iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
-                    metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
-                    sendCompactionCommand(metastorage)
-            ).thenCompose((v) -> metastorage.storage().flush());
-        }
+        return allOf(
+                metastorage.put(ByteArray.fromString("put"), value),
+                metastorage.putAll(Map.of(ByteArray.fromString("putAll"), value)),
+                metastorage.remove(ByteArray.fromString("remove")),
+                metastorage.removeAll(Set.of(ByteArray.fromString("removeAll"))),
+                metastorage.removeByPrefix(ByteArray.fromString("removeByPrefix")),
+                metastorage.invoke(exists(ByteArray.fromString("key")), noop(), noop()),
+                metastorage.invoke(
+                        iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
+                metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
+                sendCompactionCommand(metastorage)
+        ).thenCompose((v) -> metastorage.storage().flush());
+    }
 
     private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage) {
         try {

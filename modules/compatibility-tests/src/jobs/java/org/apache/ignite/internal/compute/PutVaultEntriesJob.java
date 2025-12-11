@@ -43,24 +43,24 @@ public class PutVaultEntriesJob implements ComputeJob<String, Void> {
 
     public static final ByteArray REMOVED_KEY = new ByteArray("removed_key".getBytes(StandardCharsets.UTF_8));
 
-    public static final Map<ByteArray,byte[]> PUT_ALL_ENTRIES = Map.of(
+    public static final Map<ByteArray, byte[]> PUT_ALL_ENTRIES = Map.of(
             new ByteArray("put_all_key1".getBytes(StandardCharsets.UTF_8)), "put_all_value1".getBytes(StandardCharsets.UTF_8),
             new ByteArray("put_all_key2".getBytes(StandardCharsets.UTF_8)), "put_all_value2".getBytes(StandardCharsets.UTF_8)
     );
 
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-            IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
+        IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
 
-            VaultManager vault = igniteImpl.vault();
+        VaultManager vault = igniteImpl.vault();
 
-            vault.put(TEST_KEY, TEST_VALUE);
-            vault.put(OVERWRITTEN_KEY, INITIAL_VALUE);
-            vault.put(REMOVED_KEY, INITIAL_VALUE);
-            vault.put(OVERWRITTEN_KEY, NEW_VALUE);
-            vault.remove(REMOVED_KEY);
-            vault.putAll(PUT_ALL_ENTRIES);
+        vault.put(TEST_KEY, TEST_VALUE);
+        vault.put(OVERWRITTEN_KEY, INITIAL_VALUE);
+        vault.put(REMOVED_KEY, INITIAL_VALUE);
+        vault.put(OVERWRITTEN_KEY, NEW_VALUE);
+        vault.remove(REMOVED_KEY);
+        vault.putAll(PUT_ALL_ENTRIES);
 
-            return nullCompletedFuture();
+        return nullCompletedFuture();
     }
 }

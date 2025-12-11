@@ -32,18 +32,18 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 public class TruncateRaftLogCommand implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String groupId) {
-            IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
+        IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
 
-            SnapshotRequest request = new RaftMessagesFactory().snapshotRequest()
-                    .groupId(groupId)
-                    .peerId(igniteImpl.name())
-                    .build();
+        SnapshotRequest request = new RaftMessagesFactory().snapshotRequest()
+                .groupId(groupId)
+                .peerId(igniteImpl.name())
+                .build();
 
-            MessagingService messagingService = igniteImpl.raftManager().messagingService();
+        MessagingService messagingService = igniteImpl.raftManager().messagingService();
 
-            // Version 3.0.0 doesn't have "forced" snapshot, so we have to request it twice.
-            return messagingService.invoke(igniteImpl.name(), request, 10_000L)
-                    .thenCompose(ignored -> messagingService.invoke(igniteImpl.name(), request, 10_000L))
-                    .thenApply(ignored -> null);
+        // Version 3.0.0 doesn't have "forced" snapshot, so we have to request it twice.
+        return messagingService.invoke(igniteImpl.name(), request, 10_000L)
+                .thenCompose(ignored -> messagingService.invoke(igniteImpl.name(), request, 10_000L))
+                .thenApply(ignored -> null);
     }
 }
