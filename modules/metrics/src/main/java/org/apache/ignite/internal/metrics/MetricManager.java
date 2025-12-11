@@ -74,7 +74,7 @@ public interface MetricManager extends IgniteComponent {
     void unregisterSource(MetricSource src);
 
     /**
-     * Disables and unregister metric source by name.
+     * Disables and unregisters metric source by name.
      *
      * @param srcName Metric source name.
      * @see #disable(String)
