@@ -19,6 +19,9 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -62,10 +65,12 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -858,6 +863,50 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             TxManager txManager = server.txManager();
             TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
             assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
+        }
+    }
+
+    @Test
+    void testKvAndDistributedDmlInSameTransaction() {
+        IgniteSql sql = client().sql();
+        sql.executeScript("CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        KeyValueView<Integer, Integer> view = client().tables()
+                .table("my_table")
+                .keyValueView(Integer.class, Integer.class);
+
+        // First, we need to await table creation.
+        for (int i = 0; i < 10; i++) {
+            view.put(null, i, 0);
+        }
+
+        Transaction tx = client().transactions().begin();
+
+        try {
+            // Then run few operations to make sure transaction is initialized with commitPartition.
+            for (int i = 0; i < 10; i++) {
+                view.put(tx, i, 0);
+            }
+
+            // Run first batch of distributed DML queries. PartitionAwareness meta may be not prepared yet.
+            for (int i = 0; i < 5; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "UPDATE my_table SET val = val * 10 WHERE id = ?", i)) {
+                    // NO-OP
+                }
+            }
+
+            // Hence, let's wait for PA meta to be ready.
+            Awaitility.await().until(() -> ((ClientSql) sql).partitionAwarenessCachedMetas(), is(not(empty())));
+
+            // And retry distributed DML queries one more time. Here, even though PA meta is available, we expect
+            // these statements to be executed in proxy mode and no exceptions should be thrown.
+            for (int i = 0; i < 5; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "UPDATE my_table SET val = val * 10 WHERE id = ?", i)) {
+                    // NO-OP
+                }
+            }
+        } finally {
+            tx.rollback();
         }
     }
 
