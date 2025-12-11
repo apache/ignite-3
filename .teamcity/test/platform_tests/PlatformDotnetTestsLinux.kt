@@ -93,6 +93,9 @@ object PlatformDotnetTestsLinux : BuildType({
             workingDir = "%PATH__WORKING_DIR%"
             scriptContent = "./Apache.Ignite.Tests.Aot/bin/Release/net8.0/linux-x64/publish/Apache.Ignite.Tests.Aot"
         }
+        customScript(type = "bash") {
+            name = "Clean Up Remaining Processes"
+        }
     }
 
     failureConditions {
