@@ -157,14 +157,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
 
         // Create file operation metrics
-        StorageFilesMetricSource metricSource = new StorageFilesMetricSource();
-        this.metrics = new StorageFilesMetrics(
-                metricSource,
+        StorageFilesMetricSource metricSource = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+        this.metrics = new StorageFilesMetrics(metricSource);
 
         // Create I/O metrics
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();

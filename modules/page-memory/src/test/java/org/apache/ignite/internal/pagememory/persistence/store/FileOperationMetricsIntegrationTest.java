@@ -57,19 +57,19 @@ class FileOperationMetricsIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        metricSource = new StorageFilesMetricSource();
         openFilesCount = new AtomicInteger(0);
         totalFileSize = new AtomicLong(0);
         deltaFilesCount = new AtomicInteger(0);
         deltaFilesTotalSize = new AtomicLong(0);
 
-        metrics = new StorageFilesMetrics(
-                metricSource,
+        metricSource = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        metrics = new StorageFilesMetrics(metricSource);
     }
 
     @Test

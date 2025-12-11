@@ -32,19 +32,19 @@ import org.junit.jupiter.api.Test;
 class StorageFilesMetricsTest {
     @Test
     void testMetricsCreation() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         assertThat(metrics.openFilesCount(), notNullValue());
         assertThat(metrics.fileOpenTotal(), notNullValue());
@@ -61,19 +61,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testOpenFilesCountGauge() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(5);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         assertThat(metrics.openFilesCount().value(), equalTo(5));
 
@@ -83,19 +83,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testFileOpenTotalCounter() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         metrics.fileOpenTotal().increment();
         metrics.fileOpenTotal().increment();
@@ -106,19 +106,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testFileCreateTotalCounter() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         metrics.fileCreateTotal().increment();
         metrics.fileCreateTotal().increment();
@@ -128,19 +128,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testDeltaFileCreateTotalCounter() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         metrics.deltaFileCreateTotal().increment();
 
@@ -149,19 +149,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testFileOpenTimeDistribution() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         // Simulate file open (1ms)
         metrics.fileOpenTime().add(1_000_000);
@@ -177,19 +177,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testFileSyncTimeDistribution() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         // Simulate fsync (10ms)
         metrics.fileSyncTime().add(10_000_000);
@@ -205,19 +205,19 @@ class StorageFilesMetricsTest {
 
     @Test
     void testTotalFileSizeGauge() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(1048576); // 1MB
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         assertThat(metrics.totalFileSize().value(), equalTo(1048576L));
 
@@ -227,57 +227,57 @@ class StorageFilesMetricsTest {
 
     @Test
     void testDeltaFilesCountGauge() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(3);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         assertThat(metrics.deltaFilesCount().value(), equalTo(3));
     }
 
     @Test
     void testDeltaFilesTotalSizeGauge() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(524288); // 512KB
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         assertThat(metrics.deltaFilesTotalSize().value(), equalTo(524288L));
     }
 
     @Test
     void testFileOpenErrorsCounter() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
         AtomicInteger openFilesCount = new AtomicInteger(0);
         AtomicLong totalFileSize = new AtomicLong(0);
         AtomicInteger deltaFilesCount = new AtomicInteger(0);
         AtomicLong deltaFilesTotalSize = new AtomicLong(0);
 
-        StorageFilesMetrics metrics = new StorageFilesMetrics(
-                source,
+        StorageFilesMetricSource source = new StorageFilesMetricSource(
                 openFilesCount::get,
                 totalFileSize::get,
                 deltaFilesCount::get,
                 deltaFilesTotalSize::get
         );
+
+        StorageFilesMetrics metrics = new StorageFilesMetrics(source);
 
         metrics.fileOpenErrors().increment();
 
@@ -286,7 +286,7 @@ class StorageFilesMetricsTest {
 
     @Test
     void testMetricSourceName() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
+        StorageFilesMetricSource source = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
 
         assertThat(source.name(), equalTo("storage.files"));
     }

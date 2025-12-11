@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
-import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /**
  * Checkpoint read lock metrics.
@@ -42,37 +41,22 @@ class CheckpointReadLockMetrics {
     /**
      * Constructor.
      *
-     * @param source Metric source to register metrics with.
-     * @param waitingThreadsSupplier Supplier for the number of waiting threads.
+     * @param source Metric source to get metrics from.
      */
-    CheckpointReadLockMetrics(CheckpointReadLockMetricSource source, java.util.function.IntSupplier waitingThreadsSupplier) {
-        acquisitionTime = source.addMetric(new DistributionMetric(
-                "CheckpointReadLockAcquisitionTime",
-                "Time from requesting checkpoint read lock until acquisition in nanoseconds.",
-                MetricBounds.LOCK_ACQUISITION_NANOS
-        ));
+    CheckpointReadLockMetrics(CheckpointReadLockMetricSource source) {
+        // Enable the source immediately to create the holder
+        source.enable();
 
-        holdTime = source.addMetric(new DistributionMetric(
-                "CheckpointReadLockHoldTime",
-                "Duration between checkpoint read lock acquisition and release in nanoseconds.",
-                MetricBounds.LOCK_HOLD_NANOS
-        ));
+        // Get the holder with metric instances
+        CheckpointReadLockMetricSource.Holder holder = source.holder();
 
-        acquisitions = source.addMetric(new LongAdderMetric(
-                "CheckpointReadLockAcquisitions",
-                "Total successful read lock acquisitions since startup."
-        ));
+        assert holder != null : "Holder must be non-null after enable()";
 
-        contentionCount = source.addMetric(new LongAdderMetric(
-                "CheckpointReadLockContentionCount",
-                "Number of times thread had to wait for read lock (lock not immediately available)."
-        ));
-
-        waitingThreads = source.addMetric(new IntGauge(
-                "CheckpointReadLockWaitingThreads",
-                "Current number of threads waiting for checkpoint read lock.",
-                waitingThreadsSupplier
-        ));
+        this.acquisitionTime = holder.acquisitionTime();
+        this.holdTime = holder.holdTime();
+        this.acquisitions = holder.acquisitions();
+        this.contentionCount = holder.contentionCount();
+        this.waitingThreads = holder.waitingThreads();
     }
 
     /**

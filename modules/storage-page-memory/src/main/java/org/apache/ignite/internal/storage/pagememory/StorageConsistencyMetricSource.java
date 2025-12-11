@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.function.IntSupplier;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /**
  * Metric source for storage consistency operations.
@@ -30,61 +32,98 @@ import org.jetbrains.annotations.Nullable;
  * <p>This metric source tracks runConsistently closure executions which are long-running
  * operations that need to span multiple checkpoints while maintaining consistency.
  */
-public class StorageConsistencyMetricSource implements MetricSource {
-    private final String name;
-
-    /** Metrics map. Only modified in {@code synchronized} context. */
-    private final Map<String, Metric> metrics = new HashMap<>();
-
-    /** Enabled flag. Only modified in {@code synchronized} context. */
-    private boolean enabled;
+public class StorageConsistencyMetricSource extends AbstractMetricSource<StorageConsistencyMetricSource.Holder> {
+    private final IntSupplier activeCountSupplier;
 
     /**
      * Constructor.
+     *
+     * @param activeCountSupplier Supplier for the number of active runConsistently calls.
      */
-    public StorageConsistencyMetricSource() {
-        this.name = "storage.consistency";
+    public StorageConsistencyMetricSource(IntSupplier activeCountSupplier) {
+        super("storage.consistency", "Storage consistency operation metrics", "storage");
+        this.activeCountSupplier = activeCountSupplier;
     }
 
     @Override
-    public String name() {
-        return name;
+    protected Holder createHolder() {
+        return new Holder(activeCountSupplier);
     }
 
-    @Override
-    public @Nullable String group() {
-        return "storage";
-    }
+    /** Metrics holder. */
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final LongAdderMetric runConsistentlyExecutions = new LongAdderMetric(
+                "RunConsistentlyExecutions",
+                "Total number of runConsistently invocations since startup."
+        );
 
-    /**
-     * Adds metric to the source.
-     */
-    public synchronized <T extends Metric> T addMetric(T metric) {
-        assert !enabled : "Cannot add metrics when source is enabled";
+        private final DistributionMetric runConsistentlyDuration = new DistributionMetric(
+                "RunConsistentlyDuration",
+                "Time spent in runConsistently closures in nanoseconds.",
+                MetricBounds.RUN_CONSISTENTLY_NANOS
+        );
 
-        metrics.put(metric.name(), metric);
+        private final DistributionMetric runConsistentlyIoOperations = new DistributionMetric(
+                "RunConsistentlyIoOperations",
+                "Number of page I/O operations (reads + writes) per runConsistently call.",
+                MetricBounds.IO_OPS_PER_CLOSURE
+        );
 
-        return metric;
-    }
+        private final IntGauge runConsistentlyActiveCount;
 
-    @Override
-    public synchronized @Nullable MetricSet enable() {
-        if (enabled) {
-            return null;
+        private final DistributionMetric runConsistentlyCheckpointWaitTime = new DistributionMetric(
+                "RunConsistentlyCheckpointWaitTime",
+                "Time spent waiting for checkpoint to complete within runConsistently in nanoseconds.",
+                MetricBounds.LOCK_HOLD_NANOS
+        );
+
+        /**
+         * Constructor.
+         *
+         * @param activeCountSupplier Supplier for the number of active runConsistently calls.
+         */
+        Holder(IntSupplier activeCountSupplier) {
+            this.runConsistentlyActiveCount = new IntGauge(
+                    "RunConsistentlyActiveCount",
+                    "Current number of active runConsistently calls.",
+                    activeCountSupplier
+            );
         }
 
-        enabled = true;
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(
+                    runConsistentlyExecutions,
+                    runConsistentlyDuration,
+                    runConsistentlyIoOperations,
+                    runConsistentlyActiveCount,
+                    runConsistentlyCheckpointWaitTime
+            );
+        }
 
-        return new MetricSet(name, description(), group(), Map.copyOf(metrics));
-    }
+        /** Returns runConsistently executions metric. */
+        public LongAdderMetric runConsistentlyExecutions() {
+            return runConsistentlyExecutions;
+        }
 
-    @Override
-    public synchronized void disable() {
-        enabled = false;
-    }
+        /** Returns runConsistently duration metric. */
+        public DistributionMetric runConsistentlyDuration() {
+            return runConsistentlyDuration;
+        }
 
-    @Override
-    public synchronized boolean enabled() {
-        return enabled;
+        /** Returns runConsistently I/O operations metric. */
+        public DistributionMetric runConsistentlyIoOperations() {
+            return runConsistentlyIoOperations;
+        }
+
+        /** Returns runConsistently active count metric. */
+        public IntGauge runConsistentlyActiveCount() {
+            return runConsistentlyActiveCount;
+        }
+
+        /** Returns runConsistently checkpoint wait time metric. */
+        public DistributionMetric runConsistentlyCheckpointWaitTime() {
+            return runConsistentlyCheckpointWaitTime;
+        }
     }
 }

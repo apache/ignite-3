@@ -117,8 +117,8 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     @Override
     protected FilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
-        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
-        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
 
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
@@ -127,8 +127,8 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     }
 
     private static FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
-        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
-        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
 
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);

@@ -199,8 +199,8 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     @Override
     DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
-        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
-        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
 
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
@@ -215,8 +215,8 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     }
 
     private static DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
-        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
-        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
 
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);

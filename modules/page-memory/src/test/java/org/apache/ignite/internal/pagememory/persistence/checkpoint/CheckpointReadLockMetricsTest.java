@@ -31,10 +31,10 @@ import org.junit.jupiter.api.Test;
 class CheckpointReadLockMetricsTest {
     @Test
     void testMetricsCreation() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
         AtomicInteger waitingThreads = new AtomicInteger(0);
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(waitingThreads::get);
 
-        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source, waitingThreads::get);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source);
 
         assertThat(metrics.acquisitionTime(), notNullValue());
         assertThat(metrics.holdTime(), notNullValue());
@@ -45,10 +45,10 @@ class CheckpointReadLockMetricsTest {
 
     @Test
     void testAcquisitionTimeTracking() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
         AtomicInteger waitingThreads = new AtomicInteger(0);
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(waitingThreads::get);
 
-        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source, waitingThreads::get);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source);
 
         // Simulate lock acquisition with 1ms delay
         metrics.acquisitionTime().add(1_000_000); // 1ms in nanoseconds
@@ -64,10 +64,10 @@ class CheckpointReadLockMetricsTest {
 
     @Test
     void testAcquisitionsCounter() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
         AtomicInteger waitingThreads = new AtomicInteger(0);
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(waitingThreads::get);
 
-        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source, waitingThreads::get);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source);
 
         metrics.acquisitions().increment();
         metrics.acquisitions().increment();
@@ -78,10 +78,10 @@ class CheckpointReadLockMetricsTest {
 
     @Test
     void testContentionCounter() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
         AtomicInteger waitingThreads = new AtomicInteger(0);
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(waitingThreads::get);
 
-        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source, waitingThreads::get);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source);
 
         metrics.contentionCount().increment();
         metrics.contentionCount().increment();
@@ -91,10 +91,10 @@ class CheckpointReadLockMetricsTest {
 
     @Test
     void testWaitingThreadsGauge() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
         AtomicInteger waitingThreads = new AtomicInteger(5);
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(waitingThreads::get);
 
-        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source, waitingThreads::get);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source);
 
         assertThat(metrics.waitingThreads().value(), equalTo(5));
 
@@ -104,14 +104,14 @@ class CheckpointReadLockMetricsTest {
 
     @Test
     void testMetricSourceName() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(() -> 0);
 
         assertThat(source.name(), equalTo("checkpoint.readlock"));
     }
 
     @Test
     void testMetricSourceEnabled() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(() -> 0);
 
         source.enable();
         assertThat(source.enabled(), equalTo(true));
@@ -122,10 +122,10 @@ class CheckpointReadLockMetricsTest {
 
     @Test
     void testHoldTimeTracking() {
-        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource();
         AtomicInteger waitingThreads = new AtomicInteger(0);
+        CheckpointReadLockMetricSource source = new CheckpointReadLockMetricSource(waitingThreads::get);
 
-        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source, waitingThreads::get);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(source);
 
         // Simulate lock hold with 500µs duration
         metrics.holdTime().add(500_000); // 500µs in nanoseconds

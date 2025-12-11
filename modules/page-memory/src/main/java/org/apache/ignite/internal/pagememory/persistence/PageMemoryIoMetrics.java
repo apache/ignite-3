@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
-import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /**
  * Page memory byte-level I/O metrics.
@@ -47,52 +46,25 @@ public class PageMemoryIoMetrics {
     /**
      * Constructor.
      *
-     * @param source Metric source to register metrics with.
+     * @param source Metric source to get metrics from.
      */
     public PageMemoryIoMetrics(PageMemoryIoMetricSource source) {
-        totalBytesRead = source.addMetric(new LongAdderMetric(
-                "TotalBytesRead",
-                "Cumulative bytes read from disk since startup."
-        ));
+        // Enable the source immediately to create the holder
+        source.enable();
 
-        totalBytesWritten = source.addMetric(new LongAdderMetric(
-                "TotalBytesWritten",
-                "Cumulative bytes written to disk since startup."
-        ));
+        // Get the holder with metric instances
+        PageMemoryIoMetricSource.Holder holder = source.holder();
 
-        bytesPerRead = source.addMetric(new DistributionMetric(
-                "BytesPerRead",
-                "Distribution of read operation sizes in bytes.",
-                MetricBounds.IO_SIZE_BYTES
-        ));
+        assert holder != null : "Holder must be non-null after enable()";
 
-        bytesPerWrite = source.addMetric(new DistributionMetric(
-                "BytesPerWrite",
-                "Distribution of write operation sizes in bytes.",
-                MetricBounds.IO_SIZE_BYTES
-        ));
-
-        physicalReadsTime = source.addMetric(new DistributionMetric(
-                "PhysicalReadsTime",
-                "Time spent in physical disk read operations (FileChannel.read) in nanoseconds.",
-                MetricBounds.DISK_IO_NANOS
-        ));
-
-        physicalWritesTime = source.addMetric(new DistributionMetric(
-                "PhysicalWritesTime",
-                "Time spent in physical disk write operations (FileChannel.write) in nanoseconds.",
-                MetricBounds.DISK_IO_NANOS
-        ));
-
-        pageReadErrors = source.addMetric(new LongAdderMetric(
-                "PageReadErrors",
-                "Failed page read operations (I/O errors)."
-        ));
-
-        pageWriteErrors = source.addMetric(new LongAdderMetric(
-                "PageWriteErrors",
-                "Failed page write operations (I/O errors)."
-        ));
+        this.totalBytesRead = holder.totalBytesRead();
+        this.totalBytesWritten = holder.totalBytesWritten();
+        this.bytesPerRead = holder.bytesPerRead();
+        this.bytesPerWrite = holder.bytesPerWrite();
+        this.physicalReadsTime = holder.physicalReadsTime();
+        this.physicalWritesTime = holder.physicalWritesTime();
+        this.pageReadErrors = holder.pageReadErrors();
+        this.pageWriteErrors = holder.pageWriteErrors();
     }
 
     /**

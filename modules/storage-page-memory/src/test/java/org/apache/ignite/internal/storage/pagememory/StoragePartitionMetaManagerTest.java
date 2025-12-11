@@ -35,11 +35,15 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreIo;
+import org.apache.ignite.internal.pagememory.persistence.store.StorageFilesMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.store.StorageFilesMetrics;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -183,10 +187,17 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static FilePageStore createFilePageStore(Path filePath) throws Exception {
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
         FilePageStore filePageStore = new FilePageStore(new FilePageStoreIo(
                 new RandomAccessFileIoFactory(),
                 filePath,
-                new FilePageStoreHeader(VERSION_1, PAGE_SIZE)
+                new FilePageStoreHeader(VERSION_1, PAGE_SIZE),
+                filesMetrics,
+                ioMetrics
         ));
 
         filePageStore.ensure();

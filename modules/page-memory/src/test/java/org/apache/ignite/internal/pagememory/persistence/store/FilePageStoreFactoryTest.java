@@ -172,8 +172,8 @@ public class FilePageStoreFactoryTest {
     }
 
     private static FilePageStoreFactory createFilePageStoreFactory() {
-        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
-        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
 
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);

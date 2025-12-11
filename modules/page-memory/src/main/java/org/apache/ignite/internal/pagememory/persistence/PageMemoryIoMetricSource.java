@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /**
  * Metric source for page memory byte-level I/O operations.
@@ -30,61 +30,117 @@ import org.jetbrains.annotations.Nullable;
  * <p>This metric source tracks physical I/O performance including bytes transferred,
  * operation sizes, and latencies at the file I/O level.
  */
-public class PageMemoryIoMetricSource implements MetricSource {
-    private final String name;
-
-    /** Metrics map. Only modified in {@code synchronized} context. */
-    private final Map<String, Metric> metrics = new HashMap<>();
-
-    /** Enabled flag. Only modified in {@code synchronized} context. */
-    private boolean enabled;
-
+public class PageMemoryIoMetricSource extends AbstractMetricSource<PageMemoryIoMetricSource.Holder> {
     /**
      * Constructor.
      */
     public PageMemoryIoMetricSource() {
-        this.name = "pagememory.io";
+        super("pagememory.io", "Page memory byte-level I/O metrics", "pagememory");
     }
 
     @Override
-    public String name() {
-        return name;
+    protected Holder createHolder() {
+        return new Holder();
     }
 
-    @Override
-    public @Nullable String group() {
-        return "pagememory";
-    }
+    /** Metrics holder. */
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final LongAdderMetric totalBytesRead = new LongAdderMetric(
+                "TotalBytesRead",
+                "Cumulative bytes read from disk since startup."
+        );
 
-    /**
-     * Adds metric to the source.
-     */
-    public synchronized <T extends Metric> T addMetric(T metric) {
-        assert !enabled : "Cannot add metrics when source is enabled";
+        private final LongAdderMetric totalBytesWritten = new LongAdderMetric(
+                "TotalBytesWritten",
+                "Cumulative bytes written to disk since startup."
+        );
 
-        metrics.put(metric.name(), metric);
+        private final DistributionMetric bytesPerRead = new DistributionMetric(
+                "BytesPerRead",
+                "Distribution of read operation sizes in bytes.",
+                MetricBounds.IO_SIZE_BYTES
+        );
 
-        return metric;
-    }
+        private final DistributionMetric bytesPerWrite = new DistributionMetric(
+                "BytesPerWrite",
+                "Distribution of write operation sizes in bytes.",
+                MetricBounds.IO_SIZE_BYTES
+        );
 
-    @Override
-    public synchronized @Nullable MetricSet enable() {
-        if (enabled) {
-            return null;
+        private final DistributionMetric physicalReadsTime = new DistributionMetric(
+                "PhysicalReadsTime",
+                "Time spent in physical disk read operations (FileChannel.read) in nanoseconds.",
+                MetricBounds.DISK_IO_NANOS
+        );
+
+        private final DistributionMetric physicalWritesTime = new DistributionMetric(
+                "PhysicalWritesTime",
+                "Time spent in physical disk write operations (FileChannel.write) in nanoseconds.",
+                MetricBounds.DISK_IO_NANOS
+        );
+
+        private final LongAdderMetric pageReadErrors = new LongAdderMetric(
+                "PageReadErrors",
+                "Failed page read operations (I/O errors)."
+        );
+
+        private final LongAdderMetric pageWriteErrors = new LongAdderMetric(
+                "PageWriteErrors",
+                "Failed page write operations (I/O errors)."
+        );
+
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(
+                    totalBytesRead,
+                    totalBytesWritten,
+                    bytesPerRead,
+                    bytesPerWrite,
+                    physicalReadsTime,
+                    physicalWritesTime,
+                    pageReadErrors,
+                    pageWriteErrors
+            );
         }
 
-        enabled = true;
+        /** Returns total bytes read metric. */
+        public LongAdderMetric totalBytesRead() {
+            return totalBytesRead;
+        }
 
-        return new MetricSet(name, description(), group(), Map.copyOf(metrics));
-    }
+        /** Returns total bytes written metric. */
+        public LongAdderMetric totalBytesWritten() {
+            return totalBytesWritten;
+        }
 
-    @Override
-    public synchronized void disable() {
-        enabled = false;
-    }
+        /** Returns bytes per read metric. */
+        public DistributionMetric bytesPerRead() {
+            return bytesPerRead;
+        }
 
-    @Override
-    public synchronized boolean enabled() {
-        return enabled;
+        /** Returns bytes per write metric. */
+        public DistributionMetric bytesPerWrite() {
+            return bytesPerWrite;
+        }
+
+        /** Returns physical reads time metric. */
+        public DistributionMetric physicalReadsTime() {
+            return physicalReadsTime;
+        }
+
+        /** Returns physical writes time metric. */
+        public DistributionMetric physicalWritesTime() {
+            return physicalWritesTime;
+        }
+
+        /** Returns page read errors metric. */
+        public LongAdderMetric pageReadErrors() {
+            return pageReadErrors;
+        }
+
+        /** Returns page write errors metric. */
+        public LongAdderMetric pageWriteErrors() {
+            return pageWriteErrors;
+        }
     }
 }

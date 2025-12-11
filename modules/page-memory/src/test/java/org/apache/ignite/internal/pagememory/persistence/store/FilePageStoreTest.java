@@ -570,8 +570,8 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
             FilePageStoreHeader header,
             DeltaFilePageStoreIo... deltaFilePageStoreIos
     ) {
-        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource();
-        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
 
         PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
@@ -587,8 +587,8 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
     }
 
     private static StorageFilesMetrics createStorageFilesMetrics() {
-        StorageFilesMetricSource source = new StorageFilesMetricSource();
-        return new StorageFilesMetrics(source, () -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetricSource source = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        return new StorageFilesMetrics(source);
     }
 
     private static PageMemoryIoMetrics createPageMemoryIoMetrics() {

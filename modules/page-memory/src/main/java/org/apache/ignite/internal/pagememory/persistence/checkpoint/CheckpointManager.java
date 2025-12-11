@@ -176,11 +176,10 @@ public class CheckpointManager {
         // Use array as mutable container to work around final field initialization order
         CheckpointTimeoutLock[] lockHolder = new CheckpointTimeoutLock[1];
 
-        CheckpointReadLockMetricSource readLockMetricSource = new CheckpointReadLockMetricSource();
-        CheckpointReadLockMetrics readLockMetrics = new CheckpointReadLockMetrics(
-                readLockMetricSource,
+        CheckpointReadLockMetricSource readLockMetricSource = new CheckpointReadLockMetricSource(
                 () -> lockHolder[0] != null ? lockHolder[0].waitingThreadsCount() : 0
         );
+        CheckpointReadLockMetrics readLockMetrics = new CheckpointReadLockMetrics(readLockMetricSource);
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
                 checkpointReadWriteLock,

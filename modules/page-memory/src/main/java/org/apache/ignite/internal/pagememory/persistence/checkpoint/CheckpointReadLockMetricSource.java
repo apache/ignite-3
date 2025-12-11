@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.function.IntSupplier;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /**
  * Metric source for checkpoint read lock operations.
@@ -31,61 +33,91 @@ import org.jetbrains.annotations.Nullable;
  * acquired by normal operations during database operation. These locks coordinate with the checkpoint
  * write lock to ensure consistency.
  */
-public class CheckpointReadLockMetricSource implements MetricSource {
-    private final String name;
-
-    /** Metrics map. Only modified in {@code synchronized} context. */
-    private final Map<String, Metric> metrics = new HashMap<>();
-
-    /** Enabled flag. Only modified in {@code synchronized} context. */
-    private boolean enabled;
+public class CheckpointReadLockMetricSource extends AbstractMetricSource<CheckpointReadLockMetricSource.Holder> {
+    private final IntSupplier waitingThreadsSupplier;
 
     /**
      * Constructor.
+     *
+     * @param waitingThreadsSupplier Supplier for the number of waiting threads.
      */
-    public CheckpointReadLockMetricSource() {
-        this.name = "checkpoint.readlock";
+    public CheckpointReadLockMetricSource(IntSupplier waitingThreadsSupplier) {
+        super("checkpoint.readlock", "Checkpoint read lock metrics", "checkpoint");
+        this.waitingThreadsSupplier = waitingThreadsSupplier;
     }
 
     @Override
-    public String name() {
-        return name;
+    protected Holder createHolder() {
+        return new Holder(waitingThreadsSupplier);
     }
 
-    @Override
-    public @Nullable String group() {
-        return "checkpoint";
-    }
+    /** Metrics holder. */
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final DistributionMetric acquisitionTime = new DistributionMetric(
+                "CheckpointReadLockAcquisitionTime",
+                "Time from requesting checkpoint read lock until acquisition in nanoseconds.",
+                MetricBounds.LOCK_ACQUISITION_NANOS
+        );
 
-    /**
-     * Adds metric to the source.
-     */
-    public synchronized <T extends Metric> T addMetric(T metric) {
-        assert !enabled : "Cannot add metrics when source is enabled";
+        private final DistributionMetric holdTime = new DistributionMetric(
+                "CheckpointReadLockHoldTime",
+                "Duration between checkpoint read lock acquisition and release in nanoseconds.",
+                MetricBounds.LOCK_HOLD_NANOS
+        );
 
-        metrics.put(metric.name(), metric);
+        private final LongAdderMetric acquisitions = new LongAdderMetric(
+                "CheckpointReadLockAcquisitions",
+                "Total successful read lock acquisitions since startup."
+        );
 
-        return metric;
-    }
+        private final LongAdderMetric contentionCount = new LongAdderMetric(
+                "CheckpointReadLockContentionCount",
+                "Number of times thread had to wait for read lock (lock not immediately available)."
+        );
 
-    @Override
-    public synchronized @Nullable MetricSet enable() {
-        if (enabled) {
-            return null;
+        private final IntGauge waitingThreads;
+
+        /**
+         * Constructor.
+         *
+         * @param waitingThreadsSupplier Supplier for the number of waiting threads.
+         */
+        Holder(IntSupplier waitingThreadsSupplier) {
+            this.waitingThreads = new IntGauge(
+                    "CheckpointReadLockWaitingThreads",
+                    "Current number of threads waiting for checkpoint read lock.",
+                    waitingThreadsSupplier
+            );
         }
 
-        enabled = true;
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(acquisitionTime, holdTime, acquisitions, contentionCount, waitingThreads);
+        }
 
-        return new MetricSet(name, description(), group(), Map.copyOf(metrics));
-    }
+        /** Returns acquisition time metric. */
+        public DistributionMetric acquisitionTime() {
+            return acquisitionTime;
+        }
 
-    @Override
-    public synchronized void disable() {
-        enabled = false;
-    }
+        /** Returns hold time metric. */
+        public DistributionMetric holdTime() {
+            return holdTime;
+        }
 
-    @Override
-    public synchronized boolean enabled() {
-        return enabled;
+        /** Returns acquisitions metric. */
+        public LongAdderMetric acquisitions() {
+            return acquisitions;
+        }
+
+        /** Returns contention count metric. */
+        public LongAdderMetric contentionCount() {
+            return contentionCount;
+        }
+
+        /** Returns waiting threads metric. */
+        public IntGauge waitingThreads() {
+            return waitingThreads;
+        }
     }
 }

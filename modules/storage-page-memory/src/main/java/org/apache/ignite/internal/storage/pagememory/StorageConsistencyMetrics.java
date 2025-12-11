@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
-import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /**
  * Storage consistency operation metrics.
@@ -30,53 +29,30 @@ import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
  */
 class StorageConsistencyMetrics {
     private final LongAdderMetric runConsistentlyExecutions;
-
     private final DistributionMetric runConsistentlyDuration;
-
     private final DistributionMetric runConsistentlyIoOperations;
-
     private final IntGauge runConsistentlyActiveCount;
-
     private final DistributionMetric runConsistentlyCheckpointWaitTime;
 
     /**
      * Constructor.
      *
-     * @param source Metric source to register metrics with.
-     * @param activeCountSupplier Supplier for the number of active runConsistently calls.
+     * @param source Metric source to get metrics from.
      */
-    StorageConsistencyMetrics(
-            StorageConsistencyMetricSource source,
-            java.util.function.IntSupplier activeCountSupplier
-    ) {
-        runConsistentlyExecutions = source.addMetric(new LongAdderMetric(
-                "RunConsistentlyExecutions",
-                "Total number of runConsistently invocations since startup."
-        ));
+    StorageConsistencyMetrics(StorageConsistencyMetricSource source) {
+        // Enable the source immediately to create the holder
+        source.enable();
 
-        runConsistentlyDuration = source.addMetric(new DistributionMetric(
-                "RunConsistentlyDuration",
-                "Time spent in runConsistently closures in nanoseconds.",
-                MetricBounds.RUN_CONSISTENTLY_NANOS
-        ));
+        // Get the holder with metric instances
+        StorageConsistencyMetricSource.Holder holder = source.holder();
 
-        runConsistentlyIoOperations = source.addMetric(new DistributionMetric(
-                "RunConsistentlyIoOperations",
-                "Number of page I/O operations (reads + writes) per runConsistently call.",
-                MetricBounds.IO_OPS_PER_CLOSURE
-        ));
+        assert holder != null : "Holder must be non-null after enable()";
 
-        runConsistentlyActiveCount = source.addMetric(new IntGauge(
-                "RunConsistentlyActiveCount",
-                "Current number of active runConsistently calls.",
-                activeCountSupplier
-        ));
-
-        runConsistentlyCheckpointWaitTime = source.addMetric(new DistributionMetric(
-                "RunConsistentlyCheckpointWaitTime",
-                "Time spent waiting for checkpoint to complete within runConsistently in nanoseconds.",
-                MetricBounds.LOCK_HOLD_NANOS
-        ));
+        this.runConsistentlyExecutions = holder.runConsistentlyExecutions();
+        this.runConsistentlyDuration = holder.runConsistentlyDuration();
+        this.runConsistentlyIoOperations = holder.runConsistentlyIoOperations();
+        this.runConsistentlyActiveCount = holder.runConsistentlyActiveCount();
+        this.runConsistentlyCheckpointWaitTime = holder.runConsistentlyCheckpointWaitTime();
     }
 
     /**

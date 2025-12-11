@@ -31,10 +31,10 @@ import org.junit.jupiter.api.Test;
 class StorageConsistencyMetricsTest {
     @Test
     void testMetricsCreation() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(0);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         assertThat(metrics.runConsistentlyExecutions(), notNullValue());
         assertThat(metrics.runConsistentlyDuration(), notNullValue());
@@ -45,10 +45,10 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testRunConsistentlyExecutionsCounter() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(0);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         metrics.runConsistentlyExecutions().increment();
         metrics.runConsistentlyExecutions().increment();
@@ -59,10 +59,10 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testRunConsistentlyDurationDistribution() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(0);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         // Simulate 1ms operation
         metrics.runConsistentlyDuration().add(1_000_000);
@@ -80,10 +80,10 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testRunConsistentlyIoOperationsDistribution() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(0);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         // Simulate operations with different I/O counts
         metrics.runConsistentlyIoOperations().add(5);   // 5 I/O ops
@@ -101,10 +101,10 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testRunConsistentlyActiveCountGauge() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(2);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         assertThat(metrics.runConsistentlyActiveCount().value(), equalTo(2));
 
@@ -117,10 +117,10 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testRunConsistentlyCheckpointWaitTimeDistribution() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(0);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         // Simulate checkpoint wait (5ms)
         metrics.runConsistentlyCheckpointWaitTime().add(5_000_000);
@@ -136,14 +136,14 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testMetricSourceName() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(() -> 0);
 
         assertThat(source.name(), equalTo("storage.consistency"));
     }
 
     @Test
     void testMetricSourceEnabled() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(() -> 0);
 
         source.enable();
         assertThat(source.enabled(), equalTo(true));
@@ -154,10 +154,10 @@ class StorageConsistencyMetricsTest {
 
     @Test
     void testMultipleExecutionsTracking() {
-        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource();
         AtomicInteger activeCount = new AtomicInteger(0);
+        StorageConsistencyMetricSource source = new StorageConsistencyMetricSource(activeCount::get);
 
-        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source, activeCount::get);
+        StorageConsistencyMetrics metrics = new StorageConsistencyMetrics(source);
 
         // Simulate multiple runConsistently executions
         for (int i = 0; i < 10; i++) {
