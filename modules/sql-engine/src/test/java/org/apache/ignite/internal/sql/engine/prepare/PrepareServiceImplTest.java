@@ -545,7 +545,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         service.statisticsChanged(table1.id());
 
         runScheduledTasks();
-        // Run eviction tasks
+        // Let eviction tasks to run.
         try {
             TimeUnit.MILLISECONDS.sleep(PLAN_UPDATER_REFRESH_PERIOD);
         } catch (InterruptedException e) {
@@ -589,7 +589,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedSnap = new HashSet<>(service.cache.entrySet());
 
         runScheduledTasks();
-        // Run eviction tasks
+        // Let eviction tasks to run.
         try {
             TimeUnit.MILLISECONDS.sleep(PLAN_UPDATER_REFRESH_PERIOD);
         } catch (InterruptedException e) {
