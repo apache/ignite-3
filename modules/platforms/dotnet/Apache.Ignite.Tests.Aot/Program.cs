@@ -23,7 +23,10 @@ using Microsoft.Extensions.Logging;
 // TODO: JavaServer
 // TODO: Logger
 using var logger = new ConsoleLogger(LogLevel.Trace);
-var cfg = new IgniteClientConfiguration("localhost:10942");
+var cfg = new IgniteClientConfiguration("localhost:10942")
+{
+    LoggerFactory = logger
+};
 
 using var ignite = await IgniteClient.StartAsync(cfg);
 
