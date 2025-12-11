@@ -15,32 +15,33 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Tests.Common;
 
-using System.Threading.Tasks;
-using BenchmarkDotNet.Attributes;
-using Tests;
-using Tests.Common;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
-public abstract class ServerBenchmarkBase
+public static class CommonTestUtils
 {
-    protected JavaServer JavaServer { get; set; } = null!;
+    public static readonly string SolutionDir = GetSolutionDir();
 
-    protected IIgniteClient Client { get; set; } = null!;
+    public static readonly string RepoRootDir = Path.Combine(GetSolutionDir(), "..", "..", "..");
 
-    [GlobalSetup]
-    public virtual async Task GlobalSetup()
+    public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+    private static string GetSolutionDir()
     {
-        JavaServer = await JavaServer.StartAsync();
-        Client = await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + JavaServer.Port));
-    }
+        var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
-    [GlobalCleanup]
-    public virtual Task GlobalCleanup()
-    {
-        Client?.Dispose();
-        JavaServer?.Dispose();
+        while (dir != null && !File.Exists(Path.Combine(dir, "Apache.Ignite.sln")))
+        {
+            dir = Path.GetDirectoryName(dir);
+        }
 
-        return Task.CompletedTask;
+        if (dir == null)
+        {
+            throw new Exception("Failed to locate solution directory.");
+        }
+
+        return dir;
     }
 }
