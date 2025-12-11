@@ -21,6 +21,8 @@ using Common.Table;
 using Ignite.Sql;
 using Ignite.Table;
 using JetBrains.Annotations;
+using NodaTime;
+using Transactions;
 
 public class SqlTests(IIgniteClient client)
 {
@@ -53,25 +55,31 @@ public class SqlTests(IIgniteClient client)
     [UsedImplicitly]
     public async Task TestAllColumnTypes()
     {
-        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsNotNullName);
-        var view = table!.GetRecordView(new PocoAllColumnsMapper());
+        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);
+        var view = table!.GetRecordView(new PocoAllColumnsSqlMapper());
 
-        var poco = new PocoAllColumns(
-            Key: 123,
-            Str: "str",
-            Int8: 8,
-            Int16: 16,
-            Int32: 32,
-            Int64: 64,
+        var poco = new PocoAllColumnsSql(
+            Key: 1234,
+            Str: "str!",
+            Int8: 88,
+            Int16: 166,
+            Int32: 322,
+            Int64: 644,
             Float: 32.32f,
             Double: 64.64,
-            Uuid: Guid.NewGuid(),
-            Decimal: 123.456m);
+            Date: new LocalDate(2025, 12, 11),
+            Time: new LocalTime(10, 20, 30, 123),
+            DateTime: new LocalDateTime(2025, 12, 11, 10, 20, 30, 123),
+            Timestamp: Instant.FromUtc(2025, 12, 11, 10, 20, 30),
+            Blob: [1, 2, 3, 4, 5],
+            Decimal: 123.456m,
+            Uuid: Guid.Parse("123e4567-e89b-12d3-a456-426614174000"),
+            Boolean: true);
 
         await view.UpsertAsync(null, poco);
 
         await using IResultSet<IIgniteTuple> resultSet = await client.Sql.ExecuteAsync(
-            null, $"select * from {TestTables.TableAllColumnsName} where KEY = 123");
+            transaction: null, $"select * from {table.Name} where KEY = ?", poco.Key);
 
         List<IIgniteTuple> rows = await resultSet.ToListAsync();
 
@@ -87,6 +95,6 @@ public class SqlTests(IIgniteClient client)
         Assert.AreEqual(poco.Float, row["FLOAT"]);
         Assert.AreEqual(poco.Double, row["DOUBLE"]);
         Assert.AreEqual(poco.Uuid, row["UUID"]);
-        Assert.AreEqual(poco.Decimal, row["DECIMAL"]);
+        Assert.AreEqual(new BigDecimal(poco.Decimal), row["DECIMAL"]);
     }
 }
