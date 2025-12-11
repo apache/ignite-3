@@ -637,7 +637,7 @@ namespace Apache.Ignite.Internal.Compute
             [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "IGNITE-27278")]
             static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
             {
-                if (RuntimeFeature.IsDynamicCodeSupported)
+                if (!RuntimeFeature.IsDynamicCodeSupported)
                 {
                     // TODO IGNITE-27278: Remove suppression and require mapper in trimmed mode.
                     throw new InvalidOperationException("Colocated job target requires an IIgniteTuple key when running in trimmed AOT mode.");
