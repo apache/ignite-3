@@ -625,7 +625,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .collect(toList());
 
         return CompletableFutures.allOf(storageCreationFutures)
-                .thenCompose(unused -> clearMvPartitionsIfNeeded(zoneTables, partitionIndex, event))
+                .thenRunAsync(() -> scheduleMvPartitionsCleanupIfNeeded(zoneTables, partitionIndex, event), ioExecutor)
                 // If a table is already closed, it's not a problem (probably the node is stopping).
                 .exceptionally(ignoreTableClosedException())
                 .thenCompose(unused -> {
@@ -658,7 +658,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
     }
 
-    private static CompletableFuture<Void> clearMvPartitionsIfNeeded(
+    private static void scheduleMvPartitionsCleanupIfNeeded(
             Set<TableViewInternal> zoneTables,
             int partitionIndex,
             LocalBeforeReplicaStartEventParameters event
@@ -672,14 +672,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             event.registerStorageInRebalanceState();
         }
 
-        if (event.anyStorageIsInRebalanceState()) {
+        event.addCleanupAction(() -> {
             CompletableFuture<?>[] clearFutures = zoneTables.stream()
                     .map(table -> table.internalTable().storage().clearPartition(partitionIndex))
                     .toArray(CompletableFuture[]::new);
             return allOf(clearFutures);
-        } else {
-            return nullCompletedFuture();
-        }
+        });
     }
 
     private static <T> Function<Throwable, T> ignoreTableClosedException() {

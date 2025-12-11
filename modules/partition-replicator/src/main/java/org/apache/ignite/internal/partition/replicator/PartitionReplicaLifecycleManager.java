@@ -719,13 +719,24 @@ public class PartitionReplicaLifecycleManager extends
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         if (eventParams.anyStorageIsInRebalanceState()) {
+                            // We must destroy protocol storages first. If we do so, then, as MV and TX state storages sync Raft log
+                            // before being flushed, there is a guarantee that, after a possible crash, we will either see some storage
+                            // still in the rebalance state (and hence we'll repeat the destruction on the next start), or the Raft log
+                            // destruction will be persisted (and we'll just recover normally).
                             try {
                                 replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, isVolatileZone);
                             } catch (NodeStoppingException e) {
                                 return failedFuture(e);
                             }
 
-                            return zoneResources.txStatePartitionStorage().clear();
+                            CompletableFuture<Void> clearTxStateStorage = zoneResources.txStatePartitionStorage().clear();
+
+                            CompletableFuture<?>[] registeedCleanupFutures = eventParams.cleanupActions().stream()
+                                    .map(Supplier::get)
+                                    .toArray(CompletableFuture[]::new);
+                            CompletableFuture<Void> clearMvStorages = allOf(registeedCleanupFutures);
+
+                            return allOf(clearTxStateStorage, clearMvStorages);
                         } else {
                             return nullCompletedFuture();
                         }

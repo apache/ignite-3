@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
@@ -27,6 +31,8 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
  */
 public class LocalBeforeReplicaStartEventParameters extends LocalPartitionReplicaEventParameters {
     private volatile boolean anyStorageIsInRebalanceState;
+
+    private final List<Supplier<CompletableFuture<Void>>> cleanupActions = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -54,5 +60,20 @@ public class LocalBeforeReplicaStartEventParameters extends LocalPartitionReplic
     /** Registers that at least one storage is in rebalance state. */
     public void registerStorageInRebalanceState() {
         this.anyStorageIsInRebalanceState = true;
+    }
+
+    /**
+     * Adds a cleanup action to be executed after this event has been handled by all event handlers, IF at least one storage is
+     * in the rebalance state.
+     *
+     * @param action Cleanup action to execute.
+     */
+    public void addCleanupAction(Supplier<CompletableFuture<Void>> action) {
+        cleanupActions.add(action);
+    }
+
+    /** Returns the registered cleanup actions. */
+    public List<Supplier<CompletableFuture<Void>>> cleanupActions() {
+        return List.copyOf(cleanupActions);
     }
 }
