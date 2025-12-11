@@ -45,6 +45,7 @@ internal static class ComputeJobExecutor
     /// <param name="response">Response.</param>
     /// <param name="context">Context.</param>
     /// <returns>Task.</returns>
+    [RequiresUnreferencedCode("Calls ExecuteJobAsync")]
     internal static async Task ExecuteJobAsync(
         PooledBuffer request,
         PooledArrayBuffer response,
@@ -83,6 +84,7 @@ internal static class ComputeJobExecutor
         }
     }
 
+    [RequiresUnreferencedCode("Calls GetOrAddJobLoadContext")]
     private static async ValueTask ExecuteJobAsync(
         JobExecuteRequest req,
         PooledBuffer argBuf,

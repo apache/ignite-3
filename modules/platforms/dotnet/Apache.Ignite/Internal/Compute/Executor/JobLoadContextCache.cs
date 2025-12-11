@@ -69,6 +69,7 @@ internal sealed class JobLoadContextCache : IDisposable
     /// </summary>
     /// <param name="paths">Deployment unit paths.</param>
     /// <returns>Job load context.</returns>
+    [RequiresUnreferencedCode("Calls GetJobLoadContext")]
     public async ValueTask<JobLoadContext> GetOrAddJobLoadContext(DeploymentUnitPaths paths)
     {
         await _cacheLock.WaitAsync().ConfigureAwait(false);

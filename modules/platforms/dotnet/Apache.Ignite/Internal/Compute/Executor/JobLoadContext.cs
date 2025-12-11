@@ -31,12 +31,6 @@ using Table.StreamerReceiverExecutor;
 /// Job load context.
 /// </summary>
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
-[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
-[UnconditionalSuppressMessage("Trimming", "IL2070", Justification = "No trimming or AOT in server mode.")]
-[UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "No trimming or AOT in server mode.")]
-[UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "No trimming or AOT in server mode.")]
-[UnconditionalSuppressMessage("Trimming", "IL2077", Justification = "No trimming or AOT in server mode.")]
-[UnconditionalSuppressMessage("Trimming", "IL2055", Justification = "No trimming or AOT in server mode.")]
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext) : IDisposable
 {
     private readonly ConcurrentDictionary<(string TypeName, Type OpenInterfaceType), (Type Type, Type ClosedWrapperType)> _typeCache = new();
@@ -81,7 +75,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
-    private static void CheckPublicCtor(Type type, Exception e)
+    private static void CheckPublicCtor(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, Exception e)
     {
         if (type.GetConstructor(BindingFlags.Public, []) == null)
         {
@@ -109,6 +104,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
     {
         try
@@ -166,7 +162,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     }
 
     // Simple lookup by name. Will throw in a case of ambiguity.
-    private static Type FindInterface(Type type, Type interfaceType) =>
+    private static Type FindInterface(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type, Type interfaceType) =>
         type.GetInterface(interfaceType.Name, ignoreCase: false) ??
         throw new InvalidOperationException($"Failed to find interface '{interfaceType}' in type '{type}'");
 }

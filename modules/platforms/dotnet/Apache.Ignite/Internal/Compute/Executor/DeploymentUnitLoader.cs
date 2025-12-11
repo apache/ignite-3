@@ -25,7 +25,6 @@ using System.Runtime.Loader;
 /// <summary>
 /// Loader for deployment units in Apache Ignite compute execution context.
 /// </summary>
-[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No trimming or AOT in server mode.")]
 internal static class DeploymentUnitLoader
 {
     private static readonly Assembly IgniteAssembly = typeof(DeploymentUnitLoader).Assembly;
@@ -37,6 +36,7 @@ internal static class DeploymentUnitLoader
     /// </summary>
     /// <param name="paths">The deployment unit paths to load assemblies from.</param>
     /// <returns>A new job load context instance.</returns>
+    [RequiresUnreferencedCode("Uses AssemblyLoadContext.Resolving.")]
     public static JobLoadContext GetJobLoadContext(DeploymentUnitPaths paths)
     {
         var asmCtx = new AssemblyLoadContext(name: null, isCollectible: true);
@@ -46,6 +46,7 @@ internal static class DeploymentUnitLoader
         return new JobLoadContext(asmCtx);
     }
 
+    [RequiresUnreferencedCode("Calls System.Runtime.Loader.AssemblyLoadContext.LoadFromAssemblyPath(String)")]
     private static Assembly? ResolveAssembly(IReadOnlyList<string> paths, AssemblyName name, AssemblyLoadContext ctx)
     {
         if (name.Name == IgniteAssemblyName)
