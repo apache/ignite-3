@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.partition.Partition;
@@ -49,14 +48,12 @@ public class ClientTablePartitionPrimaryReplicasNodesGetRequest {
     ) {
         int tableId = in.unpackInt();
 
-        return readTableAsync(tableId, tables).thenCompose(table -> table.partitionManager()
+        return readTableAsync(tableId, tables).thenCompose(table -> table.partitionDistribution()
                 .primaryReplicasAsync()
                 .thenApply(partitions -> out -> {
                     out.packInt(partitions.size());
                     for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
-                        HashPartition partition = (HashPartition) e.getKey();
-
-                        out.packInt(partition.partitionId());
+                        out.packLong(e.getKey().id());
 
                         packClusterNode(e.getValue(), out);
                     }

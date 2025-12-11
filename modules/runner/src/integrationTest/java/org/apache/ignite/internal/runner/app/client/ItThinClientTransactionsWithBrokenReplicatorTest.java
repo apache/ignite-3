@@ -43,7 +43,6 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -80,7 +79,7 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
 
     @Test
     public void testErrorDuringDirectMappingSinglePartitionTransaction() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -118,7 +117,7 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
 
     @Test
     public void testErrorDuringDirectMappingSinglePartitionTransactionBatch() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
 
@@ -162,9 +161,9 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
 
     @Test
     public void testErrorDuringDirectMappingTwoPartitionTransaction() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> mapPartById = map.entrySet().stream().collect(Collectors.toMap(
-                entry -> ((HashPartition) entry.getKey()).partitionId(),
+                entry -> Math.toIntExact(entry.getKey().id()),
                 Entry::getValue
         ));
 
@@ -238,9 +237,9 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
 
     @Test
     public void testErrorDuringDirectMappingTwoPartitionTransactionColocated() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> mapPartById = map.entrySet().stream().collect(Collectors.toMap(
-                entry -> ((HashPartition) entry.getKey()).partitionId(),
+                entry -> Math.toIntExact(entry.getKey().id()),
                 Entry::getValue
         ));
 
