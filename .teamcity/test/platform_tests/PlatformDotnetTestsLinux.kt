@@ -85,10 +85,12 @@ object PlatformDotnetTestsLinux : BuildType({
         }
         script {
             name = "Build AOT Tests"
-            scriptContent = "dotnet publish --runtime linux-x64 --configuration Release Apache.Ignite.Tests.Aot/Apache.Ignite.Tests.Aot.csproj"
+            workingDir = "%PATH__WORKING_DIR%"
+            scriptContent = "dotnet publish --runtime linux-x64 --configuration Release Apache.Ignite.Tests.Aot"
         }
         script {
             name = "Run AOT Tests"
+            workingDir = "%PATH__WORKING_DIR%"
             scriptContent = "./Apache.Ignite.Tests.Aot/bin/Release/net8.0/linux-x64/publish/Apache.Ignite.Tests.Aot"
         }
     }
