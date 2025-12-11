@@ -60,6 +60,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.COLLECTION_LIMIT;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -1283,12 +1284,14 @@ public class PartitionReplicaLifecycleManager extends
 
                 LOG.info(
                         "Received update on pending assignments. Check if new replication node should be started [key={}, "
-                                + "partition={}, zoneId={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
+                                + "partition={}, zoneId={}, localMemberAddress={}, pendingAssignments={}, "
+                                + "stableAssignments={}, revision={}]",
                         stringKey,
                         zonePartitionId.partitionId(),
                         zonePartitionId.zoneId(),
                         localNode().address(),
                         pendingAssignmentsQueue,
+                        stableAssignments,
                         revision
                 );
             }
@@ -1424,15 +1427,18 @@ public class PartitionReplicaLifecycleManager extends
                     // Reset adds C into force pending and user writes data onto C.
                     // Then A and B go back online. In this case
                     // stable = [A, B, C], pending = [C, force] and only C should be started.
-                    if (isRecovery && !replicaMgr.isReplicaStarted(replicaGrpId)) {
-                        return;
-                    }
+                    CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
 
-                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                    assert replicaFut != null || isRecovery :
+                            "The local node is outside of the replication group ["
                             + ", groupId=" + replicaGrpId
                             + ", stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
+
+                    if (replicaFut == null || isRecovery && !isCompletedSuccessfully(replicaFut)) {
+                        return;
+                    }
 
                     // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
                     // Union is not required in such a case.
@@ -1440,7 +1446,7 @@ public class PartitionReplicaLifecycleManager extends
                             ? pendingAssignmentsNodes
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-                    replicaMgr.replica(replicaGrpId)
+                    replicaFut
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
