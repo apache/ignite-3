@@ -27,7 +27,7 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
  * <p>Tracks runConsistently closure execution performance including duration,
  * I/O operations per closure, and concurrency.
  */
-class StorageConsistencyMetrics {
+public class StorageConsistencyMetrics {
     private final LongAdderMetric runConsistentlyExecutions;
     private final DistributionMetric runConsistentlyDuration;
     private final DistributionMetric runConsistentlyIoOperations;
@@ -39,7 +39,7 @@ class StorageConsistencyMetrics {
      *
      * @param source Metric source to get metrics from.
      */
-    StorageConsistencyMetrics(StorageConsistencyMetricSource source) {
+    public StorageConsistencyMetrics(StorageConsistencyMetricSource source) {
         // Enable the source immediately to create the holder
         source.enable();
 

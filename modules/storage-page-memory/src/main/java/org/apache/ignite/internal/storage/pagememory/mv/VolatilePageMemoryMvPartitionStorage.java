@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -42,6 +43,8 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.storage.pagememory.StorageConsistencyMetricSource;
+import org.apache.ignite.internal.storage.pagememory.StorageConsistencyMetrics;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -71,6 +74,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     private volatile byte @Nullable [] groupConfig;
 
     private volatile long estimatedSize;
+
+    /** Count of currently active runConsistently calls. */
+    private final AtomicInteger activeRunConsistentlyCount = new AtomicInteger(0);
+
+    /** Storage consistency metrics. */
+    private final StorageConsistencyMetrics consistencyMetrics;
 
     /**
      * Constructor.
@@ -106,6 +115,10 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 destructionExecutor,
                 failureProcessor
         );
+
+        // Initialize consistency metrics
+        StorageConsistencyMetricSource metricSource = new StorageConsistencyMetricSource(activeRunConsistentlyCount::get);
+        this.consistencyMetrics = new StorageConsistencyMetrics(metricSource);
     }
 
     @Override
@@ -118,10 +131,19 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         if (locker != null) {
+            // Nested call, don't track metrics again
             return closure.execute(locker);
         } else {
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+                // Track execution count
+                consistencyMetrics.runConsistentlyExecutions().increment();
+
+                // Track active count
+                activeRunConsistentlyCount.incrementAndGet();
+
+                long startTime = System.nanoTime();
 
                 LocalLocker locker0 = new LocalLocker(lockByRowId);
 
@@ -133,6 +155,13 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                     THREAD_LOCAL_LOCKER.remove();
 
                     locker0.unlockAll();
+
+                    // Track total duration
+                    long duration = System.nanoTime() - startTime;
+                    consistencyMetrics.runConsistentlyDuration().add(duration);
+
+                    // Track active count
+                    activeRunConsistentlyCount.decrementAndGet();
                 }
             });
         }
