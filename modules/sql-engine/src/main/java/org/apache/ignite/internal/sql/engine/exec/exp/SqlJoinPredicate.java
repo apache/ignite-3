@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a predicate specifically designed for SQL join operations.
  *
- * <p>This interface defines a single method, {@link #test(ExecutionContext, Object, Object)}, 
+ * <p>This interface defines a single method, {@link #test(SqlEvaluationContext, Object, Object)}, 
  * which evaluates a condition between two rows (the left and right rows) within the context of a join operation. 
  * It allows the predicate to be applied before the rows are fully joined, enabling efficient filtering 
  * of row pairs that do not satisfy the join condition.
@@ -41,5 +41,5 @@ public interface SqlJoinPredicate {
      * @param <RowT> The type of the execution row.
      * @return {@code true} if the pair of rows satisfies the predicate, {@code false} otherwise.
      */
-    <RowT> boolean test(ExecutionContext<RowT> context, RowT left, RowT right);
+    <RowT> boolean test(SqlEvaluationContext<RowT> context, RowT left, RowT right);
 }

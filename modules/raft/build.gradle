@@ -113,6 +113,8 @@ dependencies {
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor

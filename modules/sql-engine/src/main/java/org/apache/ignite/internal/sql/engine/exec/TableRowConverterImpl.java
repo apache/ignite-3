@@ -45,7 +45,7 @@ public class TableRowConverterImpl implements TableRowConverter {
     /** {@inheritDoc} */
     @Override
     public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
-        BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
+        BinaryTuple binaryTuple = ectx.rowAccessor().toBinaryTuple(row);
 
         return SqlOutputBinaryRow.newRow(schemaDescriptor, binaryTuple);
     }
@@ -53,7 +53,7 @@ public class TableRowConverterImpl implements TableRowConverter {
     /** {@inheritDoc} */
     @Override
     public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
-        BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
+        BinaryTuple binaryTuple = ectx.rowAccessor().toBinaryTuple(row);
 
         return SqlOutputBinaryRow.newKeyRow(schemaDescriptor, binaryTuple);
     }
@@ -63,7 +63,7 @@ public class TableRowConverterImpl implements TableRowConverter {
     public <RowT> RowT toRow(
             ExecutionContext<RowT> ectx,
             BinaryRow tableRow,
-            RowHandler.RowFactory<RowT> factory
+            RowFactory<RowT> factory
     ) {
         InternalTuple tuple;
 

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a comparator for SQL rows.
  *
- * <p>This interface defines a single method, {@link #compare(ExecutionContext, Object, Object)}, 
+ * <p>This interface defines a single method, {@link #compare(SqlEvaluationContext, Object, Object)}, 
  * which compares two rows within the given execution context. The comparison respects the sorting 
  * order defined during the creation of the comparator, allowing for flexible custom ordering 
  * logic in SQL queries or operations that require row comparison.
@@ -40,5 +40,5 @@ public interface SqlComparator {
      *         or after the second one according to the sorting order defined during the
      *         comparator's creation.
      */
-    <RowT> int compare(ExecutionContext<RowT> context, RowT r1, RowT r2);
+    <RowT> int compare(SqlEvaluationContext<RowT> context, RowT r1, RowT r2);
 }

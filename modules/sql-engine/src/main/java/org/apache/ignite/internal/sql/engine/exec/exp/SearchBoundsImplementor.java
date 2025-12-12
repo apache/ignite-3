@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -57,7 +57,7 @@ class SearchBoundsImplementor {
     ) {
         return new SqlRangeConditionsProvider() {
             @Override
-            public <RowT> RangeIterable<RowT> get(ExecutionContext<RowT> context) {
+            public <RowT> RangeIterable<RowT> get(SqlEvaluationContext<RowT> context) {
                 List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
                 expandBounds(
@@ -110,7 +110,7 @@ class SearchBoundsImplementor {
     private <RowT> void expandBounds(
             Function<List<RexNode>, SqlRowProvider> rowProviderFunction,
             Function<RexNode, SqlScalar<Boolean>> scalarImplementor,
-            ExecutionContext<RowT> context,
+            SqlEvaluationContext<RowT> context,
             List<RangeCondition<RowT>> ranges,
             List<SearchBounds> searchBounds,
             int fieldIdx,
@@ -200,7 +200,7 @@ class SearchBoundsImplementor {
     }
 
     private static class RangeConditionImpl<RowT> implements RangeCondition<RowT> {
-        private final ExecutionContext<RowT> context;
+        private final SqlEvaluationContext<RowT> context;
 
         /** Lower bound expression. */
         private final @Nullable SqlRowProvider lowerBound;
@@ -221,7 +221,7 @@ class SearchBoundsImplementor {
         private @Nullable RowT upperRow;
 
         private RangeConditionImpl(
-                ExecutionContext<RowT> context,
+                SqlEvaluationContext<RowT> context,
                 @Nullable SqlRowProvider lowerScalar,
                 @Nullable SqlRowProvider upperScalar,
                 boolean lowerInclude,
@@ -274,7 +274,7 @@ class SearchBoundsImplementor {
     }
 
     private static class RangeIterableImpl<RowT> implements RangeIterable<RowT> {
-        private final ExecutionContext<RowT> context;
+        private final SqlEvaluationContext<RowT> context;
         private final @Nullable SqlComparator comparator;
 
         private List<RangeCondition<RowT>> ranges;
@@ -282,7 +282,7 @@ class SearchBoundsImplementor {
         private boolean sorted;
 
         RangeIterableImpl(
-                ExecutionContext<RowT> context,
+                SqlEvaluationContext<RowT> context,
                 List<RangeCondition<RowT>> ranges,
                 @Nullable SqlComparator comparator
         ) {
@@ -442,7 +442,7 @@ class SearchBoundsImplementor {
 
     private static <RowT> @Nullable RexNode deriveBound(
             Function<RexNode, SqlScalar<Boolean>> scalarImplementor,
-            ExecutionContext<RowT> context,
+            SqlEvaluationContext<RowT> context,
             RangeBounds bounds,
             boolean lower
     ) {

@@ -267,6 +267,10 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             return txStatePartitionStorage;
         }
 
+        public boolean txStatePartitionStorageIsInRebalanceState() {
+            return txStatePartitionStorage.lastAppliedIndex() == TxStatePartitionStorage.REBALANCE_IN_PROGRESS;
+        }
+
         public ZonePartitionRaftListener raftListener() {
             return raftListener;
         }

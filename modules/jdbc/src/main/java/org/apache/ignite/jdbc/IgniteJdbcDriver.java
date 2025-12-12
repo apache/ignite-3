@@ -52,6 +52,7 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -196,6 +197,9 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    /** Full version string. */
+    private static final String FULL_VER = IgniteProductVersion.CURRENT_VERSION.toString();
+
     /**
      * Tracker of the latest time observed by client.
      *
@@ -333,8 +337,8 @@ public class IgniteJdbcDriver implements Driver {
                         IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
                                 + "the feature required by the driver being used. Please refer to the documentation and use a compatible "
                                 + "version of the JDBC driver to connect to this node "
-                                + "[name={}, address={}, productVersion={}, driverVersion={}.{}]",
-                                node.name(), node.address(), ctx.productVersion(), getMajorVersion(), getMinorVersion()),
+                                + "[nodeName={}, nodeAddress={}, nodeVersion={}, driverVersion={}]",
+                                node.name(), node.address(), ctx.productVersion(), FULL_VER),
                         null
                 );
             }

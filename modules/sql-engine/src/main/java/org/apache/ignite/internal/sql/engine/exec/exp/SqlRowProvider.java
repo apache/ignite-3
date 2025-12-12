@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a provider of execution rows.
  *
- * <p>This interface defines a single method, {@link #get(ExecutionContext)}, 
+ * <p>This interface defines a single method, {@link #get(SqlEvaluationContext)}, 
  * which computes a row based on the given execution context.
  *
  * @see SqlScalar
@@ -36,5 +36,5 @@ public interface SqlRowProvider {
      * @param <RowT> The type of the execution row.
      * @return The computed row.
      */
-    <RowT> RowT get(ExecutionContext<RowT> context);
+    <RowT> RowT get(SqlEvaluationContext<RowT> context);
 }
