@@ -49,6 +49,20 @@ public class ComputeTests(IIgniteClient client)
     }
 
     [UsedImplicitly]
+    public async Task TestColocatedPrimitiveKeyThrows()
+    {
+        try
+        {
+            await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, 42L), JavaJobs.NodeNameJob, null);
+            throw new Exception("Expected exception was not thrown.");
+        }
+        catch (InvalidOperationException e)
+        {
+            Assert.AreEqual("Colocated job target requires an IIgniteTuple key when running in trimmed AOT mode.", e.Message);
+        }
+    }
+
+    [UsedImplicitly]
     public async Task TestTupleWithSchemaRoundTrip()
     {
         var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
