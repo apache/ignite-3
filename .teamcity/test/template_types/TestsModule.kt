@@ -32,6 +32,11 @@ class TestsModule(
         customScript(type = "bash") {
             name = "Clean Up Remaining Processes"
         }
+
+        customScript(type = "bash") {
+            name = "Setup Docker Proxy"
+        }
+
         customGradle {
             name = "Run tests"
             tasks = module.buildTask(configuration.testTask)
@@ -42,9 +47,11 @@ class TestsModule(
                 %JVM_ARGS%
             """.trimIndent()
         }
+
         customScript(type = "bash") {
             name = "Clean Up Remaining Processes"
         }
+
         customScript(type = "bash") {
             id = "PruneDockerImages"
             name = "DockerImagePrune"

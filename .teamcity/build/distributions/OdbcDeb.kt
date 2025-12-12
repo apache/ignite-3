@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 
 object OdbcDeb : BuildType({
     name = "[7] ODBC Deb package"
@@ -19,6 +20,10 @@ object OdbcDeb : BuildType({
     }
 
     steps {
+        customScript(type = "bash") {
+            name = "Setup Docker Proxy"
+        }
+
         script {
             name = "Check env"
             scriptContent = """

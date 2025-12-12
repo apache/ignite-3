@@ -3,6 +3,7 @@ package org.apache.ignite.teamcity
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings.Type
 import jetbrains.buildServer.configs.kotlin.CheckoutMode
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.CustomFailureConditions.Companion.failOnExactText
 
 @Suppress("unused")
@@ -95,6 +96,20 @@ open class CustomBuildType(open val buildType: BuildType) {
             }
         }
 
+
+        /**
+         * Replace maven repos with proxy repositories
+         */
+        fun setupMavenProxy() = apply {
+            buildType.steps {
+                customScript(type = "bash") {
+                    name = "Setup Maven Proxy"
+                    workingDir = "%VCSROOT__IGNITE3%"
+                }
+                items.add(0, items[items.lastIndex])
+                items.removeAt(items.lastIndex)
+            }
+        }
 
         /**
          * Return updated BuildType object
