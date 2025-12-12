@@ -1009,7 +1009,10 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
-                return ClientStreamerBatchSendRequest.process(in, igniteTables);
+                return ClientStreamerBatchSendRequest.process(in, igniteTables).thenApply(w -> {
+                    tsTracker.update(clockService.current());
+                    return w;
+                });
 
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, igniteTables);
