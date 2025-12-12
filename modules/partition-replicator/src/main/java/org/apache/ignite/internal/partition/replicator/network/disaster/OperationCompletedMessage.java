@@ -23,11 +23,12 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 import org.jetbrains.annotations.Nullable;
 
-/** Notifies that disaster recovery operation was completed. */
-@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_OPERATION_COMPLETED)
+/** Sent to initiator of the multi node disaster recovery request after node completed processing of the operation. */
+@Transferable(DisasterRecoveryMessages.OPERATION_COMPLETED)
 public interface OperationCompletedMessage extends NetworkMessage {
     /** ID of the completed operation. */
     UUID operationId();
 
+    /** Exception message if the operation failed, {@code null} otherwise. */
     @Nullable String exceptionMessage();
 }

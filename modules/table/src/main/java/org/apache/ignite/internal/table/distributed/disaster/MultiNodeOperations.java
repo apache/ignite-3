@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.RemoteOperationException;
+import org.jetbrains.annotations.Nullable;
 
 /** Contains operations that should be processed by remote node. */
 class MultiNodeOperations {
@@ -43,11 +44,24 @@ class MultiNodeOperations {
     }
 
     /** Completes all tracked operations with a given exception. */
-    void exceptionally(String nodeName, Throwable e) {
+    void completeAllExceptionally(String nodeName, Throwable e) {
         Set<UUID> operationIds = Set.copyOf(operationsById.keySet());
 
         for (UUID operationId : operationIds) {
             operationsById.remove(operationId).completeExceptionally(new RemoteOperationException(e.getMessage(), nodeName));
+        }
+    }
+
+    /** Completes operation successfully or with {@link RemoteOperationException} using provided nodeName and exception message. */
+    public void complete(UUID operationId, String nodeName, @Nullable String exceptionMessage) {
+        CompletableFuture<Void> operationFuture = operationsById.remove(operationId);
+
+        if (operationFuture != null) {
+            if (exceptionMessage != null) {
+                operationFuture.completeExceptionally(new RemoteOperationException(exceptionMessage, nodeName));
+            } else {
+                operationFuture.complete(null);
+            }
         }
     }
 

@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.exceptions;
+package org.apache.ignite.internal.table.distributed.disaster;
 
-import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
+import java.util.Set;
 
-/** Exception is thrown when remote node encounters an error while executing a disaster recovery operation. */
-public class RemoteOperationException extends DisasterRecoveryException {
-    private static final long serialVersionUID = 1L;
+/** {@link DisasterRecoveryRequest} that should be handled by multiple nodes. */
+public interface MultiNodeDisasterRecoveryRequest extends DisasterRecoveryRequest {
+    /** Returns names of nodes involved in the recovery or empty set if all nodes should be used. */
+    Set<String> nodeNames();
 
-    /** Constructor. */
-    public RemoteOperationException(String message, String nodeName) {
-        super(
-                DisasterRecovery.REMOTE_NODE_ERR,
-                "Processing error on node " + nodeName + " during disaster recovery: " + message
-        );
-    }
+    /** Returns the name of the node that initiated the request. {@code null} for requests created before field introduction. */
+    String coordinator();
+
+    /** Returns a new request with updated coordinator name. */
+    MultiNodeDisasterRecoveryRequest updateCoordinator(String newCoordinatorName);
 }

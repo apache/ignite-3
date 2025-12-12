@@ -317,6 +317,6 @@ public interface PartitionReplicationMessageGroup {
         short DISASTER_RECOVERY_RESPONSE = 111;
 
         /** Message type for {@link OperationCompletedMessage}. */
-        short DISASTER_RECOVERY_OPERATION_COMPLETED = 112;
+        short OPERATION_COMPLETED = 112;
     }
 }

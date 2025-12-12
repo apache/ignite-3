@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -38,12 +37,6 @@ interface DisasterRecoveryRequest {
 
     /** Returns request type. */
     DisasterRecoveryRequestType type();
-
-    /**
-     * For multi node requests returns names of nodes involved in the recovery or empty list if all nodes should be used. For single node
-     * request returns empty list.
-     */
-    Set<String> nodeNames();
 
     /**
      * The recovery operation itself.
