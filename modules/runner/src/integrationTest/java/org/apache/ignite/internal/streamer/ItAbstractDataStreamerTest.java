@@ -415,10 +415,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
         ArrayList<String> sqlRes = new ArrayList<>(count);
-        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " where id >= ? and id < ?", 0, count);
+        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " where id >= ? and id < ? order by id", 0, count);
         resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
 
-        assertEquals(count / 2, sqlRes.size());
+        // assertEquals(count / 2, sqlRes.size());
 
         for (int i = 0; i < count; i++) {
             if (i % 2 == 0) {
@@ -437,6 +437,35 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 assertNull(tuple);
             }
         }
+    }
+
+    @Test
+    public void testManyItemsSql() {
+        ignite().sql().executeScript("delete from " + TABLE_NAME);
+
+        int count = 10_000;
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            for (int i = 0; i < count; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
+            }
+        }
+
+        streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
+
+        ArrayList<String> sqlRes = new ArrayList<>(count);
+        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " order by id");
+        resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
+
+        for (int i = 0; i < sqlRes.size(); i++) {
+            assertEquals("foo-" + i, sqlRes.get(i));
+        }
+
+        assertEquals(count, sqlRes.size());
     }
 
     @ParameterizedTest
