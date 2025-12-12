@@ -20,15 +20,17 @@ package org.apache.ignite.internal.network;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.junit.jupiter.api.Assertions;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests that node finder failure causes node shutdown.
+ * Tests that node finder failure triggers failure manager.
  */
 class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
     @Override
@@ -40,7 +42,6 @@ class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
     protected String getNodeBootstrapConfigTemplate() {
         return "ignite {\n"
                 + "  network: {\n"
-                + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ \"bad.host:1234\" ]\n"
                 + "  },\n"
                 + "}";
@@ -53,12 +54,27 @@ class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void testNodeShutdownOnNodeFinderFailure(TestInfo testInfo) {
-        Throwable throwable = assertThrowsWithCause(
-                () -> CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters),
-                IgniteInternalException.class);
+        LogInspector logInspector = new LogInspector(FailureManager.class.getName());
 
-        IgniteInternalException actual = (IgniteInternalException) unwrapRootCause(throwable);
-        Assertions.assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
-        Assertions.assertEquals("No network address found", actual.getMessage());
+        logInspector.addHandler(
+                evt -> {
+                    log.debug(evt.getMessage().getFormattedMessage());
+
+                    return false;
+                }, () -> {});
+
+        logInspector.start();
+
+        try {
+            Throwable throwable = assertThrowsWithCause(
+                    () -> CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters),
+                    IgniteInternalException.class);
+
+            IgniteInternalException actual = (IgniteInternalException) unwrapRootCause(throwable);
+            assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
+            assertEquals("No network address found", actual.getMessage());
+        } finally {
+            logInspector.stop();
+        }
     }
 }
