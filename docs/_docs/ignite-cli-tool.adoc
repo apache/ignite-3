@@ -1245,6 +1245,27 @@ distribution reset --zones=default
 
 '''
 
+== Zone Commands
+
+These commands manage zone-level configuration and data-node assignments.
+
+=== zone datanodes reset
+
+[discrete]
+==== Syntax
+----
+zone datanodes reset --zone-names=<zoneNames>
+----
+
+[discrete]
+==== Parameters
+[%autowidth, cols="1n,1n,1n,3",options="header"]
+|===
+| Parameter        | Type     | Required | Description
+| `--zone-names`   | Argument | No       | Comma-separated list of zone names to reset data nodes for. If not specified, all zones are reset.
+|===
+
+
 == Miscellaneous Commands
 
 These are general-purpose commands.
