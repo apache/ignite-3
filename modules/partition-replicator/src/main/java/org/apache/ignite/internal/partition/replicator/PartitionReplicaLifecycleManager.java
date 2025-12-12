@@ -57,6 +57,8 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.assig
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_TERM;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.COLLECTION_LIMIT;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -920,7 +922,7 @@ public class PartitionReplicaLifecycleManager extends
 
             if (haMode) {
                 ByteArray assignmentsChainKey = assignmentsChainKey(zonePartitionId);
-                byte[] assignmentChain = AssignmentsChain.of(newAssignments.get(i)).toBytes();
+                byte[] assignmentChain = AssignmentsChain.of(UNKNOWN_TERM, UNKNOWN_INDEX, newAssignments.get(i)).toBytes();
                 Operation chainOp = put(assignmentsChainKey, assignmentChain);
                 partitionAssignments.add(chainOp);
             }
