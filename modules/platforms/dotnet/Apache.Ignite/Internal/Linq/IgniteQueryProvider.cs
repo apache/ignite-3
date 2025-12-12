@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -31,6 +32,7 @@ using Remotion.Linq.Utilities;
 /// <summary>
 /// Query provider for fields queries (projections).
 /// </summary>
+[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal sealed class IgniteQueryProvider : IQueryProvider
 {
     /** */

@@ -48,6 +48,8 @@ public sealed class JavaServer : IDisposable
     /** Full path to Gradle binary. */
     private static readonly string GradlePath = GetGradle();
 
+    private static volatile Action<string?> _logCallback = _ => { };
+
     private readonly Process? _process;
 
     private JavaServer(IReadOnlyList<int> ports, Process? process)
@@ -60,6 +62,8 @@ public sealed class JavaServer : IDisposable
     public int Port { get; }
 
     public IReadOnlyList<int> Ports { get; }
+
+    public static void SetLogCallback(Action<string?> logCallback) => _logCallback = logCallback;
 
     /// <summary>
     /// Starts a server node.
@@ -258,7 +262,11 @@ public sealed class JavaServer : IDisposable
         return process;
     }
 
-    private static void Log(string? line) => Console.WriteLine(line);
+    private static void Log(string? line)
+    {
+        Console.WriteLine(line);
+        _logCallback(line);
+    }
 
     private static bool WaitForServer(int port)
     {
