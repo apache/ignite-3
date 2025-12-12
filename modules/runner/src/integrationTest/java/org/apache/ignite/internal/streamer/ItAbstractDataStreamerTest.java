@@ -51,6 +51,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -63,6 +64,8 @@ import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
@@ -410,6 +413,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
+
+        ArrayList<String> sqlRes = new ArrayList<>(count);
+        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " where id >= ? and id < ?", 0, count);
+        resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
+
+        assertEquals(count / 2, sqlRes.size());
+
+        for (int i = 0; i < count; i++) {
+            if (i % 2 == 0) {
+                assertEquals("new-" + i, sqlRes.get(i / 2));
+            }
+        }
 
         List<Tuple> res = view.getAll(null, IntStream.range(0, count).mapToObj(i -> tupleKey(i)).collect(Collectors.toList()));
 
