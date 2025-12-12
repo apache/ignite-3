@@ -81,7 +81,6 @@ import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -669,7 +668,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27268")
     void testRestartPartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
@@ -698,6 +696,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0, tableName);
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        alterZone(node.catalogManager(), testZone, 5);
 
         IgniteImpl node4 = unwrapIgniteImpl(cluster.startNode(4));
 
@@ -731,9 +731,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentsPending, reached)
         );
 
-        alterZone(node.catalogManager(), testZone, 5);
-
-        waitForCondition(reached::get, 10_000L);
+        assertTrue(waitForCondition(reached::get, 10_000L));
 
         CompletableFuture<Void> restartPartitionsWithCleanupFuture = node4.disasterRecoveryManager().restartPartitionsWithCleanup(
                 Set.of(node4.name()),
