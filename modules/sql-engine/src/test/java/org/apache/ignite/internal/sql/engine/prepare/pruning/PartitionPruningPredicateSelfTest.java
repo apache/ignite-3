@@ -250,7 +250,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();
-            ExpressionFactory<Object[]> expressionFactory = ctx.expressionFactory();
+            ExpressionFactory expressionFactory = ctx.expressionFactory();
 
             List<PartitionWithConsistencyToken> result = PartitionPruningPredicate.prunePartitions(
                     ctx, pruningColumns, table, expressionFactory, assignments, nodeName

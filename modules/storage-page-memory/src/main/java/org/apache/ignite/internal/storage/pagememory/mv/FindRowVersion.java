@@ -70,6 +70,8 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
         reader = RowVersionReader.newRowVersionReader(dataType, link, partitionId);
 
+        reader.readFromPage(pageAddr, payload);
+
         if (loadValueBytes) {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
         } else {

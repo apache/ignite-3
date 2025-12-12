@@ -22,6 +22,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Compute;
+using Common.Table;
 using Compute;
 using Ignite.Compute;
 using Ignite.Marshalling;
@@ -35,7 +37,7 @@ using TestHelpers;
 public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 {
     private static readonly JobDescriptor<JobInfo, object?> StreamerRunnerJob = new(
-        ComputeTests.PlatformTestNodeRunner + "$StreamerRunnerJob")
+        JavaJobs.PlatformTestNodeRunner + "$StreamerRunnerJob")
     {
         ArgMarshaller = new JsonMarshaller<JobInfo>()
     };

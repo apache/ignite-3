@@ -37,12 +37,15 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
@@ -63,6 +66,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -98,6 +102,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
@@ -173,6 +178,7 @@ import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildInd
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -185,7 +191,6 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -333,7 +338,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param secondaryIndexStorages Secondary index storages.
      * @param clockService Clock service.
      * @param safeTime Safe time clock.
-     * @param txStatePartitionStorage Transaction state storage.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
@@ -357,7 +361,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            TxStatePartitionStorage txStatePartitionStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
@@ -466,14 +469,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
-                        PENDING,
-                        req.coordinatorId(),
-                        req.commitPartitionId().asZonePartitionId(),
-                        null,
-                        old == null ? null : old.tx(),
-                        old == null ? null : old.isFinishedDueToTimeout()
-                ));
+                txManager.updateTxMeta(req.transactionId(), old -> builder(old, PENDING)
+                        .txCoordinatorId(req.coordinatorId())
+                        .commitPartitionId(req.commitPartitionId().asZonePartitionId())
+                        .txLabel(req.txLabel())
+                        .build());
             }
         }
 
@@ -585,14 +585,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
-                    PENDING,
-                    req.coordinatorId(),
-                    req.commitPartitionId().asZonePartitionId(),
-                    null,
-                    old == null ? null : old.tx(),
-                    old == null ? null : old.isFinishedDueToTimeout()
-            ));
+            txManager.updateTxMeta(req.transactionId(),  old -> builder(old, PENDING)
+                    .txCoordinatorId(req.coordinatorId())
+                    .commitPartitionId(req.commitPartitionId().asZonePartitionId())
+                    .txLabel(req.txLabel())
+                    .build());
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
 
@@ -1916,7 +1913,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
                     int idx = 0;
 
-                    for (Map.Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
+                    for (Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
                         insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId);
                     }
 
@@ -3459,9 +3456,21 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         try {
             return processOperationRequest(senderId, request, replicaPrimacy, opStartTsIfDirectRo)
-                    .whenComplete((unused, throwable) -> {
+                    .handle((res, ex) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
+
+                        if (ex != null) {
+                            if (hasCause(ex, LockException.class)) {
+                                RequestType failedRequestType = getRequestOperationType(request);
+
+                                sneakyThrow(new OperationLockException(failedRequestType, (LockException) unwrapCause(ex)));
+                            }
+
+                            sneakyThrow(ex);
+                        }
+
+                        return res;
                     });
         } catch (Throwable e) {
             try {
@@ -3477,6 +3486,42 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             }
             throw e;
         }
+    }
+
+    private static RequestType getRequestOperationType(ReplicaRequest request) {
+        RequestType requestOperationType = null;
+
+        if (request instanceof ReadWriteSingleRowReplicaRequest) {
+            requestOperationType = ((ReadWriteSingleRowReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
+            requestOperationType = ((ReadWriteSingleRowPkReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+            requestOperationType = ((ReadWriteMultiRowReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
+            requestOperationType = ((ReadWriteMultiRowPkReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+            requestOperationType = ((ReadWriteSwapRowReplicaRequest) request).requestType();
+
+        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+            requestOperationType = RW_SCAN;
+        }
+
+        assert requestOperationType != null : format(
+                "Unexpected replica request without transaction operation type [requestType={}].",
+                request.getClass().getSimpleName()
+        );
+
+        assert !requestOperationType.isReadOnly() : format(
+                "Unexpected replica request with read-only operation type [requestType={}, requestOperationType={}].",
+                request.getClass().getSimpleName(),
+                requestOperationType
+        );
+
+        return requestOperationType;
     }
 
     /**

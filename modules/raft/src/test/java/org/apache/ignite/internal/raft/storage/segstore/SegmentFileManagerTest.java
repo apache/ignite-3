@@ -76,6 +76,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @ExtendWith(ExecutorServiceExtension.class)
 class SegmentFileManagerTest extends IgniteAbstractTest {
@@ -376,6 +378,54 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    void truncateRecordIsWrittenOnPrefixTruncate() throws IOException {
+        long groupId = 36;
+
+        long firstLogIndexKept = 42;
+
+        fileManager.truncatePrefix(groupId, firstLogIndexKept);
+
+        Path path = findSoleSegmentFile();
+
+        ByteBuffer expectedTruncateRecord = ByteBuffer.allocate(SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE)
+                .order(SegmentFile.BYTE_ORDER);
+
+        SegmentPayload.writeTruncatePrefixRecordTo(expectedTruncateRecord, groupId, firstLogIndexKept);
+
+        expectedTruncateRecord.rewind();
+
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
+            channel.position(HEADER_RECORD.length);
+
+            assertThat(readFully(channel, SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE), is(expectedTruncateRecord));
+        }
+    }
+
+    @Test
+    void resetRecordIsWrittenOnReset() throws IOException {
+        long groupId = 36;
+
+        long nextLogIndex = 42;
+
+        fileManager.reset(groupId, nextLogIndex);
+
+        Path path = findSoleSegmentFile();
+
+        ByteBuffer expectedTruncateRecord = ByteBuffer.allocate(SegmentPayload.RESET_RECORD_SIZE)
+                .order(SegmentFile.BYTE_ORDER);
+
+        SegmentPayload.writeResetRecordTo(expectedTruncateRecord, groupId, nextLogIndex);
+
+        expectedTruncateRecord.rewind();
+
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
+            channel.position(HEADER_RECORD.length);
+
+            assertThat(readFully(channel, SegmentPayload.RESET_RECORD_SIZE), is(expectedTruncateRecord));
+        }
+    }
+
+    @Test
     void testRecovery() throws Exception {
         int batchSize = FILE_SIZE / 4;
 
@@ -459,8 +509,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         assertThat(indexFiles(), hasSize(1));
     }
 
-    @Test
-    void testRecoveryWithTruncateSuffix() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testTruncateSuffix(boolean restart) throws Exception {
         List<byte[]> batches = randomData(FILE_SIZE / 4, 10);
 
         for (int i = 0; i < batches.size(); i++) {
@@ -481,15 +532,17 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         fileManager.truncateSuffix(GROUP_ID, lastLogIndexKept);
 
-        fileManager.close();
+        if (restart) {
+            fileManager.close();
 
-        for (Path indexFile : indexFiles()) {
-            Files.deleteIfExists(indexFile);
+            for (Path indexFile : indexFiles()) {
+                Files.deleteIfExists(indexFile);
+            }
+
+            fileManager = createFileManager();
+
+            fileManager.start();
         }
-
-        fileManager = createFileManager();
-
-        fileManager.start();
 
         for (int i = 0; i <= lastLogIndexKept; i++) {
             byte[] expectedEntry = batches.get(i);
@@ -502,6 +555,110 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
 
         for (int i = lastLogIndexKept + 1; i < batches.size(); i++) {
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                throw new AssertionError("This method should not be called.");
+            });
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testTruncatePrefix(boolean restart) throws Exception {
+        List<byte[]> batches = randomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(4));
+
+        int firstLogIndexKept = batches.size() / 2;
+
+        fileManager.truncatePrefix(GROUP_ID, firstLogIndexKept);
+
+        // Insert more data, just in case.
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i + batches.size());
+        }
+
+        if (restart) {
+            fileManager.close();
+
+            for (Path indexFile : indexFiles()) {
+                Files.deleteIfExists(indexFile);
+            }
+
+            fileManager = createFileManager();
+
+            fileManager.start();
+        }
+
+        for (int i = 0; i < batches.size() - firstLogIndexKept; i++) {
+            byte[] expectedEntry = batches.get(firstLogIndexKept + i);
+
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                assertThat(bs, is(expectedEntry));
+
+                return null;
+            });
+        }
+
+        for (int i = 0; i < firstLogIndexKept; i++) {
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                throw new AssertionError("This method should not be called.");
+            });
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testReset(boolean restart) throws Exception {
+        List<byte[]> batches = randomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(4));
+
+        int nextLogIndex = batches.size() / 2;
+
+        fileManager.reset(GROUP_ID, nextLogIndex);
+
+        // Insert more data, just in case.
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i + nextLogIndex + 1);
+        }
+
+        if (restart) {
+            fileManager.close();
+
+            for (Path indexFile : indexFiles()) {
+                Files.deleteIfExists(indexFile);
+            }
+
+            fileManager = createFileManager();
+
+            fileManager.start();
+        }
+
+        fileManager.getEntry(GROUP_ID, nextLogIndex, bs -> {
+            assertThat(bs, is(batches.get(nextLogIndex)));
+
+            return null;
+        });
+
+        for (int i = 0; i < batches.size(); i++) {
+            byte[] expectedEntry = batches.get(i);
+
+            fileManager.getEntry(GROUP_ID, nextLogIndex + i + 1, bs -> {
+                assertThat(bs, is(expectedEntry));
+
+                return null;
+            });
+        }
+
+        for (int i = 0; i < nextLogIndex; i++) {
             fileManager.getEntry(GROUP_ID, i, bs -> {
                 throw new AssertionError("This method should not be called.");
             });

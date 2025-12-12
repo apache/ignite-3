@@ -23,6 +23,7 @@ import static org.mockserver.model.HttpResponse.response;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockserver.model.MediaType;
 
 /** Tests "cluster config" commands. */
 @DisplayName("cluster config")
@@ -35,7 +36,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
                         .withMethod("GET")
                         .withPath("/management/v1/configuration/cluster")
                 )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
 
         execute("cluster config show --url " + mockUrl);
 
@@ -52,7 +53,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
                         .withMethod("GET")
                         .withPath("/management/v1/configuration/cluster")
                 )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
 
         execute("cluster config show --url " + mockUrl + "/");
 
@@ -69,7 +70,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
                         .withMethod("GET")
                         .withPath("/management/v1/configuration/cluster/local.baseline")
                 )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
 
         execute("cluster config show --url " + mockUrl + " local.baseline");
 

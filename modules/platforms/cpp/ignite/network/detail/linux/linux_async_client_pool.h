@@ -20,6 +20,7 @@
 #include "linux_async_client.h"
 #include "linux_async_worker_thread.h"
 
+#include <atomic>
 #include <ignite/common/ignite_error.h>
 #include <ignite/network/async_client_pool.h>
 #include <ignite/network/async_handler.h>
@@ -108,7 +109,7 @@ public:
      * @param client Client.
      * @return Client ID.
      */
-    bool add_client(std::shared_ptr<linux_async_client> client);
+    bool add_client(const std::shared_ptr<linux_async_client>& client);
 
     /**
      * Handle error during connection establishment.
@@ -164,7 +165,7 @@ private:
     std::shared_ptr<linux_async_client> find_client(uint64_t id) const;
 
     /** Flag indicating that pool is stopping. */
-    volatile bool m_stopping;
+    std::atomic_bool m_stopping;
 
     /** Event handler. */
     std::weak_ptr<async_handler> m_async_handler;

@@ -27,7 +27,6 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -60,18 +59,6 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         return logStorage;
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26286")
-    @Override
-    public void testReset() {
-        super.testReset();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26285")
-    @Override
-    public void testTruncatePrefix() {
-        super.testTruncatePrefix();
-    }
-
     @ParameterizedTest
     // Number of entries is chosen to test scenarios with zero index files and with multiple index files.
     @ValueSource(ints = { 15, 100_000 })
@@ -97,6 +84,9 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
         logStorage.truncateSuffix(lastIndexKept);
 
+        assertThat(logStorage.getFirstLogIndex(), is(0L));
+        assertThat(logStorage.getLastLogIndex(), is(lastIndexKept));
+
         logStorage.shutdown();
         segmentFileManager.close();
 
@@ -105,5 +95,49 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
         assertThat(logStorage.getFirstLogIndex(), is(0L));
         assertThat(logStorage.getLastLogIndex(), is(lastIndexKept));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = { 15, 100_000 })
+    public void firstAndLastLogIndexAfterPrefixTruncateAndRestart(int numEntries) throws Exception {
+        logStorage.appendEntries(TestUtils.mockEntries(numEntries));
+
+        long firstIndexKept = numEntries / 2;
+
+        logStorage.truncatePrefix(firstIndexKept);
+
+        assertThat(logStorage.getFirstLogIndex(), is(firstIndexKept));
+        assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
+
+        logStorage.shutdown();
+        segmentFileManager.close();
+
+        logStorage = newLogStorage();
+        logStorage.init(newLogStorageOptions());
+
+        assertThat(logStorage.getFirstLogIndex(), is(firstIndexKept));
+        assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = { 15, 100_000 })
+    public void firstAndLastLogIndexAfterResetAndRestart(int numEntries) throws Exception {
+        logStorage.appendEntries(TestUtils.mockEntries(numEntries));
+
+        long nextLogIndex = numEntries / 2;
+
+        logStorage.reset(nextLogIndex);
+
+        assertThat(logStorage.getFirstLogIndex(), is(nextLogIndex));
+        assertThat(logStorage.getLastLogIndex(), is(nextLogIndex));
+
+        logStorage.shutdown();
+        segmentFileManager.close();
+
+        logStorage = newLogStorage();
+        logStorage.init(newLogStorageOptions());
+
+        assertThat(logStorage.getFirstLogIndex(), is(nextLogIndex));
+        assertThat(logStorage.getLastLogIndex(), is(nextLogIndex));
     }
 }

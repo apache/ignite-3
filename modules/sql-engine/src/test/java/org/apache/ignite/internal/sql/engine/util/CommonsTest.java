@@ -162,6 +162,27 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void compilationDoesNotFailOnThreadWithoutContextClassLoader() {
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+
+        // Nullify class loader. Compilation must not depend on the state of the thread.
+        Thread.currentThread().setContextClassLoader(null);
+
+        try {
+            //noinspection ConcatenationWithEmptyString
+            StringConcat concat = Commons.compile(StringConcat.class, ""
+                    + "public String apply(String first, String second) {"
+                    + "    return first + second;"
+                    + "}");
+
+            assertThat(concat.apply("foo", "bar"), is("foobar"));
+        } finally {
+            // Restore back original ClassLoader.
+            Thread.currentThread().setContextClassLoader(original);
+        }
+    }
+
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {
         assertEquals(expected, Mappings.apply(mapping, bitSet), "direct mapping");
 
@@ -173,5 +194,11 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         Mapping mapping = Commons.projectedMapping(source.size(), projection);
 
         assertEquals(expected, Mappings.apply(mapping, source));
+    }
+
+    /** For test purposes. */
+    @FunctionalInterface
+    public interface StringConcat {
+        String apply(String first, String second);
     }
 }

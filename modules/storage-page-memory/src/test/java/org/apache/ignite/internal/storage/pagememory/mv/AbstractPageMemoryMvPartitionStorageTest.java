@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -56,7 +58,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
         assertThat(foundRow, isRow(longRow));
     }
 
-    private BinaryRow rowStoredInFragments() {
+    protected BinaryRow rowStoredInFragments() {
         int pageSize = pageSize();
 
         // A repetitive pattern of 19 different characters (19 is chosen as a prime number) to reduce probability of 'lucky' matches
@@ -108,5 +110,22 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
             assertThat(foundRow, isRow(longRow));
         }
+    }
+
+    @Test
+    void addWriteCommittedCreatesPlainRowVersion() {
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        RowVersion rowVersion = pageMemoryStorage().findVersionChain(
+                ROW_ID,
+                chain -> pageMemoryStorage().readRowVersion(chain.headLink(), ts -> false)
+        );
+        assertThat(rowVersion, is(notNullValue()));
+
+        assertThat(rowVersion.getClass(), is(RowVersion.class));
+    }
+
+    protected AbstractPageMemoryMvPartitionStorage pageMemoryStorage() {
+        return (AbstractPageMemoryMvPartitionStorage) storage;
     }
 }

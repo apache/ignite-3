@@ -142,7 +142,15 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean truncatePrefix(long firstIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncatePrefix(groupId, firstIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        firstLogIndexInclusive = firstIndexKept;
+
+        return true;
     }
 
     @Override
@@ -160,7 +168,16 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean reset(long nextLogIndex) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.reset(groupId, nextLogIndex);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        firstLogIndexInclusive = nextLogIndex;
+        lastLogIndexInclusive = nextLogIndex;
+
+        return true;
     }
 
     @Override

@@ -23,12 +23,12 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using Common.Table;
 using Ignite.Sql;
 using Internal.Proto.BinaryTuple;
 using Internal.Sql;
 using NodaTime;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Tests for <see cref="ISql.ExecuteReaderAsync"/>.

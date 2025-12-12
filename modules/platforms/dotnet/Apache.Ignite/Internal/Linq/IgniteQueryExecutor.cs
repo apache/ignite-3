@@ -34,8 +34,14 @@ using Sql;
 /// <summary>
 /// Fields query executor.
 /// </summary>
+[RequiresUnreferencedCode(TrimWarning)]
 internal sealed class IgniteQueryExecutor : IQueryExecutor
 {
+    /// <summary>
+    /// AOT and trimming warning.
+    /// </summary>
+    internal const string TrimWarning = "LINQ provider does not support trimming and AOT scenarios. Use SQL queries instead.";
+
     private readonly Sql _sql;
     private readonly ITransaction? _transaction;
     private readonly QueryableOptions? _options;

@@ -89,6 +89,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link Checkpointer} testing.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-27281 .
  */
 @ExtendWith(ConfigurationExtension.class)
 public class CheckpointerTest extends BaseIgniteAbstractTest {

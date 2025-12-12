@@ -190,7 +190,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -710,7 +709,8 @@ public class Node {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                metricManager
+                metricManager,
+                lowWatermark
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -819,14 +819,6 @@ public class Node {
                 }).when(storage).getMvPartition(anyInt());
 
                 return storage;
-            }
-
-            @Override
-            protected TxStateStorage createTxStateTableStorage(
-                    CatalogTableDescriptor tableDescriptor,
-                    CatalogZoneDescriptor zoneDescriptor
-            ) {
-                return createSpy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
             }
         };
 

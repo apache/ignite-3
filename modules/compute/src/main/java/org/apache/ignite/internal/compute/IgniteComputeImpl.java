@@ -241,7 +241,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         } else if (target instanceof TableJobTarget) {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             return requiredTable(tableJobTarget.tableName())
-                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync()
+                    .thenCompose(table -> table.partitionDistribution().primaryReplicasAsync()
                             .thenCompose(replicas -> toBroadcastExecution(replicas.entrySet().stream()
                                     .map(entry -> new IgniteBiTuple<>(entry.getKey(), findNodeByConsistentId(entry.getValue())))
                                     .filter(entry -> entry.getValue() != null)

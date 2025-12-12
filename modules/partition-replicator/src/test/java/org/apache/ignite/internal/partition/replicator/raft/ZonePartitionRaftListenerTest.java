@@ -48,7 +48,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -569,9 +568,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                         ZONE_PARTITION_KEY
                 ),
                 mock(StorageUpdateHandler.class),
-                txStatePartitionStorage,
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L),
                 mock(CatalogService.class),
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),
@@ -580,7 +577,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
     }

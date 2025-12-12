@@ -63,7 +63,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
 
         reader = RowVersionReader.newRowVersionReader(dataType, link, partitionId);
 
-        reader.readFromPage(pageAddr, payload.offset());
+        reader.readFromPage(pageAddr, payload);
 
         if (!loadValue.test(reader.timestamp())) {
             result = reader.createRowVersion(reader.valueSize(), null);

@@ -45,8 +45,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -164,7 +165,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
 
         StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         TableDescriptor tableDescriptor = createTableDescriptor(columns);
         IgniteIndex indexDescriptor = sorted
@@ -281,7 +282,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         StructNativeType rowSchema = rowSchemaBuilder.build();
 
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(rowSchema);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
         List<PartitionWithConsistencyToken> partitions = scannableTable.getPartitions();
         PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partitions);
@@ -423,6 +424,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }
