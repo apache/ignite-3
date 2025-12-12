@@ -230,7 +230,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         return operatorIsIn(operator) || operatorIsQuantify(operator);
     }
 
-    private boolean quantifyOperationCoercion(SqlCallBinding binding) {
+    @Override 
+    public boolean quantifyOperationCoercion(SqlCallBinding binding) {
         // This method is a copy-paste of org.apache.calcite.sql.validate.implicit.TypeCoercionImpl.inOperationCoercion
         // with stripped validation of operation kind.
         assert operatorIsQuantify(binding.getOperator());

@@ -121,7 +121,8 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             }
         }
 
-        return ImmutableIntList.of(columnsToUpdate.toIntArray());
+//        return ImmutableIntList.of(columnsToUpdate.toIntArray());
+        return null;
     }
 
     /** {@inheritDoc} */
