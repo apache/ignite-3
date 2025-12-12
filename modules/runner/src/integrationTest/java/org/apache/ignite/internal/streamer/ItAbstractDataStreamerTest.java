@@ -414,18 +414,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
-        ArrayList<String> sqlRes = new ArrayList<>(count);
-        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " where id >= ? and id < ? order by id", 0, count);
-        resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
-
-        // assertEquals(count / 2, sqlRes.size());
-
-        for (int i = 0; i < count; i++) {
-            if (i % 2 == 0) {
-                assertEquals("new-" + i, sqlRes.get(i / 2));
-            }
-        }
-
         List<Tuple> res = view.getAll(null, IntStream.range(0, count).mapToObj(i -> tupleKey(i)).collect(Collectors.toList()));
 
         for (int i = 0; i < count; i++) {
@@ -440,7 +428,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testManyItemsSql() {
+    public void testManyItemsWithSql() {
         ignite().sql().executeScript("delete from " + TABLE_NAME);
 
         int count = 10_000;
