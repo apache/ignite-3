@@ -4,7 +4,7 @@ NEXUS_API_URL="https://nexus.gridgain.com/service/rest/v1/repositories"
 
 REPO_ROOT="${PWD}"
 
-set +x
+#set +x
 echo "Fetching proxy repositories from Nexus..."
 echo "REPO_ROOT is set to: $REPO_ROOT"
 
