@@ -157,6 +157,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -1214,14 +1215,20 @@ public class PartitionReplicaLifecycleManager extends
             Set<Assignment> pendingAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
+            CompletableFuture<Replica> replicaFuture = replicaMgr.replica(zonePartitionId);
+
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
 
-            if (!isLocalInStable && !isLeaseholder) {
+            if (!(isLocalInStable || isLeaseholder)) {
                 return nullCompletedFuture();
             }
 
+            if (replicaFuture == null) {
+                return failedFuture(new ReplicaUnavailableException(zonePartitionId, localNode()));
+            }
+
             // Update raft client peers and learners according to the actual assignments.
-            return replicaMgr.replica(zonePartitionId)
+            return replicaFuture
                     .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(union(stableAssignments, pendingAssignments))));
         }));
     }
