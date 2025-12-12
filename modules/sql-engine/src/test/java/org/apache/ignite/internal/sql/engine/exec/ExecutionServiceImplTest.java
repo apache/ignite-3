@@ -1274,6 +1274,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
+                ArrayRowHandler.INSTANCE,
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),

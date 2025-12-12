@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a scalar SQL expression.
  *
- * <p>This interface defines a single method, {@link #get(ExecutionContext)}, 
+ * <p>This interface defines a single method, {@link #get(SqlEvaluationContext)}, 
  * which computes a value based on the given execution context.
  *
  * <p>For example, a scalar might compute a value based on the literal expression 
@@ -39,5 +39,5 @@ public interface SqlScalar<T> {
      * @param <RowT> The type of the execution row.
      * @return The computed value.
      */
-    <RowT> T get(ExecutionContext<RowT> context);
+    <RowT> T get(SqlEvaluationContext<RowT> context);
 }

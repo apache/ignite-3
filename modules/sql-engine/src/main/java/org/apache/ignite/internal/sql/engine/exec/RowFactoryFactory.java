@@ -17,25 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.type.StructNativeType;
 
 /**
- * Universal accessor for rows. It also has factory methods.
+ * A factory-of-factories interface responsible for creating {@link RowFactory} instances based on a provided {@link StructNativeType}.
+ *
+ * <p>This abstraction allows components to supply row factories that are specifically tailored to the schema or layout represented by the
+ * given native type.
+ *
+ * @param <RowT> The type of row objects produced by the resulting {@link RowFactory}.
  */
-public interface RowHandler<RowT> extends RowAccessor<RowT> {
+@FunctionalInterface
+public interface RowFactoryFactory<RowT> {
     /**
-     * Assembly row representation as BinaryTuple.
+     * Creates a new {@link RowFactory} instance configured according to the provided {@link StructNativeType}.
      *
-     * @param row Incoming data to be processed.
-     * @return {@link BinaryTuple} representation.
+     * @param type Layout of the rows being produced by resulting factory; must not be {@code null}.
+     * @return A {@link RowFactory} producing rows of type {@code RowT} with regard to provided layout.
      */
-    BinaryTuple toBinaryTuple(RowT row);
-
-    default ByteBuffer toByteBuffer(RowT row) {
-        return toBinaryTuple(row).byteBuffer();
-    }
-
-    /** String representation. */
-    String toString(RowT row);
+    RowFactory<RowT> create(StructNativeType type);
 }

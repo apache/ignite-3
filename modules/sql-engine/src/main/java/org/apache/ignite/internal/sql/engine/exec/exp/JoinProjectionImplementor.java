@@ -38,8 +38,8 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
@@ -100,7 +100,7 @@ class JoinProjectionImplementor {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
+        ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
         ParameterExpression left = Expressions.parameter(Object.class, "left");
         ParameterExpression right = Expressions.parameter(Object.class, "right");
         ParameterExpression outBuilder = Expressions.parameter(RowBuilder.class, "outBuilder");
@@ -145,7 +145,7 @@ class JoinProjectionImplementor {
     /** Internal interface of this implementor. Need to be public due to visibility for compiler. */
     @FunctionalInterface
     public interface SqlJoinProjectionExt {
-        <RowT> void project(ExecutionContext<RowT> context, RowT left, RowT right, RowBuilder<RowT> outBuilder);
+        <RowT> void project(SqlEvaluationContext<RowT> context, RowT left, RowT right, RowBuilder<RowT> outBuilder);
     }
 
     private static class SqlJoinProjectionImpl implements SqlJoinProjection {
@@ -157,12 +157,12 @@ class JoinProjectionImplementor {
             this.rowType = rowType;
         }
 
-        private <RowT> RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
-            return context.rowHandler().factory(rowType).rowBuilder();
+        private <RowT> RowBuilder<RowT> builder(SqlEvaluationContext<RowT> context) {
+            return context.rowFactoryFactory().create(rowType).rowBuilder();
         }
 
         @Override
-        public <RowT> RowT project(ExecutionContext<RowT> context, RowT left, RowT right) {
+        public <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT left, RowT right) {
             RowBuilder<RowT> rowBuilder = builder(context);
 
             projection.project(context, left, right, rowBuilder);

@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a provider of range-based conditions for SQL execution.
  *
- * <p>This interface defines a single method, {@link #get(ExecutionContext)}, which produces a {@link RangeIterable} instance based on the
- * given execution context.
+ * <p>This interface defines a single method, {@link #get(SqlEvaluationContext)}, which produces a {@link RangeIterable} instance based on
+ * the given execution context.
  *
  * <p>For example, an implementation may supply range boundaries derived from literal expressions, dynamic parameters, or other
  * context-dependent sources used during index range scans.
@@ -37,5 +37,5 @@ public interface SqlRangeConditionsProvider {
      * @param <RowT> The type of the execution row.
      * @return A range iterable representing the computed range conditions.
      */
-    <RowT> RangeIterable<RowT> get(ExecutionContext<RowT> context);
+    <RowT> RangeIterable<RowT> get(SqlEvaluationContext<RowT> context);
 }

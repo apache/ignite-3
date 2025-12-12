@@ -63,8 +63,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
@@ -517,8 +516,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(OperationContext.create(txContext))
             );
 
-            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
 
             Publisher<Object[]> publisher = scannableTable.scan(
                     ctx,
@@ -540,6 +538,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
+            when(ctx.rowAccessor()).thenReturn(ArrayRowHandler.INSTANCE);
 
             TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
@@ -551,8 +550,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(OperationContext.create(txContext))
             );
 
-            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
             List<String> indexColumns = input.getIndexColumns();
 
@@ -574,6 +572,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
+            when(ctx.rowAccessor()).thenReturn(ArrayRowHandler.INSTANCE);
 
             TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
@@ -584,8 +583,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     any(IndexScanCriteria.Lookup.class),
                     eq(OperationContext.create(txContext)));
 
-            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(

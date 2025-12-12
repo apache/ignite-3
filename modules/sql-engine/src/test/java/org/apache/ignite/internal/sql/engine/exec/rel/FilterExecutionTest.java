@@ -28,6 +28,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.junit.jupiter.api.Test;
@@ -88,6 +89,11 @@ public class FilterExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

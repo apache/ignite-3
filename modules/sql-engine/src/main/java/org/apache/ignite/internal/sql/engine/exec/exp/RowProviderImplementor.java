@@ -40,8 +40,8 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
@@ -126,7 +126,7 @@ class RowProviderImplementor {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
+        ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
         ParameterExpression outBuilder = Expressions.parameter(RowBuilder.class, "outBuilder");
 
         builder.add(
@@ -167,7 +167,7 @@ class RowProviderImplementor {
     /** Internal interface of this implementor. Need to be public due to visibility for compiler. */
     @FunctionalInterface
     public interface SqlRowProviderExt {
-        <RowT> void get(ExecutionContext<RowT> context, RowBuilder<RowT> outBuilder);
+        <RowT> void get(SqlEvaluationContext<RowT> context, RowBuilder<RowT> outBuilder);
     }
 
     private static class SqlRowProviderImpl extends AbstractRowProvider {
@@ -180,7 +180,7 @@ class RowProviderImplementor {
         }
 
         @Override
-        <RowT> void buildRow(ExecutionContext<RowT> context, RowBuilder<RowT> rowBuilder) {
+        <RowT> void buildRow(SqlEvaluationContext<RowT> context, RowBuilder<RowT> rowBuilder) {
             rowProvider.get(context, rowBuilder);
         }
     }
@@ -197,7 +197,7 @@ class RowProviderImplementor {
         }
 
         @Override
-        <RowT> void buildRow(ExecutionContext<RowT> context, RowBuilder<RowT> rowBuilder) {
+        <RowT> void buildRow(SqlEvaluationContext<RowT> context, RowBuilder<RowT> rowBuilder) {
             for (int i = 0; i < values.size(); i++) {
                 RexLiteral literal = values.get(i);
                 Class<?> type = types.get(i);
@@ -216,14 +216,14 @@ class RowProviderImplementor {
             this.rowType = rowType;
         }
 
-        private <RowT> RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
-            return context.rowHandler().factory(rowType).rowBuilder();
+        private <RowT> RowBuilder<RowT> builder(SqlEvaluationContext<RowT> context) {
+            return context.rowFactoryFactory().create(rowType).rowBuilder();
         }
 
-        abstract <RowT> void buildRow(ExecutionContext<RowT> context, RowBuilder<RowT> rowBuilder);
+        abstract <RowT> void buildRow(SqlEvaluationContext<RowT> context, RowBuilder<RowT> rowBuilder);
 
         @Override
-        public <RowT> RowT get(ExecutionContext<RowT> context) {
+        public <RowT> RowT get(SqlEvaluationContext<RowT> context) {
             RowBuilder<RowT> rowBuilder = builder(context);
 
             buildRow(context, rowBuilder);

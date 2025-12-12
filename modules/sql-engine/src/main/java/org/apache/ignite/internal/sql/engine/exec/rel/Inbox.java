@@ -39,7 +39,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
