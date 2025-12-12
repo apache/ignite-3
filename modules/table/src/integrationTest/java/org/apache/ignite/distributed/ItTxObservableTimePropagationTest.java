@@ -39,7 +39,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingSta
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.TxInfrastructureTest;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -138,7 +138,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
                 }
 
                 var fsm = (JraftServerImpl.DelegatingStateMachine) raftNode.getOptions().getFsm();
-                PartitionListener listener = extractPartitionListener(fsm, accounts);
+                TablePartitionProcessor listener = extractPartitionListener(fsm, accounts);
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = listener.getSafeTimeTracker();
 
                 try {
@@ -172,7 +172,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
         assertTrue(commitTs2.compareTo(commitTs) > 0, "Invalid safe time");
     }
 
-    private static PartitionListener extractPartitionListener(DelegatingStateMachine fsm, TableViewInternal table) {
-        return (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
+    private static TablePartitionProcessor extractPartitionListener(DelegatingStateMachine fsm, TableViewInternal table) {
+        return (TablePartitionProcessor) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
     }
 }
