@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.raft.storage.segstore.RaftLogCheckpointer.MAX_QUEUE_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
@@ -53,6 +52,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
+    private static final int MAX_QUEUE_SIZE = 10;
+
     private RaftLogCheckpointer checkpointer;
 
     @Mock
@@ -60,7 +61,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager());
+        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager(), MAX_QUEUE_SIZE);
 
         checkpointer.start();
     }

@@ -40,8 +40,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -56,6 +59,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
@@ -72,8 +76,17 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
     private LogEntryDecoder decoder;
 
     @BeforeEach
-    void setUp() throws IOException {
-        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, new NoOpFailureManager());
+    void setUp(
+            @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
+            LogStorageConfiguration storageConfiguration
+    ) throws IOException {
+        fileManager = new SegmentFileManager(
+                NODE_NAME,
+                workDir,
+                STRIPES,
+                new NoOpFailureManager(),
+                storageConfiguration
+        );
 
         fileManager.start();
     }

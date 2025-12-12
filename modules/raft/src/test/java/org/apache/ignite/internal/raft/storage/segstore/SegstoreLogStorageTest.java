@@ -22,14 +22,19 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@ExtendWith(ConfigurationExtension.class)
 class SegstoreLogStorageTest extends BaseLogStorageTest {
     private static final int SEGMENT_SIZE = 512 * 1024; // Same as in JRaft tests.
 
@@ -39,6 +44,9 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
     private SegmentFileManager segmentFileManager;
 
+    @InjectConfiguration("mock.segmentFileSizeBytes=" + SEGMENT_SIZE)
+    private LogStorageConfiguration storageConfiguration;
+
     @AfterEach
     void tearDown() throws Exception {
         closeAllManually(segmentFileManager);
@@ -47,7 +55,13 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
     @Override
     protected LogStorage newLogStorage() {
         try {
-            segmentFileManager = new SegmentFileManager(NODE_NAME, path, SEGMENT_SIZE, 1, new NoOpFailureManager());
+            segmentFileManager = new SegmentFileManager(
+                    NODE_NAME,
+                    path,
+                    1,
+                    new NoOpFailureManager(),
+                    storageConfiguration
+            );
 
             segmentFileManager.start();
 

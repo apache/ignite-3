@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Math.toIntExact;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.RESET_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -146,20 +148,27 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private boolean isStopped;
 
-    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes, FailureProcessor failureProcessor) throws IOException {
-        if (fileSize <= HEADER_RECORD.length) {
-            throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
-        }
-
+    SegmentFileManager(
+            String nodeName,
+            Path baseDir,
+            int stripes,
+            FailureProcessor failureProcessor,
+            LogStorageConfiguration storageConfiguration
+    ) throws IOException {
         this.segmentFilesDir = baseDir.resolve("segments");
 
         Files.createDirectories(segmentFilesDir);
 
-        this.fileSize = fileSize;
+        this.fileSize = toIntExact(storageConfiguration.segmentFileSizeBytes().value());
         this.stripes = stripes;
 
         indexFileManager = new IndexFileManager(baseDir);
-        checkpointer = new RaftLogCheckpointer(nodeName, indexFileManager, failureProcessor);
+        checkpointer = new RaftLogCheckpointer(
+                nodeName,
+                indexFileManager,
+                failureProcessor,
+                storageConfiguration.maxCheckpointQueueSize().value()
+        );
     }
 
     void start() throws IOException {

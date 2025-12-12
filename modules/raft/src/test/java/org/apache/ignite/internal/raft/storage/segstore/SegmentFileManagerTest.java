@@ -61,10 +61,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -80,6 +83,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 class SegmentFileManagerTest extends IgniteAbstractTest {
     private static final int FILE_SIZE = 100;
 
@@ -91,6 +95,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private final FailureManager failureManager = new NoOpFailureManager();
 
+    @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
+    private LogStorageConfiguration storageConfiguration;
+
     private SegmentFileManager fileManager;
 
     @BeforeEach
@@ -101,19 +108,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     private SegmentFileManager createFileManager() throws IOException {
-        return new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, failureManager);
+        return new SegmentFileManager(
+                NODE_NAME,
+                workDir,
+                STRIPES,
+                failureManager,
+                storageConfiguration
+        );
     }
 
     @AfterEach
     void tearDown() throws Exception {
         closeAllManually(fileManager);
-    }
-
-    @SuppressWarnings("ResultOfObjectAllocationIgnored")
-    @Test
-    void testConstructorInvariants() {
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 0, 1, failureManager));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 1, 1, failureManager));
     }
 
     @Test
