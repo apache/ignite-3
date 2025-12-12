@@ -17,9 +17,6 @@
 
 package org.apache.ignite.example.table;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 
@@ -42,82 +39,75 @@ public class KeyValueViewPojoExample {
         //
         //--------------------------------------------------------------------------------------
 
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate(
-                    "CREATE TABLE accounts ("
-                            + "accountNumber INT PRIMARY KEY,"
-                            + "firstName     VARCHAR,"
-                            + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
-            );
-        }
-
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
-        //
-        //--------------------------------------------------------------------------------------
-
-        System.out.println("\nConnecting to server...");
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating a key-value view for the 'accounts' table.
-            //
-            //--------------------------------------------------------------------------------------
+            try {
 
-            KeyValueView<AccountKey, Account> kvView = client.tables()
-                    .table("accounts")
-                    .keyValueView(AccountKey.class, Account.class);
+                client.sql().executeScript(
+                        "CREATE TABLE accounts ("
+                                + "accountNumber INT PRIMARY KEY,"
+                                + "firstName     VARCHAR,"
+                                + "lastName      VARCHAR,"
+                                + "balance       DOUBLE)"
+                );
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'put' operation.
-            //
-            //--------------------------------------------------------------------------------------
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a client to connect to the cluster.
+                //
+                //--------------------------------------------------------------------------------------
 
-            System.out.println("\nInserting a key-value pair into the 'accounts' table...");
+                System.out.println("\nConnecting to server...");
 
-            AccountKey key = new AccountKey(123456);
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a key-value view for the 'accounts' table.
+                //
+                //--------------------------------------------------------------------------------------
 
-            Account value = new Account(
-                    "Val",
-                    "Kulichenko",
-                    100.00d
-            );
+                KeyValueView<AccountKey, Account> kvView = client.tables()
+                        .table("accounts")
+                        .keyValueView(AccountKey.class, Account.class);
 
-            kvView.put(null, key, value);
+                //--------------------------------------------------------------------------------------
+                //
+                // Performing the 'put' operation.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'get' operation.
-            //
-            //--------------------------------------------------------------------------------------
+                System.out.println("\nInserting a key-value pair into the 'accounts' table...");
 
-            System.out.println("\nRetrieving a value using KeyValueView API...");
+                AccountKey key = new AccountKey(123456);
 
-            value = kvView.get(null, key);
+                Account value = new Account(
+                        "Val",
+                        "Kulichenko",
+                        100.00d
+                );
 
-            System.out.println(
-                    "\nRetrieved value:\n"
-                        + "    Account Number: " + key.accountNumber + '\n'
-                        + "    Owner: " + value.firstName + " " + value.lastName + '\n'
-                        + "    Balance: $" + value.balance);
-        } finally {
-            System.out.println("\nDropping the table...");
+                kvView.put(null, key, value);
 
-            try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE accounts");
+                //--------------------------------------------------------------------------------------
+                //
+                // Performing the 'get' operation.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nRetrieving a value using KeyValueView API...");
+
+                value = kvView.get(null, key);
+
+                System.out.println(
+                        "\nRetrieved value:\n"
+                                + "    Account Number: " + key.accountNumber + '\n'
+                                + "    Owner: " + value.firstName + " " + value.lastName + '\n'
+                                + "    Balance: $" + value.balance);
+            } finally {
+                System.out.println("\nDropping the table...");
+
+                client.sql().executeScript("DROP TABLE accounts");
             }
         }
     }
