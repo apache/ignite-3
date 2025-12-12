@@ -18,14 +18,12 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Reflection.Emit;
 
 /// <summary>
 /// Extensions for <see cref="ILGenerator"/>.
 /// </summary>
-[RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
 internal static class ILGeneratorExtensions
 {
     /// <summary>

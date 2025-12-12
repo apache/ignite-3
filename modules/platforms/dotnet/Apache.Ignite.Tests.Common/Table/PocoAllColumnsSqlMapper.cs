@@ -94,8 +94,7 @@ public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
                     break;
 
                 default:
-                    rowWriter.Skip();
-                    break;
+                    throw new InvalidOperationException("Unexpected column: " + col.Name);
             }
         }
     }
@@ -188,8 +187,7 @@ public class PocoAllColumnsSqlMapper : IMapper<PocoAllColumnsSql>
                     break;
 
                 default:
-                    rowReader.Skip();
-                    break;
+                    throw new InvalidOperationException("Unexpected column: " + col.Name);
             }
         }
 

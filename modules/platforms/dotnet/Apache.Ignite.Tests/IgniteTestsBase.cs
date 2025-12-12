@@ -48,8 +48,6 @@ namespace Apache.Ignite.Tests
 
         static IgniteTestsBase()
         {
-            JavaServer.SetLogCallback(TestContext.Progress.WriteLine);
-
             ServerNode = JavaServer.StartAsync().GetAwaiter().GetResult();
 
             AppDomain.CurrentDomain.ProcessExit += (_, _) => ServerNode.Dispose();

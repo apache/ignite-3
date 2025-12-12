@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
@@ -32,7 +31,6 @@ using Proto.MsgPack;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private static async Task HandleServerOpInnerAsync(
         ServerOp op,
         PooledBuffer request,
@@ -82,14 +80,8 @@ internal sealed partial class ClientSocket
     }
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "No AOT on server side.")]
     private async Task HandleServerOpAsync(PooledBuffer buf, long requestId, ServerOp op)
     {
-        if (!RuntimeFeature.IsDynamicCodeSupported)
-        {
-            throw new InvalidOperationException("Compute job executor requires reflection and does not work in AOT mode.");
-        }
-
         _logger.LogServerOpTrace(requestId, (int)op, op, ConnectionContext.ClusterNode.Address);
 
         using var request = buf;

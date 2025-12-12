@@ -112,7 +112,7 @@ namespace Apache.Ignite
         /// <para />
         /// Use <see cref="Timeout.InfiniteTimeSpan"/> for infinite timeout.
         /// </summary>
-        [DefaultValue("00:00:30")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>
@@ -121,7 +121,7 @@ namespace Apache.Ignite
         /// An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
         /// which case the operation timeout is applied to each individual network call.
         /// </summary>
-        [DefaultValue("-00:00:00.001")]
+        [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
         public TimeSpan OperationTimeout { get; set; } = DefaultOperationTimeout;
 
         /// <summary>
@@ -163,7 +163,7 @@ namespace Apache.Ignite
         /// When client connection is idle (no operations are performed), heartbeat messages are sent periodically
         /// to keep the connection alive and detect potential half-open state.
         /// </summary>
-        [DefaultValue("00:00:30")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan HeartbeatInterval { get; set; } = DefaultHeartbeatInterval;
 
         /// <summary>
@@ -176,7 +176,7 @@ namespace Apache.Ignite
         /// However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
         /// client will check all configured endpoints and try to reconnect them in case of failure.
         /// </summary>
-        [DefaultValue("00:00:30")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
 
         /// <summary>

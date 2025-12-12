@@ -55,7 +55,7 @@ object PlatformDotnetTestsLinux : BuildType({
             args = "--no-restore -m:8"
         }
         customGradle {
-            name = "Build Java Node Runner"
+            name = "Verify runner is built"
             tasks = ":ignite-runner:integrationTestClasses :ignite-compatibility-tests:testFixturesClasses"
         }
         customScript(type = "bash") {
@@ -79,19 +79,6 @@ object PlatformDotnetTestsLinux : BuildType({
             skipBuild = true
             args = "-p:BuildInParallel=false -m:1"
             sdk = "3.1 6"
-        }
-        customScript(type = "bash") {
-            name = "Clean Up Remaining Processes"
-        }
-        script {
-            name = "Build AOT Tests"
-            workingDir = "%PATH__WORKING_DIR%"
-            scriptContent = "dotnet publish --runtime linux-x64 --configuration Release Apache.Ignite.Tests.Aot"
-        }
-        script {
-            name = "Run AOT Tests"
-            workingDir = "%PATH__WORKING_DIR%"
-            scriptContent = "./Apache.Ignite.Tests.Aot/bin/Release/net8.0/linux-x64/publish/Apache.Ignite.Tests.Aot"
         }
         customScript(type = "bash") {
             name = "Clean Up Remaining Processes"

@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations.Schema;
-    using System.Diagnostics.CodeAnalysis;
     using System.Linq.Expressions;
     using System.Reflection;
     using System.Runtime.CompilerServices;
@@ -29,7 +28,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// <summary>
     /// Reflection utilities.
     /// </summary>
-    [RequiresUnreferencedCode(TrimWarning)]
     internal static class ReflectionUtils
     {
         /// <summary>
@@ -42,12 +40,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// GetTypeFromHandle method.
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
-
-        /// <summary>
-        /// AOT and trimming warning.
-        /// </summary>
-        internal const string TrimWarning =
-            "Object mapping uses runtime codegen and does not support AOT. Use overloads with IMapper<T> instead.";
 
         private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
 

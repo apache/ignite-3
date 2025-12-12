@@ -22,7 +22,6 @@ namespace Apache.Ignite.Internal.Compute
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
-    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -627,24 +626,11 @@ namespace Apache.Ignite.Internal.Compute
             return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                     target.TableName,
                     target.Data,
-                    static table => GetSerializerHandler(table),
+                    static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
                     jobDescriptor,
                     arg,
                     cancellationToken)
                 .ConfigureAwait(false);
-
-            [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "IGNITE-27278")]
-            [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "IGNITE-27278")]
-            static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
-            {
-                if (!RuntimeFeature.IsDynamicCodeSupported)
-                {
-                    // TODO IGNITE-27278: Remove suppression and require mapper in trimmed mode.
-                    throw new InvalidOperationException("Colocated job target requires an IIgniteTuple key when running in trimmed AOT mode.");
-                }
-
-                return table.GetRecordViewInternal<TKey>().RecordSerializer.Handler;
-            }
         }
 
         private async Task<bool?> CancelJobAsync(Guid jobId)

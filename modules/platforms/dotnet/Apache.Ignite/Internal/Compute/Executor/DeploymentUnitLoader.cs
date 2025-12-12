@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.Loader;
 
@@ -36,7 +35,6 @@ internal static class DeploymentUnitLoader
     /// </summary>
     /// <param name="paths">The deployment unit paths to load assemblies from.</param>
     /// <returns>A new job load context instance.</returns>
-    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     public static JobLoadContext GetJobLoadContext(DeploymentUnitPaths paths)
     {
         var asmCtx = new AssemblyLoadContext(name: null, isCollectible: true);
@@ -46,7 +44,6 @@ internal static class DeploymentUnitLoader
         return new JobLoadContext(asmCtx);
     }
 
-    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private static Assembly? ResolveAssembly(IReadOnlyList<string> paths, AssemblyName name, AssemblyLoadContext ctx)
     {
         if (name.Name == IgniteAssemblyName)
