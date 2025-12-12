@@ -448,7 +448,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
-            var options = DataStreamerOptions.builder().pageSize(42).build();
+            var options = DataStreamerOptions.builder().pageSize(100).build();
             streamerFut = view.streamData(publisher, options);
 
             for (int i = 0; i < count; i++) {
