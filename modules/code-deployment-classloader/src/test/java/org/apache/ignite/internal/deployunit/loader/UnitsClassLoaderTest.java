@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContaining;
@@ -32,7 +32,6 @@ import static org.mockito.Mockito.verify;
 import java.net.URL;
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteException;
@@ -46,7 +45,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JobClassLoaderTest extends BaseIgniteAbstractTest {
+class UnitsClassLoaderTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ClassLoader parentClassLoader;
@@ -55,7 +54,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of("java.lang.String", String.class),
                 Arguments.of("javax.lang.String", String.class),
-                Arguments.of("org.apache.ignite.internal.compute.JobExecutionContextImpl", JobExecutionContextImpl.class)
+                Arguments.of("org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderImpl", UnitsClassLoaderImpl.class)
         );
     }
 
@@ -90,7 +89,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
         DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
 
-        try (JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader)) {
+        try (UnitsClassLoader jobClassLoader = new UnitsClassLoader(List.of(unit1, unit2), parentClassLoader)) {
             jobClassLoader.close();
             verify(unit1, times(1)).release();
             verify(unit2, times(1)).release();
@@ -104,12 +103,12 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         RuntimeException toBeThrown = new RuntimeException("Expected exception");
         doThrow(toBeThrown).when(unit1).release();
 
-        JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader);
+        UnitsClassLoader jobClassLoader = new UnitsClassLoader(List.of(unit1, unit2), parentClassLoader);
         IgniteException igniteException = assertThrows(IgniteException.class, jobClassLoader::close);
         assertThat(igniteException.getSuppressed(), arrayContaining(toBeThrown));
     }
 
-    private static class TestJobClassLoaderImpl extends JobClassLoaderImpl {
+    private static class TestJobClassLoaderImpl extends UnitsClassLoaderImpl {
         TestJobClassLoaderImpl(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
             super(units, urls, parent);
         }

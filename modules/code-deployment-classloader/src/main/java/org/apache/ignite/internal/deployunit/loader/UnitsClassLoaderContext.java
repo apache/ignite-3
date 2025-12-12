@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import java.util.function.Consumer;
 
 /**
  * Job context.
  */
-public class JobContext implements AutoCloseable {
+public class UnitsClassLoaderContext implements AutoCloseable {
 
-    private final JobClassLoader classLoader;
+    private final UnitsClassLoader classLoader;
 
-    private final Consumer<JobContext> onClose;
+    private final Consumer<UnitsClassLoaderContext> onClose;
 
-    public JobContext(JobClassLoader classLoader, Consumer<JobContext> onClose) {
+    public UnitsClassLoaderContext(UnitsClassLoader classLoader, Consumer<UnitsClassLoaderContext> onClose) {
         this.classLoader = classLoader;
         this.onClose = onClose;
     }
 
-    public JobClassLoader classLoader() {
+    public UnitsClassLoader classLoader() {
         return classLoader;
     }
 

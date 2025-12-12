@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import java.net.URL;
 import java.security.AccessController;
@@ -32,22 +32,22 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Implementation of {@link ClassLoader} that loads classes from specified component directories.
  */
-public class JobClassLoader implements AutoCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(JobClassLoader.class);
+public class UnitsClassLoader implements AutoCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(UnitsClassLoader.class);
 
     private final List<DisposableDeploymentUnit> units;
 
     private final ClassLoader parent;
 
-    private volatile JobClassLoaderImpl impl;
+    private volatile UnitsClassLoaderImpl impl;
 
     /**
-     * Creates new instance of {@link JobClassLoader}.
+     * Creates new instance of {@link UnitsClassLoader}.
      *
      * @param units Units to load classes from.
      * @param parent Parent class loader.
      */
-    public JobClassLoader(List<DisposableDeploymentUnit> units, ClassLoader parent) {
+    public UnitsClassLoader(List<DisposableDeploymentUnit> units, ClassLoader parent) {
         this.units = units;
         this.parent = parent;
     }
@@ -77,18 +77,18 @@ public class JobClassLoader implements AutoCloseable {
         return impl;
     }
 
-    private JobClassLoaderImpl createClassLoader() {
-        return AccessController.doPrivileged((PrivilegedAction<JobClassLoaderImpl>) () -> {
+    private UnitsClassLoaderImpl createClassLoader() {
+        return AccessController.doPrivileged((PrivilegedAction<UnitsClassLoaderImpl>) () -> {
             URL[] classpath = units.stream()
                     .map(DisposableDeploymentUnit::path)
-                    .flatMap(JobClasspath::collectClasspath)
+                    .flatMap(UnitsClasspath::collectClasspath)
                     .toArray(URL[]::new);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
             }
 
-            return new JobClassLoaderImpl(units, classpath, parent);
+            return new UnitsClassLoaderImpl(units, classpath, parent);
         });
     }
 
@@ -105,7 +105,7 @@ public class JobClassLoader implements AutoCloseable {
         }
 
         try {
-            JobClassLoaderImpl impl0 = impl;
+            UnitsClassLoaderImpl impl0 = impl;
 
             if (impl0 != null) {
                 impl0.close();

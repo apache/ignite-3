@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.deployunit.loader;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThrowable;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 
@@ -34,20 +33,20 @@ class ClassLoaderExceptionsMapper {
     private static final String DEPLOYMENT_UNIT_NOT_AVAILABLE_MSG = "%s. Deployment unit %s:%s can't be used: "
             + "[clusterStatus = %s, nodeStatus = %s]";
 
-    static CompletableFuture<JobContext> mapClassLoaderExceptions(
-            CompletableFuture<JobContext> future,
-            String jobClassName
+    static CompletableFuture<UnitsClassLoaderContext> mapClassLoaderExceptions(
+            CompletableFuture<UnitsClassLoaderContext> future,
+            String acquireId
     ) {
         return future.handle((v, e) -> {
-            if (e instanceof Exception) {
-                throw new CompletionException(mapException((Exception) unwrapCompletionThrowable((Exception) e), jobClassName));
+            if (e != null) {
+                throw new CompletionException(mapException(unwrapCompletionThrowable(e), acquireId));
             } else {
                 return v;
             }
         });
     }
 
-    private static Exception mapException(Exception e, String jobClassName) {
+    private static Throwable mapException(Throwable e, String jobClassName) {
         if (e instanceof DeploymentUnitNotFoundException) {
             return new ClassNotFoundException(
                     String.format(
