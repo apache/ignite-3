@@ -26,6 +26,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link VersionedSerializer} for {@link ManualGroupRestartRequest} instances.
@@ -36,7 +37,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
 
     @Override
     protected byte getProtocolVersion() {
-        return 2;
+        return 3;
     }
 
     @Override
@@ -48,6 +49,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         writeStringSet(request.nodeNames(), out);
         hybridTimestamp(request.assignmentsTimestamp()).writeTo(out);
         out.writeBoolean(request.cleanUp()); // Write the new 'cleanUp' field introduced in protocol version 2.
+        out.writeUTF(request.coordinator()); // Write the new 'coordinator' field introduced in protocol version 3.
     }
 
     @Override
@@ -65,6 +67,8 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
             cleanUp = in.readBoolean(); // Read the new 'cleanUp' field if protocol version is 2 or greater.
         }
 
+        String coordinator = readCoordinator(protoVer, in);
+
         return new ManualGroupRestartRequest(
                 operationId,
                 zoneId,
@@ -72,7 +76,12 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
                 partitionIds,
                 nodeNames,
                 assignmentsTimestamp.longValue(),
-                cleanUp
+                cleanUp,
+                coordinator
         );
+    }
+
+    private static @Nullable String readCoordinator(byte protoVer, IgniteDataInput in) throws IOException {
+        return protoVer >= 3 ? in.readUTF() : null;
     }
 }

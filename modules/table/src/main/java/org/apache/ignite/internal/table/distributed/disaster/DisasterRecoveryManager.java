@@ -72,6 +72,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -93,6 +97,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -111,6 +116,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.OperationCompletedMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
@@ -201,8 +207,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Cluster physical topology service.  */
     private final TopologyService topologyService;
 
+    private final LogicalTopologyService logicalTopology;
+
     /** Watch listener for {@link #RECOVERY_TRIGGER_KEY}. */
     private final WatchListener watchListener;
+
+    private final LogicalTopologyEventListener nodeLeftListener;
 
     /** Table manager. */
     final TableManager tableManager;
@@ -226,6 +236,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private final Map<Integer, PartitionStatesMetricSource> metricSourceByTableId = new ConcurrentHashMap<>();
 
+    private final Map<String, MultiNodeOperations> operationsByNodeName = new ConcurrentHashMap<>();
+
     /** Constructor. */
     public DisasterRecoveryManager(
             ExecutorService threadPool,
@@ -235,6 +247,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             DistributionZoneManager dzManager,
             Loza raftManager,
             TopologyService topologyService,
+            LogicalTopologyService logicalTopology,
             TableManager tableManager,
             MetricManager metricManager,
             FailureManager failureManager,
@@ -248,6 +261,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.dzManager = dzManager;
         this.raftManager = raftManager;
         this.topologyService = topologyService;
+        this.logicalTopology = logicalTopology;
         this.tableManager = tableManager;
         this.metricManager = metricManager;
         this.failureManager = failureManager;
@@ -260,6 +274,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             // There is no need to block a watch thread any longer.
             return nullCompletedFuture();
         });
+
+        nodeLeftListener = new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                MultiNodeOperations operations = operationsByNodeName.get(leftNode.name());
+                if (operations != null) {
+                    operations.completeAllExceptionally(leftNode.name(), new NodeStoppingException());
+                }
+            }
+        };
     }
 
     @Override
@@ -279,6 +303,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             registerMetricSources();
 
+            logicalTopology.addEventListener(nodeLeftListener);
+
             return nullCompletedFuture();
         });
     }
@@ -288,6 +314,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         busyLock.block();
 
         metaStorageManager.unregisterWatch(watchListener);
+
+        logicalTopology.removeEventListener(nodeLeftListener);
 
         for (CompletableFuture<Void> future : ongoingOperationsById.values()) {
             future.completeExceptionally(new NodeStoppingException());
@@ -533,7 +561,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         partitionIds,
                         nodeNames,
                         catalog.time(),
-                        false
+                        false,
+                        localNode().name()
                 ));
             } catch (Throwable t) {
                 return failedFuture(t);
@@ -580,7 +609,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         partitionIds,
                         nodeNames,
                         catalog.time(),
-                        true
+                        true,
+                        localNode().name()
                 ));
             } catch (Throwable t) {
                 return failedFuture(t);
@@ -622,7 +652,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         partitionIds,
                         nodeNames,
                         catalog.time(),
-                        false
+                        false,
+                        localNode().name()
                 ));
             } catch (Throwable t) {
                 return failedFuture(t);
@@ -666,7 +697,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         partitionIds,
                         nodeNames,
                         catalog.time(),
-                        true
+                        true,
+                        localNode().name()
                 ));
             } catch (Throwable t) {
                 return failedFuture(t);
@@ -1108,10 +1140,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      */
     private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request, long revision) {
         // Check if this is a manual restart request with specific nodes, and forward to the first node if needed.
-        if (request instanceof ManualGroupRestartRequest) {
-            ManualGroupRestartRequest restartRequest = (ManualGroupRestartRequest) request;
+        if (request instanceof MultiNodeDisasterRecoveryRequest) {
+            MultiNodeDisasterRecoveryRequest multiNodeRequest = (MultiNodeDisasterRecoveryRequest) request;
 
-            Set<String> nodeNames = restartRequest.nodeNames();
+            Set<String> nodeNames = multiNodeRequest.nodeNames();
 
             if (!nodeNames.isEmpty()) {
                 String firstNode = nodeNames.stream()
@@ -1123,7 +1155,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                 // If this is not the target node, forward the request and return its response.
                 if (!firstNode.equals(localNodeName)) {
-                    return forwardDisasterRecoveryRequest(request, revision, firstNode);
+                    return forwardDisasterRecoveryRequest(multiNodeRequest, revision, firstNode);
                 }
             }
         }
@@ -1131,6 +1163,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         UUID operationId = request.operationId();
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        CompletableFuture<Void> remoteProcessingFuture = remoteProcessingFuture(request);
 
         operationFuture.whenComplete((v, throwable) -> ongoingOperationsById.remove(operationId));
 
@@ -1151,7 +1185,66 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
         }
 
-        return operationFuture;
+        return operationFuture.thenCompose(v -> remoteProcessingFuture);
+    }
+
+    private CompletableFuture<Void> remoteProcessingFuture(DisasterRecoveryRequest request) {
+        if (request.type() != DisasterRecoveryRequestType.MULTI_NODE) {
+            return nullCompletedFuture();
+        }
+
+        UUID operationId = request.operationId();
+
+        MultiNodeDisasterRecoveryRequest multiNodeRequest = (MultiNodeDisasterRecoveryRequest) request;
+
+        Collection<String> actualNodeNames = getActualNodeNames(multiNodeRequest.nodeNames());
+
+        CompletableFuture<?>[] remoteProcessingFutures = actualNodeNames
+                .stream()
+                .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(remoteProcessingFutures)
+                .whenComplete((ignored, e) -> {
+                    for (String nodeName : actualNodeNames) {
+                        operationsByNodeName.compute(nodeName, (node, operations) -> {
+                            if (operations != null) {
+                                operations.remove(operationId);
+
+                                return operations.isEmpty() ? null : operations;
+                            }
+
+                            return null;
+                        });
+                    }
+                });
+    }
+
+    /** If request node names is empty, returns all nodes in the logical topology. */
+    private Collection<String> getActualNodeNames(Set<String> requestNodeNames) {
+        if (requestNodeNames.isEmpty()) {
+            return dzManager.logicalTopology().stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(toSet());
+        } else {
+            return requestNodeNames;
+        }
+    }
+
+    private CompletableFuture<Void> addMultiNodeOperation(String nodeName, UUID operationId) {
+        CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        operationsByNodeName.compute(nodeName, (node, operations) -> {
+            if (operations == null) {
+                operations = new MultiNodeOperations();
+            }
+
+            operations.add(operationId, result);
+
+            return operations;
+        });
+
+        return result;
     }
 
     /**
@@ -1194,11 +1287,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when the forwarded request is processed.
      */
     private CompletableFuture<Void> forwardDisasterRecoveryRequest(
-            DisasterRecoveryRequest request,
+            MultiNodeDisasterRecoveryRequest request,
             long revision,
             String targetNodeName
     ) {
-        byte[] serializedRequest = VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE);
+        DisasterRecoveryRequest updatedCoordinator = request.updateCoordinator(localNode().name());
+
+        byte[] serializedRequest = VersionedSerialization.toBytes(updatedCoordinator, DisasterRecoveryRequestSerializer.INSTANCE);
 
         DisasterRecoveryRequestMessage message = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryRequestMessage()
                 .requestBytes(serializedRequest)
@@ -1272,6 +1367,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                 copyStateTo(operationFuture).accept(res, ex);
                             }
 
+                            MultiNodeDisasterRecoveryRequest multiNodeRequest = (MultiNodeDisasterRecoveryRequest) request;
+
+                            messagingService.send(
+                                    multiNodeRequest.coordinator(),
+                                    ChannelType.DEFAULT,
+                                    PARTITION_REPLICATION_MESSAGES_FACTORY.operationCompletedMessage()
+                                            .operationId(request.operationId())
+                                            .exceptionMessage(ex == null ? null : ex.getMessage())
+                                            .build()
+                            );
+
                             if (ex != null) {
                                 if (!hasCause(
                                         ex,
@@ -1311,6 +1417,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
+        } else if (message instanceof OperationCompletedMessage) {
+            handleOperationCompletedMessage((OperationCompletedMessage) message, sender);
         }
     }
 
@@ -1444,6 +1552,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
+    }
+
+    private void handleOperationCompletedMessage(
+            OperationCompletedMessage message,
+            InternalClusterNode sender
+    ) {
+        MultiNodeOperations multiNodeOperations = operationsByNodeName.get(sender.name());
+        if (multiNodeOperations != null) {
+            multiNodeOperations.complete(message.operationId(), sender.name(), message.exceptionMessage());
+        }
     }
 
     private @Nullable LocalTablePartitionStateMessage handleSizeRequestForTablesInZone(

@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -485,7 +486,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
+        assertThat(exception.getCause().getMessage(), containsString("Not enough alive nodes to perform reset with clean up."));
     }
 
     @Test
@@ -519,7 +520,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
+        assertThat(exception.getCause().getMessage(), containsString("Not enough alive nodes to perform reset with clean up."));
     }
 
     @ParameterizedTest(name = "consistencyMode={0}, primaryReplica={1}, raftLeader={2}")
