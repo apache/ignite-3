@@ -42,7 +42,10 @@ while IFS='|' read -r remote_url nexus_url; do
     echo ""
     echo "Replacing: $remote_url -> $nexus_url"
 
-    FILES_TO_UPDATE=$(find "$REPO_ROOT" \( -name "build.gradle" -o -name "settings.gradle" -o -name "gradle-wrapper.properties" \) -type f \
+    # Search for URL with or without trailing slash
+    # Try both versions to find files
+    SEARCH_URL="${remote_url%/}"
+    FILES_WITH_SLASH=$(find "$REPO_ROOT" \( -name "build.gradle" -o -name "settings.gradle" -o -name "gradle-wrapper.properties" \) -type f \
         -not -path "*/.git/*" \
         -not -path "*/.gradle/*" \
         -not -path "*/build/*" \
@@ -51,6 +54,16 @@ while IFS='|' read -r remote_url nexus_url; do
         -not -path "*/node_modules/*" \
         -not -path "*/.run/*" \
         -exec grep -lF "$remote_url" {} \; 2>/dev/null || true)
+    FILES_WITHOUT_SLASH=$(find "$REPO_ROOT" \( -name "build.gradle" -o -name "settings.gradle" -o -name "gradle-wrapper.properties" \) -type f \
+        -not -path "*/.git/*" \
+        -not -path "*/.gradle/*" \
+        -not -path "*/build/*" \
+        -not -path "*/out/*" \
+        -not -path "*/.idea/*" \
+        -not -path "*/node_modules/*" \
+        -not -path "*/.run/*" \
+        -exec grep -lF "$SEARCH_URL" {} \; 2>/dev/null || true)
+    FILES_TO_UPDATE=$(echo -e "${FILES_WITH_SLASH}\n${FILES_WITHOUT_SLASH}" | grep -v '^$' | sort -u)
 
     if [ -z "$FILES_TO_UPDATE" ]; then
         echo "  No files found containing this URL"
@@ -60,23 +73,44 @@ while IFS='|' read -r remote_url nexus_url; do
     while IFS= read -r file; do
         if [ -f "$file" ]; then
             TOTAL_FILES=$((TOTAL_FILES + 1))
-            echo "  Processing: $file"
-
-            # Count occurrences before replacement
-            COUNT=$(grep -o "$remote_url" "$file" | wc -l)
+            
+            # Count occurrences - check which format exists in the file
+            COUNT_WITH_SLASH=$(grep -oF "$remote_url" "$file" 2>/dev/null | wc -l | tr -d ' ')
+            if [ "${COUNT_WITH_SLASH:-0}" -gt 0 ]; then
+                COUNT=$COUNT_WITH_SLASH
+            else
+                # Try without trailing slash
+                COUNT=$(grep -oF "$SEARCH_URL" "$file" 2>/dev/null | wc -l | tr -d ' ')
+            fi
+            COUNT=${COUNT:-0}
             TOTAL_REPLACEMENTS=$((TOTAL_REPLACEMENTS + COUNT))
 
-            # Escape special regex characters for sed (using | as delimiter)
-            # Escape each special character individually for safety
-            ESCAPED_REMOTE=$(printf '%s\n' "$remote_url" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
-            ESCAPED_NEXUS=$(printf '%s\n' "$nexus_url" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
+            if [ $COUNT -gt 0 ]; then
+                echo "  Processing: $file (found $COUNT occurrence(s))"
 
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                # macOS sed
-                sed -i '' "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file"
+                # Escape special regex characters for sed (using | as delimiter)
+                # Determine which format to replace based on what's in the file
+                if [ "${COUNT_WITH_SLASH:-0}" -gt 0 ]; then
+                    # File has URL with trailing slash - replace that version
+                    ESCAPED_REMOTE=$(printf '%s\n' "$remote_url" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
+                    REPLACE_URL="$nexus_url"
+                else
+                    # File has URL without trailing slash - replace that version
+                    ESCAPED_REMOTE=$(printf '%s\n' "$SEARCH_URL" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
+                    # Use nexus_url without trailing slash to match file format
+                    REPLACE_URL="${nexus_url%/}"
+                fi
+                ESCAPED_NEXUS=$(printf '%s\n' "$REPLACE_URL" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
+
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    # macOS sed
+                    sed -i '' "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file"
+                else
+                    # Linux sed
+                    sed -i "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file"
+                fi
             else
-                # Linux sed
-                sed -i "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file"
+                echo "  Skipping: $file (no matches found)"
             fi
         fi
     done <<< "$FILES_TO_UPDATE"

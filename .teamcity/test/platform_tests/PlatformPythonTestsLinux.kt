@@ -73,12 +73,4 @@ object PlatformPythonTestsLinux : BuildType({
             reverse = false
         }
     }
-
-    /**
-     *  Temporary lock Platform Linux jobs on old-type agents
-     *  until execution of these tests is fixed on DIND agents
-     */
-    requirements {
-        doesNotExist("env.DIND_ENABLED")
-    }
 })
