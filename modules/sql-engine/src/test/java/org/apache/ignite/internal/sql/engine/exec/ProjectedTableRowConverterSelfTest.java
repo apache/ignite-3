@@ -31,7 +31,6 @@ import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
@@ -75,7 +74,7 @@ public class ProjectedTableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
         ByteBuffer tupleBuf = new BinaryTupleBuilder(schema.length())
                 .appendUuid(UUID.randomUUID())

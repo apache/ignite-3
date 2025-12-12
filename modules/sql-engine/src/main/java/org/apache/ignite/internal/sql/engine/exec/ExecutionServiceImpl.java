@@ -168,6 +168,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
     private final MappingService mappingService;
 
     private final RowHandler<RowT> handler;
+    private final RowFactoryFactory<RowT> rowFactoryFactory;
 
     private final DdlCommandHandler ddlCmdHnd;
 
@@ -197,6 +198,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param ddlCmdHnd Handler of the DDL commands.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
+     * @param rowFactoryFactory Factory that produces factories to create row.
      * @param implementorFactory Relational node implementor factory.
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
@@ -210,6 +212,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             DdlCommandHandler ddlCmdHnd,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
@@ -220,6 +223,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
+        this.rowFactoryFactory = rowFactoryFactory;
         this.messageService = messageService;
         this.mappingService = mappingService;
         this.sqlSchemaManager = sqlSchemaManager;
@@ -244,6 +248,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param ddlCommandHandler Handler of the DDL commands.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
+     * @param rowFactoryFactory Factory that produces factories to create row.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
      * @param mappingService Nodes mapping calculation service.
@@ -262,6 +267,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             DdlCommandHandler ddlCommandHandler,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             MappingService mappingService,
@@ -281,6 +287,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 ddlCommandHandler,
                 taskExecutor,
                 handler,
+                rowFactoryFactory,
                 tableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
@@ -473,6 +480,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 localNode.id(),
                 DUMMY_DESCRIPTION,
                 handler,
+                rowFactoryFactory,
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
@@ -1020,7 +1028,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
                 AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
                         node,
-                        inRow -> new InternalSqlRowImpl<>(inRow, ectx.rowHandler(), internalTypeConverter));
+                        inRow -> new InternalSqlRowImpl<>(inRow, ectx.rowAccessor(), internalTypeConverter));
                 node.onRegister(rootNode);
 
                 rootNode.startPrefetch()
@@ -1062,6 +1070,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                     initiatorNode.id(),
                     desc,
                     handler,
+                    rowFactoryFactory,
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
                     ctx.timeZoneId(),
