@@ -448,7 +448,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
-            streamerFut = view.streamData(publisher, null);
+            var options = DataStreamerOptions.builder().pageSize(42).build();
+            streamerFut = view.streamData(publisher, options);
 
             for (int i = 0; i < count; i++) {
                 publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
@@ -461,11 +462,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " order by id");
         resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
 
+        assertEquals(count, sqlRes.size());
+
         for (int i = 0; i < sqlRes.size(); i++) {
             assertEquals("foo-" + i, sqlRes.get(i));
         }
-
-        assertEquals(count, sqlRes.size());
     }
 
     @ParameterizedTest
