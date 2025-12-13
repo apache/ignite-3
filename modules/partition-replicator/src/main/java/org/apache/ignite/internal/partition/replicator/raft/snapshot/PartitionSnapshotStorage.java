@@ -280,6 +280,8 @@ public class PartitionSnapshotStorage {
 
     private void completeSnapshotOperation(UUID snapshotId) {
         synchronized (snapshotOperationLock) {
+            LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
             CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 
             assert operationFuture != null :

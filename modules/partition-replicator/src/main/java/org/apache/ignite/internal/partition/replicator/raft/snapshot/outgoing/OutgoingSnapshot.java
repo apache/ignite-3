@@ -143,6 +143,8 @@ public class OutgoingSnapshot {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean closedGuard = new AtomicBoolean();
 
+    private final OutgoingSnapshotMetricsTracker tracker = new OutgoingSnapshotMetricsTracker();
+
     /**
      * Creates a new instance.
      */
@@ -183,6 +185,8 @@ public class OutgoingSnapshot {
         acquireMvLock();
 
         try {
+            tracker.onSnapshotStart();
+
             int catalogVersion = catalogService.latestCatalogVersion();
 
             List<PartitionMvStorageAccess> partitionStorages = freezePartitionStorages();
@@ -217,6 +221,8 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
+            tracker.updateSnapshotMeta(txState.lastAppliedIndex(), txState.lastAppliedTerm(), config, catalogVersion);
+
             return snapshotMetaAt(
                     txState.lastAppliedIndex(),
                     txState.lastAppliedTerm(),
@@ -229,6 +235,13 @@ public class OutgoingSnapshot {
             RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
 
             assert config != null : "Configuration should never be null when installing a snapshot";
+
+            tracker.updateSnapshotMeta(
+                    partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
+                    partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
+                    config,
+                    catalogVersion
+            );
 
             return snapshotMetaAt(
                     partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
@@ -320,6 +333,8 @@ public class OutgoingSnapshot {
         long totalBatchSize = 0;
         List<ResponseEntry> batch = new ArrayList<>();
 
+        tracker.onStartMvDataBatchProcessing();
+
         while (true) {
             acquireMvLock();
 
@@ -331,6 +346,8 @@ public class OutgoingSnapshot {
                 // As out-of-order rows are added under the same lock that we hold, and we always send OOO data first,
                 // exhausting the partition means that no MV data to send is left, we are finished with it.
                 if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
+                    tracker.onEndMvDataBatchProcessing();
+
                     return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMvDataResponse()
                             .rows(batch)
                             .finish(finishedMvData())
@@ -359,7 +376,12 @@ public class OutgoingSnapshot {
             }
 
             rowEntries.add(rowEntry);
-            totalBytesAfter += rowSizeInBytes(rowEntry.rowVersions());
+
+            long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+            tracker.onProcessOutOfOrderRow(rowEntry.rowVersions().size(), rowSize);
+
+            totalBytesAfter += rowSize;
         }
 
         return totalBytesAfter;
@@ -403,7 +425,11 @@ public class OutgoingSnapshot {
 
                 batch.add(rowEntry);
 
-                totalBatchSize += rowSizeInBytes(rowEntry.rowVersions());
+                long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+                totalBatchSize += rowSize;
+
+                tracker.onProcessRow(rowEntry.rowVersions().size(), rowSize);
             }
         }
 
@@ -633,6 +659,14 @@ public class OutgoingSnapshot {
         }
 
         busyLock.block();
+
+        tracker.onSnapshotEnd();
+
+        LOG.info("Outgoing snapshot installation completed [partitionKey={}, snapshotId={}, {}]",
+                partitionKey,
+                id,
+                tracker.stats()
+        );
 
         if (!finishedTxData) {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
