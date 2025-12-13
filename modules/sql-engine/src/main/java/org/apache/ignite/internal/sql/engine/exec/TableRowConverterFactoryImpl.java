@@ -64,9 +64,10 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
 
         tableColumnSet = IntStream.range(0, tableDescriptor.columnsCount()).toArray();
 
-        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME));
-        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY1));
-        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY2));
+        // DISABLE __PARTITION COLUMN
+//        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME));
+//        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY1));
+//        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY2));
     }
 
     private void addVirtualColumn(@Nullable ColumnDescriptor columnDescriptor) {
@@ -86,7 +87,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 ? partId -> new VirtualColumn(columnIndex, columnDescriptor.physicalType(), false, (long) partId)
                 : partId -> new VirtualColumn(columnIndex, columnDescriptor.physicalType(), false, partId);
 
-        virtualColumnsFactory.put(columnIndex, columnFactory);
+        // virtualColumnsFactory.put(columnIndex, columnFactory);
     }
 
     @Override

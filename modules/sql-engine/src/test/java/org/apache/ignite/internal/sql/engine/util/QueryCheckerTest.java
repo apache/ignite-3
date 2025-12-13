@@ -86,7 +86,9 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> List.of("N1"))
                 .collect(Collectors.toList()));
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(
-                List.of(new Object[]{1, 1, 1, 1, 1}, new Object[]{2, 2, 1, 1, 1})
+                // DISABLE __PARTITION COLUMN
+                //  List.of(new Object[]{1, 1, 1, 1, 1}, new Object[]{2, 2, 2, 2, 2})
+                List.of(new Object[]{1, 1}, new Object[]{2, 2})
         )));
     }
 
