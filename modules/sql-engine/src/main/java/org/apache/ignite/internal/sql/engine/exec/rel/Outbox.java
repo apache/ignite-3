@@ -258,14 +258,14 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) {
-        RowHandler<RowT> handler = context().rowHandler();
+        RowHandler<RowT> handler = context().rowAccessor();
 
         List<BinaryTupleMessage> rows0 = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
             rows0.add(
                     TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                            .elementCount(handler.columnCount(row))
+                            .elementCount(handler.columnsCount(row))
                             .tuple(handler.toByteBuffer(row))
                             .build()
             );

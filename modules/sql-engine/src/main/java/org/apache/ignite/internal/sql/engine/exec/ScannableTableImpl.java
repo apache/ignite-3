@@ -32,7 +32,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
@@ -89,7 +88,7 @@ public class ScannableTableImpl implements ScannableTable {
     ) {
         TxContext txContext = transactionalContextFrom(ctx.txAttributes(), partWithConsistencyToken.enlistmentConsistencyToken());
 
-        RowHandler<RowT> handler = rowFactory.handler();
+        RowHandler<RowT> handler = ctx.rowAccessor();
 
         BinaryTuplePrefix lower;
         BinaryTuplePrefix upper;
@@ -136,7 +135,7 @@ public class ScannableTableImpl implements ScannableTable {
     ) {
         TxContext txContext = transactionalContextFrom(ctx.txAttributes(), partWithConsistencyToken.enlistmentConsistencyToken());
 
-        RowHandler<RowT> handler = rowFactory.handler();
+        RowHandler<RowT> handler = ctx.rowAccessor();
 
         BinaryTuple keyTuple = handler.toBinaryTuple(key);
 
@@ -196,7 +195,7 @@ public class ScannableTableImpl implements ScannableTable {
             return null;
         }
 
-        int columnsCount = handler.columnCount(prefix);
+        int columnsCount = handler.columnsCount(prefix);
 
         if (columnsCount == 0) {
             return null;

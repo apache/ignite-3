@@ -377,6 +377,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 ddlCommandHandler,
                 taskExecutor,
                 SqlRowHandler.INSTANCE,
+                SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
                 mappingService,

@@ -27,7 +27,7 @@ import java.util.function.BiPredicate;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
@@ -105,7 +105,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 assert joinProjection != null;
 
                 StructNativeType rightRowSchema = convertStructuredType(rightRowType);
-                RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new LeftJoin<>(ctx, cond, joinProjection, rightRowFactory);
             }
@@ -114,7 +114,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 assert joinProjection != null;
 
                 StructNativeType leftRowSchema = convertStructuredType(leftRowType);
-                RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
 
                 return new RightJoin<>(ctx, cond, joinProjection, leftRowFactory);
             }
@@ -125,8 +125,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 StructNativeType leftRowSchema = convertStructuredType(leftRowType);
                 StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
-                RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
-                RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new FullOuterJoin<>(ctx, cond, joinProjection, leftRowFactory, rightRowFactory);
             }
