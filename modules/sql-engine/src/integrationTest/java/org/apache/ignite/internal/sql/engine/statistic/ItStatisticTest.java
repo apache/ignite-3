@@ -119,9 +119,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         // query not cached in plans
         Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
                 .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() -> {
-                            sqlStatisticManager.forceUpdateAll();
-                            sqlStatisticManager.lastUpdateStatisticFuture().join();
-
                             assertQuery("select 1 from t")
                                     .matches(nodeRowCount("TableScan", is((int) updates2)))
                                     .check();
