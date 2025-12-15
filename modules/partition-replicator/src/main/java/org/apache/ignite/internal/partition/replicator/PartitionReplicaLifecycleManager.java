@@ -615,7 +615,6 @@ public class PartitionReplicaLifecycleManager extends
 
                     partitionsStartFutures[partId] = createZonePartitionReplicationNode(
                             zonePartitionId,
-                            localAssignmentInStable,
                             stableAssignments,
                             causalityToken,
                             partitionCount,
@@ -673,7 +672,6 @@ public class PartitionReplicaLifecycleManager extends
      * meaning that the local node is part of the assignment.
      *
      * @param zonePartitionId Zone Partition ID.
-     * @param localAssignment Assignment of the local member, or null if local member is not part of the assignment.
      * @param stableAssignments Stable assignments.
      * @param revision Event's revision.
      * @param partitionCount Number of partitions on the zone.
@@ -682,7 +680,6 @@ public class PartitionReplicaLifecycleManager extends
      */
     private CompletableFuture<?> createZonePartitionReplicationNode(
             ZonePartitionId zonePartitionId,
-            Assignment localAssignment,
             Assignments stableAssignments,
             long revision,
             int partitionCount,
@@ -1415,7 +1412,6 @@ public class PartitionReplicaLifecycleManager extends
 
             localServicesStartFuture = createZonePartitionReplicationNode(
                     replicaGrpId,
-                    localAssignmentInPending,
                     computedStableAssignments,
                     revision,
                     zoneDescriptor.partitions(),
@@ -1866,7 +1862,6 @@ public class PartitionReplicaLifecycleManager extends
 
                 return createZonePartitionReplicationNode(
                         zonePartitionId,
-                        localAssignment,
                         stableAssignments,
                         revision,
                         zoneDescriptor.partitions(),
@@ -1904,7 +1899,6 @@ public class PartitionReplicaLifecycleManager extends
 
                 return createZonePartitionReplicationNode(
                         zonePartitionId,
-                        localAssignment,
                         stableAssignments,
                         revision,
                         zoneDescriptor.partitions(),

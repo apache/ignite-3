@@ -33,8 +33,8 @@ import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
@@ -104,7 +104,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 assert projection != null;
 
                 StructNativeType rightRowSchema = convertStructuredType(rightRowType);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new LeftHashJoin<>(ctx, joinInfo, projection, rightRowFactory, nonEquiCondition);
             }
@@ -112,7 +112,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 assert projection != null;
 
                 StructNativeType leftRowSchema = convertStructuredType(leftRowType);
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
 
                 return new RightHashJoin<>(ctx, joinInfo, projection, leftRowFactory, nonEquiCondition);
             }
@@ -122,8 +122,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 StructNativeType leftRowSchema = convertStructuredType(leftRowType);
                 StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new FullOuterHashJoin<>(
                         ctx, joinInfo, projection, leftRowFactory, rightRowFactory, nonEquiCondition
@@ -248,7 +248,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class LeftHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
+        private final RowFactory<RowT> rightRowFactory;
         private final SqlJoinProjection outputProjection;
 
         /**
@@ -335,7 +335,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class RightHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final RowFactory<RowT> leftRowFactory;
         private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
@@ -487,10 +487,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class FullOuterHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final RowFactory<RowT> leftRowFactory;
 
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
+        private final RowFactory<RowT> rightRowFactory;
         private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
@@ -868,7 +868,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private Key extractKey(RowT row, int[] mapping) {
-        RowHandler<RowT> handler = context().rowHandler();
+        RowHandler<RowT> handler = context().rowAccessor();
 
         for (int i : mapping) {
             if (handler.isNull(i, row)) {

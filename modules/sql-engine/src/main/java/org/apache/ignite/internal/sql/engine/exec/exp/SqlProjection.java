@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a SQL projection operation.
  *
- * <p>This interface defines a single method, {@link #project(ExecutionContext, Object)}, 
+ * <p>This interface defines a single method, {@link #project(SqlEvaluationContext, Object)}, 
  * which applies a projection to a given row.
  */
 @FunctionalInterface
@@ -35,5 +35,5 @@ public interface SqlProjection {
      * @param <RowT> The type of the execution row.
      * @return The projected row, which may be a modified version of the input row or a new row.
      */
-    <RowT> RowT project(ExecutionContext<RowT> context, RowT row);
+    <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT row);
 }

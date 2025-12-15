@@ -169,14 +169,14 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         RelDataType resultType = selectCountNode.getRowType();
         SqlProjection projection = ctx.expressionFactory().project(expressions, getCountType);
 
-        RowHandler<RowT> rowHandler = ctx.rowHandler();
+        RowHandler<RowT> rowHandler = ctx.rowAccessor();
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
         StructNativeType rowType = NativeTypes.rowBuilder()
                 .addField("COUNT", NativeTypes.INT64, false)
                 .build();
 
         return rowCount -> {
-            RowT rowCountRow = ctx.rowHandler().factory(rowType)
+            RowT rowCountRow = ctx.rowFactoryFactory().create(rowType)
                     .rowBuilder()
                     .addField(rowCount)
                     .build();

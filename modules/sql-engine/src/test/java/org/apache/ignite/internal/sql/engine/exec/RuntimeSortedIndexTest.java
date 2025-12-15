@@ -126,6 +126,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         node.id(),
                         null,
                         ArrayRowHandler.INSTANCE,
+                        ArrayRowHandler.INSTANCE,
                         Map.of(),
                         null,
                         SqlCommon.DEFAULT_TIME_ZONE_ID,

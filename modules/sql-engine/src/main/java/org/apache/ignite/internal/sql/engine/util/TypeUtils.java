@@ -52,9 +52,10 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -808,6 +809,7 @@ public class TypeUtils {
     public static <RowT> RowT validateStringTypesOverflowAndTrimIfPossible(
             RelDataType rowType,
             RowHandler<RowT> rowHandler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             RowT row,
             Supplier<StructNativeType> schema
     ) {
@@ -854,7 +856,7 @@ public class TypeUtils {
                     data = byteString.substring(0, colPrecision);
 
                     if (rowBldr == null) {
-                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                        rowBldr = buildPartialRow(rowHandler, rowFactoryFactory, schema, i, row);
                     }
                 }
             }
@@ -874,7 +876,7 @@ public class TypeUtils {
                     data = str.substring(0, colPrecision);
 
                     if (rowBldr == null) {
-                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                        rowBldr = buildPartialRow(rowHandler, rowFactoryFactory, schema, i, row);
                     }
                 }
             }
@@ -892,9 +894,13 @@ public class TypeUtils {
     }
 
     private static <RowT> RowBuilder<RowT> buildPartialRow(
-            RowHandler<RowT> rowHandler, Supplier<StructNativeType> schema, int endPos, RowT row
+            RowHandler<RowT> rowHandler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
+            Supplier<StructNativeType> schema,
+            int endPos,
+            RowT row
     ) {
-        RowFactory<RowT> factory = rowHandler.factory(schema.get());
+        RowFactory<RowT> factory = rowFactoryFactory.create(schema.get());
         RowBuilder<RowT> bldr = factory.rowBuilder();
 
         for (int i = 0; i < endPos; ++i) {
