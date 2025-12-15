@@ -1101,7 +1101,9 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 schemaManager,
                 dataStorageMgr,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                clusterSvc.messagingService(),
+                replicaSvc
         );
 
         systemViewManager.register(txManager);

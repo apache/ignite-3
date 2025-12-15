@@ -763,7 +763,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager,
                 schemaManager,
                 dataStorageManager,
-                outgoingSnapshotManager
+                outgoingSnapshotManager,
+                clusterSvc.messagingService(),
+                replicaService
         );
 
         TableManager tableManager = new TableManager(

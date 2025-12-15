@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
@@ -53,7 +53,6 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
@@ -134,28 +133,56 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 .timestamp(timestamp)
                 .build();
 
-        when(txMessageSender.resolveTxStateFromCoordinator(any(InternalClusterNode.class), eq(txId), any(HybridTimestamp.class)))
+        when(txMessageSender.resolveTxStateFromCoordinator(
+                    any(InternalClusterNode.class),
+                    eq(txId),
+                    any(HybridTimestamp.class),
+                    any(Long.class),
+                    any()
+                ))
                 .thenReturn(completedFuture(response));
 
         // Mock the commit partition resolution to complete the future.
-        when(txMessageSender.resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class)))
+        when(txMessageSender.resolveTxStateFromCommitPartition(
+                    any(String.class),
+                    eq(txId),
+                    eq(commitPartitionId),
+                    any(Long.class),
+                    any(Long.class),
+                    any())
+                )
                 .thenReturn(completedFuture(pendingMeta));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txId,
                 commitPartitionId,
-                timestamp
+                timestamp,
+                null,
+                null
         );
 
         assertThat(result, willCompleteSuccessfully());
 
         // Verify that coordinator was called with InternalClusterNode.
         ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
-        verify(txMessageSender).resolveTxStateFromCoordinator(nodeCaptor.capture(), eq(txId), any(HybridTimestamp.class));
+        verify(txMessageSender).resolveTxStateFromCoordinator(
+                nodeCaptor.capture(),
+                eq(txId),
+                any(HybridTimestamp.class),
+                any(Long.class),
+                any()
+        );
         assertEquals(COORDINATOR_NODE, nodeCaptor.getValue());
 
         // Verify fallback to commit partition was called.
-        verify(txMessageSender).resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class));
+        verify(txMessageSender).resolveTxStateFromCommitPartition(
+                any(String.class),
+                eq(txId),
+                eq(commitPartitionId),
+                any(Long.class),
+                any(Long.class),
+                any()
+        );
     }
 
     @Test
@@ -172,17 +199,32 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<TxStateResponse> failedFuture = CompletableFuture.failedFuture(new RecipientLeftException());
 
-        when(txMessageSender.resolveTxStateFromCoordinator(any(InternalClusterNode.class), eq(txId), any(HybridTimestamp.class)))
+        when(txMessageSender.resolveTxStateFromCoordinator(
+                    any(InternalClusterNode.class),
+                    eq(txId),
+                    any(HybridTimestamp.class),
+                    any(Long.class),
+                    any())
+                )
                 .thenReturn(failedFuture);
         // Mock the commit partition resolution to complete the future.
         TxStateMeta abandonedMeta = new TxStateMeta(TxState.ABANDONED, coordinatorId, commitPartitionId, null, null, null);
-        when(txMessageSender.resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class)))
+        when(txMessageSender.resolveTxStateFromCommitPartition(
+                    any(String.class),
+                    eq(txId),
+                    eq(commitPartitionId),
+                    any(Long.class),
+                    any(Long.class),
+                    any()
+                ))
                 .thenReturn(completedFuture(abandonedMeta));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txId,
                 commitPartitionId,
-                timestamp
+                timestamp,
+                null,
+                null
         );
 
         assertThat(result, willCompleteSuccessfully());
@@ -193,7 +235,14 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         TxStateMeta afterUpdateState = updaterCaptor.getValue().apply(pendingMeta);
         assertEquals(TxState.ABANDONED, afterUpdateState.txState());
         // Verify fallback to commit partition was called.
-        verify(txMessageSender).resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class));
+        verify(txMessageSender).resolveTxStateFromCommitPartition(
+                any(String.class),
+                eq(txId),
+                eq(commitPartitionId),
+                any(Long.class),
+                any(Long.class),
+                any()
+        );
     }
 
     @Test
@@ -220,25 +269,46 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 .timestamp(timestamp)
                 .build();
 
-        when(txMessageSender.resolveTxStateFromCoordinator(any(InternalClusterNode.class), eq(txId), any(HybridTimestamp.class)))
+        when(txMessageSender.resolveTxStateFromCoordinator(
+                    any(InternalClusterNode.class),
+                    eq(txId),
+                    any(HybridTimestamp.class),
+                    any(Long.class),
+                    any()
+                ))
                 .thenReturn(completedFuture(response));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txId,
                 commitPartitionId,
-                timestamp
+                timestamp,
+                null,
+                null
         );
 
         assertThat(result, willCompleteSuccessfully());
 
         // Verify that coordinator was called with InternalClusterNode.
         ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
-        verify(txMessageSender).resolveTxStateFromCoordinator(nodeCaptor.capture(), eq(txId), any(HybridTimestamp.class));
+        verify(txMessageSender).resolveTxStateFromCoordinator(
+                nodeCaptor.capture(),
+                eq(txId),
+                any(HybridTimestamp.class),
+                any(Long.class),
+                any()
+        );
         assertEquals(COORDINATOR_NODE, nodeCaptor.getValue());
 
         // Verify that commit partition fallback was NOT called.
         verify(txMessageSender, never())
-                .resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class));
+                .resolveTxStateFromCommitPartition(
+                        any(String.class),
+                        eq(txId),
+                        eq(commitPartitionId),
+                        any(Long.class),
+                        any(Long.class),
+                        any()
+                );
 
         // Verify that the transaction meta was updated.
         verify(txManager).updateTxMeta(eq(txId), any());

@@ -99,7 +99,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.TablePartitionReplicaProcessorFactory;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
@@ -118,7 +118,6 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -158,7 +157,6 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -176,6 +174,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -944,6 +943,12 @@ public class ItTxTestCluster {
         Map<ZonePartitionId, ZonePartitionReplicaListener> nodeSpecificZonePartitionReplicaListeners =
                 zonePartitionReplicaListeners.computeIfAbsent(assignment, k -> new HashMap<>());
 
+        TxMessageSender txMessageSender = new TxMessageSender(
+                clusterServices.get(assignment).messagingService(),
+                replicaServices.get(assignment),
+                clockService
+        );
+
         ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
                 zonePartitionId,
                 partitionId -> new ZonePartitionReplicaListener(
@@ -958,11 +963,13 @@ public class ItTxTestCluster {
                         raftClient,
                         new NoOpFailureManager(),
                         localNode,
-                        partitionId
+                        partitionId,
+                        transactionStateResolver,
+                        txMessageSender
                 )
         );
 
-        Function<RaftCommandRunner, ReplicaTableProcessor> createReplicaListener = raftGroupService -> newReplicaListener(
+        TablePartitionReplicaProcessorFactory createReplicaListener = (raftGroupService, txStateResolver) -> newReplicaListener(
                 mvDataStorage,
                 (RaftGroupService) raftGroupService,
                 txManager,

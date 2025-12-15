@@ -26,6 +26,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
@@ -126,6 +127,12 @@ public interface TxManager extends IgniteComponent {
      * @return The state meta or null if the state is unknown.
      */
     @Nullable TxStateMeta stateMeta(UUID txId);
+
+    CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
+            TxStateMeta txMeta,
+            InternalTransaction tx,
+            long currentEnlistmentConsistencyToken,
+            ZonePartitionId senderGroupId);
 
     /**
      * Atomically changes the state meta of a transaction.

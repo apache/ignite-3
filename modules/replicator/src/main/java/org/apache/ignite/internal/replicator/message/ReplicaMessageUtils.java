@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator.message;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.jetbrains.annotations.Nullable;
 
 /** A class with auxiliary constants and methods for the {@link ReplicaMessageGroup}. */
 public class ReplicaMessageUtils {
@@ -56,6 +57,25 @@ public class ReplicaMessageUtils {
                 .zoneId(zonePartitionId.zoneId())
                 .partitionId(zonePartitionId.partitionId())
                 .build();
+    }
+
+    /**
+     * Converts to a network message with null awareness.
+     *
+     * @param messagesFactory Messages factory.
+     * @param zonePartitionId Zone replication group ID for a given partition.
+     * @return New instance of network message.
+     */
+    @Nullable
+    public static ZonePartitionIdMessage toZonePartitionIdMessageNullable(
+            ReplicaMessagesFactory messagesFactory,
+            @Nullable ZonePartitionId zonePartitionId
+    ) {
+        if (zonePartitionId == null) {
+            return null;
+        }
+
+        return toZonePartitionIdMessage(messagesFactory, zonePartitionId);
     }
 
     /**
