@@ -550,13 +550,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         runScheduledTasks();
         // Let eviction tasks to run.
-        try {
-            TimeUnit.MILLISECONDS.sleep(PLAN_UPDATER_REFRESH_PERIOD);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        assertNotSame(plan2, await(service.prepareAsync(parse(selectQuery), operationContext().build())));
+        Awaitility.await().untilAsserted(() -> 
+                assertNotSame(plan2, await(service.prepareAsync(parse(selectQuery), operationContext().build()))));
 
         // previous catalog, get cached plan
         ver.set(0);
@@ -594,13 +589,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         runScheduledTasks();
         // Let eviction tasks to run.
-        try {
-            TimeUnit.MILLISECONDS.sleep(PLAN_UPDATER_REFRESH_PERIOD);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        assertNotEquals(service.cache.entrySet(), cachedSnap);
+        Awaitility.await().untilAsserted(() -> assertNotEquals(service.cache.entrySet(), cachedSnap));
 
         // cache futures snapshot highlight only one invalidation item.
         assertThat(cachedSnap.stream().filter(e -> e.getValue().join().needInvalidate()).count(), is(1L));
