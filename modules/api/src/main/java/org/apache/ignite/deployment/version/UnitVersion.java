@@ -35,17 +35,17 @@ class UnitVersion implements Version {
     );
 
     /** Major version number. */
-    private final byte major;
+    private final int major;
 
     /** Minor version number. */
-    private final byte minor;
+    private final int minor;
 
     /** Maintenance version number. */
-    private final byte maintenance;
+    private final int maintenance;
 
     /** Patch version number. */
     @Nullable
-    private final Byte patch;
+    private final Integer patch;
 
     /** Pre-release version. */
     @Nullable
@@ -58,7 +58,7 @@ class UnitVersion implements Version {
      * @param minor Minor part of version.
      * @param maintenance Maintenance part of version.
      */
-    UnitVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
+    UnitVersion(int major, int minor, int maintenance, @Nullable Integer patch, @Nullable String preRelease) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
@@ -93,10 +93,10 @@ class UnitVersion implements Version {
             String preRelease = matcher.group("preRelease");
 
             return new UnitVersion(
-                    Byte.parseByte(matcher.group("major")),
-                    nullOrBlank(minor) ? 0 : Byte.parseByte(minor),
-                    nullOrBlank(maintenance) ? 0 : Byte.parseByte(maintenance),
-                    nullOrBlank(patch) ? null : Byte.parseByte(patch),
+                    Integer.parseUnsignedInt(matcher.group("major")),
+                    nullOrBlank(minor) ? 0 : Integer.parseUnsignedInt(minor),
+                    nullOrBlank(maintenance) ? 0 : Integer.parseUnsignedInt(maintenance),
+                    nullOrBlank(patch) ? null : Integer.parseUnsignedInt(patch),
                     nullOrBlank(preRelease) ? null : preRelease
             );
         } catch (NumberFormatException e) {
@@ -118,17 +118,17 @@ class UnitVersion implements Version {
         int res;
 
         // Compare major, minor, maintenance
-        res = Byte.compare(major, other.major);
+        res = Integer.compare(major, other.major);
         if (res != 0) {
             return res;
         }
 
-        res = Byte.compare(minor, other.minor);
+        res = Integer.compare(minor, other.minor);
         if (res != 0) {
             return res;
         }
 
-        res = Byte.compare(maintenance, other.maintenance);
+        res = Integer.compare(maintenance, other.maintenance);
         if (res != 0) {
             return res;
         }
@@ -144,9 +144,9 @@ class UnitVersion implements Version {
         return res;
     }
 
-    private static int compareNullable(@Nullable Byte a, @Nullable Byte b) {
+    private static int compareNullable(@Nullable Integer a, @Nullable Integer b) {
         if (a != null && b != null) {
-            return Byte.compare(a, b);
+            return Integer.compare(a, b);
         } else if (a != null) {
             return 1;
         } else if (b != null) {
@@ -156,7 +156,7 @@ class UnitVersion implements Version {
     }
 
     @Nullable
-    private static Byte preReleaseOrder(@Nullable String preRelease) {
+    private static Integer preReleaseOrder(@Nullable String preRelease) {
         if (preRelease == null) {
             return null;
         }
