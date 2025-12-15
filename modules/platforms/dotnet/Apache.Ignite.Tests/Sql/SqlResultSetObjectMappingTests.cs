@@ -234,12 +234,10 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestDateTimeFieldThrowsException()
+    public async Task TestDateTimeFieldThrowsException()
     {
-        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
-            await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select DATETIME as Dt from TBL_ALL_COLUMNS_SQL where key = 3"));
-
-        Assert.AreEqual("Conversion from System.Nullable`1[NodaTime.LocalDateTime] to System.DateTime is not supported (column 'Dt').", ex!.Message);
+        await using var rs = await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3");
+        var res = await rs.ToListAsync();
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local
