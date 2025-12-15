@@ -234,12 +234,12 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestDateTimeFieldConversion()
+    public void TestDateTimeFieldConversion()
     {
-        await using var rs = await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3");
-        DateTimeRec res = await rs.SingleAsync();
+        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3"));
 
-        Assert.AreEqual(new DateTime(2022, 12, 19, 11, 3, 0), res.Dt);
+        Assert.AreEqual("Conversion from NodaTime.LocalDateTime to System.DateTime is not supported (column 'DT').", ex!.Message);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local
