@@ -72,7 +72,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
 
         logInspector.start();
         try {
-            FailureManager failureManager = new FailureManager(() -> {}, disabledThreadDumpConfiguration);
+            FailureManager failureManager = new FailureManager("test-node", disabledThreadDumpConfiguration, () -> {});
 
             try {
                 assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());
@@ -217,7 +217,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
      * Creates a new instance of {@link FailureManager} with the given configuration and runs the test represented by {@code test} closure.
      */
     static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
-        FailureManager failureManager = new FailureManager(() -> {}, configuration);
+        FailureManager failureManager = new FailureManager("test-node", configuration, () -> {});
 
         try {
             assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());

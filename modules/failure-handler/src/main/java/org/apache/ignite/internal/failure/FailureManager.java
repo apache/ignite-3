@@ -65,6 +65,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed according to a configured handler "
             + "[hnd={}, failureCtx={}, failureCtxId={}]";
 
+    /** Ignite node name. */
+    private final String nodeName;
+
     /** Failure processor configuration. */
     private final FailureProcessorConfiguration configuration;
 
@@ -100,7 +103,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      *
      * @param handler Handler.
      */
+    @TestOnly
     public FailureManager(FailureHandler handler) {
+        this.nodeName = "test-node";
         this.nodeStopper = () -> {};
         this.handler = handler;
         this.configuration = null;
@@ -109,10 +114,12 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     /**
      * Creates a new instance of a failure processor.
      *
-     * @param nodeStopper Node stopper.
+     * @param nodeName Node name.
      * @param configuration Failure processor configuration.
+     * @param nodeStopper Node stopper.
      */
-    public FailureManager(NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
+    public FailureManager(String nodeName, FailureProcessorConfiguration configuration, NodeStopper nodeStopper) {
+        this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
     }
@@ -263,11 +270,11 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
                 break;
 
             case StopNodeFailureHandlerConfigurationSchema.TYPE:
-                hnd = new StopNodeFailureHandler(nodeStopper);
+                hnd = new StopNodeFailureHandler(nodeName, nodeStopper);
                 break;
 
             case StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE:
-                hnd = new StopNodeOrHaltFailureHandler(nodeStopper, (StopNodeOrHaltFailureHandlerView) handlerView);
+                hnd = new StopNodeOrHaltFailureHandler(nodeName, nodeStopper, (StopNodeOrHaltFailureHandlerView) handlerView);
                 break;
 
             default:
