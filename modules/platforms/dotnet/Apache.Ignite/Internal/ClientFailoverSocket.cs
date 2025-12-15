@@ -60,7 +60,7 @@ namespace Apache.Ignite.Internal
         private readonly SemaphoreSlim _socketLock = new(1);
 
         /** Endpoints with corresponding hosts - from configuration. */
-        private volatile IReadOnlyList<SocketEndpoint> _endpoints;
+        private volatile IReadOnlyList<SocketEndpoint> _endpoints = [];
 
         /** Disposed flag. */
         private volatile bool _disposed;
@@ -141,6 +141,7 @@ namespace Apache.Ignite.Internal
 
             var socket = new ClientFailoverSocket(configuration, logger);
 
+            await socket.InitEndpointsAsync().ConfigureAwait(false);
             await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
@@ -395,8 +396,7 @@ namespace Apache.Ignite.Internal
 
         private async Task InitEndpointsAsync()
         {
-            await Task.Yield(); // TODO
-            _endpoints = GetIpEndPoints(Configuration.Configuration).ToList();
+            _endpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -599,33 +599,43 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the endpoints: all combinations of IP addresses and ports according to configuration.
         /// </summary>
-        private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
+        private async Task<List<SocketEndpoint>> GetIpEndPointsAsync(IgniteClientConfiguration cfg)
         {
-            // Metric collection tools expect numbers and strings, don't pass Guid.
+            var res = new List<SocketEndpoint>();
+
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
                 Debug.Assert(host != null, "host != null"); // Checked by GetEndpoints.
 
-                foreach (var ip in GetIps(host))
+                IPAddress[] ips = await GetIpsAsync(host).ConfigureAwait(false);
+
+                foreach (var ip in ips)
                 {
-                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, ClientIdString);
+                    res.Add(new SocketEndpoint(new IPEndPoint(ip, e.Port), host, ClientIdString));
                 }
             }
+
+            return res;
         }
 
         /// <summary>
-        /// Gets IP address list from a given host.
+        /// Gets an IP address list from a given host.
         /// When host is an IP already - parses it. Otherwise, resolves DNS name to IPs.
         /// </summary>
-        private IEnumerable<IPAddress> GetIps(string host, bool suppressExceptions = false)
+        private async Task<IPAddress[]> GetIpsAsync(string host, bool suppressExceptions = false)
         {
             try
             {
                 // GetHostEntry accepts IPs, but TryParse is a more efficient shortcut.
-                return IPAddress.TryParse(host, out var ip)
-                    ? [ip]
-                    : Dns.GetHostEntry(host).AddressList; // TODO: Use async DNS API.
+                if (IPAddress.TryParse(host, out var ip))
+                {
+                    return [ip];
+                }
+
+                var hostEntry = await Dns.GetHostEntryAsync(host).ConfigureAwait(false);
+
+                return hostEntry.AddressList;
             }
             catch (SocketException e)
             {
@@ -633,7 +643,7 @@ namespace Apache.Ignite.Internal
 
                 if (suppressExceptions)
                 {
-                    return Enumerable.Empty<IPAddress>();
+                    return [];
                 }
 
                 throw;
