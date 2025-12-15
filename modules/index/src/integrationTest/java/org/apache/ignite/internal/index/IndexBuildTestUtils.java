@@ -102,11 +102,11 @@ class IndexBuildTestUtils {
     static void verifyNoNodesHaveAnythingInIndex(Cluster cluster, int initialNodes) {
         for (int nodeIndex = 0; nodeIndex < initialNodes; nodeIndex++) {
             Ignite node = cluster.node(nodeIndex);
-            verifyNoHasNothingInIndex(node);
+            verifyNodeHasNothingInIndex(node);
         }
     }
 
-    private static void verifyNoHasNothingInIndex(Ignite node) {
+    private static void verifyNodeHasNothingInIndex(Ignite node) {
         assertThat("Nothing should have been put to the index, but it was found on node " + node.name(), rowsInIndex(node), is(0));
     }
 
