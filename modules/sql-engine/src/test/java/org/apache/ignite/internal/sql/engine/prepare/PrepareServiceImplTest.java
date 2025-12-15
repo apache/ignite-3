@@ -460,8 +460,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         CacheKey key1 = service.cache.entrySet().iterator().next().getKey();
 
         // different table
-        String insertQuery = "SELECT * FROM test.t2 WHERE c = 1";
-        QueryPlan plan2 = await(service.prepareAsync(parse(insertQuery), operationContext().build()));
+        String anotherSelectQuery = "SELECT * FROM test.t2 WHERE c = 1";
+        QueryPlan plan2 = await(service.prepareAsync(parse(anotherSelectQuery), operationContext().build()));
         assertThat(service.cache.size(), is(1));
         CacheKey key2 = service.cache.entrySet().iterator().next().getKey();
 
@@ -473,9 +473,13 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // cached table
         service.statisticsChanged(table2.id());
 
+        // Run tasks that trigger re-planning
         runScheduledTasks();
 
-        assertNotSame(plan2, await(service.prepareAsync(parse(insertQuery), operationContext().build())));
+        // Planning is done in a separate thread.
+        Awaitility.await().untilAsserted(() -> {
+            assertNotSame(plan2, await(service.prepareAsync(parse(anotherSelectQuery), operationContext().build())));
+        });
     }
 
     @Test
