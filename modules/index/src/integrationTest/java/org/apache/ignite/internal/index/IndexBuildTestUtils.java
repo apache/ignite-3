@@ -151,7 +151,10 @@ class IndexBuildTestUtils {
             throw e;
         }
 
-        assertNotNull(indexStorage, String.format("No index storage exists for indexId=%s, partitionId=%s", indexId, partitionId));
+        assertNotNull(
+                indexStorage,
+                String.format("No index storage exists for indexId=%s, partitionId=%s, tableName=%s", indexId, partitionId, TABLE_NAME)
+        );
 
         return indexStorage;
     }
