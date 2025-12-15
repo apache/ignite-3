@@ -110,6 +110,7 @@ while IFS='|' read -r remote_url nexus_url; do
                 echo "  Processing: $file (found $COUNT occurrence(s))"
 
                 # Escape special regex characters for sed (using | as delimiter)
+                # Only escape the search pattern, NOT the replacement (replacement is literal)
                 # Determine which format to replace based on what's in the file
                 if [ "$USE_SLASH_VERSION" = "true" ]; then
                     # File has URL with trailing slash - replace that version
@@ -121,7 +122,7 @@ while IFS='|' read -r remote_url nexus_url; do
                     # Use nexus_url without trailing slash to match file format
                     REPLACE_URL="${nexus_url%/}"
                 fi
-                ESCAPED_NEXUS=$(printf '%s\n' "$REPLACE_URL" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
+                ESCAPED_NEXUS="$REPLACE_URL"
 
                 # Debug: show what we're replacing
                 echo "    Replacing: $remote_url -> $nexus_url"
