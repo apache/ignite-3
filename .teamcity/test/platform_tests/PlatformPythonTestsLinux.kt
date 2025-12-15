@@ -38,6 +38,10 @@ object PlatformPythonTestsLinux : BuildType({
                 eval "${'$'}(pyenv init --path)" || echo 'first'
                 eval "${'$'}(pyenv init --no-rehash -)" || echo 'second'
                 
+                python3 -m venv .venv
+                . .venv/bin/activate
+                pip install tox
+                
                 tox -e py39 || exit 0
             """.trimIndent()
         }
