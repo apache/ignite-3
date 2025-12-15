@@ -104,6 +104,7 @@ import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -674,6 +675,29 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
 
         assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
+    }
+
+    @Test
+    public void testOneShotDoesNotRetry() {
+        RaftError error = RaftError.UNKNOWN;
+
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ReadActionRequest.class), anyLong()))
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class), 0);
+
+        assertThat(response, willThrow(RaftException.class, "UNKNOWN"));
+
+        // Verify only one retry.
+        verify(messagingService).invoke(
+                any(InternalClusterNode.class),
+                any(ReadActionRequest.class),
+                anyLong()
+        );
     }
 
     @ParameterizedTest

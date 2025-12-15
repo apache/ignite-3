@@ -116,6 +116,7 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
         clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
             public void onAppeared(InternalClusterNode member) {
+                // TODO: why boolean? It's not read anywhere.
                 CompletableFuture<Boolean> fut = changeNodeSubscriptionIfNeed(member, true);
 
                 requestLeaderManually(clusterService, executor, raftClient, fut);
