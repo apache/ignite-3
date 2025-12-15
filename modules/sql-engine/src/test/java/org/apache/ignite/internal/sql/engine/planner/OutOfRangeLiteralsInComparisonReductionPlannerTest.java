@@ -71,12 +71,12 @@ public class OutOfRangeLiteralsInComparisonReductionPlannerTest extends Abstract
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (-128.1, -127.1)", "false"),
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (-128.1, -128, -127.1)", "=($t1, -128)"),
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (-128.1, -128, -127.1, -127)",
-                        "SEARCH($t1, Sarg[-128.0:TINYINT, -127.0:TINYINT]:TINYINT)"),
+                        "SEARCH($t1, Sarg[-128:TINYINT, -127:TINYINT]:TINYINT)"),
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (128, 127.1)", "false"),
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (127.1, 126.1)", "false"),
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (127.1, 127, 126.1)", "=($t1, 127)"),
                 arguments(sqlType(SqlTypeName.TINYINT), "IN (127.1, 127, 126.1, 126)",
-                        "SEARCH($t1, Sarg[126.0:TINYINT, 127.0:TINYINT]:TINYINT)"),
+                        "SEARCH($t1, Sarg[126:TINYINT, 127:TINYINT]:TINYINT)"),
 
                 arguments(sqlType(SqlTypeName.TINYINT), ">= -129", "IS NOT NULL($t1)"),
                 arguments(sqlType(SqlTypeName.TINYINT), ">= -128.1", "IS NOT NULL($t1)"),
@@ -129,12 +129,12 @@ public class OutOfRangeLiteralsInComparisonReductionPlannerTest extends Abstract
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (-32768.1, -32767.1)", "false"),
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (-32768.1, -32768, -32767.1)", "=($t1, -32768)"),
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (-32768.1, -32768, -32767.1, -32767)",
-                        "SEARCH($t1, Sarg[-32768.0:SMALLINT, -32767.0:SMALLINT]:SMALLINT)"),
+                        "SEARCH($t1, Sarg[-32768:SMALLINT, -32767:SMALLINT]:SMALLINT)"),
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (32768, 32767.1)", "false"),
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (32767.1, 32766.1)", "false"),
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (32767.1, 32767, 32766.1)", "=($t1, 32767)"),
                 arguments(sqlType(SqlTypeName.SMALLINT), "IN (32767.1, 32767, 32766.1, 32766)",
-                        "SEARCH($t1, Sarg[32766.0:SMALLINT, 32767.0:SMALLINT]:SMALLINT)"),
+                        "SEARCH($t1, Sarg[32766:SMALLINT, 32767:SMALLINT]:SMALLINT)"),
 
                 arguments(sqlType(SqlTypeName.SMALLINT), ">= -32769", "IS NOT NULL($t1)"),
                 arguments(sqlType(SqlTypeName.SMALLINT), ">= -32768.1", "IS NOT NULL($t1)"),
@@ -187,12 +187,12 @@ public class OutOfRangeLiteralsInComparisonReductionPlannerTest extends Abstract
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (-2147483648.1, -2147483647.1)", "false"),
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (-2147483648.1, -2147483648, -2147483647.1)", "=($t1, -2147483648)"),
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (-2147483648.1, -2147483648, -2147483647.1, -2147483647)",
-                        "SEARCH($t1, Sarg[-2147483648.0, -2147483647.0])"),
+                        "SEARCH($t1, Sarg[-2147483648, -2147483647])"),
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (2147483648, 2147483647.1)", "false"),
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (2147483647.1, 2147483646.1)", "false"),
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (2147483647.1, 2147483647, 2147483646.1)", "=($t1, 2147483647)"),
                 arguments(sqlType(SqlTypeName.INTEGER), "IN (2147483647.1, 2147483647, 2147483646.1, 2147483646)",
-                        "SEARCH($t1, Sarg[2147483646.0, 2147483647.0])"),
+                        "SEARCH($t1, Sarg[2147483646, 2147483647])"),
 
                 arguments(sqlType(SqlTypeName.INTEGER), ">= -2147483649", "IS NOT NULL($t1)"),
                 arguments(sqlType(SqlTypeName.INTEGER), ">= -2147483648.1", "IS NOT NULL($t1)"),
@@ -309,12 +309,12 @@ public class OutOfRangeLiteralsInComparisonReductionPlannerTest extends Abstract
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (-9.1, -8.1)", "false"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (-9.1, -9, -8.1)", "=($t1, -9)"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (-9.1, -9, -8.1, -8)",
-                        "SEARCH($t1, Sarg[-9.0:DECIMAL(1, 0), -8.0:DECIMAL(1, 0)]:DECIMAL(1, 0))"),
+                        "SEARCH($t1, Sarg[-9:DECIMAL(1, 0), -8:DECIMAL(1, 0)]:DECIMAL(1, 0))"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (10, 9.1)", "false"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (9.1, 8.1)", "false"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (9.1, 9, 8.1)", "=($t1, 9)"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), "IN (9.1, 9, 8.1, 8)",
-                        "SEARCH($t1, Sarg[8.0:DECIMAL(1, 0), 9.0:DECIMAL(1, 0)]:DECIMAL(1, 0))"),
+                        "SEARCH($t1, Sarg[8:DECIMAL(1, 0), 9:DECIMAL(1, 0)]:DECIMAL(1, 0))"),
 
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), ">= -10", "IS NOT NULL($t1)"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 1), ">= -9.1", "IS NOT NULL($t1)"),
@@ -377,12 +377,12 @@ public class OutOfRangeLiteralsInComparisonReductionPlannerTest extends Abstract
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (-9.91, -8.91)", "false"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (-9.91, -9.9, -8.91)", "=($t1, -9.9)"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (-9.91, -9.9, -8.91, -8.9)",
-                        "SEARCH($t1, Sarg[-9.90:DECIMAL(2, 1), -8.90:DECIMAL(2, 1)]:DECIMAL(2, 1))"),
+                        "SEARCH($t1, Sarg[-9.9:DECIMAL(2, 1), -8.9:DECIMAL(2, 1)]:DECIMAL(2, 1))"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (10, 9.91)", "false"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (9.91, 8.91)", "false"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (9.91, 9.9, 8.91)", "=($t1, 9.9)"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), "IN (9.91, 9.9, 8.91, 8.9)",
-                        "SEARCH($t1, Sarg[8.90:DECIMAL(2, 1), 9.90:DECIMAL(2, 1)]:DECIMAL(2, 1))"),
+                        "SEARCH($t1, Sarg[8.9:DECIMAL(2, 1), 9.9:DECIMAL(2, 1)]:DECIMAL(2, 1))"),
 
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), ">= -10", "IS NOT NULL($t1)"),
                 arguments(sqlType(SqlTypeName.DECIMAL, 2, 1), ">= -9.91", "IS NOT NULL($t1)"),
@@ -450,7 +450,6 @@ public class OutOfRangeLiteralsInComparisonReductionPlannerTest extends Abstract
         return byClass(ProjectableFilterableTableScan.class)
                 .and(node -> {
                     var tableScan = (ProjectableFilterableTableScan) node;
-
                     RexNode condition = tableScan.condition();
                     return condition != null && condition.toString().equals(expected);
 
