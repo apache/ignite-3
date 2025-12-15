@@ -108,7 +108,7 @@ public class InternalTxOptions {
             return this;
         }
 
-        public Builder readTimestamp(HybridTimestamp readTimestamp) {
+        public Builder readTimestamp(@Nullable HybridTimestamp readTimestamp) {
             this.readTimestamp = readTimestamp;
             return this;
         }

@@ -37,6 +37,7 @@ public class VersionTest {
         return Stream.of(
                 arguments("1.1.0", version(1, 1, 0, null, null)),
                 arguments("1.1.01", version(1, 1, 1, null, null)),
+                arguments("1000.10000.100000", version(1000, 10000, 100000, null, null)),
                 arguments("1.1", version(1, 1, 0, null, null)),
                 arguments("1", version(1, 0, 0, null, null)),
                 arguments("1.1.1.1", version(1, 1, 1, 1, null)),
@@ -52,7 +53,7 @@ public class VersionTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "version", "1.", "65536", "1.1f"})
+    @ValueSource(strings = {"", "version", "1.", "-1", "1.1f"})
     public void testParseErrors(String versionString) {
         assertThrows(VersionParseException.class, () -> Version.parseVersion(versionString));
     }
@@ -60,7 +61,6 @@ public class VersionTest {
     private static UnitVersion version(
             int major, int minor, int maintenance, @Nullable Integer patch, @Nullable String preRelease
     ) {
-        Byte patchByte = patch != null ? patch.byteValue() : null;
-        return new UnitVersion((byte) major, (byte) minor, (byte) maintenance, patchByte, preRelease);
+        return new UnitVersion(major, minor, maintenance, patch, preRelease);
     }
 }

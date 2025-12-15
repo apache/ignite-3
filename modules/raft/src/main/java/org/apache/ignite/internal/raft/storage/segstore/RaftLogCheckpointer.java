@@ -54,10 +54,7 @@ import org.apache.ignite.internal.thread.IgniteThread;
  * </ol>
  */
 class RaftLogCheckpointer {
-    // TODO: Move to configuration, see https://issues.apache.org/jira/browse/IGNITE-26476.
-    static final int MAX_QUEUE_SIZE = 10;
-
-    private final CheckpointQueue queue = new CheckpointQueue(MAX_QUEUE_SIZE);
+    private final CheckpointQueue queue;
 
     private final Thread checkpointThread;
 
@@ -65,10 +62,16 @@ class RaftLogCheckpointer {
 
     private final FailureProcessor failureProcessor;
 
-    RaftLogCheckpointer(String nodeName, IndexFileManager indexFileManager, FailureProcessor failureProcessor) {
+    RaftLogCheckpointer(
+            String nodeName,
+            IndexFileManager indexFileManager,
+            FailureProcessor failureProcessor,
+            int maxQueueSize
+    ) {
         this.indexFileManager = indexFileManager;
         this.failureProcessor = failureProcessor;
 
+        queue = new CheckpointQueue(maxQueueSize);
         checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint", new CheckpointTask());
     }
 

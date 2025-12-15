@@ -15,9 +15,20 @@
  * limitations under the License.
  */
 
-/**
- * This package contains RAFT command handlers that is used by
- * {@link org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor} aka table raft processor.
- */
+package org.apache.ignite.raft.jraft.entity;
 
-package org.apache.ignite.internal.table.distributed.raft.handlers;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
+import java.lang.reflect.Field;
+import org.junit.jupiter.api.Test;
+
+class SnapshotMetaTest {
+    @Test
+    void implementationHasExpectedSerialVersionUid() throws Exception {
+        Field field = SnapshotMetaImpl.class.getDeclaredField("serialVersionUID");
+        field.setAccessible(true);
+
+        assertThat(field.get(null), is(7302290474182723103L));
+    }
+}

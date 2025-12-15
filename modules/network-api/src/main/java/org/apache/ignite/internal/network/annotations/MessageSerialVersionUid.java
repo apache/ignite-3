@@ -15,9 +15,23 @@
  * limitations under the License.
  */
 
-/**
- * This package contains RAFT command handlers that is used by
- * {@link org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor} aka table raft processor.
- */
+package org.apache.ignite.internal.network.annotations;
 
-package org.apache.ignite.internal.table.distributed.raft.handlers;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+/**
+ * Annotation that specifies the serial version UID of a message implementation class. If not specified, no serial version UID
+ * is associated with the message implementation class.
+ */
+@Target(TYPE)
+@Retention(SOURCE)
+public @interface MessageSerialVersionUid {
+    /**
+     * Serial version UID of the message implementation class.
+     */
+    long value();
+}
