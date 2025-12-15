@@ -234,10 +234,12 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestDateTimeFieldThrowsException()
+    public async Task TestDateTimeFieldConversion()
     {
         await using var rs = await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3");
-        var res = await rs.ToListAsync();
+        DateTimeRec res = await rs.SingleAsync();
+
+        Assert.AreEqual(new DateTime(2022, 12, 19, 11, 3, 0), res.Dt);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local
