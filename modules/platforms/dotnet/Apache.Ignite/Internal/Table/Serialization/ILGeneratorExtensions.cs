@@ -167,14 +167,14 @@ internal static class ILGeneratorExtensions
             }
 
             var methodName = "To" + to.Name;
-            var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
+            var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, [from]);
 
             if (method == null)
             {
                 throw NotSupportedConversion(from, to, columnName);
             }
 
-            if (to.IsValueType)
+            if (to.IsValueType && !method.GetParameters()[0].ParameterType.IsValueType)
             {
                 il.Emit(OpCodes.Box, to);
             }
