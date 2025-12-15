@@ -428,10 +428,12 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Run update plan task.
         runScheduledTasks();
 
-        assertNotSame(selectPlan, service.prepareAsync(parse(selectQuery), operationContext().build()));
-        assertNotSame(insertPlan, service.prepareAsync(parse(insertQuery), operationContext().build()));
-
-        assertThat(service.cache.size(), is(2));
+        // Planning is done in a separate thread.
+        Awaitility.await().untilAsserted(() -> {
+            assertNotSame(selectPlan, await(service.prepareAsync(parse(selectQuery), operationContext().build())));
+            assertNotSame(insertPlan, await(service.prepareAsync(parse(insertQuery), operationContext().build())));
+            assertThat(service.cache.size(), is(2));
+        });
     }
 
     @Test
