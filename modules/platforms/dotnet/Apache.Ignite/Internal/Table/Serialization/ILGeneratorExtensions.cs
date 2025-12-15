@@ -151,7 +151,7 @@ internal static class ILGeneratorExtensions
         if (fromUnderlying == null && toUnderlying != null)
         {
             EmitConvertTo(il, from, to, columnName);
-            il.Emit(OpCodes.Newobj, to.GetConstructor(new[] { toUnderlying })!);
+            il.Emit(OpCodes.Newobj, to.GetConstructor([toUnderlying])!);
 
             return;
         }
@@ -172,6 +172,11 @@ internal static class ILGeneratorExtensions
             if (method == null)
             {
                 throw NotSupportedConversion(from, to, columnName);
+            }
+
+            if (to.IsValueType)
+            {
+                il.Emit(OpCodes.Box, to);
             }
 
             il.Emit(OpCodes.Call, method);
