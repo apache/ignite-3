@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.computeDefaultMaxLogEntrySizeBytes;
 import static org.apache.ignite.internal.raft.storage.segstore.ByteChannelUtils.readFully;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
@@ -171,7 +172,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         String expectedMessage = String.format(
                 "Segment entry is too big (%d bytes), maximum allowed segment entry size: %d bytes.",
                 FILE_SIZE + SegmentPayload.fixedOverheadSize() + 2, // 2 bytes for index and term.
-                FILE_SIZE - HEADER_RECORD.length
+                computeDefaultMaxLogEntrySizeBytes(FILE_SIZE)
         );
 
         assertThat(e.getMessage(), is(expectedMessage));
