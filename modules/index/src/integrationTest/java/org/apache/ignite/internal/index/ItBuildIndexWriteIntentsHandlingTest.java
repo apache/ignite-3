@@ -46,7 +46,7 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         // Create and abandon a transaction.
         int txCoordinatorOrdinal = 2;
         Transaction tx = cluster.node(txCoordinatorOrdinal).transactions().begin();
-        insertDataInTransaction(tx, TABLE_NAME, List.of("I0", "I1"), new Object[][]{new Object[]{1, 1}});
+        insertDataInTransaction(tx, TABLE_NAME, List.of("I0", "I1"), new Object[]{1, 1});
 
         cluster.restartNode(txCoordinatorOrdinal);
 
@@ -81,7 +81,7 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         // Create and abandon a transaction.
         int txCoordinatorOrdinal = 2;
         Transaction tx = cluster.node(txCoordinatorOrdinal).transactions().begin();
-        insertDataInTransaction(tx, TABLE_NAME, List.of("I0", "I1"), new Object[][]{new Object[]{1, 1}});
+        insertDataInTransaction(tx, TABLE_NAME, List.of("I0", "I1"), new Object[]{1, 1});
 
         createIndex(INDEX_NAME);
         assertThat(startedWaitForPreIndexTxsToFinish, willCompleteSuccessfully());
@@ -97,13 +97,11 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         verifyNoNodesHaveAnythingInIndex();
     }
 
-    private void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[]... tuples) {
+    private void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[] args) {
         String insertStmt = "INSERT INTO " + tblName + "(" + String.join(", ", columnNames) + ")"
                 + " VALUES (" + ", ?".repeat(columnNames.size()).substring(2) + ")";
 
-        for (Object[] args : tuples) {
-            node(0).sql().execute(tx, insertStmt, args).close();
-        }
+        node(0).sql().execute(tx, insertStmt, args).close();
     }
 
     private void verifyNoNodesHaveAnythingInIndex() {
