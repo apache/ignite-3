@@ -339,7 +339,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void timedoutPlanShouldBeRemovedFromCache()  {
+    public void timedOutPlanShouldBeRemovedFromCache()  {
         IgniteTable igniteTable = TestBuilders.table()
                 .name("T")
                 .addColumn("C", NativeTypes.INT32)
@@ -475,7 +475,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         runScheduledTasks();
 
-        assertNotSame(plan2, service.prepareAsync(parse(insertQuery), operationContext().build()));
+        assertNotSame(plan2, await(service.prepareAsync(parse(insertQuery), operationContext().build())));
     }
 
     @Test
