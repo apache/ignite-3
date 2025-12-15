@@ -20,8 +20,10 @@ package org.apache.ignite.internal.raft;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.RetryUtils.remainingTimeout;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -296,21 +298,31 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> refreshLeader() {
-        return refreshLeader(NO_DESCRIPTION);
+        // TODO: do we need Long in public method?
+        return refreshLeader(NO_DESCRIPTION).thenApply(value -> null);
     }
 
-    private CompletableFuture<Void> refreshLeader(Supplier<String> originDescription) {
+    private CompletableFuture<Long> refreshLeader(Supplier<String> originDescription) {
         return refreshLeader(defaultTimeout(), originDescription);
     }
 
-    private CompletableFuture<Void> refreshLeader(long timeout, Supplier<String> originDescription) {
+    /**
+     * @return a future with the time in ms that was spent on refreshing the leader.
+     */
+    private CompletableFuture<Long> refreshLeader(long timeout, Supplier<String> originDescription) {
+        long requestStart = Utils.monotonicMs();
         Function<Peer, GetLeaderRequest> requestFactory = targetPeer -> factory.getLeaderRequest()
                 .peerId(peerId(targetPeer))
                 .groupId(groupId)
                 .build();
 
         return this.<GetLeaderResponse>sendWithRetry(randomNode(), timeout, originDescription, requestFactory, false)
-                .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
+                .thenApply(resp -> {
+                    this.leader = parsePeer(resp.leaderId());
+
+                    // Calculate the time spent on refreshing the leader.
+                    return Utils.monotonicMs() - requestStart;
+                });
     }
 
     @Override
@@ -547,7 +559,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(timeoutMillis, cmd::toStringForLightLogging).thenCompose(res -> run(cmd));
+            return refreshLeader(timeoutMillis, cmd::toStringForLightLogging)
+                    .thenCompose(spentOnLeaderRefresh -> {
+                        // Calculate the remaining timeout.
+
+                        long remainingTimeout;
+                        try {
+                            remainingTimeout = remainingTimeout(timeoutMillis, spentOnLeaderRefresh);
+                        } catch (TimeoutException e) {
+                            // Rethrow the timeout exception to the caller.
+                            throw sneakyThrow(e);
+                        }
+
+                        return run(cmd, remainingTimeout);
+                    });
         }
 
         Function<Peer, ActionRequest> requestFactory;

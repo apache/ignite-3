@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -54,4 +57,27 @@ class RetryUtils {
             return Utils.monotonicMs() + timeoutMillis;
         }
     }
+
+
+    static long remainingTimeout(long initialTimeoutMillis, long spentTimeMillis) throws TimeoutException {
+        // Do nothing if the timeout is unbounded.
+        if (initialTimeoutMillis == Long.MAX_VALUE || initialTimeoutMillis < 0) {
+            return Long.MAX_VALUE;
+        }
+        // If it was a one-shot request, and it succeeded, return 0 to enable chained request also one-shot.
+        if (initialTimeoutMillis == 0) {
+            return 0;
+        }
+
+        if (initialTimeoutMillis <= spentTimeMillis) {
+            throw new TimeoutException(format(
+                    "Operation timeout [totalTimeoutMs = {}, spentTimeMs = {}].",
+                    initialTimeoutMillis,
+                    spentTimeMillis
+            ));
+        }
+
+        return initialTimeoutMillis - spentTimeMillis;
+    }
+
 }
