@@ -400,7 +400,7 @@ public class PrepareServiceImpl implements PrepareService {
         assert rootSchema != null : "Root schema does not exist";
 
         SchemaPlus schemaPlus = rootSchema.root();
-        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
+        SchemaPlus defaultSchema = schemaPlus.subSchemas().get(schemaName);
         // If default schema does not exist or misconfigured, we should use the root schema as default one
         // because there is no other schema for the validator to use.
         if (defaultSchema == null) {
