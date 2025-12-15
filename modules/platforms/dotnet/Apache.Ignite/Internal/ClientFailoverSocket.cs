@@ -93,6 +93,10 @@ namespace Apache.Ignite.Internal
             }
 
             _logger = logger;
+
+            ClientId = Guid.NewGuid();
+            ClientIdString = ClientId.ToString();
+
             _endpoints = GetIpEndPoints(configuration.Configuration).ToList();
 
             Configuration = configuration;
@@ -116,7 +120,12 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the client ID.
         /// </summary>
-        public Guid ClientId { get; } = Guid.NewGuid();
+        public Guid ClientId { get; }
+
+        /// <summary>
+        /// Gets the client ID.
+        /// </summary>
+        public string ClientIdString { get; }
 
         /// <summary>
         /// Gets a value indicating whether the socket is disposed.
@@ -585,8 +594,6 @@ namespace Apache.Ignite.Internal
         private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
         {
             // Metric collection tools expect numbers and strings, don't pass Guid.
-            var clientId = ClientId.ToString();
-
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
@@ -594,7 +601,7 @@ namespace Apache.Ignite.Internal
 
                 foreach (var ip in GetIps(host))
                 {
-                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, clientId);
+                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, ClientIdString);
                 }
             }
         }
