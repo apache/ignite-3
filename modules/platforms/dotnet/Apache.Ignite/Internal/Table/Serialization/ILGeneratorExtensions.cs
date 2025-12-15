@@ -174,8 +174,14 @@ internal static class ILGeneratorExtensions
                 throw NotSupportedConversion(from, to, columnName);
             }
 
-            if (from.IsValueType && !method.GetParameters()[0].ParameterType.IsValueType)
+            if (from.IsValueType && method.GetParameters()[0].ParameterType == typeof(object))
             {
+                if (!from.IsAssignableTo(typeof(IConvertible)))
+                {
+                    throw NotSupportedConversion(from, to, columnName);
+                }
+
+                // Convert.ToX(object).
                 il.Emit(OpCodes.Box, from);
             }
 
