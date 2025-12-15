@@ -1,5 +1,6 @@
-# Script to replace Maven repository URLs with Nexus proxy URLs
-# This helps avoid rate limits by using a local Nexus proxy
+#!/usr/bin/env bash
+set +e
+
 NEXUS_API_URL="https://nexus.gridgain.com/service/rest/v1/repositories"
 
 REPO_ROOT="${PWD}"
@@ -9,17 +10,21 @@ echo "Fetching proxy repositories from Nexus..."
 echo "REPO_ROOT is set to: $REPO_ROOT"
 
 # Fetch repositories from Nexus
-REPOS_JSON=$(curl -s -X GET "$NEXUS_API_URL")
+REPOS_JSON=$(curl -s -X GET "$NEXUS_API_URL" 2>&1)
 
 if [ $? -ne 0 ] || [ -z "$REPOS_JSON" ]; then
-    echo "Error: Failed to fetch repositories from Nexus" >&2
+    echo "Warning: Failed to fetch repositories from Nexus. Continuing without proxy replacements." >&2
     exit 0
 fi
 
-TEMP_MAP=$(mktemp)
+TEMP_MAP=$(mktemp 2>/dev/null)
+if [ -z "$TEMP_MAP" ]; then
+    echo "Warning: Failed to create temporary file. Continuing without proxy replacements." >&2
+    exit 0
+fi
 trap "rm -f $TEMP_MAP" EXIT
 
-echo "$REPOS_JSON" | jq -r '.[] | select(.type == "proxy") | "\(.attributes.proxy.remoteUrl)|\(.url)"' > "$TEMP_MAP"
+echo "$REPOS_JSON" | jq -r '.[] | select(.type == "proxy") | "\(.attributes.proxy.remoteUrl)|\(.url)"' > "$TEMP_MAP" 2>/dev/null
 
 if [ ! -s "$TEMP_MAP" ]; then
     echo "Error: No proxy repositories found or failed to parse response" >&2
@@ -63,7 +68,7 @@ while IFS='|' read -r remote_url nexus_url; do
         -not -path "*/node_modules/*" \
         -not -path "*/.run/*" \
         -exec grep -lF "$SEARCH_URL" {} \; 2>/dev/null || true)
-    FILES_TO_UPDATE=$(echo -e "${FILES_WITH_SLASH}\n${FILES_WITHOUT_SLASH}" | grep -v '^$' | sort -u)
+    FILES_TO_UPDATE=$(echo -e "${FILES_WITH_SLASH}\n${FILES_WITHOUT_SLASH}" 2>/dev/null | grep -v '^$' 2>/dev/null | sort -u 2>/dev/null || true)
 
     if [ -z "$FILES_TO_UPDATE" ]; then
         echo "  No files found containing this URL"
@@ -75,15 +80,16 @@ while IFS='|' read -r remote_url nexus_url; do
             TOTAL_FILES=$((TOTAL_FILES + 1))
             
             # Count occurrences - check which format exists in the file
-            COUNT_WITH_SLASH=$(grep -oF "$remote_url" "$file" 2>/dev/null | wc -l | tr -d ' ')
-            if [ "${COUNT_WITH_SLASH:-0}" -gt 0 ]; then
+            COUNT_WITH_SLASH=$(grep -oF "$remote_url" "$file" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+            COUNT_WITH_SLASH=${COUNT_WITH_SLASH:-0}
+            if [ "$COUNT_WITH_SLASH" -gt 0 ] 2>/dev/null; then
                 COUNT=$COUNT_WITH_SLASH
             else
                 # Try without trailing slash
-                COUNT=$(grep -oF "$SEARCH_URL" "$file" 2>/dev/null | wc -l | tr -d ' ')
+                COUNT=$(grep -oF "$SEARCH_URL" "$file" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
             fi
             COUNT=${COUNT:-0}
-            TOTAL_REPLACEMENTS=$((TOTAL_REPLACEMENTS + COUNT))
+            TOTAL_REPLACEMENTS=$((TOTAL_REPLACEMENTS + ${COUNT:-0})) 2>/dev/null || TOTAL_REPLACEMENTS=$TOTAL_REPLACEMENTS
 
             if [ $COUNT -gt 0 ]; then
                 echo "  Processing: $file (found $COUNT occurrence(s))"
@@ -104,10 +110,10 @@ while IFS='|' read -r remote_url nexus_url; do
 
                 if [[ "$OSTYPE" == "darwin"* ]]; then
                     # macOS sed
-                    sed -i '' "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file"
+                    sed -i '' "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file" 2>/dev/null || true
                 else
                     # Linux sed
-                    sed -i "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file"
+                    sed -i "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file" 2>/dev/null || true
                 fi
             else
                 echo "  Skipping: $file (no matches found)"
@@ -202,4 +208,5 @@ echo "  dependencies.cmake files processed: $CMAKE_FILES_COUNT"
 echo "  GitHub URL replacements: $CMAKE_REPLACEMENTS"
 echo "========================================="
 echo "Done!"
+exit 0
 
