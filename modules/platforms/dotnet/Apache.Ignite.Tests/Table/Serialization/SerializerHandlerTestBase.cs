@@ -105,6 +105,17 @@ internal abstract class SerializerHandlerTestBase
             ex!.Message);
     }
 
+    [Test]
+    public void TestWriteDateTimeFieldThrowsException()
+    {
+        var ex = Assert.Throws<IgniteClientException>(() => Write(new DateTimePoco(1, DateTime.Now)));
+
+        Assert.AreEqual(
+            "Can't map field 'PocoWithDateTime.<DateVal>k__BackingField' of type 'System.DateTime'" +
+            " to column 'Val' of type 'System.String' - types do not match.",
+            ex!.Message);
+    }
+
     protected abstract IRecordSerializerHandler<T> GetHandler<T>();
 
     protected MsgPackReader WriteAndGetReader(bool keyOnly = false)
@@ -136,4 +147,6 @@ internal abstract class SerializerHandlerTestBase
     }
 
     public record BadPoco(Guid Key, DateTimeOffset Val);
+
+    public record DateTimePoco(long Key, DateTime Val);
 }
