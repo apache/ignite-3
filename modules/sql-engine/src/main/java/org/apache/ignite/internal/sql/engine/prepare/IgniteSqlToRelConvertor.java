@@ -99,41 +99,27 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    private static class DefaultChecker extends SqlShuttle {
-        private boolean hasDefaults(SqlCall call) {
-            try {
-                call.accept(this);
-                return false;
-            } catch (ControlFlowException e) {
-                return true;
-            }
-        }
-
-        @Override public @Nullable SqlNode visit(SqlCall call) {
-            if (call.getKind() == SqlKind.DEFAULT) {
-                throw new ControlFlowException();
-            }
-
-            return super.visit(call);
-        }
-    }
-
     @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {
-        DefaultChecker checker = new DefaultChecker();
+        // Original convertValuesImpl adds additional type casts that are not correct
+        // and break NOT NULL constraints.
+        //
+        // See these lines in convertValuesImpl: 
+        // if (!(def instanceof RexDynamicParam) && !def.getType().equals(fieldType)) {
+        //   def = rexBuilder.makeCast(operand.getParserPosition(), fieldType, def);
+        // }
+        //exps.add(def, SqlValidatorUtil.alias(operand, i));
+        //
+        // Example: INSERT INTO t1 VALUES(1, (SELECT NULL))
+        // 
+        // if fieldType is NOT NULLABLE INT and def's type is NULLABLE INT then
+        // resulting expression is wrapped into CAST(NULLABLE INT AS NOT NULLABLE INT)
+        // but that cast expression always results in 0 (INT) thus breaking a NOT NULL constraint.
+        SqlValidatorScope scope = validator.getOverScope(values);
+        assert scope != null;
+        Blackboard bb = createBlackboard(scope, null, false);
 
-        boolean hasDefaults = checker.hasDefaults(values);
-
-        if (hasDefaults) {
-            SqlValidatorScope scope = validator.getOverScope(values);
-            assert scope != null;
-            Blackboard bb = createBlackboard(scope, null, false);
-
-            convertValuesImplEx(bb, values, targetRowType);
-            return bb.root();
-        } else {
-            // a bit lightweight than default processing one.
-            return super.convertValues(values, targetRowType);
-        }
+        convertValuesImplEx(bb, values, targetRowType);
+        return bb.root();
     }
 
     private void convertValuesImplEx(Blackboard bb, SqlCall values, RelDataType targetRowType) {
