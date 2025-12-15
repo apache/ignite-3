@@ -234,7 +234,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestDateTimeFieldConversion()
+    public void TestDateTimeFieldThrowsException()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
             await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3"));
