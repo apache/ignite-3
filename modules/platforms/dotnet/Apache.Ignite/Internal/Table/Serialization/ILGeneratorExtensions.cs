@@ -174,9 +174,9 @@ internal static class ILGeneratorExtensions
                 throw NotSupportedConversion(from, to, columnName);
             }
 
-            if (to.IsValueType && !method.GetParameters()[0].ParameterType.IsValueType)
+            if (from.IsValueType && !method.GetParameters()[0].ParameterType.IsValueType)
             {
-                il.Emit(OpCodes.Box, to);
+                il.Emit(OpCodes.Box, from);
             }
 
             il.Emit(OpCodes.Call, method);
