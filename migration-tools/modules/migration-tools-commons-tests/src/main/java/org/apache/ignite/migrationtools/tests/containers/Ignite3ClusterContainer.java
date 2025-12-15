@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite3.client.IgniteClient;
 import org.apache.logging.log4j.LogManager;
@@ -47,13 +46,14 @@ public class Ignite3ClusterContainer implements Startable {
 
     private static final Logger LOGGER = LogManager.getLogger(Ignite3ClusterContainer.class);
 
-    public final Network network;
-
-    public final GenericContainer node;
+    private final GenericContainer<?> node;
 
     private BufferedWriter logWriter;
 
     private @Nullable Map.Entry<String, String> credentials;
+
+    @Nullable
+    private String label = null;
 
     public Ignite3ClusterContainer() {
         this(Network.newNetwork());
@@ -65,7 +65,6 @@ public class Ignite3ClusterContainer implements Startable {
      * @param network The network to deploy the containers on.
      */
     public Ignite3ClusterContainer(Network network) {
-        this.network = network;
         String imageName = dockerImageName();
         this.node = new GenericContainer(imageName)
                 .withNetwork(network)
@@ -116,38 +115,47 @@ public class Ignite3ClusterContainer implements Startable {
         return this;
     }
 
+    /**
+     * Add a label to the cluster so that container assets, most notably logs, are easily identifiable.
+     *
+     * @param label Label.
+     * @return The cluster container.
+     */
+    public Ignite3ClusterContainer withLabel(String label) {
+        this.label = label;
+        this.node.withLabel("org.apache.ignite.migrationtools.label",  label);
+        return this;
+    }
+
     @Override
     public void start() {
         this.node.start();
 
         Path parentFolder = Path.of("build/test-logs");
-        Path logFilePath = parentFolder.resolve("ignite-3-" + this.node.getContainerId().substring(0, 8));
+        String label = (this.label == null) ? "" : "-" + this.label;
+        Path logFilePath = parentFolder.resolve("ignite-3" + label + "-" + this.node.getContainerId().substring(0, 8));
         CountDownLatch startupLatch = new CountDownLatch(1);
 
         try {
             Files.createDirectories(parentFolder);
             this.logWriter = Files.newBufferedWriter(logFilePath);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        this.node.followOutput((Consumer<OutputFrame>) frame -> {
-            var type = frame.getType();
-            if (type == OutputFrame.OutputType.STDOUT || type == OutputFrame.OutputType.STDERR) {
-                String msg = frame.getUtf8String();
-                try {
-                    this.logWriter.write(msg);
-                } catch (IOException e) {
-                    LOGGER.error("Error writing cluster logs to file: ", e);
-                }
 
-                if (msg.contains("[IgniteServerImpl] Apache Ignite started successfully!")) {
-                    startupLatch.countDown();
-                }
-            }
-        });
+            this.node.followOutput(frame -> {
+                var type = frame.getType();
+                if (type == OutputFrame.OutputType.STDOUT || type == OutputFrame.OutputType.STDERR) {
+                    String msg = frame.getUtf8String();
+                    try {
+                        this.logWriter.write(msg);
+                    } catch (IOException e) {
+                        LOGGER.error("Error writing cluster logs to file: ", e);
+                    }
 
-        Container.ExecResult execRes = null;
-        try {
+                    if (msg.contains("[IgniteServerImpl] Apache Ignite started successfully!")) {
+                        startupLatch.countDown();
+                    }
+                }
+            });
+
             List<String> args = new ArrayList<>(
                     List.of(
                             "/opt/ignite3cli/bin/ignite3",
@@ -166,7 +174,7 @@ public class Ignite3ClusterContainer implements Startable {
                 args.add(credentialsArg);
             }
 
-            execRes = this.node.execInContainer(args.toArray(String[]::new));
+            Container.ExecResult execRes = this.node.execInContainer(args.toArray(String[]::new));
 
             if (execRes.getExitCode() != 0) {
                 throw new RuntimeException("Could not init cluster: " + execRes.getStderr());
@@ -176,8 +184,9 @@ public class Ignite3ClusterContainer implements Startable {
             if (!started) {
                 throw new RuntimeException("Failed to catch cluster started signal after cluster init");
             }
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (IOException | InterruptedException | RuntimeException ex) {
+            stop();
+            throw (ex instanceof RuntimeException ? (RuntimeException) ex : new RuntimeException(ex));
         }
     }
 

@@ -59,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -516,8 +517,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(ROW_SCHEMA),
-                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator,
+                targetCtx.rowFactoryFactory().create(ROW_SCHEMA), SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);
@@ -765,6 +766,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

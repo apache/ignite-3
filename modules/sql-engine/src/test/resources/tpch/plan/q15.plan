@@ -31,7 +31,7 @@ Project
                   index: L_SD
                   type: SORTED
                   predicate: SEARCH(L_SHIPDATE, Sarg[[1996-01-01..1996-04-01)])
-                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1996-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1996-04-01, upperInclude=false]]
+                  searchBounds: [<1996-01-01>..<1996-04-01>)
                   fieldNames: [L_SUPPKEY, $f1]
                   projection: [L_SUPPKEY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
                   collation: []
@@ -63,7 +63,7 @@ Project
                       index: L_SD
                       type: SORTED
                       predicate: SEARCH(L_SHIPDATE, Sarg[[1996-01-01..1996-04-01)])
-                      searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1996-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1996-04-01, upperInclude=false]]
+                      searchBounds: [<1996-01-01>..<1996-04-01>)
                       fieldNames: [L_SUPPKEY, $f1]
                       projection: [L_SUPPKEY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
                       collation: []

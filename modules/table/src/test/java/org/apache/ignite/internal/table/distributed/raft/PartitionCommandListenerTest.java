@@ -22,9 +22,7 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -58,9 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
@@ -132,7 +128,6 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
@@ -304,7 +299,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
-                txStatePartitionStorage,
                 safeTimeTracker,
                 catalogService,
                 SCHEMA_REGISTRY,
@@ -452,88 +446,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         }
 
         return commandClosure;
-    }
-
-    /**
-     * The test checks that {@link PartitionListener#onSnapshotSave(Path, Consumer)} propagates the maximal last applied index among
-     * storages to all storages.
-     */
-    @Test
-    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectExecutorService ExecutorService executor) {
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
-
-        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
-        );
-
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
-                PARTITION_ID,
-                partitionDataStorage,
-                indexUpdateHandler,
-                replicationConfiguration,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
-        );
-
-        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
-        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
-
-        ClockService clockService = mock(ClockService.class);
-        lenient().when(clockService.current()).thenReturn(hybridClock.current());
-
-        PartitionListener testCommandListener = new PartitionListener(
-                mock(TxManager.class),
-                partitionDataStorage,
-                storageUpdateHandler,
-                txStatePartitionStorage,
-                safeTimeTracker,
-                catalogService,
-                SCHEMA_REGISTRY,
-                indexMetaStorage,
-                clusterService.topologyService().localMember().id(),
-                mock(MinimumRequiredTimeCollectorService.class),
-                executor,
-                placementDriver,
-                clockService,
-                new ZonePartitionId(ZONE_ID, PARTITION_ID)
-        );
-
-        txStatePartitionStorage.lastApplied(3L, 1L);
-
-        partitionDataStorage.lastApplied(5L, 2L);
-
-        saveSnapshot(testCommandListener);
-
-        assertEquals(5L, partitionDataStorage.lastAppliedIndex());
-        assertEquals(2L, partitionDataStorage.lastAppliedTerm());
-
-        assertEquals(5L, txStatePartitionStorage.lastAppliedIndex());
-        assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
-
-        txStatePartitionStorage.lastApplied(10L, 2L);
-
-        partitionDataStorage.lastApplied(7L, 1L);
-
-        saveSnapshot(testCommandListener);
-
-        assertEquals(10L, partitionDataStorage.lastAppliedIndex());
-        assertEquals(2L, partitionDataStorage.lastAppliedTerm());
-
-        assertEquals(10L, txStatePartitionStorage.lastAppliedIndex());
-        assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
-    }
-
-    private void saveSnapshot(PartitionListener listener) {
-        var snapshotDoneFuture = new CompletableFuture<Void>();
-
-        listener.onSnapshotSave(workDir, throwable -> {
-            if (throwable != null) {
-                snapshotDoneFuture.completeExceptionally(throwable);
-            } else {
-                snapshotDoneFuture.complete(null);
-            }
-        });
-
-        assertThat(snapshotDoneFuture, willCompleteSuccessfully());
     }
 
     @Test
