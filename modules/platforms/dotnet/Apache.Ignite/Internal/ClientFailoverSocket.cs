@@ -96,9 +96,6 @@ namespace Apache.Ignite.Internal
 
             ClientId = Guid.NewGuid();
             ClientIdString = ClientId.ToString();
-
-            _endpoints = GetIpEndPoints(configuration.Configuration).ToList();
-
             Configuration = configuration;
         }
 
@@ -394,6 +391,12 @@ namespace Apache.Ignite.Internal
             }
 
             return res;
+        }
+
+        private async Task InitEndpointsAsync()
+        {
+            await Task.Yield(); // TODO
+            _endpoints = GetIpEndPoints(Configuration.Configuration).ToList();
         }
 
         /// <summary>
