@@ -86,15 +86,12 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
 
-        UUID snapshotId = UUID.randomUUID();
-
         snapshot = new OutgoingSnapshot(
-                snapshotId,
+                UUID.randomUUID(),
                 partitionKey,
                 partitionsByTableId,
                 mock(PartitionTxStateAccess.class),
-                catalogService,
-                new OutgoingSnapshotMetricsSource(snapshotId, partitionKey)
+                catalogService
         );
     }
 

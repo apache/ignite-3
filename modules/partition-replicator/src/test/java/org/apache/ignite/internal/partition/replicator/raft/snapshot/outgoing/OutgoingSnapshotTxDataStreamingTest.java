@@ -107,15 +107,12 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
         lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
-        UUID snapshotId = UUID.randomUUID();
-
         snapshot = new OutgoingSnapshot(
-                snapshotId,
+                UUID.randomUUID(),
                 partitionKey,
                 singleton(1, partitionAccess),
                 txAccess,
-                catalogService,
-                new OutgoingSnapshotMetricsSource(snapshotId, partitionKey)
+                catalogService
         );
     }
 

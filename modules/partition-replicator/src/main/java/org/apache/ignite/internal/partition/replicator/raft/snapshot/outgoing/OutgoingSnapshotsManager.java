@@ -133,8 +133,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      * @param outgoingSnapshot Outgoing snapshot.
      */
     void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
-        LOG.info("Starting outgoing snapshot [snapshotId={}]", snapshotId);
-
         snapshots.put(snapshotId, outgoingSnapshot);
 
         PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());

@@ -24,18 +24,20 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Not thread safe.</p>
  */
-public class Duration {
+public class StopWatchTimer {
     private long startNanos;
 
     private long endNanos;
 
-    /** Callback before the operation starts. */
-    public void onStart() {
+    /** Starts timer. */
+    public void start() {
         startNanos = System.nanoTime();
     }
 
-    /** Callback after the end of the operation. */
-    public void onEnd() {
+    /** Ends timer. */
+    public void end() {
+        assert startNanos != 0 : "start() should be called before end() was called.";
+
         endNanos = System.nanoTime();
     }
 
@@ -51,6 +53,8 @@ public class Duration {
 
     /** Returns the duration in the specified time unit. */
     public long duration(TimeUnit timeUnit) {
+        assert endNanos != 0 : "end() should be called before the timer result can be retrieved.";
+
         return timeUnit.convert(endNanos - startNanos, TimeUnit.NANOSECONDS);
     }
 }

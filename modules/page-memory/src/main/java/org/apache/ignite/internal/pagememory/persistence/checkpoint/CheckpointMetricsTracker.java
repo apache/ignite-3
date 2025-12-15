@@ -22,7 +22,7 @@ import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import org.apache.ignite.internal.metrics.Duration;
+import org.apache.ignite.internal.metrics.StopWatchTimer;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.util.FastTimestamps;
 
@@ -53,25 +53,25 @@ public class CheckpointMetricsTracker {
 
     private final long startTimestamp = FastTimestamps.coarseCurrentTimeMillis();
 
-    private final Duration checkpointDuration = new Duration();
+    private final StopWatchTimer checkpointDuration = new StopWatchTimer();
 
-    private final Duration writeLockWaitDuration = new Duration();
+    private final StopWatchTimer writeLockWaitDuration = new StopWatchTimer();
 
-    private final Duration onBeforeCheckpointBeginDuration = new Duration();
+    private final StopWatchTimer onBeforeCheckpointBeginDuration = new StopWatchTimer();
 
-    private final Duration onMarkCheckpointBeginDuration = new Duration();
+    private final StopWatchTimer onMarkCheckpointBeginDuration = new StopWatchTimer();
 
-    private final Duration writeLockHoldDuration = new Duration();
+    private final StopWatchTimer writeLockHoldDuration = new StopWatchTimer();
 
-    private final Duration pagesWriteDuration = new Duration();
+    private final StopWatchTimer pagesWriteDuration = new StopWatchTimer();
 
-    private final Duration fsyncDuration = new Duration();
+    private final StopWatchTimer fsyncDuration = new StopWatchTimer();
 
-    private final Duration replicatorLogSyncDuration = new Duration();
+    private final StopWatchTimer replicatorLogSyncDuration = new StopWatchTimer();
 
-    private final Duration splitAndSortCheckpointPagesDuration = new Duration();
+    private final StopWatchTimer splitAndSortCheckpointPagesDuration = new StopWatchTimer();
 
-    private final Duration waitPageReplacement = new Duration();
+    private final StopWatchTimer waitPageReplacement = new StopWatchTimer();
 
     /**
      * Increments counter if copy on write page was written.
@@ -124,7 +124,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onCheckpointStart() {
-        checkpointDuration.onStart();
+        checkpointDuration.start();
     }
 
     /**
@@ -133,7 +133,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onCheckpointEnd() {
-        checkpointDuration.onEnd();
+        checkpointDuration.end();
     }
 
     /**
@@ -151,7 +151,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWriteLockWaitStart() {
-        writeLockWaitDuration.onStart();
+        writeLockWaitDuration.start();
     }
 
     /**
@@ -160,7 +160,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWriteLockWaitEnd() {
-        writeLockWaitDuration.onEnd();
+        writeLockWaitDuration.end();
     }
 
     /**
@@ -178,7 +178,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onBeforeCheckpointBeginStart() {
-        onBeforeCheckpointBeginDuration.onStart();
+        onBeforeCheckpointBeginDuration.start();
     }
 
     /**
@@ -187,7 +187,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onBeforeCheckpointBeginEnd() {
-        onBeforeCheckpointBeginDuration.onEnd();
+        onBeforeCheckpointBeginDuration.end();
     }
 
     /**
@@ -205,7 +205,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onMarkCheckpointBeginStart() {
-        onMarkCheckpointBeginDuration.onStart();
+        onMarkCheckpointBeginDuration.start();
     }
 
     /**
@@ -214,7 +214,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onMarkCheckpointBeginEnd() {
-        onMarkCheckpointBeginDuration.onEnd();
+        onMarkCheckpointBeginDuration.end();
     }
 
     /**
@@ -232,7 +232,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onPagesWriteStart() {
-        pagesWriteDuration.onStart();
+        pagesWriteDuration.start();
     }
 
     /**
@@ -241,7 +241,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onPagesWriteEnd() {
-        pagesWriteDuration.onEnd();
+        pagesWriteDuration.end();
     }
 
     /**
@@ -259,7 +259,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onFsyncStart() {
-        fsyncDuration.onStart();
+        fsyncDuration.start();
     }
 
     /**
@@ -268,7 +268,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onFsyncEnd() {
-        fsyncDuration.onEnd();
+        fsyncDuration.end();
     }
 
     /**
@@ -286,7 +286,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onSplitAndSortCheckpointPagesStart() {
-        splitAndSortCheckpointPagesDuration.onStart();
+        splitAndSortCheckpointPagesDuration.start();
     }
 
     /**
@@ -295,7 +295,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onSplitAndSortCheckpointPagesEnd() {
-        splitAndSortCheckpointPagesDuration.onEnd();
+        splitAndSortCheckpointPagesDuration.end();
     }
 
     /**
@@ -313,7 +313,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onReplicatorLogSyncStart() {
-        replicatorLogSyncDuration.onStart();
+        replicatorLogSyncDuration.start();
     }
 
     /**
@@ -322,7 +322,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onReplicatorLogSyncEnd() {
-        replicatorLogSyncDuration.onEnd();
+        replicatorLogSyncDuration.end();
     }
 
     /**
@@ -340,7 +340,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWriteLockHoldStart() {
-        writeLockHoldDuration.onStart();
+        writeLockHoldDuration.start();
     }
 
     /**
@@ -349,7 +349,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWriteLockHoldEnd() {
-        writeLockHoldDuration.onEnd();
+        writeLockHoldDuration.end();
     }
 
     /**
@@ -376,7 +376,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWaitPageReplacementStart() {
-        waitPageReplacement.onStart();
+        waitPageReplacement.start();
     }
 
     /**
@@ -385,7 +385,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWaitPageReplacementEnd() {
-        waitPageReplacement.onEnd();
+        waitPageReplacement.end();
     }
 
     /**

@@ -122,15 +122,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
 
-        UUID snapshotId = UUID.randomUUID();
-
         snapshot = new OutgoingSnapshot(
-                snapshotId,
+                UUID.randomUUID(),
                 partitionKey,
                 partitionsByTableId,
                 mock(PartitionTxStateAccess.class),
-                catalogService,
-                new OutgoingSnapshotMetricsSource(snapshotId, partitionKey)
+                catalogService
         );
 
         snapshot.acquireMvLock();
@@ -160,15 +157,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     ) {
         when(txStateAccess.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
-        UUID snapshotId = UUID.randomUUID();
-
         snapshot = new OutgoingSnapshot(
-                snapshotId,
+                UUID.randomUUID(),
                 partitionKey,
                 Int2ObjectMaps.emptyMap(),
                 txStateAccess,
-                catalogService,
-                new OutgoingSnapshotMetricsSource(snapshotId, partitionKey)
+                catalogService
         );
 
         snapshot.acquireMvLock();

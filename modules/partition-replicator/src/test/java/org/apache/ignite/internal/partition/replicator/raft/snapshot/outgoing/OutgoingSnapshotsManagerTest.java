@@ -86,15 +86,12 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
-        UUID snapshotId = UUID.randomUUID();
-
         OutgoingSnapshot snapshot = new OutgoingSnapshot(
-                snapshotId,
+                UUID.randomUUID(),
                 partitionKey,
                 singleton(TABLE_ID, partitionAccess),
                 mock(PartitionTxStateAccess.class),
-                catalogService,
-                new OutgoingSnapshotMetricsSource(snapshotId, partitionKey)
+                catalogService
         );
 
         assertDoesNotThrow(() -> manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot));

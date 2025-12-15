@@ -314,8 +314,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 catalogService,
                 failureProcessor,
                 executor,
-                new LogStorageAccessImpl(replicaManager),
-                new NoOpMetricManager()
+                new LogStorageAccessImpl(replicaManager)
         );
     }
 

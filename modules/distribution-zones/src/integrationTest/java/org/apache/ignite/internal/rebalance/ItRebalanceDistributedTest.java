@@ -1556,8 +1556,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     txManager,
                     schemaManager,
                     dataStorageMgr,
-                    outgoingSnapshotManager,
-                    metricManager
+                    outgoingSnapshotManager
             );
 
             tableManager = new TableManager(

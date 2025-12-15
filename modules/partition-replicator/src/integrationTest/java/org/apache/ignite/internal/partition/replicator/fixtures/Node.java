@@ -744,8 +744,7 @@ public class Node {
                 txManager,
                 schemaManager,
                 dataStorageMgr,
-                outgoingSnapshotsManager,
-                metricManager
+                outgoingSnapshotsManager
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
