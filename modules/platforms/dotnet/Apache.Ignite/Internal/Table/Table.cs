@@ -146,6 +146,7 @@ namespace Apache.Ignite.Internal.Table
         internal int Id { get; }
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
             where T : notnull => GetRecordViewInternal<T>();
 
@@ -155,6 +156,7 @@ namespace Apache.Ignite.Internal.Table
             new RecordView<T>(this, new RecordSerializer<T>(this, new MapperSerializerHandler<T>(mapper)), _sql);
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
             where TK : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
@@ -182,6 +184,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         internal RecordView<T> GetRecordViewInternal<T>()
             where T : notnull
         {

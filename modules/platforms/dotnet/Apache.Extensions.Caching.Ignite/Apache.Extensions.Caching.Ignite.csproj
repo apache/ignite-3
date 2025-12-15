@@ -9,6 +9,8 @@
         <AssemblyOriginatorKeyFile>Apache.Extensions.Caching.Ignite.snk</AssemblyOriginatorKeyFile>
 
         <IsPackable>true</IsPackable>
+        <IsTrimmable>true</IsTrimmable>
+
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RootNamespace>Apache.Extensions.Caching.Ignite</RootNamespace>
     </PropertyGroup>

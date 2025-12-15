@@ -24,7 +24,10 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>Apache.Ignite.snk</AssemblyOriginatorKeyFile>
+
     <IsPackable>true</IsPackable>
+    <IsTrimmable>true</IsTrimmable>
+
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>

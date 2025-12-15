@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
+    using Internal.Table.Serialization;
     using Mapper;
 
     /// <summary>
@@ -58,6 +60,7 @@ namespace Apache.Ignite.Table
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
             where T : notnull;
 
@@ -79,6 +82,7 @@ namespace Apache.Ignite.Table
         /// <typeparam name="TK">Key type.</typeparam>
         /// <typeparam name="TV">Value type.</typeparam>
         /// <returns>Key-value view.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
             where TK : notnull;
 

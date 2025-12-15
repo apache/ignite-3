@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Compute;
+namespace Apache.Ignite.Tests.Common.Compute;
 
 using System;
 using System.Collections.Generic;
-using Ignite.Table;
+using Apache.Ignite.Table;
 using NodaTime;
 
 /// <summary>
