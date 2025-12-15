@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 
+pluginManagement {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+}
+
 rootProject.name = 'Apache Ignite 3'
 include(':ignite-page-memory')
 include(':ignite-storage-api')
@@ -217,15 +225,6 @@ project(":migration-tools-e2e-ai3-tests").projectDir = file('migration-tools/mod
 
 def ignite2Version = properties["ignite2.version"].toString()
 def ignite2Vendor = properties["ignite2.vendor"].toString()
-
-
-pluginManagement {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-}
 
 dependencyResolutionManagement {
     repositories {
