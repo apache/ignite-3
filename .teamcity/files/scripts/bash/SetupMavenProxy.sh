@@ -72,7 +72,10 @@ while IFS='|' read -r remote_url nexus_url; do
 
     if [ -z "$FILES_TO_UPDATE" ]; then
         echo "  No files found containing this URL"
+        echo "  Debug: Searched for '$remote_url' and '${SEARCH_URL}'"
         continue
+    else
+        echo "  Found $(echo "$FILES_TO_UPDATE" | wc -l | tr -d ' ') file(s) to process"
     fi
 
     while IFS= read -r file; do
@@ -80,23 +83,35 @@ while IFS='|' read -r remote_url nexus_url; do
             TOTAL_FILES=$((TOTAL_FILES + 1))
             
             # Count occurrences - check which format exists in the file
-            COUNT_WITH_SLASH=$(grep -oF "$remote_url" "$file" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-            COUNT_WITH_SLASH=${COUNT_WITH_SLASH:-0}
-            if [ "$COUNT_WITH_SLASH" -gt 0 ] 2>/dev/null; then
-                COUNT=$COUNT_WITH_SLASH
-            else
-                # Try without trailing slash
-                COUNT=$(grep -oF "$SEARCH_URL" "$file" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+            COUNT_WITH_SLASH=0
+            COUNT_WITHOUT_SLASH=0
+            if grep -qF "$remote_url" "$file" 2>/dev/null; then
+                COUNT_WITH_SLASH=$(grep -oF "$remote_url" "$file" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
             fi
-            COUNT=${COUNT:-0}
+            if grep -qF "$SEARCH_URL" "$file" 2>/dev/null; then
+                COUNT_WITHOUT_SLASH=$(grep -oF "$SEARCH_URL" "$file" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+            fi
+            
+            # Use the count that's greater than 0, or prefer the one with slash if both exist
+            if [ "${COUNT_WITH_SLASH:-0}" -gt 0 ]; then
+                COUNT=$COUNT_WITH_SLASH
+                USE_SLASH_VERSION=true
+            elif [ "${COUNT_WITHOUT_SLASH:-0}" -gt 0 ]; then
+                COUNT=$COUNT_WITHOUT_SLASH
+                USE_SLASH_VERSION=false
+            else
+                COUNT=0
+                USE_SLASH_VERSION=false
+            fi
+            
             TOTAL_REPLACEMENTS=$((TOTAL_REPLACEMENTS + ${COUNT:-0})) 2>/dev/null || TOTAL_REPLACEMENTS=$TOTAL_REPLACEMENTS
 
-            if [ $COUNT -gt 0 ]; then
+            if [ "${COUNT:-0}" -gt 0 ]; then
                 echo "  Processing: $file (found $COUNT occurrence(s))"
 
                 # Escape special regex characters for sed (using | as delimiter)
                 # Determine which format to replace based on what's in the file
-                if [ "${COUNT_WITH_SLASH:-0}" -gt 0 ]; then
+                if [ "$USE_SLASH_VERSION" = "true" ]; then
                     # File has URL with trailing slash - replace that version
                     ESCAPED_REMOTE=$(printf '%s\n' "$remote_url" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
                     REPLACE_URL="$nexus_url"
@@ -108,12 +123,22 @@ while IFS='|' read -r remote_url nexus_url; do
                 fi
                 ESCAPED_NEXUS=$(printf '%s\n' "$REPLACE_URL" | sed 's/\./\\./g; s/\*/\\*/g; s/\^/\\^/g; s/\$/\\$/g; s/\[/\\[/g; s/\]/\\]/g; s/(/\\(/g; s/)/\\)/g; s/+/\\+/g; s/?/\\?/g; s/{/\\{/g; s/}/\\}/g; s/|/\\|/g; s/\\/\\\\/g')
 
+                # Debug: show what we're replacing
+                echo "    Replacing: $remote_url -> $nexus_url"
+
                 if [[ "$OSTYPE" == "darwin"* ]]; then
                     # macOS sed
                     sed -i '' "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file" 2>/dev/null || true
                 else
                     # Linux sed
                     sed -i "s|${ESCAPED_REMOTE}|${ESCAPED_NEXUS}|g" "$file" 2>/dev/null || true
+                fi
+                
+                # Verify replacement worked
+                if grep -qF "$REPLACE_URL" "$file" 2>/dev/null; then
+                    echo "    ✓ Replacement successful"
+                else
+                    echo "    ⚠ Warning: Replacement may have failed - URL not found after replacement"
                 fi
             else
                 echo "  Skipping: $file (no matches found)"

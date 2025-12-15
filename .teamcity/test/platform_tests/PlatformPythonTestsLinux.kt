@@ -38,6 +38,12 @@ object PlatformPythonTestsLinux : BuildType({
                 eval "${'$'}(pyenv init --path)" || echo 'first'
                 eval "${'$'}(pyenv init --no-rehash -)" || echo 'second'
                 
+                # Install Python 3.9 if not already installed
+                if ! pyenv versions --bare | grep -q "^3.9"; then
+                    pyenv install -s 3.9.18 || pyenv install -s 3.9
+                fi
+                pyenv local 3.9.18 2>/dev/null || pyenv local 3.9 || true
+                
                 python3 -m venv .venv
                 . .venv/bin/activate
                 pip install tox
