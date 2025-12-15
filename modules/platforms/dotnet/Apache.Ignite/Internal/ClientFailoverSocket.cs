@@ -324,9 +324,10 @@ namespace Apache.Ignite.Internal
         /// <returns>Active connections.</returns>
         public IList<IConnectionInfo> GetConnections()
         {
-            var res = new List<IConnectionInfo>(_endpoints.Count);
+            var endpoints = _endpoints;
+            var res = new List<IConnectionInfo>(endpoints.Count);
 
-            foreach (var endpoint in _endpoints)
+            foreach (var endpoint in endpoints)
             {
                 if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
                 {
@@ -381,9 +382,10 @@ namespace Apache.Ignite.Internal
         /// <returns>Active sockets.</returns>
         internal IEnumerable<ClientSocket> GetSockets()
         {
-            var res = new List<ClientSocket>(_endpoints.Count);
+            var endpoints = _endpoints;
+            var res = new List<ClientSocket>(endpoints.Count);
 
-            foreach (var endpoint in _endpoints)
+            foreach (var endpoint in endpoints)
             {
                 if (endpoint.Socket is { IsDisposed: false })
                 {
@@ -436,7 +438,8 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endpoints.Count == 1)
+            var endpoints = _endpoints;
+            if (endpoints.Count == 1)
             {
                 // No secondary connections to establish.
                 return;
@@ -446,12 +449,12 @@ namespace Apache.Ignite.Internal
             {
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(_endpoints.Count);
+                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(endpoints.Count);
                 }
 
                 int failed = 0;
 
-                foreach (var endpoint in _endpoints)
+                foreach (var endpoint in endpoints)
                 {
                     try
                     {
@@ -466,7 +469,7 @@ namespace Apache.Ignite.Internal
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogSecondaryConnectionsEstablishedDebug(_endpoints.Count - failed, failed);
+                    _logger.LogSecondaryConnectionsEstablishedDebug(endpoints.Count - failed, failed);
                 }
 
                 if (Configuration.Configuration.ReconnectInterval <= TimeSpan.Zero)
@@ -492,11 +495,12 @@ namespace Apache.Ignite.Internal
         {
             List<Exception>? errors = null;
             var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
+            var endpoints = _endpoints;
 
-            for (var i = 0; i < _endpoints.Count; i++)
+            for (var i = 0; i < endpoints.Count; i++)
             {
-                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
-                var endPoint = _endpoints[idx];
+                var idx = Math.Abs(startIdx + i) % endpoints.Count;
+                var endPoint = endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
                 {
@@ -527,11 +531,12 @@ namespace Apache.Ignite.Internal
         private ClientSocket? GetNextSocketWithoutReconnect()
         {
             var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
+            var endpoints = _endpoints;
 
-            for (var i = 0; i < _endpoints.Count; i++)
+            for (var i = 0; i < endpoints.Count; i++)
             {
-                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
-                var endPoint = _endpoints[idx];
+                var idx = Math.Abs(startIdx + i) % endpoints.Count;
+                var endPoint = endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
                 {
