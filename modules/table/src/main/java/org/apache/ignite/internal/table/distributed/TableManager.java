@@ -1834,8 +1834,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 // Handle missed table drop event.
                 int tableId = tableDescriptor.id();
 
-                boolean destroyTableEventFired = nextCatalog != null && nextCatalog.table(tableId) == null;
-                if (destroyTableEventFired) {
+                if (nextCatalog != null && nextCatalog.table(tableId) == null) {
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -1852,12 +1851,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         tableDescriptor,
                         schemaDescriptor
                 );
-
-                if (destroyTableEventFired) {
-                    // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
-                    // just because the table is being dropped and there is no need to keep the metric source.
-                    unregisterMetricsSource(tables.get(tableId));
-                }
 
                 startTableFutures.add(startTableFuture);
             }
@@ -2090,10 +2083,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private TableMetricSource createAndRegisterMetricsSource(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
+        // The table might be created during the recovery phase.
+        // In that case, we should only register the metric source for the actual tables that exist in the latest catalog.
+        boolean registrationNeeded =
+                catalogService.latestCatalog().table(tableDescriptor.getId()) != null;
+
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
 
         // Engine can be null sometimes, see "TableManager.createTableStorage".
-        if (engine != null) {
+        if (engine != null && registrationNeeded) {
             StorageEngineTablesMetricSource engineMetricSource = new StorageEngineTablesMetricSource(engine.name(), tableName);
 
             engine.addTableMetrics(tableDescriptor, engineMetricSource);
@@ -2109,11 +2107,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TableMetricSource source = new TableMetricSource(tableName);
 
-        try {
-            metricManager.registerSource(source);
-            metricManager.enable(source);
-        } catch (Exception e) {
-            LOG.warn("Failed to register metrics source for table [id={}, name={}].", e, tableDescriptor.getId(), tableName);
+        if (registrationNeeded) {
+            try {
+                metricManager.registerSource(source);
+                metricManager.enable(source);
+            } catch (Exception e) {
+                LOG.warn("Failed to register metrics source for table [id={}, name={}].", e, tableDescriptor.getId(), tableName);
+            }
         }
 
         return source;
@@ -2134,6 +2134,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(storageProfile);
+
         // Engine can be null sometimes, see "TableManager.createTableStorage".
         if (engine != null) {
             try {
