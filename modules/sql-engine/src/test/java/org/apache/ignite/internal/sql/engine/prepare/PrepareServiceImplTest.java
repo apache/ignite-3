@@ -125,7 +125,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private final List<PrepareService> createdServices = new ArrayList<>();
-    private static final int PLAN_UPDATER_REFRESH_PERIOD = 5_000;
 
     @Mock(strictness = Strictness.LENIENT)
     private ScheduledExecutorService commonExecutor;
