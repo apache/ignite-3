@@ -30,10 +30,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -125,35 +123,20 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         String leaseholderNodeName = waitAndGetPrimaryReplica(partitionGroupId);
         IgniteImpl transactionCoordinatorNode = findNonLeaseholderNode(leaseholderNodeName);
 
-        // When upsert will be triggered then we have to pull the latch down and transfer lease to another leaseholder node.
-        CountDownLatch upsertIsTriggeredLatch = new CountDownLatch(1);
+        AtomicBoolean leaseTransferIsTriggered = new AtomicBoolean();
 
-        // When the latch is arisen, then in case of RW request to the current leaseholder we will wait. When latch is pulled down we
-        // additionally transfer lease and still pass a message, so actually the follow doesn't drop any message, but moves lease at
-        // the moment after upsert was triggered.
         DefaultMessagingService messagingService = (DefaultMessagingService) transactionCoordinatorNode.clusterService().messagingService();
         messagingService.dropMessages((nodeName, msg) -> {
             boolean isMessageForCurrentLeaseholder = nodeName.equals(leaseholderNodeName);
-            boolean isLatchArisen = upsertIsTriggeredLatch.getCount() > 0;
             boolean isUpsertRequestMessage = msg instanceof ReadWriteSingleRowReplicaRequest;
 
-            boolean shouldWaitForLatchDownAndTransferLease = isMessageForCurrentLeaseholder && isUpsertRequestMessage && isLatchArisen;
+            boolean shouldWaitForLatchDownAndTransferLease = isMessageForCurrentLeaseholder
+                    && isUpsertRequestMessage
+                    && leaseTransferIsTriggered.compareAndSet(false, true);
 
             if (!shouldWaitForLatchDownAndTransferLease) {
-                // Just pass the message then.
-                return false;
+                return false; // Just pass the message then.
             }
-
-            log.info("Test: awaiting for upsert triggering and lease transfer.");
-
-            try {
-                upsertIsTriggeredLatch.await();
-            } catch (InterruptedException e) {
-                fail("Test: awaiting for upsert triggering and lease transfer were interrupted.", e);
-            }
-
-            log.info("Test: lease transfer begins.");
-
             String newLeaseholderNodeName = transferPrimaryToNonCoordinatorNode(
                     leaseholderNodeName,
                     transactionCoordinatorNode.name(),
@@ -167,18 +150,11 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
         RecordView<Tuple> view = transactionCoordinatorNode.tables().table(TABLE_NAME).recordView();
 
-        // Trigger upsert and pull down the latch to trigger lease transfer. We need to do the first step in a separate thread because
-        // drop message handler may be executed in the same thread with the test worker one from upsertAsync's internals.
         CompletableFuture<Void> futureUpsert = CompletableFuture
                 .supplyAsync(() -> view.upsertAsync(null, NEW_RECORD_TUPLE))
                 .thenCompose(identity());
-        upsertIsTriggeredLatch.countDown();
 
-        log.info("Test: upsert is triggered, latch is pulled down.");
-
-        // Finally we expect the triggered upsert will succeed eventually because of retry with new leaseholder enlisted.
         assertThat(futureUpsert, willSucceedIn(20, SECONDS));
-        // And we can also read the expected value too.
         assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
     }
 
