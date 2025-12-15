@@ -608,7 +608,9 @@ namespace Apache.Ignite.Internal
             try
             {
                 // GetHostEntry accepts IPs, but TryParse is a more efficient shortcut.
-                return IPAddress.TryParse(host, out var ip) ? new[] { ip } : Dns.GetHostEntry(host).AddressList;
+                return IPAddress.TryParse(host, out var ip)
+                    ? [ip]
+                    : Dns.GetHostEntry(host).AddressList;
             }
             catch (SocketException e)
             {
