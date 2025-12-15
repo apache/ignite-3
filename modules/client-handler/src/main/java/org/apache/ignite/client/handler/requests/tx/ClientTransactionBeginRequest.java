@@ -62,13 +62,13 @@ public class ClientTransactionBeginRequest {
 
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
+                .readTimestamp(observableTs)
                 .build();
 
         var tx = startExplicitTx(tsTracker, txManager, observableTs, readOnly, txOptions);
 
         if (readOnly) {
             // Propagate assigned read timestamp to client to enforce serializability on subsequent reads from another node.
-            // TODO: IGNITE-27115 - why can assigned timestamp be different from observableTs?
             tsTracker.update(tx.readTimestamp());
         }
 
