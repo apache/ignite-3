@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
+
 import java.time.ZoneId;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.QualifiedName;
 
 /**
@@ -32,4 +35,9 @@ public final class SqlCommon {
     public static final int DEFAULT_PAGE_SIZE = 1024;
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
+
+    /** Return normalized column name. */
+    public static String normalizedColumnName(ColumnMetadata col) {
+        return col instanceof ColumnMetadataImpl ? ((ColumnMetadataImpl) col).normalizedName() : parseIdentifier(col.name());
+    }
 }
