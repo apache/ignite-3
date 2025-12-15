@@ -94,7 +94,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testDefaultFailureHandlerConfiguration() {
-        FailureManager failureManager = new FailureManager("test-node", failureProcessorConfiguration, () -> {});
+        FailureManager failureManager = new FailureManager("test-node", () -> {}, failureProcessorConfiguration);
 
         try {
             assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());
@@ -114,7 +114,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testFailureProcessorReconfiguration() {
-        FailureManager failureManager = new FailureManager("test-node", failureProcessorConfiguration, () -> {});
+        FailureManager failureManager = new FailureManager("test-node", () -> {}, failureProcessorConfiguration);
 
         try {
             assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());

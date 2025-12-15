@@ -115,10 +115,10 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * Creates a new instance of a failure processor.
      *
      * @param nodeName Node name.
-     * @param configuration Failure processor configuration.
      * @param nodeStopper Node stopper.
+     * @param configuration Failure processor configuration.
      */
-    public FailureManager(String nodeName, FailureProcessorConfiguration configuration, NodeStopper nodeStopper) {
+    public FailureManager(String nodeName, NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
         this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
