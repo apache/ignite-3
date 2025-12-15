@@ -405,7 +405,11 @@ class RelJson {
 
     private Object toJson(RexNode node) {
         // removes calls to SEARCH and the included Sarg and converts them to comparisons
-        node = RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, node);
+        // Only expand when it is a search operator,
+        // as this call also flattens AND/OR operands.
+        if (node.isA(SqlKind.SEARCH)) {
+            node = RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, node);
+        }
 
         Map<String, Object> map;
         switch (node.getKind()) {
