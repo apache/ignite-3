@@ -2168,7 +2168,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // The table might be created during the recovery phase.
         // In that case, we should only register the metric source for the actual tables that exist in the latest catalog.
         boolean registrationNeeded =
-                catalogService.latestCatalog().table(tableName.schemaName(), tableName.objectName()) != null;
+                catalogService.latestCatalog().table(tableDescriptor.getId()) != null;
 
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
 
