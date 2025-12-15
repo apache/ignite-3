@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Ignite.Sql;
 using NodaTime;
 
@@ -34,6 +35,7 @@ internal static class ColumnTypeExtensions
     /// </summary>
     /// <param name="columnType">SQL column type.</param>
     /// <returns>CLR type.</returns>
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)]
     public static Type ToClrType(this ColumnType columnType) => columnType switch
     {
         ColumnType.Null => typeof(void),

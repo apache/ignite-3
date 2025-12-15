@@ -57,7 +57,7 @@ public class MinusExecutionTest extends AbstractSetOpExecutionTest {
                 throw new IllegalArgumentException("Unexpected aggregate type: " + type);
         }
 
-        return new MinusNode<>(ctx, columnCount, type, all, rowHandler().factory(rowSchema));
+        return new MinusNode<>(ctx, columnCount, type, all, ctx.rowFactoryFactory().create(rowSchema));
     }
 
     /** {@inheritDoc} */

@@ -103,7 +103,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
@@ -575,7 +575,7 @@ public class TestBuilders {
         @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
-                    new ExpressionFactoryImpl<>(
+                    new ExpressionFactoryImpl(
                             Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                     ),
                     Objects.requireNonNull(executor, "executor"),
@@ -584,6 +584,7 @@ public class TestBuilders {
                     node.name(),
                     node.id(),
                     description,
+                    ArrayRowHandler.INSTANCE,
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),

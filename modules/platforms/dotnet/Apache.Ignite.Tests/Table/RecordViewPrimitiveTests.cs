@@ -25,6 +25,7 @@ using Ignite.Table;
 using Ignite.Table.Mapper;
 using NodaTime;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests record view with single-column mapping to a primitive type.

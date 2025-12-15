@@ -508,4 +508,9 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
             callbacks.remove(callback);
         }
     }
+
+    @Override
+    public void markAsStopping() {
+        raftClient.markAsStopping();
+    }
 }

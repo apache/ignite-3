@@ -106,6 +106,20 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
     }
 
     @Override
+    public void reset(long groupId, long nextLogIndex) {
+        ConcurrentMap<Long, SegmentInfo> memtable = memtable(groupId);
+
+        memtable.compute(groupId, (id, segmentInfo) -> {
+            if (segmentInfo == null || segmentInfo.isPrefixTombstone() || nextLogIndex < segmentInfo.firstLogIndexInclusive()) {
+                // The memtable does not have any information for the given group, we need to write a special "reset tombstone".
+                return SegmentInfo.resetTombstone(nextLogIndex);
+            } else {
+                return segmentInfo.reset(nextLogIndex);
+            }
+        });
+    }
+
+    @Override
     public ReadModeIndexMemTable transitionToReadMode() {
         return this;
     }

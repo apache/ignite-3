@@ -49,6 +49,7 @@ public class IdentityDistributionFunctionSelfTest {
     private static final String NODE_3 = "node3";
 
     private final RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+    private final RowFactoryFactory<Object[]> rowFactoryFactory = ArrayRowHandler.INSTANCE;
 
     private final StructNativeType rowSchema = NativeTypes.rowBuilder()
             .addField("C1", NativeTypes.STRING, true)
@@ -81,7 +82,7 @@ public class IdentityDistributionFunctionSelfTest {
 
     @Test
     public void destinationRowTargets() {
-        Object[] row = rowHandler.factory(rowSchema).create(NODE_1, "Ne prikhodya v soznanie");
+        Object[] row = rowFactoryFactory.create(rowSchema).create(NODE_1, "Ne prikhodya v soznanie");
 
         Destination<Object[]> destination0 = destinationFactory.createDestination(IgniteDistributions.identity(0), colocationGroup);
         Destination<Object[]> destination1 = destinationFactory.createDestination(IgniteDistributions.identity(1), colocationGroup);
@@ -95,7 +96,7 @@ public class IdentityDistributionFunctionSelfTest {
         assertThat(targets, Matchers.contains(NODE_1));
 
         // Validate column mapping
-        Object[] otherRow = rowHandler.factory(rowSchema).create("UNKNOWN", NODE_2);
+        Object[] otherRow = rowFactoryFactory.create(rowSchema).create("UNKNOWN", NODE_2);
         targets = destination1.targets(otherRow);
 
         assertThat(targets.size(), equalTo(1));
@@ -109,13 +110,13 @@ public class IdentityDistributionFunctionSelfTest {
     public void destinationForInvalidRow() {
         Destination<Object[]> destination = destinationFactory.createDestination(IgniteDistributions.identity(0), colocationGroup);
 
-        Object[] invalidRow1 = rowHandler.factory(rowSchema).create("UNKNOWN", NODE_2);
+        Object[] invalidRow1 = rowFactoryFactory.create(rowSchema).create("UNKNOWN", NODE_2);
         Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(invalidRow1));
 
-        Object[] invalidRow2 = rowHandler.factory(rowSchema).create("", NODE_2);
+        Object[] invalidRow2 = rowFactoryFactory.create(rowSchema).create("", NODE_2);
         Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(invalidRow2));
 
-        Object[] invalidRow3 = rowHandler.factory(rowSchema).create(null, NODE_2);
+        Object[] invalidRow3 = rowFactoryFactory.create(rowSchema).create(null, NODE_2);
         Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(invalidRow3));
     }
 }

@@ -90,7 +90,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     private IgniteTypeFactory typeFactory;
 
     /** Expression factory. */
-    private ExpressionFactoryImpl<Object[]> expFactory;
+    private ExpressionFactoryImpl expFactory;
 
     private ExecutionContext<Object[]> ctx;
 
@@ -108,7 +108,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();
 
-        expFactory = new ExpressionFactoryImpl<>(Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE);
+        expFactory = new ExpressionFactoryImpl(Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE);
     }
 
     @Test
@@ -134,7 +134,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(0));
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(0));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
             List<TestRange> list = new ArrayList<>();
@@ -152,7 +152,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
             List<TestRange> list = new ArrayList<>();
@@ -170,7 +170,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -189,7 +189,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -208,7 +208,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(0));
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(0));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
             List<TestRange> list = new ArrayList<>();
@@ -226,7 +226,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
             List<TestRange> list = new ArrayList<>();
@@ -244,7 +244,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -263,7 +263,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.ASCENDING, NullDirection.LAST)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -282,7 +282,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -320,7 +320,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.ASCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -340,7 +340,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -359,7 +359,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.ASCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -378,7 +378,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -397,7 +397,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.ASCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -416,7 +416,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -435,7 +435,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.ASCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -454,7 +454,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -491,7 +491,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.ASCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -510,7 +510,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            SqlComparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+            SqlComparator comparator = expFactory.comparator(RelCollations.of(
                     new RelFieldCollation(0, Direction.DESCENDING)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator).get(ctx);
@@ -594,7 +594,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .add("c2", bigIntType)
                 .build();
 
-        SqlProjection<Object[]> project = expFactory.project(List.of(val1, val2), rowType);
+        SqlProjection project = expFactory.project(List.of(val1, val2), rowType);
         Object[] result = project.project(ctx, new Object[]{null, null});
 
         assertArrayEquals(new Object[]{1, 2L}, result);
@@ -617,13 +617,13 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         List<RexNode> projections = List.of(ref2, ref1);
 
         {
-            SqlJoinProjection<Object[]> predicate = expFactory.joinProject(projections, rowType, 1);
+            SqlJoinProjection predicate = expFactory.joinProject(projections, rowType, 1);
             assertArrayEquals(new Object[]{1, 0}, predicate.project(ctx, new Object[]{0}, new Object[]{42, 1}));
             assertArrayEquals(new Object[]{10, 5}, predicate.project(ctx, new Object[]{5}, new Object[]{42, 10}));
         }
 
         {
-            SqlJoinProjection<Object[]> predicate = expFactory.joinProject(projections, rowType, 2);
+            SqlJoinProjection predicate = expFactory.joinProject(projections, rowType, 2);
             assertArrayEquals(new Object[]{1, 0}, predicate.project(ctx, new Object[]{0, 42}, new Object[]{1}));
             assertArrayEquals(new Object[]{10, 5}, predicate.project(ctx, new Object[]{5, 42}, new Object[]{10}));
         }
@@ -642,7 +642,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexInputRef ref = rexBuilder.makeInputRef(rowType, 0);
         RexNode filter = rexBuilder.makeCall(SqlStdOperatorTable.IS_NULL, List.of(ref));
 
-        SqlPredicate<Object[]> predicate = expFactory.predicate(filter, rowType);
+        SqlPredicate predicate = expFactory.predicate(filter, rowType);
         assertFalse(predicate.test(ctx, new Object[]{1}));
     }
 
@@ -663,63 +663,16 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexNode filter = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, List.of(ref1, ref2));
 
         {
-            SqlJoinPredicate<Object[]> predicate = expFactory.joinPredicate(filter, rowType, 1);
+            SqlJoinPredicate predicate = expFactory.joinPredicate(filter, rowType, 1);
             assertTrue(predicate.test(ctx, new Object[]{0}, new Object[]{42, 0}));
             assertFalse(predicate.test(ctx, new Object[]{0}, new Object[]{42, 1}));
         }
 
         {
-            SqlJoinPredicate<Object[]> predicate = expFactory.joinPredicate(filter, rowType, 2);
+            SqlJoinPredicate predicate = expFactory.joinPredicate(filter, rowType, 2);
             assertTrue(predicate.test(ctx, new Object[]{0, 42}, new Object[]{0}));
             assertFalse(predicate.test(ctx, new Object[]{0, 42}, new Object[]{1}));
         }
-    }
-
-    @Test
-    @SuppressWarnings("PMD.BigIntegerInstantiation")
-    public void testValues() {
-        RexBuilder rexBuilder = Commons.rexBuilder();
-        IgniteTypeFactory tf = Commons.typeFactory();
-
-        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
-        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
-
-        RexLiteral val10 = rexBuilder.makeExactLiteral(BigDecimal.ONE, intType);
-        RexLiteral val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
-        RexLiteral val20 = rexBuilder.makeExactLiteral(new BigDecimal("3"), intType);
-        RexLiteral val21 = rexBuilder.makeExactLiteral(new BigDecimal("4"), bigIntType);
-
-        RelDataType rowType = new Builder(tf)
-                .add("c1", intType)
-                .add("c2", bigIntType)
-                .build();
-
-        List<List<Object>> actual = new ArrayList<>();
-        expFactory.values(List.of(List.of(val10, val11), List.of(val20, val21)), rowType)
-                .get(ctx)
-                .forEach(v -> actual.add(Arrays.asList(v)));
-
-        assertEquals(List.of(List.of(1, 2L), List.of(3, 4L)), actual);
-    }
-
-    @Test
-    public void testValuesEmpty() {
-        IgniteTypeFactory tf = Commons.typeFactory();
-
-        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
-        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
-
-        RelDataType rowType = new Builder(tf)
-                .add("c1", intType)
-                .add("c2", bigIntType)
-                .build();
-
-        List<List<Object>> actual = new ArrayList<>();
-        expFactory.values(List.of(), rowType)
-                .get(ctx)
-                .forEach(v -> actual.add(Arrays.asList(v)));
-
-        assertEquals(List.of(), actual);
     }
 
     /**
@@ -743,9 +696,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         Object val2 = randomUUID();
         RexNode expr2 = SqlTestUtils.generateLiteral(ColumnType.UUID, val2);
 
-        ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
+        ExpressionFactoryImpl expFactorySpy = Mockito.spy(expFactory);
 
-        Object[] actual = expFactorySpy.rowSource(List.of(expr1, expr2)).get(ctx);
+        Object[] actual = expFactorySpy.<Object[]>rowSource(List.of(expr1, expr2)).get(ctx);
 
         Object expected;
 
@@ -774,26 +727,22 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("numericLiterals")
     public void testConvertNumericExact(RexLiteral lit, RelDataType dataType, @Nullable Object expected, boolean err) {
-        RelDataType rowType = new Builder(typeFactory).add("c1", dataType).build();
-
         if (!err) {
             Object[] rowValues = expFactory.rowSource(List.of(lit)).get(ctx);
             assertArrayEquals(new Object[]{expected}, rowValues, "rowSource");
 
-            Object[] litValues = expFactory.values(List.of(List.of(lit)), rowType)
-                    .get(ctx)
-                    .iterator().next();
-            assertArrayEquals(new Object[]{expected}, litValues, "values");
+            Object litValues = expFactory.<Object[]>scalar(lit)
+                    .get(ctx);
+            assertEquals(expected, litValues, "scalar");
         } else {
             String errorMessage = "out of range";
 
-            SqlRowProvider<Object[]> rowExpr = expFactory.rowSource(List.of(lit));
+            SqlRowProvider rowExpr = expFactory.rowSource(List.of(lit));
             assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, () -> rowExpr.get(ctx));
 
             assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, () -> {
-                expFactory.values(List.of(List.of(lit)), rowType)
-                        .get(ctx)
-                        .iterator().next();
+                expFactory.scalar(lit)
+                        .get(ctx);
             });
         }
     }

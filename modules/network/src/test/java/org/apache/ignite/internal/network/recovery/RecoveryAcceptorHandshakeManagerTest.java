@@ -49,6 +49,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -101,6 +102,9 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
 
     @Captor
     private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
+
+    @Mock
+    private TopologyService topologyService;
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
@@ -175,7 +179,8 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                topologyService
         );
 
         manager.onInit(context);

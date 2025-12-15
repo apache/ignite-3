@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
@@ -31,6 +32,7 @@ namespace Apache.Ignite.Internal.Sql
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Table.Serialization;
     using Transactions;
 
     /// <summary>
@@ -61,6 +63,7 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public async Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args) =>
             await ExecuteAsyncInternal(
@@ -303,6 +306,7 @@ namespace Apache.Ignite.Internal.Sql
             return row;
         }
 
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
 

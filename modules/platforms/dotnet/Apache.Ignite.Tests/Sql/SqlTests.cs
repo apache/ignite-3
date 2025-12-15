@@ -31,6 +31,7 @@ namespace Apache.Ignite.Tests.Sql
     using Microsoft.Extensions.Logging.Abstractions;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
