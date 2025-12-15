@@ -49,9 +49,6 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly ILogger _logger;
 
-        /** Endpoints with corresponding hosts - from configuration. */
-        private readonly IReadOnlyList<SocketEndpoint> _endpoints;
-
         /** Cluster node unique name to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsByName = new();
 
@@ -61,6 +58,9 @@ namespace Apache.Ignite.Internal
             "CA2213:DisposableFieldsShouldBeDisposed",
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
+
+        /** Endpoints with corresponding hosts - from configuration. */
+        private volatile IReadOnlyList<SocketEndpoint> _endpoints;
 
         /** Disposed flag. */
         private volatile bool _disposed;
