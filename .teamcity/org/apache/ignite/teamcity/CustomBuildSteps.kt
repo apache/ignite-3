@@ -90,12 +90,7 @@ class CustomBuildSteps {
             return result
         }
 
-        /**
-         * Custom PYTHON build step
-         *
-         * @param filename: name of script file (without path)
-         * @param scriptArgs: arguments for running python script
-         */
+
         /**
          * Custom PYTHON build step
          *
