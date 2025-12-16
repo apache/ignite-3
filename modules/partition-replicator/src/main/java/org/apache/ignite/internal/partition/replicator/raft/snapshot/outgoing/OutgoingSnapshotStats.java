@@ -93,7 +93,7 @@ class OutgoingSnapshotStats {
         totalSnapshotTimer.end();
     }
 
-    void updateSnapshotMeta(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration config, int catalogVersion) {
+    void setSnapshotMeta(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration config, int catalogVersion) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.catalogVersion = catalogVersion;
