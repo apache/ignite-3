@@ -19,9 +19,10 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.lang.reflect.Method;
@@ -53,9 +54,18 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
                 metastorage.remove(ByteArray.fromString("remove")),
                 metastorage.removeAll(Set.of(ByteArray.fromString("removeAll"))),
                 metastorage.removeByPrefix(ByteArray.fromString("removeByPrefix")),
-                metastorage.invoke(exists(ByteArray.fromString("key")), noop(), noop()),
                 metastorage.invoke(
-                        iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
+                        notExists(ByteArray.fromString("invoke")),
+                        put(ByteArray.fromString("invoke"), value),
+                        noop()
+                ),
+                metastorage.invoke(
+                        iif(
+                                notExists(ByteArray.fromString("iff")),
+                                ops(put(ByteArray.fromString("iff"), value)).yield(),
+                                ops().yield()
+                        )
+                ),
                 metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
                 sendCompactionCommand(metastorage)
         ).thenCompose((v) -> metastorage.storage().flush());
@@ -66,7 +76,13 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
             Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
             sendCompactionCommand.setAccessible(true);
 
-            return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, metastorage.appliedRevision());
+            // This is effectively a no-op (applied revision is not 0 at this point), we are waiting just in case to increase test
+            // robustness.
+            while (metastorage.appliedRevision() == 0) {
+                Thread.onSpinWait();
+            }
+
+            return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, 0);
         } catch (Exception e) {
             return failedFuture(e);
         }
