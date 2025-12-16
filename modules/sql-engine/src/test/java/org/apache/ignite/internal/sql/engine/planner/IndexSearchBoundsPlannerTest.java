@@ -46,7 +46,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -483,12 +483,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchemaFrom(
                 tableB("TEST2", "C2", type).andThen(addSortIndex("C2")));
 
-        assertPlan("SELECT * FROM test2 WHERE C2 = " + value, schema, isInstanceOf(IgniteTableScan.class)
-                .and(scan -> {
-                    RexNode condition = scan.condition();
-                    return condition != null && Objects.equals("false", condition.toString());
-                })
-        );
+        assertPlan("SELECT * FROM test2 WHERE C2 = " + value, schema, isInstanceOf(IgniteValues.class));
     }
 
     @ParameterizedTest

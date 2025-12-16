@@ -40,9 +40,8 @@ import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -238,15 +237,8 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertEmptyScan(MultiStepPlan plan) {
-        // Exchange -> TableScan [condition = false]
-        IgniteRel root = plan.getRel();
-        assertThat(root, instanceOf(IgniteExchange.class));
-        assertThat(root.getInput(0), instanceOf(IgniteTableScan.class));
-
-        IgniteTableScan tableScan = (IgniteTableScan) root.getInput(0);
-        RexNode condition = tableScan.condition();
-        assertThat(condition, notNullValue());
-        assertThat(condition.toString(), is("false"));
+        assertThat(plan.getRel(), instanceOf(IgniteValues.class));
+        assertThat(((IgniteValues) plan.getRel()).tuples, Matchers.empty());
     }
 
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
