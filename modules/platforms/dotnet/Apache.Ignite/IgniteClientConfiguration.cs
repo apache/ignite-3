@@ -57,6 +57,11 @@ namespace Apache.Ignite
         public static readonly TimeSpan DefaultReconnectInterval = TimeSpan.FromSeconds(30);
 
         /// <summary>
+        /// Default DNS re-resolve interval.
+        /// </summary>
+        public static readonly TimeSpan DefaultReResolveAddressesInterval = TimeSpan.FromSeconds(30);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
         /// </summary>
         public IgniteClientConfiguration()
@@ -180,9 +185,21 @@ namespace Apache.Ignite
         public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
 
         /// <summary>
+        /// Gets or sets how long the resolved addresses will be considered valid.
+        /// <para />
+        /// Default is <see cref="DefaultReResolveAddressesInterval"/>.
+        /// Set to <see cref="TimeSpan.Zero"/> to disable periodic DNS re-resolve.
+        /// <para />
+        /// Ignite client resolves the provided hostnames into multiple IP addresses, each corresponds to a cluster node.
+        /// This property controls how often the client will re-resolve provided hostnames.
+        /// </summary>
+        [DefaultValue("00:00:30")]
+        public TimeSpan ReResolveAddressesInterval { get; set; } = DefaultReResolveAddressesInterval;
+
+        /// <summary>
         /// Gets or sets the SSL stream factory.
         /// <para />
-        /// When not null, secure socket connection will be established.
+        /// When not null, a secure socket connection will be established.
         /// <para />
         /// See <see cref="SslStreamFactory"/>.
         /// </summary>
