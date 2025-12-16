@@ -148,6 +148,9 @@ namespace Apache.Ignite.Internal
             // Secondary connections are established in the background.
             _ = socket.ConnectAllSockets();
 
+            // Re-resolve DNS names in the background periodically.
+            _ = socket.ReResolveDnsPeriodically();
+
             return socket;
         }
 
@@ -349,6 +352,7 @@ namespace Apache.Ignite.Internal
 
                 if (Interlocked.CompareExchange(ref _assignmentTimestamp, value: timestamp, comparand: oldTimestamp) == oldTimestamp)
                 {
+                    ScheduleReResolveDns();
                     return;
                 }
             }
@@ -394,7 +398,7 @@ namespace Apache.Ignite.Internal
             return res;
         }
 
-        private async Task InitEndpointsAsync()
+        private async Task InitEndpointsAsync(int lockWaitTimeoutMs = Timeout.Infinite)
         {
             HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
             IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
@@ -402,7 +406,11 @@ namespace Apache.Ignite.Internal
             var resList = new List<SocketEndpoint>(newEndpoints.Count);
             List<SocketEndpoint>? toRemove = null;
 
-            await _socketLock.WaitAsync().ConfigureAwait(false);
+            var acquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
+            if (!acquired || _disposed)
+            {
+                return;
+            }
 
             try
             {
@@ -530,6 +538,42 @@ namespace Apache.Ignite.Internal
                 await Task.Delay(Configuration.Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
+
+        private async Task ReResolveDnsPeriodically()
+        {
+            var interval = Configuration.Configuration.ReResolveAddressesInterval;
+
+            if (interval <= TimeSpan.Zero)
+            {
+                // Re-resolve is disabled.
+                return;
+            }
+
+            while (!_disposed)
+            {
+                await Task.Delay(interval).ConfigureAwait(false);
+                await ReResolveDns().ConfigureAwait(false);
+            }
+        }
+
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Re-resolve errors are logged and skipped.")]
+        private async Task ReResolveDns()
+        {
+            try
+            {
+                // Skip if another operation is in progress.
+                await InitEndpointsAsync(lockWaitTimeoutMs: 0).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger.LogErrorWhileReResolvingDnsWarn(e, e.Message);
+            }
+        }
+
+        private void ScheduleReResolveDns() => ThreadPool.QueueUserWorkItem(o => _ = ReResolveDns());
 
         /// <summary>
         /// Throws if disposed.
