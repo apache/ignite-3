@@ -205,7 +205,7 @@ public class TestServer implements AutoCloseable {
         SuggestionsConfiguration suggestionsConfiguration = mock(SuggestionsConfiguration.class);
         ConfigurationValue<Boolean> booleanValue = mock(ConfigurationValue.class);
         Mockito.when(booleanValue.value()).thenReturn(true);
-        Mockito.when(suggestionsConfiguration.ddlBatchingSuggestionEnabled()).thenReturn(booleanValue);
+        Mockito.when(suggestionsConfiguration.enabled()).thenReturn(booleanValue);
 
         clientConnectorConfiguration.change(
                 local -> local

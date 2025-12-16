@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /** Configuration related to system suggestions. */
 @Config
 public class SuggestionsConfigurationSchema {
-    /** Print suggestion about DDL batching. */
+    /** Enable/disable all suggestions. */
     @Value(hasDefault = true)
-    public final boolean ddlBatchingSuggestionEnabled = true;
+    public final boolean enabled = true;
 }

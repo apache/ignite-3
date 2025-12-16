@@ -294,7 +294,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
-     * @param ddlSuggestionEnableConfigdValue Boolean config value indicates whether the DDL batch processing advice is enabled.
+     * @param suggestionsEnabledConfigValue Boolean configuration value indicates whether the suggestions are enabled.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -316,7 +316,7 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
-            Supplier<Boolean> ddlSuggestionEnableConfigdValue
+            Supplier<Boolean> suggestionsEnabledConfigValue
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -372,7 +372,7 @@ public class ClientInboundMessageHandler
 
         this.computeConnectionFunc = computeConnectionFunc;
 
-        this.ddlBatchingSuggester = ddlSuggestionEnableConfigdValue.get()
+        this.ddlBatchingSuggester = suggestionsEnabledConfigValue.get()
                 ? new DdlBatchingSuggester()
                 : ignore -> {};
     }

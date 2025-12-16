@@ -177,7 +177,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
      * @param clientConnectorConfiguration Configuration of the connector.
-     * @param suggestionsConfiguration Configuration of system suggestions,
+     * @param suggestionsConfiguration Configuration of system suggestions.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
      */
@@ -463,7 +463,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 Map.of(),
                 computeExecutors::remove,
                 handshakeEventLoopSwitcher,
-                () -> suggestionsConfiguration.ddlBatchingSuggestionEnabled().value()
+                () -> suggestionsConfiguration.enabled().value()
         );
     }
 
