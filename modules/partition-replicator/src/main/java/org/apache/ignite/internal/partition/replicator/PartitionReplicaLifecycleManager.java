@@ -547,9 +547,6 @@ public class PartitionReplicaLifecycleManager extends
             int zoneId = zoneDescriptor.id();
 
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
-                    .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, zoneDescriptor,
-                            assignments, causalityToken
-                    ))
                     .thenCompose(
                             stableAssignments -> createZoneReplicationNodes(
                                     zoneId,
@@ -868,13 +865,12 @@ public class PartitionReplicaLifecycleManager extends
      */
     private CompletableFuture<List<Assignments>> writeZoneAssignmentsToMetastore(
             int zoneId,
-            CatalogZoneDescriptor zoneDescriptor,
-            List<Assignments> newAssignments,
-            long causalityToken
+            ConsistencyMode consistencyMode,
+            List<Assignments> newAssignments
     ) {
         assert !newAssignments.isEmpty();
 
-        boolean haMode = zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY;
+        boolean haMode = consistencyMode == ConsistencyMode.HIGH_AVAILABILITY;
 
         List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
@@ -918,17 +914,6 @@ public class PartitionReplicaLifecycleManager extends
 
                         return completedFuture(newAssignments);
                     } else {
-                        if (zonePartitionAssignmentsGetLocally(metaStorageMgr, zoneDescriptor.id(), 0, causalityToken) != null) {
-                            return completedFuture(
-                                    zoneAssignmentsGetLocally(
-                                            metaStorageMgr,
-                                            zoneDescriptor.id(),
-                                            zoneDescriptor.partitions(),
-                                            causalityToken
-                                    )
-                            );
-                        }
-
                         Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
                                 .mapToObj(p -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)))
                                 .collect(toSet());
@@ -972,7 +957,8 @@ public class PartitionReplicaLifecycleManager extends
 
     /**
      * Check if the zone already has assignments in the meta storage locally. So, it means, that it is a recovery process and we should use
-     * the meta storage local assignments instead of calculation of the new ones.
+     * the meta storage local assignments instead of calculation of the new ones. If assignments do not exist, calculates new assignments
+     * and attempts to write them to metastore.
      */
     private CompletableFuture<List<Assignments>> getOrCreateAssignments(
             CatalogZoneDescriptor zoneDescriptor,
@@ -1013,7 +999,9 @@ public class PartitionReplicaLifecycleManager extends
                                     causalityToken
                             );
                         }
-                    });
+                    }).thenCompose(assignments ->
+                            writeZoneAssignmentsToMetastore(zoneDescriptor.id(), zoneDescriptor.consistencyMode(), assignments)
+                    );
         }
     }
 
