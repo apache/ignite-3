@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
@@ -62,6 +64,8 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemoryMvPartitionStorage> implements MvTableStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractPageMemoryTableStorage.class);
+
     final MvPartitionStorages<T> mvPartitionStorages;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -292,6 +296,8 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
+            LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", getTableId(), partitionId);
+
             mvPartitionStorage.startRebalance();
 
             return clearStorageAndUpdateDataStructures(

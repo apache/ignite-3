@@ -35,6 +35,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
@@ -57,6 +59,8 @@ import org.mockito.exceptions.misusing.UnfinishedStubbingException;
  * Test table storage implementation.
  */
 public class TestMvTableStorage implements MvTableStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(TestMvTableStorage.class);
+
     private static volatile TestMvPartitionStorageFactory partitionStorageFactory = TestMvPartitionStorageFactory.DEFAULT;
 
     private final MvPartitionStorages<TestMvPartitionStorage> mvPartitionStorages;
@@ -290,6 +294,8 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     private CompletableFuture<Void> startRebalancePartitionBusy(int partitionId) {
+        LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", tableDescriptor.getId(), partitionId);
+
         return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
