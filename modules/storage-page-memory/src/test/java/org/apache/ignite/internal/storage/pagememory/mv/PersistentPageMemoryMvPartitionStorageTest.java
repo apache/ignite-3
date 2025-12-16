@@ -261,4 +261,59 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         assertTrue(shouldReleaseValue.get(), "Locker shouldRelease must return true when checkpoint is scheduled now");
     }
+
+    @Test
+    void testStorageConsistencyMetricsRecordedDuringRunConsistently() throws Exception {
+        // Get the storage as PersistentPageMemoryMvPartitionStorage to access metrics
+        PersistentPageMemoryMvPartitionStorage persistentStorage = (PersistentPageMemoryMvPartitionStorage) storage;
+
+        // Verify metrics start at zero
+        assertEquals(0, persistentStorage.consistencyMetrics.runConsistentlyExecutions().value());
+        assertEquals(0, persistentStorage.consistencyMetrics.runConsistentlyActiveCount().value());
+
+        // Run a simple operation
+        persistentStorage.runConsistently(locker -> {
+            // Active count should be 1 while executing
+            assertEquals(1, persistentStorage.consistencyMetrics.runConsistentlyActiveCount().value());
+            return null;
+        });
+
+        // Verify execution was recorded
+        assertThat(persistentStorage.consistencyMetrics.runConsistentlyExecutions().value(), is(1L));
+
+        // Verify active count went back to 0
+        assertEquals(0, persistentStorage.consistencyMetrics.runConsistentlyActiveCount().value());
+
+        // Verify duration distribution has recorded at least one measurement
+        long[] durations = persistentStorage.consistencyMetrics.runConsistentlyDuration().value();
+        long totalDurationMeasurements = 0;
+        for (long count : durations) {
+            totalDurationMeasurements += count;
+        }
+        assertThat(totalDurationMeasurements, is(1L));
+
+        // Verify checkpoint wait time distribution has recorded at least one measurement
+        long[] checkpointWaitTimes = persistentStorage.consistencyMetrics.runConsistentlyCheckpointWaitTime().value();
+        long totalCheckpointWaitMeasurements = 0;
+        for (long count : checkpointWaitTimes) {
+            totalCheckpointWaitMeasurements += count;
+        }
+        assertThat(totalCheckpointWaitMeasurements, is(1L));
+
+        // Run another operation to verify accumulation
+        persistentStorage.runConsistently(locker -> {
+            assertEquals(1, persistentStorage.consistencyMetrics.runConsistentlyActiveCount().value());
+            return null;
+        });
+
+        assertThat(persistentStorage.consistencyMetrics.runConsistentlyExecutions().value(), is(2L));
+
+        // Verify duration distribution accumulated
+        long[] durations2 = persistentStorage.consistencyMetrics.runConsistentlyDuration().value();
+        long totalDurationMeasurements2 = 0;
+        for (long count : durations2) {
+            totalDurationMeasurements2 += count;
+        }
+        assertThat(totalDurationMeasurements2, is(2L));
+    }
 }

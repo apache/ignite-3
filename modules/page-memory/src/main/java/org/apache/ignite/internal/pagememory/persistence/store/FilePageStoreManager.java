@@ -37,6 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -52,6 +54,8 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -113,6 +117,21 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Failure processor. */
     private final FailureManager failureManager;
 
+    /** File operation metrics. */
+    private final StorageFilesMetrics metrics;
+
+    /** Count of currently open file page stores. */
+    private final AtomicInteger openFilesCount = new AtomicInteger(0);
+
+    /** Total size of all file page stores in bytes. */
+    private final AtomicLong totalFileSize = new AtomicLong(0);
+
+    /** Count of delta files. */
+    private final AtomicInteger deltaFilesCount = new AtomicInteger(0);
+
+    /** Total size of all delta files in bytes. */
+    private final AtomicLong deltaFilesTotalSize = new AtomicLong(0);
+
     /**
      * Constructor.
      *
@@ -137,7 +156,20 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
 
-        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
+        // Create file operation metrics
+        StorageFilesMetricSource metricSource = new StorageFilesMetricSource(
+                openFilesCount::get,
+                totalFileSize::get,
+                deltaFilesCount::get,
+                deltaFilesTotalSize::get
+        );
+        this.metrics = new StorageFilesMetrics(metricSource);
+
+        // Create I/O metrics
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize, metrics, ioMetrics);
     }
 
     /**

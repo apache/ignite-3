@@ -672,6 +672,8 @@ public class PersistentPageMemory implements PageMemory {
             boolean restore,
             @Nullable AtomicBoolean pageAllocated
     ) throws IgniteInternalCheckedException {
+        long startTime = System.nanoTime();
+
         assert started : "grpId=" + grpId + ", pageId=" + hexLong(pageId);
         assert pageIndex(pageId) != 0 : String.format(
                 "Partition meta should should not be read through PageMemory so as not to occupy memory: [grpId=%s, pageId=%s]",
@@ -700,6 +702,9 @@ public class PersistentPageMemory implements PageMemory {
                 seg.acquirePage(absPtr);
 
                 seg.pageReplacementPolicy.onHit(relPtr);
+
+                metrics.incrementPageCacheHit();
+                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
 
                 return absPtr;
             }
@@ -735,6 +740,8 @@ public class PersistentPageMemory implements PageMemory {
 
                 if (relPtr == INVALID_REL_PTR) {
                     relPtr = seg.removePageForReplacement();
+
+                    metrics.incrementPageReplacement();
                 }
 
                 absPtr = seg.absolute(relPtr);
@@ -752,6 +759,8 @@ public class PersistentPageMemory implements PageMemory {
                 setDirty(fullId, absPtr, false, false);
 
                 seg.pageReplacementPolicy.onMiss(relPtr);
+
+                metrics.incrementPageCacheMiss();
 
                 seg.loadedPages.put(
                         grpId,
@@ -807,13 +816,19 @@ public class PersistentPageMemory implements PageMemory {
 
                 seg.pageReplacementPolicy.onRemove(relPtr);
                 seg.pageReplacementPolicy.onMiss(relPtr);
+
+                metrics.incrementPageCacheMiss();
             } else {
                 absPtr = seg.absolute(relPtr);
 
                 seg.pageReplacementPolicy.onHit(relPtr);
+
+                metrics.incrementPageCacheHit();
             }
 
             seg.acquirePage(absPtr);
+
+            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
 
             return absPtr;
         } finally {
@@ -1029,6 +1044,28 @@ public class PersistentPageMemory implements PageMemory {
                     seg.readLock().unlock();
                 }
             }
+        }
+
+        return total;
+    }
+
+    /**
+     * Returns the count of dirty pages across all segments.
+     */
+    public int dirtyPagesCount() {
+        Segment[] segments = this.segments;
+        if (segments == null) {
+            return 0;
+        }
+
+        int total = 0;
+
+        for (Segment seg : segments) {
+            if (seg == null) {
+                break;
+            }
+
+            total += (int) seg.dirtyPagesCntr.get();
         }
 
         return total;
