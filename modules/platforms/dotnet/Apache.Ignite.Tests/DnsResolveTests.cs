@@ -31,30 +31,25 @@ public class DnsResolveTests
     [Test]
     public async Task TestClientResolvesHostNamesToAllIps()
     {
-        await Task.Delay(1);
-
         using var server1 = new FakeServer(nodeName: "fake-node-1", port: 10901, address: IPAddress.Parse("127.0.0.10"));
         using var server2 = new FakeServer(nodeName: "fake-node-2", port: 10901, address: IPAddress.Parse("127.0.0.11"));
 
-        var resolver = new TestDnsResolver(new Dictionary<string, string[]>
+        var dns = new TestDnsResolver(new Dictionary<string, string[]>
         {
             ["fake-host-1"] = ["127.0.0.10"],
             ["fake-host-2"] = ["127.0.0.11"]
         });
 
-        var clientCfg = new IgniteClientConfiguration("fake-host-1:10901", "fake-host-2:10901");
-
-        using var client = await IgniteClient.StartInternalAsync(clientCfg, resolver);
-
+        using var client = await IgniteClient.StartInternalAsync(new("fake-host-1:10901", "fake-host-2:10901"), dns);
         client.WaitForConnections(2);
 
-        var addrs = client.GetConnections().OrderBy(x => x.Node.Name).ToList();
+        var conns = client.GetConnections().OrderBy(x => x.Node.Name).ToList();
 
-        Assert.AreEqual("127.0.0.10:10901", addrs[0].Node.Address.ToString());
-        Assert.AreEqual("fake-node-1", addrs[0].Node.Name);
+        Assert.AreEqual("127.0.0.10:10901", conns[0].Node.Address.ToString());
+        Assert.AreEqual("fake-node-1", conns[0].Node.Name);
 
-        Assert.AreEqual("127.0.0.11:10901", addrs[1].Node.Address.ToString());
-        Assert.AreEqual("fake-node-2", addrs[1].Node.Name);
+        Assert.AreEqual("127.0.0.11:10901", conns[1].Node.Address.ToString());
+        Assert.AreEqual("fake-node-2", conns[1].Node.Name);
     }
 
     [Test]
