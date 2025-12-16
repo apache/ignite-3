@@ -19,12 +19,17 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
@@ -43,8 +48,8 @@ import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
-import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
@@ -52,13 +57,40 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
 public class IgniteSqlToRelConvertor extends SqlToRelConverter implements InitializerContext {
+
+    private static final MethodHandle REPLACE_SUB_QUERIES;
+
+    private static final Throwable INIT_ERROR;
+
+    static {
+        MethodHandle handle;
+        Throwable err;
+        try {
+            Lookup lookup = MethodHandles.privateLookupIn(SqlToRelConverter.class, MethodHandles.lookup());
+            Class<?> bbClass = lookup.findClass("org.apache.calcite.sql2rel.SqlToRelConverter$Blackboard");
+            Class<?> logicClass = lookup.findClass("org.apache.calcite.plan.RelOptUtil$Logic");
+            Class<?> sqlNodeClass = SqlNode.class;
+            MethodType tpe = MethodType.methodType(void.class, bbClass, sqlNodeClass, logicClass);
+
+            handle = lookup.findVirtual(SqlToRelConverter.class, "replaceSubQueries", tpe);
+            err = null;
+        } catch (Throwable e) {
+            // Postpone error reporting to have a better chance of logging an error.
+            err = e;
+            handle = null;
+        }
+
+        INIT_ERROR = err;
+        REPLACE_SUB_QUERIES = handle;
+    }
+    
     private final Deque<SqlCall> datasetStack = new ArrayDeque<>();
 
     private RelBuilder relBuilder;
@@ -73,12 +105,18 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         super(viewExpander, validator, catalogReader, cluster, convertletTable, cfg);
 
         relBuilder = config.getRelBuilderFactory().create(cluster, null);
+
+        if (INIT_ERROR != null) {
+            throw new IllegalStateException("Failed to initialize " + IgniteSqlToRelConvertor.class.getName(), INIT_ERROR);
+        }
     }
 
     /** {@inheritDoc} */
     @Override protected RelRoot convertQueryRecursive(SqlNode qry, boolean top, @Nullable RelDataType targetRowType) {
         if (qry.getKind() == SqlKind.MERGE) {
             return RelRoot.of(convertMerge((SqlMerge) qry), qry.getKind());
+        } else if (qry.getKind() == SqlKind.UPDATE) {
+            return RelRoot.of(convertUpdateFixed((SqlUpdate) qry), qry.getKind());
         } else {
             return super.convertQueryRecursive(qry, top, targetRowType);
         }
@@ -100,14 +138,14 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     }
 
     @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {
-        // Original convertValuesImpl adds additional type casts that are not correct
+        // FIX: Original convertValuesImpl adds additional type casts that are not correct
         // and break NOT NULL constraints.
         //
         // See these lines in convertValuesImpl: 
         // if (!(def instanceof RexDynamicParam) && !def.getType().equals(fieldType)) {
         //   def = rexBuilder.makeCast(operand.getParserPosition(), fieldType, def);
         // }
-        //exps.add(def, SqlValidatorUtil.alias(operand, i));
+        // exps.add(def, SqlValidatorUtil.alias(operand, i));
         //
         // Example: INSERT INTO t1 VALUES(1, (SELECT NULL))
         // 
@@ -179,9 +217,8 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     }
 
     /**
-     * This method was copy-pasted from super-method except this changes:
-     * - For updateCall we require all columns in the project and should not skip anything.
-     * - If there is no updateCall, LEFT JOIN converted to ANTI JOIN.
+     * This method was copy-pasted from super-method except this changes: - For updateCall we require all columns in the project and should
+     * not skip anything. - If there is no updateCall, LEFT JOIN converted to ANTI JOIN.
      */
     private RelNode convertMerge(SqlMerge call) {
         RelOptTable targetTable = getTargetTable(call);
@@ -330,5 +367,60 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     @Override
     public RelOptTable getTargetTable(SqlNode call) {
         return super.getTargetTable(call);
+    }
+
+    // This method is a copy of SqlToRelConverter convertUpdate.
+    private RelNode convertUpdateFixed(SqlUpdate call) {
+        final SqlSelect sourceSelect =
+                requireNonNull(call.getSourceSelect(),
+                        () -> "sourceSelect for " + call);
+        final SqlValidatorScope scope = validator.getWhereScope(sourceSelect);
+        Blackboard bb = createBlackboard(scope, null, false);
+
+        RelOptTable targetTable = getTargetTable(call);
+
+        // convert update column list from SqlIdentifier to String
+        final List<String> targetColumnNameList = new ArrayList<>();
+        final RelDataType targetRowType = targetTable.getRowType();
+        for (SqlNode node : call.getTargetColumnList()) {
+            SqlIdentifier id = (SqlIdentifier) node;
+            RelDataTypeField field =
+                    SqlValidatorUtil.getTargetField(
+                            targetRowType, typeFactory, id, catalogReader, targetTable);
+            if (field == null) {
+                throw new AssertionError("column " + id + " not found");
+            }
+            targetColumnNameList.add(field.getName());
+        }
+
+        // A call to replaceSubQueries(bb, call, RelOptUtil.Logic.TRUE_FALSE_UNKNOWN);
+        try {
+            REPLACE_SUB_QUERIES.invoke(this, bb, call, RelOptUtil.Logic.TRUE_FALSE_UNKNOWN);
+        } catch (Throwable e) {
+            throw new AssertionError("Failed to replace subqueries", e);
+        }
+
+        // FIX: The condition below is incorrect, it ignores virtual columns that present is the target table.
+        // sourceSelect` should contain target columns values plus source expressions
+        //
+        // if (sourceSelect.getSelectList().size()
+        //         != targetTable.getRowType().getFieldCount() + call.getSourceExpressionList().size()) {
+        //     throw new AssertionError(
+        //             "Unexpected select list size. Select list should contain both target table columns and "
+        //                     + "set expressions");
+        // }
+
+        RelNode sourceRel = convertSelect(sourceSelect, false);
+        bb.setRoot(sourceRel, false);
+
+        // sourceRel already contains all source expressions. Only create references to those fields.
+        List<RexNode> rexExpressionList =
+                Util.transform(
+                        Util.last(sourceRel.getRowType().getFieldList(), targetColumnNameList.size()),
+                        expressionField -> new RexInputRef(expressionField.getIndex(),
+                                expressionField.getType()));
+
+        return LogicalTableModify.create(targetTable, catalogReader, sourceRel,
+                LogicalTableModify.Operation.UPDATE, targetColumnNameList, rexExpressionList, false);
     }
 }

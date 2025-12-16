@@ -121,8 +121,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             }
         }
 
-        // DISABLE __PARTITION COLUMN
-        return null;//ImmutableIntList.of(columnsToUpdate.toIntArray());
+        return ImmutableIntList.of(columnsToUpdate.toIntArray());
     }
 
     /** {@inheritDoc} */

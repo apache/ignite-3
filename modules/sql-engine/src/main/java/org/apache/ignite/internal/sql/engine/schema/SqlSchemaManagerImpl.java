@@ -310,10 +310,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         // Add virtual column.
-        // DISABLE __PARTITION COLUMN
-//        colDescriptors.add(createPartitionVirtualColumn(columns.size(), Commons.PART_COL_NAME, NativeTypes.INT64));
-//        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 1, Commons.PART_COL_NAME_LEGACY1, NativeTypes.INT32));
-//        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 2, Commons.PART_COL_NAME_LEGACY2, NativeTypes.INT32));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size(), Commons.PART_COL_NAME, NativeTypes.INT64));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 1, Commons.PART_COL_NAME_LEGACY1, NativeTypes.INT32));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 2, Commons.PART_COL_NAME_LEGACY2, NativeTypes.INT32));
 
         CatalogZoneDescriptor zoneDescriptor = Objects.requireNonNull(catalog.zone(descriptor.zoneId()));
         CatalogSchemaDescriptor schemaDescriptor = Objects.requireNonNull(catalog.schema(descriptor.schemaId()));

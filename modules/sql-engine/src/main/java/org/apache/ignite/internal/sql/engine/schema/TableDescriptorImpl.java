@@ -81,11 +81,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         for (ColumnDescriptor descriptor : columnDescriptors) {
             RelDataType columnType = deriveLogicalType(factory, descriptor);
 
-            // DISABLE __PARTITION COLUMN
-            if (descriptor.virtual()) {
-                continue;
-            }
-
             typeBuilder.add(descriptor.name(), columnType);
 
             if (!descriptor.hidden()) {
@@ -93,11 +88,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
             } else {
                 hasHiddenColumns = true;
             }
-            // DISABLE __PARTITION COLUMN
-//
-//            if (descriptor.virtual()) {
-//                hasVirtualColumns = true;
-//            }
+
+            if (descriptor.virtual()) {
+                hasVirtualColumns = true;
+            }
 
             descriptorsMap.put(descriptor.name(), descriptor);
         }
