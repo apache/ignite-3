@@ -38,7 +38,7 @@ object PlatformPythonTestsLinux : BuildType({
                 eval "${'$'}(pyenv init --path)" || echo 'first'
                 eval "${'$'}(pyenv init --no-rehash -)" || echo 'second'
                 
-                tox -e py39 || exit 0
+                tox -e py310 || exit 0
             """.trimIndent()
         }
     }
