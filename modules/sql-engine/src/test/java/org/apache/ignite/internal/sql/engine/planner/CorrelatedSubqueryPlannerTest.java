@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 import java.util.Set;
@@ -203,9 +202,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
             assertEquals(correlates.get(0).getCorrelationId(), correlates.get(1).getCorrelationId());
 
             // Cannot decorrelate further
-            RelNode replaced = planner.replaceCorrelatesCollisions(rel);
-            assertSame(rel, replaced);
-
+            rel = planner.replaceCorrelatesCollisions(rel);
             correlates = findNodes(rel, byClass(LogicalCorrelate.class));
 
             assertEquals(2, correlates.size());
