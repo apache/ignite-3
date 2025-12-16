@@ -59,11 +59,11 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
             // Entries from the same batch receive equal safe timestamps.
             if (comparator.compare(newEntry, current) < 0) {
                 throw new IgniteInternalException(INTERNAL_ERR,
-                        "Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() +
-                                ", index=" + this.commandIndex +
-                                ", term=" + this.commandTerm +
-                                ", cmdCls=" + this.cmdCls +
-                                ']');
+                        "Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1()
+                                + ", index=" + this.commandIndex
+                                + ", term=" + this.commandTerm
+                                + ", cmdCls=" + this.cmdCls
+                                + ']');
             }
 
             CURRENT.set(this, newEntry);
