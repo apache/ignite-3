@@ -95,10 +95,10 @@ public class NumericAggregateTypeCoercionTest extends BaseTypeCoercionTest {
                 forArgumentOfType(NativeTypes.INT8).resultWillBe(NativeTypes.INT64),
                 forArgumentOfType(NativeTypes.INT16).resultWillBe(NativeTypes.INT64),
                 forArgumentOfType(NativeTypes.INT32).resultWillBe(NativeTypes.INT64),
-                forArgumentOfType(NativeTypes.INT64).resultWillBe(Types.DECIMAL_MAX_0),
-                forArgumentOfType(Types.DECIMAL_4_0).resultWillBe(Types.DECIMAL_MAX_0),
-                forArgumentOfType(Types.DECIMAL_4_2).resultWillBe(Types.DECIMAL_MAX_2),
-                forArgumentOfType(Types.DECIMAL_20_18).resultWillBe(Types.DECIMAL_MAX_18),
+                forArgumentOfType(NativeTypes.INT64).resultWillBe(Types.DECIMAL_38_0),
+                forArgumentOfType(Types.DECIMAL_4_0).resultWillBe(Types.DECIMAL_8_0),
+                forArgumentOfType(Types.DECIMAL_4_2).resultWillBe(Types.DECIMAL_8_2),
+                forArgumentOfType(Types.DECIMAL_20_18).resultWillBe(Types.DECIMAL_40_18),
                 forArgumentOfType(NativeTypes.FLOAT).resultWillBe(NativeTypes.DOUBLE),
                 forArgumentOfType(NativeTypes.DOUBLE).resultWillBe(NativeTypes.DOUBLE)
         );
