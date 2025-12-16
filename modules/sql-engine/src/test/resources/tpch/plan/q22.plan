@@ -31,7 +31,7 @@ Sort
                   est: (rows=150000)
                 TableScan
                     table: PUBLIC.CUSTOMER
-                    predicate: OR(=(SUBSTR(C_PHONE, 1, 2), _UTF-8'13'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'31'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'23'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'29'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'30'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'18'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'17'))
+                    predicate: SEARCH(SUBSTR(C_PHONE, 1, 2), Sarg[_UTF-8'13':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'17':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'18':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'23':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'29':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'30':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'31':VARCHAR(15) CHARACTER SET "UTF-8"]:VARCHAR(15) CHARACTER SET "UTF-8")
                     fieldNames: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
                     est: (rows=150000)
               Project
@@ -59,7 +59,7 @@ Sort
                           est: (rows=1)
                         TableScan
                             table: PUBLIC.CUSTOMER
-                            predicate: AND(>(C_ACCTBAL, 0.00), OR(=(SUBSTR(C_PHONE, 1, 2), _UTF-8'13'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'31'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'23'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'29'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'30'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'18'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'17')))
+                            predicate: AND(>(C_ACCTBAL, 0.00), SEARCH(SUBSTR(C_PHONE, 1, 2), Sarg[_UTF-8'13':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'17':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'18':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'23':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'29':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'30':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'31':VARCHAR(15) CHARACTER SET "UTF-8"]:VARCHAR(15) CHARACTER SET "UTF-8"))
                             fieldNames: [C_ACCTBAL]
                             est: (rows=75000)
           ReduceHashAggregate
