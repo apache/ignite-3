@@ -37,9 +37,18 @@ public abstract class StateMachineAdapter implements StateMachine {
     /** The logger */
     private static final IgniteLogger LOG = Loggers.forClass(StateMachineAdapter.class);
 
+    protected final String label;
+
+    /**
+     * @param label The state machine label.
+     */
+    public StateMachineAdapter(String label) {
+        this.label = label;
+    }
+
     @Override
     public void onShutdown() {
-        LOG.info("onShutdown.");
+        LOG.info("onShutdown: label={}.", label);
     }
 
     @Override
@@ -61,34 +70,34 @@ public abstract class StateMachineAdapter implements StateMachine {
     @Override
     public void onLeaderStart(final long term) {
         this.leaderTerm = term;
-        LOG.info("onLeaderStart: term={}.", term);
+        LOG.info("onLeaderStart: term={}, label={}.", term, label);
     }
 
     @Override
     public void onLeaderStop(final Status status) {
-        LOG.info("onLeaderStop: status={}.", status);
+        LOG.info("onLeaderStop: status={}, label={}.", status, label);
     }
 
     @Override
     public void onError(final RaftException e) {
         LOG.error(
-            "Encountered an error={} on StateMachine {}, it's highly recommended to implement this method as raft stops working since some error occurs, you should figure out the cause and repair or remove this node.",
-            e, e.getStatus(), getClassName());
+            "Encountered an error={} on StateMachine {}",
+            e, e.getStatus(), label);
     }
 
     @Override
     public void onConfigurationCommitted(final Configuration conf) {
-        LOG.info("onConfigurationCommitted: {}.", conf);
+        LOG.info("onConfigurationCommitted: {}, label={}.", conf, label);
     }
 
     @Override
     public void onStopFollowing(final LeaderChangeContext ctx) {
-        LOG.info("onStopFollowing: {}.", ctx);
+        LOG.info("onStopFollowing: {}, label={}.", ctx, label);
     }
 
     @Override
     public void onStartFollowing(final LeaderChangeContext ctx) {
-        LOG.info("onStartFollowing: {}.", ctx);
+        LOG.info("onStartFollowing: {}, label={}.", ctx, label);
     }
 
     @SuppressWarnings("SameParameterValue")

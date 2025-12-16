@@ -291,8 +291,6 @@ public class NodeImpl implements Node, RaftServerService {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
 
-        private @Nullable HybridTimestamp safeTs = null;
-
         @Override
         public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
@@ -302,23 +300,6 @@ public class NodeImpl implements Node, RaftServerService {
                 }
                 event.shutdownLatch.countDown();
                 return;
-            }
-
-            // Patch the command.
-            if (event.done instanceof SafeTimeAwareCommandClosure) {
-                SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.done;
-                WriteCommand command = clo.command();
-                HybridTimestamp timestamp = command.initiatorTime();
-
-                if (timestamp != null) {
-                    if (safeTs == null) {
-                        safeTs = clock.update(timestamp);
-                    } else if (timestamp.compareTo(safeTs) > 0) {
-                        safeTs = clock.update(timestamp);
-                    }
-
-                    clo.safeTimestamp(safeTs);
-                }
             }
 
             this.tasks.add(event);
@@ -333,7 +314,6 @@ public class NodeImpl implements Node, RaftServerService {
                 task.reset();
             }
             this.tasks.clear();
-            this.safeTs = null;
         }
     }
 
@@ -1715,9 +1695,13 @@ public class NodeImpl implements Node, RaftServerService {
                 });
                 return;
             }
+
+            @Nullable HybridTimestamp safeTs = null;
+
             final List<LogEntry> entries = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 final LogEntryAndClosure task = tasks.get(i);
+
                 if (task.expectedTerm != -1 && task.expectedTerm != this.currTerm) {
                     LOG.debug("Node {} can't apply task whose expectedTerm={} doesn't match currTerm={}.", getNodeId(),
                         task.expectedTerm, this.currTerm);
@@ -1735,6 +1719,24 @@ public class NodeImpl implements Node, RaftServerService {
                     task.reset();
                     continue;
                 }
+
+                // To prevent safe timestamp values from becoming stale, we must assign them under a valid leader lock.
+                if (task.done instanceof SafeTimeAwareCommandClosure) {
+                    SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) task.done;
+                    WriteCommand command = clo.command();
+                    HybridTimestamp timestamp = command.initiatorTime();
+
+                    if (timestamp != null) {
+                        if (safeTs == null) {
+                            safeTs = clock.update(timestamp);
+                        } else if (timestamp.compareTo(safeTs) > 0) {
+                            safeTs = clock.update(timestamp);
+                        }
+
+                        clo.safeTimestamp(safeTs);
+                    }
+                }
+
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
                 task.entry.setType(EnumOutter.EntryType.ENTRY_TYPE_DATA);
