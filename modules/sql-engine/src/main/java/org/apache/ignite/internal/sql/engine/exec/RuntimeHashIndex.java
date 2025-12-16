@@ -97,7 +97,7 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         GroupKey.Builder b = GroupKey.builder(keys.cardinality());
 
         for (Integer field : keys) {
-            Object fieldVal = ectx.rowHandler().get(field, r);
+            Object fieldVal = ectx.rowAccessor().get(field, r);
 
             if (fieldVal == null && !allowNulls) {
                 return NULL_KEY;

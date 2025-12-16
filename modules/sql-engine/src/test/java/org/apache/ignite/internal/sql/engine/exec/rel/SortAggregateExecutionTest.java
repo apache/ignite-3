@@ -35,7 +35,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
@@ -68,13 +68,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
         } else {
-            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+            SqlComparator comparator = ctx.expressionFactory().comparator(collation);
 
             cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
         StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
-        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+        RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
@@ -118,13 +118,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
         } else {
-            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+            SqlComparator comparator = ctx.expressionFactory().comparator(collation);
 
             cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
         // Map node
-        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(TypeUtils.convertStructuredType(inRowType));
+        RowFactory<Object[]> mapRowFactory = ctx.rowFactoryFactory().create(TypeUtils.convertStructuredType(inRowType));
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
@@ -159,7 +159,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         if (grpSet.isEmpty() && (rdcCollation == null || nullOrEmpty(rdcCollation.getFieldCollations()))) {
             rdcCmp = (k1, k2) -> 0;
         } else {
-            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(rdcCollation);
+            SqlComparator comparator = ctx.expressionFactory().comparator(rdcCollation);
 
             rdcCmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
@@ -174,7 +174,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         );
 
         StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
-        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+        RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,

@@ -33,8 +33,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescr
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -55,8 +53,6 @@ import org.junit.jupiter.api.Test;
  * Set of tests that are checking how in-memory scenarios are working under zone colocation.
  */
 public class ItZoneInMemoryTest extends ItAbstractColocationTest {
-    private static IgniteLogger LOG = Loggers.forClass(ItZoneInMemoryTest.class);
-
     @Test
     void testMixedStorageProfilesZone() throws Exception {
         startCluster(1);

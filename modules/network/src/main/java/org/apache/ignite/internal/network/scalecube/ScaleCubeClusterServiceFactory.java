@@ -162,7 +162,9 @@ public class ScaleCubeClusterServiceFactory {
                         staleIds,
                         clusterIdSupplier,
                         channelTypeRegistry,
-                        productVersionSource
+                        productVersionSource,
+                        topologyService,
+                        failureProcessor
                 );
                 this.connectionMgr = connectionMgr;
 

@@ -26,7 +26,7 @@ public class MapperExample {
     static class CityIdConverter implements TypeConverter<String, Integer> {
 
         @Override
-        public String  toObjectType(Integer columnValue) {
+        public String toObjectType(Integer columnValue) {
             return columnValue.toString();
         }
 
@@ -37,23 +37,47 @@ public class MapperExample {
     }
 
     public static void main(String[] args) throws Exception {
-        var mapper = Mapper.builder(Person.class)
-                .automap()
-                .map("cityId", "city_id", new CityIdConverter())
-                .build();
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            RecordView<Person> view = client.tables()
-                    .table("person")
-                    .recordView(mapper);
+            try {
+                client.sql().executeScript(
+                        "CREATE TABLE Person ("
+                                + "id int primary key, "
+                                + "city varchar, "
+                                + "name varchar, "
+                                + "age int, "
+                                + "company varchar, "
+                                + "city_id int)"
+                );
 
+                client.sql().executeScript(
+                        "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
+                client.sql().executeScript(
+                        "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
 
-            Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
+                var mapper = Mapper.builder(Person.class)
+                        .automap()
+                        .map("cityId", "city_id", new CityIdConverter())
+                        .build();
 
-            view.upsert(null, myPerson);
+                RecordView<Person> view = client.tables()
+                        .table("person")
+                        .recordView(mapper);
+
+                Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
+
+                view.upsert(null, myPerson);
+            } finally {
+
+                System.out.println("Dropping the table...");
+
+                client.sql().executeScript(
+                        "DROP TABLE Person;");
+
+            }
         }
     }
 }

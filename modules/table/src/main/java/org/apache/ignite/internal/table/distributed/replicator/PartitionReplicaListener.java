@@ -191,7 +191,6 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -339,7 +338,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param secondaryIndexStorages Secondary index storages.
      * @param clockService Clock service.
      * @param safeTime Safe time clock.
-     * @param txStatePartitionStorage Transaction state storage.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
@@ -363,7 +361,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            TxStatePartitionStorage txStatePartitionStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,

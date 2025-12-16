@@ -51,9 +51,18 @@ class SegmentPayload {
      */
     static final int TRUNCATE_PREFIX_RECORD_SIZE = TRUNCATE_SUFFIX_RECORD_SIZE;
 
+    /**
+     * Length of the byte sequence that is written when prefix truncation happens.
+     *
+     * <p>Format: {@code groupId, RESET_RECORD_MARKER (special length value), next log index, crc}
+     */
+    static final int RESET_RECORD_SIZE = TRUNCATE_SUFFIX_RECORD_SIZE;
+
     static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
 
     static final int TRUNCATE_PREFIX_RECORD_MARKER = -1;
+
+    static final int RESET_RECORD_MARKER = -2;
 
     static void writeTo(
             ByteBuffer buffer,
@@ -96,6 +105,15 @@ class SegmentPayload {
                 .putLong(firstIndexKept);
 
         writeCrc(buffer, TRUNCATE_PREFIX_RECORD_SIZE - CRC_SIZE_BYTES);
+    }
+
+    static void writeResetRecordTo(ByteBuffer buffer, long groupId, long nextLogIndex) {
+        buffer
+                .putLong(groupId)
+                .putInt(RESET_RECORD_MARKER)
+                .putLong(nextLogIndex);
+
+        writeCrc(buffer, RESET_RECORD_SIZE - CRC_SIZE_BYTES);
     }
 
     private static void writeCrc(ByteBuffer buffer, int recordSizeWithoutCrc) {

@@ -43,12 +43,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.TestHybridClock;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -59,7 +59,8 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -77,15 +78,11 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -384,24 +381,23 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             ClockService clockService = mock(ClockService.class);
             when(clockService.current()).thenReturn(clock.current());
 
+            OutgoingSnapshotsManager outgoingSnapshotsManager = new OutgoingSnapshotsManager(
+                    clusterService.nodeName(),
+                    clusterService.messagingService(),
+                    new NoOpFailureManager()
+            );
+
             this.raftClient = raftManager.startRaftGroupNode(
                     new RaftNodeId(GROUP_ID, new Peer(nodeName)),
                     fromConsistentIds(cluster.keySet()),
-                    new PartitionListener(
-                            txManagerMock,
-                            mock(PartitionDataStorage.class),
-                            mock(StorageUpdateHandler.class),
+                    new ZonePartitionRaftListener(
+                            GROUP_ID,
                             mock(TxStatePartitionStorage.class),
+                            txManagerMock,
                             safeTs,
-                            mock(CatalogService.class),
-                            mock(SchemaRegistry.class),
-                            mock(IndexMetaStorage.class),
-                            clusterService.topologyService().localMember().id(),
-                            mock(MinimumRequiredTimeCollectorService.class),
-                            mock(Executor.class),
-                            placementDriver,
-                            clockService,
-                            GROUP_ID
+                            mock(PendingIndependentComparableValuesTracker.class),
+                            outgoingSnapshotsManager,
+                            mock(Executor.class)
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {

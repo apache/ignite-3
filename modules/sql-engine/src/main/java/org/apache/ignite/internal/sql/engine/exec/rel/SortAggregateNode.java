@@ -33,8 +33,8 @@ import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
@@ -205,7 +205,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private Group newGroup(RowT r) {
-        RowHandler<RowT> rowHandler = rowFactory.handler();
+        RowHandler<RowT> rowHandler = context().rowAccessor();
         ObjectArrayList<Object> grpKeys = new ObjectArrayList<>(grpSet.cardinality());
 
         grpSet.forEachInt(fldIdx -> grpKeys.add(rowHandler.get(fldIdx, r)));
@@ -265,7 +265,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            aggRow.update(accs, grpSet, context().rowHandler(), row);
+            aggRow.update(accs, grpSet, context().rowAccessor(), row);
         }
 
         private RowT row() {

@@ -54,6 +54,7 @@ dependencies {
     testImplementation project(':ignite-network-annotation-processor')
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation libs.jmh.core
     testImplementation(libs.kryo) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented

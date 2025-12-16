@@ -649,7 +649,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clockService,
                 safeTimeTracker,
-                txStateStorage,
                 transactionStateResolver,
                 new StorageUpdateHandler(
                         PART_ID,

@@ -60,7 +60,7 @@ public interface TableRowConverter {
     <RowT> RowT toRow(
             ExecutionContext<RowT> ectx,
             BinaryRow tableRow,
-            RowHandler.RowFactory<RowT> factory
+            RowFactory<RowT> factory
     );
 
 }

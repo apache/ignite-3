@@ -239,9 +239,9 @@ class IndexBuildTask {
             return nullCompletedFuture();
         }
 
-        indexBuilderMetricSource.onBatchProcessingStarted(taskId);
-
         try {
+            indexBuilderMetricSource.onBatchProcessingStarted(taskId);
+
             return createBatchToIndex(highestRowId)
                     .thenCompose(this::processBatch)
                     .handleAsync((unused, throwable) -> {

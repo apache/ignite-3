@@ -19,12 +19,15 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Common;
+using Common.Compute;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests partition awareness in real cluster.
@@ -57,7 +60,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 
             var primaryNodeNameExec = await client.Compute.SubmitAsync(
                 JobTarget.Colocated(TableName, keyTuple),
-                ComputeTests.NodeNameJob,
+                JavaJobs.NodeNameJob,
                 null);
 
             var primaryNodeName = await primaryNodeNameExec.GetResultAsync();

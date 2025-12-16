@@ -95,6 +95,7 @@ enum class code : underlying_t {
     HANDSHAKE_HEADER = 0x30008,
     SERVER_TO_CLIENT_REQUEST = 0x30009,
     RESOURCE_NOT_FOUND = 0x3000a,
+    OPERATION_TIMEOUT = 0x3000b,
 
     // Sql group. Group code: 4
     QUERY_NO_RESULT_SET = 0x40001,

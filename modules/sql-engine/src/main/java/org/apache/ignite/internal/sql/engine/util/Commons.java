@@ -383,6 +383,7 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
+            cbe.setParentClassLoader(Commons.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class

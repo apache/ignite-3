@@ -21,7 +21,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
@@ -50,7 +50,7 @@ public final class SystemRangeTableFunction<RowT> implements TableFunction<RowT>
     /** {@inheritDoc} */
     @Override
     public TableFunctionInstance<RowT> createInstance(ExecutionContext<RowT> ctx) {
-        RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<RowT> factory = ctx.rowFactoryFactory().create(rowSchema);
 
         Long start = startExpr.get();
         Long end = endExpr.get();
