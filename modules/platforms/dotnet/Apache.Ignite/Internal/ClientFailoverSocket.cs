@@ -565,7 +565,7 @@ namespace Apache.Ignite.Internal
             try
             {
                 // Skip if another operation is in progress.
-                await InitEndpointsAsync(lockWaitTimeoutMs: 0).ConfigureAwait(false);
+                await InitEndpointsAsync(lockWaitTimeoutMs: 1).ConfigureAwait(false);
             }
             catch (Exception e)
             {

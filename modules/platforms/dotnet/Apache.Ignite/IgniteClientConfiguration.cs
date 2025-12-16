@@ -101,6 +101,7 @@ namespace Apache.Ignite
             ReconnectInterval = other.ReconnectInterval;
             SslStreamFactory = other.SslStreamFactory;
             Authenticator = other.Authenticator;
+            ReResolveAddressesInterval = other.ReResolveAddressesInterval;
         }
 
         /// <summary>
