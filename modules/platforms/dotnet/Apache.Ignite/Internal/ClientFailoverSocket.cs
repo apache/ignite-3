@@ -398,7 +398,9 @@ namespace Apache.Ignite.Internal
         {
             HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
             IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
+
             var resList = new List<SocketEndpoint>(newEndpoints.Count);
+            List<SocketEndpoint>? toRemove = null;
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
@@ -411,18 +413,31 @@ namespace Apache.Ignite.Internal
                     {
                         resList.Add(oldEndpoint);
                     }
-                    else if (oldEndpoint.Socket is { } oldEndpointSocket)
+                    else
                     {
-                        // Dispose sockets for removed endpoints.
-                        _endpointsByName.Remove(oldEndpointSocket.ConnectionContext.ClusterNode.Name, out _);
-                        oldEndpointSocket.Dispose();
+                        toRemove ??= new List<SocketEndpoint>();
+                        toRemove.Add(oldEndpoint);
                     }
                 }
 
                 // Add remaining endpoints that were not known before.
                 resList.AddRange(newEndpoints);
 
+                // Apply the new endpoint list.
                 _endpoints = resList;
+
+                // Dispose removed sockets after updating the endpoint list.
+                if (toRemove != null)
+                {
+                    foreach (var oldEndpoint in toRemove)
+                    {
+                        if (oldEndpoint.Socket is { } oldEndpointSocket)
+                        {
+                            _endpointsByName.Remove(oldEndpointSocket.ConnectionContext.ClusterNode.Name, out _);
+                            oldEndpointSocket.Dispose();
+                        }
+                    }
+                }
             }
             finally
             {
