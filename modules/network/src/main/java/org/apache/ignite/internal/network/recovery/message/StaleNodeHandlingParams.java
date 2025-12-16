@@ -17,34 +17,18 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Handshake start message, contains info about the node.
- * This message is sent from an acceptor to an initiator at the connection opening.
+ * Parameters required for handling stale state of the node.
  */
-@Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends StaleNodeHandlingParams, InternalMessage {
-    /** Returns the acceptor node that sends this. */
-    ClusterNodeMessage serverNode();
-
-    /** ID of the cluster to which the acceptor node belongs ({@code null} if it's not initialized yet. */
-    @Nullable
-    UUID serverClusterId();
-
-    /** Product name of the node that sends the message. */
-    String productName();
-
-    /** Product version of the node that sends the message. */
-    String productVersion();
-
-    @Override
+public interface StaleNodeHandlingParams {
+    /** Returns the size of the physical topology. */
     int physicalTopologySize();
 
-    @Override
     @Nullable String minNodeName();
+//
+//    List<TopologyNodeMessage> physicalTopology();
+//
+//    List<TopologyNodeMessage> logicalTopology();
 }

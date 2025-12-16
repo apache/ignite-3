@@ -20,13 +20,14 @@ package org.apache.ignite.internal.network.recovery.message;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.message.ClusterNodeMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handshake start response message, contains info about the node, connection id and the quantity of the received messages.
  * This message is sent from an initiator to an acceptor as a response to the {@link HandshakeStartMessage}.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
-public interface HandshakeStartResponseMessage extends InternalMessage {
+public interface HandshakeStartResponseMessage extends StaleNodeHandlingParams, InternalMessage {
     /** Returns the initiator node that sends this. */
     ClusterNodeMessage clientNode();
 
@@ -43,4 +44,10 @@ public interface HandshakeStartResponseMessage extends InternalMessage {
      * @return Number of received messages.
      */
     long receivedCount();
+
+    @Override
+    int physicalTopologySize();
+
+    @Override
+    @Nullable String minNodeName();
 }

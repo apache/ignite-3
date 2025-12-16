@@ -174,12 +174,11 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onConnectionOpen() {
-        HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
-                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
-                .serverClusterId(clusterIdSupplier.clusterId())
-                .productName(productVersionSource.productName())
-                .productVersion(productVersionSource.productVersion().toString())
-                .build();
+        sendHandshakeStartMessage();
+    }
+
+    private void sendHandshakeStartMessage() {
+        HandshakeStartMessage handshakeStartMessage = createHandshakeStartMessage();
 
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList()));
 
@@ -190,6 +189,19 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 );
             }
         });
+    }
+
+    protected HandshakeStartMessage createHandshakeStartMessage() {
+        MyStaleNodeHandlingParams params = new MyStaleNodeHandlingParams(topologyService);
+
+        return messageFactory.handshakeStartMessage()
+                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
+                .serverClusterId(clusterIdSupplier.clusterId())
+                .productName(productVersionSource.productName())
+                .productVersion(productVersionSource.productVersion().toString())
+                .physicalTopologySize(params.physicalTopologySize())
+                .minNodeName(params.minNodeName())
+                .build();
     }
 
     /** {@inheritDoc} */
@@ -257,6 +269,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleInitiatorId(HandshakeStartResponseMessage msg) {
+
+
         String message = String.format("%s:%s is stale, it should be restarted to be allowed to connect",
                 msg.clientNode().name(), msg.clientNode().id()
         );

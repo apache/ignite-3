@@ -101,4 +101,9 @@ public class NetworkMessageTypes {
      * Type for {@link ProbeMessage}.
      */
     public static final short PROBE_MESSAGE = 12;
+
+    /**
+     * Type for {@link TopologyNodeMessage}.
+     */
+    public static final short TOPOLOGY_NODE_MESSAGE = 13;
 }

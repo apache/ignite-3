@@ -33,7 +33,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParams;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -379,7 +382,33 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         return acceptorClusterId != null && initiatorClusterId != null && !acceptorClusterId.equals(initiatorClusterId);
     }
 
+    private void maybeFail(StaleNodeHandlingParams local, StaleNodeHandlingParams remote) {
+        int localSize = local.physicalTopologySize();
+        int remoteSize = remote.physicalTopologySize();
+
+        if (localSize > remoteSize) {
+            return;
+        }
+
+        if (localSize == remoteSize) {
+            String localMinNodeName = local.minNodeName();
+            String remoteMinNodeName = remote.minNodeName();
+
+            if (localMinNodeName == null || remoteMinNodeName == null) {
+                return;
+            }
+
+            if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
+                return;
+            }
+        }
+
+        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
+    }
+
     private void handleStaleAcceptorId(HandshakeStartMessage msg) {
+        maybeFail(new MyStaleNodeHandlingParams(topologyService), msg);
+
         String message = String.format("%s:%s is stale, node should be restarted so that other nodes can connect",
                 msg.serverNode().name(), msg.serverNode().id()
         );
@@ -491,11 +520,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private void handshake(RecoveryDescriptor descriptor) {
         PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
 
-        HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
-                .clientNode(clusterNodeToMessage(localNode))
-                .receivedCount(descriptor.receivedCount())
-                .connectionId(connectionId)
-                .build();
+        HandshakeStartResponseMessage response = createHandshakeStartResponseMessage(descriptor);
 
         ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList()));
 
@@ -506,6 +531,18 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 );
             }
         });
+    }
+
+    protected HandshakeStartResponseMessage createHandshakeStartResponseMessage(RecoveryDescriptor descriptor) {
+        MyStaleNodeHandlingParams params = new MyStaleNodeHandlingParams(topologyService);
+
+        return MESSAGE_FACTORY.handshakeStartResponseMessage()
+                .clientNode(clusterNodeToMessage(localNode))
+                .receivedCount(descriptor.receivedCount())
+                .connectionId(connectionId)
+                .physicalTopologySize(params.physicalTopologySize())
+                .minNodeName(params.minNodeName())
+                .build();
     }
 
     /**
@@ -535,4 +572,5 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     void setRemoteNode(InternalClusterNode remoteNode) {
         this.remoteNode = remoteNode;
     }
+
 }
