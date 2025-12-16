@@ -114,7 +114,7 @@ cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
 # NOTE: do not update nebula to 12.x.x+, because newer versions are not compatible with Java 11.
 nebula = "com.netflix.nebula.ospackage:11.11.2"
 docker = "com.palantir.docker:0.36.0"
-dockerRemoteApi = "com.bmuschko.docker-remote-api:9.4.0"
+dockerRemoteApi = "com.bmuschko.docker-remote-api:10.0.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
