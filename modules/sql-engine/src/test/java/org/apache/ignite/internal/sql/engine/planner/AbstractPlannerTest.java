@@ -1158,7 +1158,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Rewrites all expressions so they match their deserialized form:
+     * Rewrites all expressions so they match their deserialized form.
      *
      * <ul>
      * <li>Truncates TIME/TIMESTAMP literals to millis, because sub-millisecond values are lost during serilization,

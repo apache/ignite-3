@@ -90,7 +90,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         INIT_ERROR = err;
         REPLACE_SUB_QUERIES = handle;
     }
-    
+
     private final Deque<SqlCall> datasetStack = new ArrayDeque<>();
 
     private RelBuilder relBuilder;
