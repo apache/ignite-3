@@ -74,13 +74,16 @@ public class DnsResolveTests
 
         var dns = new TestDnsResolver(dnsMap);
 
-        var cfg = new IgniteClientConfiguration("fake-host:10901")
+        var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
             ReResolveAddressesInterval = TimeSpan.FromMilliseconds(300)
         };
 
         using var client = await IgniteClient.StartInternalAsync(cfg, dns);
         client.WaitForConnections(2);
+
+        dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
+        client.WaitForConnections(4);
     }
 
     [Test]
