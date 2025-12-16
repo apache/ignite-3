@@ -490,7 +490,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         configurationValue.update(60).join();
 
         // Starts in createPlannerService
-        PrepareServiceImpl service = (PrepareServiceImpl) createPlannerService(schema, 1);
+        PrepareServiceImpl service = createPlannerService(schema, 1);
 
         // Initial values
         configurationValue.update(42).join();
@@ -874,7 +874,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return createPlannerService(createSchema());
     }
 
-    private PrepareService createPlannerService(IgniteSchema schema, int cacheSize) {
+    private PrepareServiceImpl createPlannerService(IgniteSchema schema, int cacheSize) {
         // Run clean up tasks in the current thread, so no eviction event is delayed.
         CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
 
