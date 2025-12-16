@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.network;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -58,21 +59,21 @@ class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
 
         logInspector.addHandler(
                 evt -> {
-                    log.debug(evt.getMessage().getFormattedMessage());
+                    if (evt.getLevel() == Level.ERROR) {
+                        IgniteInternalException actual = (IgniteInternalException) unwrapRootCause(evt.getThrown());
+                        assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
+                        assertEquals("No network addresses found", actual.getMessage());
+
+                        return true;
+                    }
 
                     return false;
-                }, () -> {});
+                }, () -> assertThrows(IllegalStateException.class, CLUSTER::aliveNode));
 
         logInspector.start();
 
         try {
-            Throwable throwable = assertThrowsWithCause(
-                    () -> CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters),
-                    IgniteInternalException.class);
-
-            IgniteInternalException actual = (IgniteInternalException) unwrapRootCause(throwable);
-            assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
-            assertEquals("No network address found", actual.getMessage());
+            CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         } finally {
             logInspector.stop();
         }

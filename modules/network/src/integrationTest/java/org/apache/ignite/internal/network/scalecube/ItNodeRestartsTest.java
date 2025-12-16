@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -85,7 +86,7 @@ class ItNodeRestartsTest {
 
         List<NetworkAddress> addresses = findLocalAddresses(initPort, initPort + 5);
 
-        var nodeFinder = new StaticNodeFinder(addresses);
+        var nodeFinder = new StaticNodeFinder(addresses, new NoOpFailureManager());
 
         services = addresses.stream()
                 .map(addr -> startNetwork(testInfo, addr, nodeFinder))
@@ -179,7 +180,7 @@ class ItNodeRestartsTest {
 
         List<NetworkAddress> addresses = findLocalAddresses(initPort, initPort + 2);
 
-        var nodeFinder = new StaticNodeFinder(addresses);
+        var nodeFinder = new StaticNodeFinder(addresses, new NoOpFailureManager());
 
         services = addresses.stream()
                 .map(addr -> startNetwork(testInfo, addr, nodeFinder))

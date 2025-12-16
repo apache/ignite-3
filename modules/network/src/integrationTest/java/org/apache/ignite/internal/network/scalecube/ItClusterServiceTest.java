@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -55,7 +56,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
     void testShutdown(TestInfo testInfo) {
         var addr = new NetworkAddress("localhost", 10000);
 
-        ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
+        ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr), new NoOpFailureManager()));
 
         assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -77,8 +78,10 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
     void testUpdateMetadata(TestInfo testInfo) throws Exception {
         var addr1 = new NetworkAddress("localhost", 10000);
         var addr2 = new NetworkAddress("localhost", 10001);
-        ClusterService service1 = clusterService(testInfo, addr1.port(), new StaticNodeFinder(List.of(addr1, addr2)));
-        ClusterService service2 = clusterService(testInfo, addr2.port(), new StaticNodeFinder(List.of(addr1, addr2)));
+        ClusterService service1 = clusterService(testInfo, addr1.port(),
+                new StaticNodeFinder(List.of(addr1, addr2), new NoOpFailureManager()));
+        ClusterService service2 = clusterService(testInfo, addr2.port(),
+                new StaticNodeFinder(List.of(addr1, addr2), new NoOpFailureManager()));
         assertThat(service1.startAsync(new ComponentContext()), willCompleteSuccessfully());
         assertThat(service2.startAsync(new ComponentContext()), willCompleteSuccessfully());
         assertTrue(waitForCondition(() -> service1.topologyService().allMembers().size() == 2, 1000));

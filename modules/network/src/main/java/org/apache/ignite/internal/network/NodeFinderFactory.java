@@ -27,6 +27,7 @@ import java.net.SocketException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderView;
@@ -49,7 +50,8 @@ public class NodeFinderFactory {
     public static NodeFinder createNodeFinder(
             NodeFinderView nodeFinderConfiguration,
             String nodeName,
-            InetSocketAddress localBindAddress
+            InetSocketAddress localBindAddress,
+            FailureProcessor failureProcessor
     ) {
         switch (nodeFinderConfiguration.type()) {
             case StaticNodeFinderConfigurationSchema.TYPE:
@@ -57,7 +59,7 @@ public class NodeFinderFactory {
 
                 return Arrays.stream(staticConfig.netClusterNodes())
                         .map(NetworkAddress::from)
-                        .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
+                        .collect(collectingAndThen(toUnmodifiableList(), addresses -> new StaticNodeFinder(addresses, failureProcessor)));
             case MulticastNodeFinderConfigurationSchema.TYPE:
                 MulticastNodeFinderView multicastConfig = (MulticastNodeFinderView) nodeFinderConfiguration;
 

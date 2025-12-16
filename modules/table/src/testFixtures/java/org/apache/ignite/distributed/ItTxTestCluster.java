@@ -367,7 +367,7 @@ public class ItTxTestCluster {
         this.replicationConfiguration = replicationConfiguration;
 
         localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
-        nodeFinder = new StaticNodeFinder(localAddresses);
+        nodeFinder = new StaticNodeFinder(localAddresses, new NoOpFailureManager());
     }
 
     /**

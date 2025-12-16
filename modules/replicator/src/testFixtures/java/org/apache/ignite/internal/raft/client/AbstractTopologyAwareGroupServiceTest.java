@@ -44,6 +44,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -233,7 +234,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         // Start client service for the second client.
         int clientPort = PORT_BASE + nodes + 1;
         ClusterService clientClusterService =
-                clusterService(testInfo, clientPort, new StaticNodeFinder(findLocalAddresses(PORT_BASE, PORT_BASE + nodes)));
+                clusterService(testInfo, clientPort,
+                        new StaticNodeFinder(findLocalAddresses(PORT_BASE, PORT_BASE + nodes), new NoOpFailureManager()));
         assertThat(clientClusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Start the second topology aware client, that should not get the initial leader notification.
@@ -430,7 +432,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     ) {
         List<NetworkAddress> addresses = findLocalAddresses(PORT_BASE, PORT_BASE + nodes);
 
-        var nodeFinder = new StaticNodeFinder(addresses);
+        var nodeFinder = new StaticNodeFinder(addresses, new NoOpFailureManager());
 
         TopologyAwareRaftGroupService raftClient = null;
 
