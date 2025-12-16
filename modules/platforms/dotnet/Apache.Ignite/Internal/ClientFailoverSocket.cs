@@ -407,9 +407,19 @@ namespace Apache.Ignite.Internal
             List<SocketEndpoint>? toRemove = null;
 
             var acquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
+
+            // TODO: Remove
+#pragma warning disable CA1848
+            _logger.Log(
+                LogLevel.Trace,
+                "InitEndpointsAsync: acquired lock: {Acquired}, old endpoints count: {OldCount}, new endpoints count: {NewCount}",
+                acquired,
+                oldEndpoints.Count,
+                newEndpoints.Count);
+#pragma warning restore CA1848
+
             if (!acquired)
             {
-                Console.WriteLine("Failed to acquire socket lock for InitEndpointsAsync within timeout.");
                 return;
             }
 
@@ -501,15 +511,10 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            var endpoints = _endpoints;
-            if (endpoints.Count == 1)
-            {
-                // No secondary connections to establish.
-                return;
-            }
-
             while (!_disposed)
             {
+                var endpoints = _endpoints;
+
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
                     _logger.LogTryingToEstablishSecondaryConnectionsDebug(endpoints.Count);
