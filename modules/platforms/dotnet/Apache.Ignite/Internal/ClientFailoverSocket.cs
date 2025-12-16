@@ -679,9 +679,7 @@ namespace Apache.Ignite.Internal
                     return [ip];
                 }
 
-                var hostEntry = await Dns.GetHostEntryAsync(host).ConfigureAwait(false);
-
-                return hostEntry.AddressList;
+                return await Configuration.DnsResolver.GetHostAddressesAsync(host).ConfigureAwait(false);
             }
             catch (SocketException e)
             {
