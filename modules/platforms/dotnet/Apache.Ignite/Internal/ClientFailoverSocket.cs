@@ -409,6 +409,7 @@ namespace Apache.Ignite.Internal
             var acquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
             if (!acquired)
             {
+                Console.WriteLine("Failed to acquire socket lock for InitEndpointsAsync within timeout.");
                 return;
             }
 

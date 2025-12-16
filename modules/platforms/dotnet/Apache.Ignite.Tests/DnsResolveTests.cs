@@ -23,6 +23,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Common;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -73,11 +75,13 @@ public class DnsResolveTests
         };
 
         var dns = new TestDnsResolver(dnsMap);
+        using var logger = new ConsoleLogger(LogLevel.Trace);
 
         var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
             ReResolveAddressesInterval = TimeSpan.FromMilliseconds(300),
-            ReconnectInterval = TimeSpan.FromMilliseconds(500)
+            ReconnectInterval = TimeSpan.FromMilliseconds(500),
+            LoggerFactory = logger
         };
 
         using var client = await IgniteClient.StartInternalAsync(cfg, dns);
