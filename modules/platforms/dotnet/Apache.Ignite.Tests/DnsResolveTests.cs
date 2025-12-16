@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Tests;
 
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -31,13 +33,20 @@ public class DnsResolveTests
     {
         await Task.Delay(1);
 
-        using var servers = FakeServerGroup.Create(5);
+        using var server1 = new FakeServer(nodeName: "fake-node-1", port: 10901, address: IPAddress.Parse("127.0.0.10"));
+        using var server2 = new FakeServer(nodeName: "fake-node-1", port: 10901, address: IPAddress.Parse("127.0.0.11"));
 
-        // TODO: The ports are different but DNS does not deal with ports.
-        var hostNameMap = servers.Servers
-            .ToDictionary(x => "host-" + x.Node.Name, x => x.Endpoint);
+        var resolver = new TestDnsResolver(new Dictionary<string, string[]>
+        {
+            ["fake-host-1"] = ["127.0.0.10"],
+            ["fake-host-2"] = ["127.0.0.11"]
+        });
 
-        Assert.Fail("TODO");
+        var clientCfg = new IgniteClientConfiguration("fake-host-1:10901", "fake-host-2:10901");
+
+        using var client = await IgniteClient.StartInternalAsync(clientCfg, resolver);
+
+        client.WaitForConnections(2);
     }
 
     [Test]
