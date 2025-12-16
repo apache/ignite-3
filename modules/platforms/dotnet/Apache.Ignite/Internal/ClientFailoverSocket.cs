@@ -400,25 +400,8 @@ namespace Apache.Ignite.Internal
 
         private async Task InitEndpointsAsync(int lockWaitTimeoutMs = Timeout.Infinite)
         {
-            HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
-            IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
-
-            var resList = new List<SocketEndpoint>(newEndpoints.Count);
-            List<SocketEndpoint>? toRemove = null;
-
-            var acquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
-
-            // TODO: Remove
-#pragma warning disable CA1848
-            _logger.Log(
-                LogLevel.Trace,
-                "InitEndpointsAsync: acquired lock: {Acquired}, old endpoints count: {OldCount}, new endpoints count: {NewCount}",
-                acquired,
-                oldEndpoints.Count,
-                newEndpoints.Count);
-#pragma warning restore CA1848
-
-            if (!acquired)
+            bool lockAcquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
+            if (!lockAcquired)
             {
                 return;
             }
@@ -429,6 +412,13 @@ namespace Apache.Ignite.Internal
                 {
                     return;
                 }
+
+                // TODO: Log trace.
+                HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
+                IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
+
+                var resList = new List<SocketEndpoint>(newEndpoints.Count);
+                List<SocketEndpoint>? toRemove = null;
 
                 // Retain existing sockets for endpoints that are still present.
                 foreach (var oldEndpoint in oldEndpoints)
