@@ -403,7 +403,9 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             }
         }
 
-        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
+        if (!stopping.getAsBoolean()) {
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
+        }
     }
 
     private void handleStaleAcceptorId(HandshakeStartMessage msg) {
