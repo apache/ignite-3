@@ -191,6 +191,9 @@ public class Checkpointer extends IgniteWorker {
 
     private final CheckpointMetrics checkpointMetrics;
 
+    /** Timestamp of the last checkpoint end time in milliseconds, used to calculate checkpoint interval. */
+    private volatile long lastCheckpointEndTime = System.currentTimeMillis();
+
     /**
      * Constructor.
      *
@@ -378,6 +381,13 @@ public class Checkpointer extends IgniteWorker {
                 throw new IgniteInternalCheckedException(e);
             }
 
+            // Record checkpoint metrics
+            checkpointMetrics.recordDirtyPagesCount(chp.dirtyPagesSize);
+
+            long now = System.currentTimeMillis();
+            long intervalMs = now - lastCheckpointEndTime;
+            checkpointMetrics.recordCheckpointInterval(intervalMs);
+
             updateHeartbeat();
 
             if (chp.hasDelta()) {
@@ -455,6 +465,9 @@ public class Checkpointer extends IgniteWorker {
             }
 
             checkpointMetrics.update(tracker, chp.dirtyPagesSize);
+
+            // Update last checkpoint end time for interval calculation
+            lastCheckpointEndTime = System.currentTimeMillis();
         } catch (IgniteInternalCheckedException e) {
             if (chp != null) {
                 chp.progress.fail(e);

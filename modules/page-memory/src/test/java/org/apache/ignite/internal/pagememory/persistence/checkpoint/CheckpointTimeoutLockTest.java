@@ -407,4 +407,67 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
 
         return checkpointer;
     }
+
+    @Test
+    void testCheckpointReadLockMetricsRecordedDuringActualOperations() throws Exception {
+        CheckpointReadWriteLock readWriteLock = newReadWriteLock();
+
+        CheckpointReadLockMetricSource metricSource = new CheckpointReadLockMetricSource(() -> 0);
+        CheckpointReadLockMetrics metrics = new CheckpointReadLockMetrics(metricSource);
+
+        timeoutLock = new CheckpointTimeoutLock(
+                readWriteLock,
+                10_000,
+                () -> NOT_REQUIRED,
+                mock(Checkpointer.class),
+                mock(FailureManager.class),
+                metrics
+        );
+
+        timeoutLock.start();
+
+        try {
+            // Verify metrics start at zero
+            assertEquals(0, metrics.acquisitions().value());
+
+            // Acquire and immediately release the lock
+            timeoutLock.checkpointReadLock();
+            timeoutLock.checkpointReadUnlock();
+
+            // Verify acquisition was recorded
+            assertThat(metrics.acquisitions().value(), is(1L));
+
+            // Verify acquisition time distribution has recorded at least one measurement
+            long[] acquisitionTimes = metrics.acquisitionTime().value();
+            long totalAcquisitionMeasurements = 0;
+            for (long count : acquisitionTimes) {
+                totalAcquisitionMeasurements += count;
+            }
+            assertThat(totalAcquisitionMeasurements, is(1L));
+
+            // Verify hold time distribution has recorded at least one measurement
+            long[] holdTimes = metrics.holdTime().value();
+            long totalHoldMeasurements = 0;
+            for (long count : holdTimes) {
+                totalHoldMeasurements += count;
+            }
+            assertThat(totalHoldMeasurements, is(1L));
+
+            // Acquire and release again to verify accumulation
+            timeoutLock.checkpointReadLock();
+            timeoutLock.checkpointReadUnlock();
+
+            assertThat(metrics.acquisitions().value(), is(2L));
+
+            // Verify acquisition time distribution accumulated
+            long[] acquisitionTimes2 = metrics.acquisitionTime().value();
+            long totalAcquisitionMeasurements2 = 0;
+            for (long count : acquisitionTimes2) {
+                totalAcquisitionMeasurements2 += count;
+            }
+            assertThat(totalAcquisitionMeasurements2, is(2L));
+        } finally {
+            timeoutLock.stop();
+        }
+    }
 }

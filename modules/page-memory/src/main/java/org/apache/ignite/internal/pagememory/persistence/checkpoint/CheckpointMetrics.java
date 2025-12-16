@@ -19,6 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.pagememory.metrics.MetricBounds;
 
 /** Checkpoint metrics. */
 class CheckpointMetrics {
@@ -41,6 +44,14 @@ class CheckpointMetrics {
     private final AtomicLongMetric lastCheckpointDuration;
 
     private final AtomicLongMetric lastTotalPagesNumber;
+
+    private final DistributionMetric checkpointDurationDistribution;
+
+    private final DistributionMetric dirtyPagesCountDistribution;
+
+    private final DistributionMetric checkpointIntervalDistribution;
+
+    private final LongAdderMetric totalCheckpoints;
 
     CheckpointMetrics(CheckpointMetricSource source) {
         lastLockWaitDuration = source.addMetric(new AtomicLongMetric(
@@ -92,6 +103,29 @@ class CheckpointMetrics {
                 "LastCheckpointTotalPagesNumber",
                 "Total number of pages written during the last checkpoint."
         ));
+
+        checkpointDurationDistribution = source.addMetric(new DistributionMetric(
+                "CheckpointDuration",
+                "Distribution of checkpoint durations in milliseconds.",
+                MetricBounds.CHECKPOINT_DURATION_MILLIS
+        ));
+
+        dirtyPagesCountDistribution = source.addMetric(new DistributionMetric(
+                "DirtyPagesCount",
+                "Distribution of dirty pages count at checkpoint start.",
+                MetricBounds.DIRTY_PAGES_COUNT
+        ));
+
+        checkpointIntervalDistribution = source.addMetric(new DistributionMetric(
+                "CheckpointInterval",
+                "Distribution of time between consecutive checkpoints in milliseconds.",
+                MetricBounds.CHECKPOINT_INTERVAL_MILLIS
+        ));
+
+        totalCheckpoints = source.addMetric(new LongAdderMetric(
+                "TotalCheckpoints",
+                "Total number of checkpoints completed since startup."
+        ));
     }
 
     /**
@@ -109,8 +143,32 @@ class CheckpointMetrics {
         lastReplicatorLogSyncDuration.value(tracker.replicatorLogSyncDuration(TimeUnit.MILLISECONDS));
         lastSplitAndSortCheckpointPagesDuration.value(tracker.splitAndSortCheckpointPagesDuration(TimeUnit.MILLISECONDS));
         lastWaitPageReplacementDuration.value(tracker.waitPageReplacementDuration(TimeUnit.MILLISECONDS));
-        lastCheckpointDuration.value(tracker.checkpointDuration(TimeUnit.MILLISECONDS));
+
+        long durationMs = tracker.checkpointDuration(TimeUnit.MILLISECONDS);
+        lastCheckpointDuration.value(durationMs);
 
         lastTotalPagesNumber.value(totalPages);
+
+        // Update distribution metrics
+        checkpointDurationDistribution.add(durationMs);
+        totalCheckpoints.increment();
+    }
+
+    /**
+     * Records dirty pages count at checkpoint start.
+     *
+     * @param dirtyPagesCount Number of dirty pages at checkpoint start.
+     */
+    void recordDirtyPagesCount(long dirtyPagesCount) {
+        dirtyPagesCountDistribution.add(dirtyPagesCount);
+    }
+
+    /**
+     * Records time since last checkpoint.
+     *
+     * @param intervalMs Time since last checkpoint in milliseconds.
+     */
+    void recordCheckpointInterval(long intervalMs) {
+        checkpointIntervalDistribution.add(intervalMs);
     }
 }
