@@ -151,6 +151,18 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
+    public void clear() {
+        readWriteLock.writeLock().lock();
+
+        try {
+            txCatalogVersionByBeginTxTs.clear();
+            txCountByCatalogVersion.clear();
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public long minimumRequiredTime() {
         int minRequiredVer;
 
