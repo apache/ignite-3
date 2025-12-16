@@ -22,7 +22,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.ArrayList;
@@ -38,8 +40,9 @@ import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
-import org.hamcrest.Matchers;
+import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -204,7 +207,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 128");
 
             assertThat(plan, instanceOf(MultiStepPlan.class));
-            assertEmptyValuesNode((MultiStepPlan) plan);
+            assertEmptyScan((MultiStepPlan) plan);
         }
 
         // Out of range: TINYINT_MIN - 1.
@@ -212,7 +215,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -129");
 
             assertThat(plan, instanceOf(MultiStepPlan.class));
-            assertEmptyValuesNode((MultiStepPlan) plan);
+            assertEmptyScan((MultiStepPlan) plan);
         }
 
         // TINYINT_MAX - no predicate expected.
@@ -234,9 +237,16 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         }
     }
 
-    private static void assertEmptyValuesNode(MultiStepPlan plan) {
-        assertThat(plan.getRel(), instanceOf(IgniteValues.class));
-        assertThat(((IgniteValues) plan.getRel()).tuples, Matchers.empty());
+    private static void assertEmptyScan(MultiStepPlan plan) {
+        // Exchange -> TableScan [condition = false]
+        IgniteRel root = plan.getRel();
+        assertThat(root, instanceOf(IgniteExchange.class));
+        assertThat(root.getInput(0), instanceOf(IgniteTableScan.class));
+
+        IgniteTableScan tableScan = (IgniteTableScan) root.getInput(0);
+        RexNode condition = tableScan.condition();
+        assertThat(condition, notNullValue());
+        assertThat(condition.toString(), is("false"));
     }
 
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
