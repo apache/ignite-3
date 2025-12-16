@@ -610,6 +610,8 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                ThrowIfDisposed();
+
                 if (endpoint.Socket?.IsDisposed == false)
                 {
                     return endpoint.Socket;
