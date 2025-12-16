@@ -303,4 +303,4 @@ When working with tables:
 
 - [Table API](/docs/3.1.0/develop/work-with-data/table-api) for working with table views
 - [Distribution Zones](/docs/3.1.0/sql/reference/language-definition/distribution-zones) for partition configuration
-- [Data Types](/docs/3.1.0/sql/reference/data-types) for SQL type mappings
+- [Data Types](/docs/3.1.0/sql/reference/data-types-and-functions/data-types) for SQL type mappings

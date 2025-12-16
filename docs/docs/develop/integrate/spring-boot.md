@@ -231,5 +231,5 @@ public class PersonService {
 ## Next Steps
 
 - [Spring Data Integration](./spring-data) - Repository-based data access
-- [Java Client](../ignite-clients/java) - Client API reference
+- [Java Client](../ignite-clients/java-client) - Client API reference
 - [Transactions](../work-with-data/transactions) - Transaction management
