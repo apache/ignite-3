@@ -25,6 +25,11 @@ using System.Threading.Tasks;
 /// </summary>
 internal sealed class DnsResolver : IDnsResolver
 {
+    /// <summary>
+    /// Get the singleton instance.
+    /// </summary>
+    public static readonly DnsResolver Instance = new();
+
     /// <inheritdoc/>
     public Task<IPAddress[]> GetHostAddressesAsync(string hostName) => Dns.GetHostAddressesAsync(hostName);
 }
