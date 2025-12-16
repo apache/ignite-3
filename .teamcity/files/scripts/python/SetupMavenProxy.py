@@ -41,13 +41,23 @@ def normalize_url(url):
 def escape_regex(text):
     return re.escape(text)
 
-def replace_in_file(file_path, search_url, replace_url, use_slash_version):
+def escape_gradle_url(url):
+    return url.replace('://', '\\://')
+
+def unescape_gradle_url(url):
+    return url.replace('\\://', '://')
+
+def replace_in_file(file_path, search_url, replace_url, use_slash_version, use_escaped=False):
     try:
         content = file_path.read_text(encoding='utf-8')
         original_content = content
 
-        search_pattern = search_url if use_slash_version else normalize_url(search_url)
-        replace_pattern = replace_url if use_slash_version else normalize_url(replace_url)
+        if use_escaped:
+            search_pattern = escape_gradle_url(search_url if use_slash_version else normalize_url(search_url))
+            replace_pattern = escape_gradle_url(replace_url if use_slash_version else normalize_url(replace_url))
+        else:
+            search_pattern = search_url if use_slash_version else normalize_url(search_url)
+            replace_pattern = replace_url if use_slash_version else normalize_url(replace_url)
 
         escaped_search = escape_regex(search_pattern)
         matches_before = len(re.findall(escaped_search, content))
@@ -76,7 +86,13 @@ def process_maven_replacements(repo_root, maven_file_patterns, exclude_dirs, pro
         for file_path in files:
             try:
                 content = file_path.read_text(encoding='utf-8')
+                is_gradle_wrapper = file_path.name == 'gradle-wrapper.properties'
+                escaped_remote = escape_gradle_url(remote_url) if is_gradle_wrapper else None
+                escaped_normalized = escape_gradle_url(normalize_url(remote_url)) if is_gradle_wrapper else None
+
                 if remote_url in content or normalize_url(remote_url) in content:
+                    matching_files.append(file_path)
+                elif is_gradle_wrapper and (escaped_remote and escaped_remote in content or escaped_normalized and escaped_normalized in content):
                     matching_files.append(file_path)
             except Exception:
                 continue
@@ -90,30 +106,52 @@ def process_maven_replacements(repo_root, maven_file_patterns, exclude_dirs, pro
         for file_path in matching_files:
             try:
                 content = file_path.read_text(encoding='utf-8')
+                is_gradle_wrapper = file_path.name == 'gradle-wrapper.properties'
+
                 count_with_slash = content.count(remote_url)
                 count_without_slash = content.count(normalize_url(remote_url))
+                escaped_remote = escape_gradle_url(remote_url) if is_gradle_wrapper else None
+                escaped_normalized = escape_gradle_url(normalize_url(remote_url)) if is_gradle_wrapper else None
+                count_escaped_slash = content.count(escaped_remote) if escaped_remote else 0
+                count_escaped_no_slash = content.count(escaped_normalized) if escaped_normalized else 0
 
                 if count_with_slash > 0:
                     count = count_with_slash
                     use_slash = True
+                    use_escaped = False
                 elif count_without_slash > 0:
                     count = count_without_slash
                     use_slash = False
+                    use_escaped = False
+                elif count_escaped_slash > 0:
+                    count = count_escaped_slash
+                    use_slash = True
+                    use_escaped = True
+                elif count_escaped_no_slash > 0:
+                    count = count_escaped_no_slash
+                    use_slash = False
+                    use_escaped = True
                 else:
                     count = 0
                     use_slash = False
+                    use_escaped = False
 
                 if count > 0:
                     total_files += 1
                     print(f"  Processing: {file_path} (found {count} occurrence(s))")
                     print(f"    Replacing: {remote_url} -> {nexus_url}")
 
-                    replacements = replace_in_file(file_path, remote_url, nexus_url, use_slash)
+                    replacements = replace_in_file(file_path, remote_url, nexus_url, use_slash, use_escaped)
                     total_replacements += replacements
 
                     try:
                         new_content = file_path.read_text(encoding='utf-8')
+                        escaped_nexus = escape_gradle_url(nexus_url) if is_gradle_wrapper else None
+                        escaped_nexus_normalized = escape_gradle_url(normalize_url(nexus_url)) if is_gradle_wrapper else None
+
                         if nexus_url in new_content or normalize_url(nexus_url) in new_content:
+                            print(f"    ✓ Replacement successful")
+                        elif is_gradle_wrapper and (escaped_nexus and escaped_nexus in new_content or escaped_nexus_normalized and escaped_nexus_normalized in new_content):
                             print(f"    ✓ Replacement successful")
                         else:
                             print(f"    ⚠ Warning: Replacement may have failed - URL not found after replacement")
