@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 /// </summary>
 /// <param name="Configuration">Configuration.</param>
 /// <param name="ApiTask">API accessor task.</param>
+/// <param name="DnsResolver">DNS resolver.</param>
 internal sealed record IgniteClientConfigurationInternal(
     IgniteClientConfiguration Configuration,
     Task<IgniteApiAccessor> ApiTask,
