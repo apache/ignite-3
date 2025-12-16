@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.network.annotations;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
-import java.util.UUID;
-import org.apache.ignite.internal.tx.TransactionInternalException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-/** Error that occurs when a stale operation is detected. */
-public class StaleTransactionOperationException extends TransactionInternalException {
+/**
+ * Annotation that specifies the serial version UID of a message implementation class. If not specified, no serial version UID
+ * is associated with the message implementation class.
+ */
+@Target(TYPE)
+@Retention(SOURCE)
+public @interface MessageSerialVersionUid {
     /**
-     * Constructor.
-     *
-     * @param txId Transaction ID.
+     * Serial version UID of the message implementation class.
      */
-    public StaleTransactionOperationException(UUID txId) {
-        super(TX_STALE_OPERATION_ERR, format("Stale operation was detected: [txId={}]", txId));
-    }
+    long value();
 }

@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.raft.jraft.entity;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-import java.util.UUID;
-import org.apache.ignite.internal.tx.TransactionInternalException;
+import java.lang.reflect.Field;
+import org.junit.jupiter.api.Test;
 
-/** Error that occurs when a stale operation is detected. */
-public class StaleTransactionOperationException extends TransactionInternalException {
-    /**
-     * Constructor.
-     *
-     * @param txId Transaction ID.
-     */
-    public StaleTransactionOperationException(UUID txId) {
-        super(TX_STALE_OPERATION_ERR, format("Stale operation was detected: [txId={}]", txId));
+class SnapshotMetaTest {
+    @Test
+    void implementationHasExpectedSerialVersionUid() throws Exception {
+        Field field = SnapshotMetaImpl.class.getDeclaredField("serialVersionUID");
+        field.setAccessible(true);
+
+        assertThat(field.get(null), is(7302290474182723103L));
     }
 }
