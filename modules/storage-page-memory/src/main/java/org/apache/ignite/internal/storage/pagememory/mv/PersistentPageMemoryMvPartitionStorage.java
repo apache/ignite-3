@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -47,6 +48,8 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.StorageConsistencyMetricSource;
+import org.apache.ignite.internal.storage.pagememory.StorageConsistencyMetrics;
 import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -85,6 +88,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * Lock for updating lease info in the storage.
      */
     private final Object leaseInfoLock = new Object();
+
+    /** Count of currently active runConsistently calls. */
+    private final AtomicInteger activeRunConsistentlyCount = new AtomicInteger(0);
+
+    /** Storage consistency metrics. */
+    final StorageConsistencyMetrics consistencyMetrics;
 
     /**
      * Constructor.
@@ -153,6 +162,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+
+        // Initialize consistency metrics
+        StorageConsistencyMetricSource metricSource = new StorageConsistencyMetricSource(activeRunConsistentlyCount::get);
+        this.consistencyMetrics = new StorageConsistencyMetrics(metricSource);
     }
 
     @Override
@@ -165,14 +178,30 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         if (locker != null) {
+            // Nested call, don't track metrics again
             return closure.execute(locker);
         } else {
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
+                // Track execution count
+                consistencyMetrics.runConsistentlyExecutions().increment();
+
+                // Track active count
+                activeRunConsistentlyCount.incrementAndGet();
+
+                long startTime = System.nanoTime();
+                long checkpointLockStartTime = System.nanoTime();
+
                 LocalLocker locker0 = new PersistentPageMemoryLocker();
 
                 checkpointTimeoutLock.checkpointReadLock();
+
+                long checkpointLockEndTime = System.nanoTime();
+                long checkpointWaitTime = checkpointLockEndTime - checkpointLockStartTime;
+
+                // Track checkpoint wait time
+                consistencyMetrics.runConsistentlyCheckpointWaitTime().add(checkpointWaitTime);
 
                 THREAD_LOCAL_LOCKER.set(locker0);
 
@@ -185,6 +214,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     locker0.unlockAll();
 
                     checkpointTimeoutLock.checkpointReadUnlock();
+
+                    // Track total duration
+                    long duration = System.nanoTime() - startTime;
+                    consistencyMetrics.runConsistentlyDuration().add(duration);
+
+                    // Track active count
+                    activeRunConsistentlyCount.decrementAndGet();
                 }
             });
         }
