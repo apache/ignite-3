@@ -407,13 +407,18 @@ namespace Apache.Ignite.Internal
             List<SocketEndpoint>? toRemove = null;
 
             var acquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
-            if (!acquired || _disposed)
+            if (!acquired)
             {
                 return;
             }
 
             try
             {
+                if (_disposed)
+                {
+                    return;
+                }
+
                 // Retain existing sockets for endpoints that are still present.
                 foreach (var oldEndpoint in oldEndpoints)
                 {
