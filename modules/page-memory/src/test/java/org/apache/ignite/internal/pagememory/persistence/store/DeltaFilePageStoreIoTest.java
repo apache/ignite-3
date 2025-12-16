@@ -44,6 +44,8 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -197,14 +199,28 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     @Override
     DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
         return new DeltaFilePageStoreIo(
                 ioFactory,
                 filePath,
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9))
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9)),
+                filesMetrics,
+                ioMetrics
         );
     }
 
     private static DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
-        return new DeltaFilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new DeltaFilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, filesMetrics, ioMetrics);
     }
 }

@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 /**
@@ -42,13 +43,17 @@ public class FilePageStoreIo extends AbstractFilePageStoreIo {
      * @param ioFactory {@link FileIo} factory.
      * @param filePath File page store path.
      * @param header File page store header.
+     * @param metrics Storage files metrics.
+     * @param ioMetrics Page memory I/O metrics.
      */
     public FilePageStoreIo(
             FileIoFactory ioFactory,
             Path filePath,
-            FilePageStoreHeader header
+            FilePageStoreHeader header,
+            StorageFilesMetrics metrics,
+            PageMemoryIoMetrics ioMetrics
     ) {
-        super(ioFactory, filePath);
+        super(ioFactory, filePath, metrics, ioMetrics);
 
         this.header = header;
     }

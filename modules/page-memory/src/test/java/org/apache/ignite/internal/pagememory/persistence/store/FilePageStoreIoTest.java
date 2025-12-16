@@ -22,19 +22,26 @@ import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -113,12 +120,102 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
         }
     }
 
+    @Test
+    void testIoMetricsRecordedDuringActualFileOperations() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        long pageId = pageId(0, FLAG_DATA, 0);
+
+        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, ioMetrics)) {
+            // Verify metrics start at zero
+            assertEquals(0, ioMetrics.totalBytesWritten().value());
+            assertEquals(0, ioMetrics.totalBytesRead().value());
+
+            // Perform write operation
+            ByteBuffer writeBuffer = createPageByteBuffer(pageId, PAGE_SIZE);
+            filePageStoreIo.write(pageId, writeBuffer);
+
+            // Verify write metrics were recorded
+            assertThat(ioMetrics.totalBytesWritten().value(), greaterThan(0L));
+            assertThat(ioMetrics.totalBytesWritten().value(), equalTo((long) PAGE_SIZE));
+
+            // Verify physicalWritesTime distribution has recorded at least one measurement
+            long[] writeTimes = ioMetrics.physicalWritesTime().value();
+            long totalWriteMeasurements = 0;
+            for (long count : writeTimes) {
+                totalWriteMeasurements += count;
+            }
+            assertThat(totalWriteMeasurements, greaterThan(0L));
+
+            // Perform read operation
+            long pageOff = filePageStoreIo.pageOffset(pageId);
+            ByteBuffer readBuffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(java.nio.ByteOrder.nativeOrder());
+            filePageStoreIo.read(pageId, pageOff, readBuffer, false);
+
+            // Verify read metrics were recorded
+            assertThat(ioMetrics.totalBytesRead().value(), greaterThan(0L));
+            assertThat(ioMetrics.totalBytesRead().value(), equalTo((long) PAGE_SIZE));
+
+            // Verify physicalReadsTime distribution has recorded at least one measurement
+            long[] readTimes = ioMetrics.physicalReadsTime().value();
+            long totalReadMeasurements = 0;
+            for (long count : readTimes) {
+                totalReadMeasurements += count;
+            }
+            assertThat(totalReadMeasurements, greaterThan(0L));
+
+            // Verify bytesPerWrite distribution has recorded measurements
+            long[] bytesPerWriteDist = ioMetrics.bytesPerWrite().value();
+            long totalBytesWriteMeasurements = 0;
+            for (long count : bytesPerWriteDist) {
+                totalBytesWriteMeasurements += count;
+            }
+            assertThat(totalBytesWriteMeasurements, greaterThanOrEqualTo(1L));
+
+            // Verify bytesPerRead distribution has recorded measurements
+            long[] bytesPerReadDist = ioMetrics.bytesPerRead().value();
+            long totalBytesReadMeasurements = 0;
+            for (long count : bytesPerReadDist) {
+                totalBytesReadMeasurements += count;
+            }
+            assertThat(totalBytesReadMeasurements, greaterThanOrEqualTo(1L));
+        }
+    }
+
     @Override
     protected FilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
-        return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE), filesMetrics, ioMetrics);
     }
 
     private static FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
-        return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, filesMetrics, ioMetrics);
+    }
+
+    private static FilePageStoreIo createFilePageStoreIo(Path filePath, PageMemoryIoMetrics ioMetrics) {
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        return new FilePageStoreIo(
+                new RandomAccessFileIoFactory(),
+                filePath,
+                new FilePageStoreHeader(VERSION_1, PAGE_SIZE),
+                filesMetrics,
+                ioMetrics
+        );
     }
 }

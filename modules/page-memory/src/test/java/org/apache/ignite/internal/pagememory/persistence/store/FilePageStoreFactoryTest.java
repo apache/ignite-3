@@ -38,6 +38,8 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -170,7 +172,13 @@ public class FilePageStoreFactoryTest {
     }
 
     private static FilePageStoreFactory createFilePageStoreFactory() {
-        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE, filesMetrics, ioMetrics);
     }
 
     private static FileIo createFileIo(Path filePath) throws Exception {

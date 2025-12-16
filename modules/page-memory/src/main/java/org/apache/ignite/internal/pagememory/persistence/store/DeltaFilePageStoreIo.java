@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -49,15 +50,22 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      * @param ioFactory {@link FileIo} factory.
      * @param filePath File page store path.
      * @param header Delta file page store header.
+     * @param metrics Storage files metrics.
+     * @param ioMetrics Page memory I/O metrics.
      */
     public DeltaFilePageStoreIo(
             FileIoFactory ioFactory,
             Path filePath,
-            DeltaFilePageStoreIoHeader header
+            DeltaFilePageStoreIoHeader header,
+            StorageFilesMetrics metrics,
+            PageMemoryIoMetrics ioMetrics
     ) {
-        super(ioFactory, filePath);
+        super(ioFactory, filePath, metrics, ioMetrics);
 
         this.header = header;
+
+        // Increment delta file creation counter
+        metrics.deltaFileCreateTotal().increment();
     }
 
     /** {@inheritDoc} */

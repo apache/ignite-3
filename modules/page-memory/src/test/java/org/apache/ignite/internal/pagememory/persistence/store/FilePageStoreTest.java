@@ -53,6 +53,8 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -255,8 +257,12 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
         Path filePageStoreFilePath = workDir.resolve("filePageStore");
 
         try (
-                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader0));
-                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
+                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(
+                        ioFactory, deltaFilePath(0), deltaHeader0, createStorageFilesMetrics(), createPageMemoryIoMetrics()
+                ));
+                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(
+                        ioFactory, filePageStoreFilePath, filePageStoreHeader, createStorageFilesMetrics(), createPageMemoryIoMetrics()
+                ));
                 FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
         ) {
             DeltaFilePageStoreIo deltaIo1 = filePageStore
@@ -318,8 +324,12 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
         Path filePageStoreFilePath = workDir.resolve("filePageStore");
 
         try (
-                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader0));
-                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
+                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(
+                        ioFactory, deltaFilePath(0), deltaHeader0, createStorageFilesMetrics(), createPageMemoryIoMetrics()
+                ));
+                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(
+                        ioFactory, filePageStoreFilePath, filePageStoreHeader, createStorageFilesMetrics(), createPageMemoryIoMetrics()
+                ));
                 FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
         ) {
             DeltaFilePageStoreIo deltaIo1 = filePageStore
@@ -485,8 +495,12 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
         DeltaFilePageStoreIoHeader deltaHeader = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(0));
 
         try (
-                DeltaFilePageStoreIo deltaIo = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader));
-                FilePageStoreIo storeIo = spy(new FilePageStoreIo(ioFactory, workDir.resolve("test"), header));
+                DeltaFilePageStoreIo deltaIo = spy(new DeltaFilePageStoreIo(
+                        ioFactory, deltaFilePath(0), deltaHeader, createStorageFilesMetrics(), createPageMemoryIoMetrics()
+                ));
+                FilePageStoreIo storeIo = spy(new FilePageStoreIo(
+                        ioFactory, workDir.resolve("test"), header, createStorageFilesMetrics(), createPageMemoryIoMetrics()
+                ));
                 FilePageStore filePageStore = new FilePageStore(storeIo, deltaIo);
         ) {
             long pageId = createDataPageId(filePageStore::allocatePage);
@@ -556,10 +570,29 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
             FilePageStoreHeader header,
             DeltaFilePageStoreIo... deltaFilePageStoreIos
     ) {
-        return new FilePageStore(new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header), deltaFilePageStoreIos);
+        StorageFilesMetricSource filesMetricSource = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        StorageFilesMetrics filesMetrics = new StorageFilesMetrics(filesMetricSource);
+
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource();
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
+        return new FilePageStore(
+                new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header, filesMetrics, ioMetrics),
+                deltaFilePageStoreIos
+        );
     }
 
     private Path deltaFilePath(int index) {
         return workDir.resolve("delta" + index);
+    }
+
+    private static StorageFilesMetrics createStorageFilesMetrics() {
+        StorageFilesMetricSource source = new StorageFilesMetricSource(() -> 0, () -> 0L, () -> 0, () -> 0L);
+        return new StorageFilesMetrics(source);
+    }
+
+    private static PageMemoryIoMetrics createPageMemoryIoMetrics() {
+        PageMemoryIoMetricSource source = new PageMemoryIoMetricSource();
+        return new PageMemoryIoMetrics(source);
     }
 }
