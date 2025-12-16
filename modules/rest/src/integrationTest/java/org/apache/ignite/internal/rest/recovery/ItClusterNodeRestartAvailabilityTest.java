@@ -38,7 +38,6 @@ public class ItClusterNodeRestartAvailabilityTest extends ClusterPerClassIntegra
     private static final int PARTITIONS_COUNT = 32;
     private static final String TEST_ZONE_NAME = "test_zone";
     private static final int TABLE_COUNT = 10;
-
     private static final int ROW_COUNT = 100;
 
     @Override
@@ -51,8 +50,10 @@ public class ItClusterNodeRestartAvailabilityTest extends ClusterPerClassIntegra
         sql(String.format("CREATE ZONE \"%s\" (PARTITIONS %d, REPLICAS %d, AUTO SCALE UP 10,"
                         + " AUTO SCALE DOWN 10, CONSISTENCY MODE 'HIGH_AVAILABILITY') storage profiles ['%s']",
                 TEST_ZONE_NAME, PARTITIONS_COUNT, initialNodes(), DEFAULT_AIPERSIST_PROFILE_NAME));
-        for (int table = 0; table < TABLE_COUNT; table++) {
-            String tableName = "test_table_" + table;
+
+        for (int tableId = 0; tableId < TABLE_COUNT; tableId++) {
+            String tableName = tableNameById(tableId);
+
             sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", tableName,
                     TEST_ZONE_NAME));
         }
@@ -85,11 +86,16 @@ public class ItClusterNodeRestartAvailabilityTest extends ClusterPerClassIntegra
 
     private void fillTables() {
         int val = 0;
-        for (int test = 0; test < TABLE_COUNT; test++) {
-            String tableName = "test_table_" + test;
+        for (int tableId = 0; tableId < TABLE_COUNT; tableId++) {
+            String tableName = tableNameById(tableId);
+
             for (int i = 0; i < ROW_COUNT; i++) {
                 sql(String.format("INSERT INTO PUBLIC.\"%s\" VALUES (%d, %d)", tableName, val++, val++));
             }
         }
+    }
+
+    private String tableNameById(int tableId) {
+        return "test_table_" + tableId;
     }
 }
