@@ -1,0 +1,116 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.runner.app.client;
+
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.sameInstance;
+
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
+import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+/**
+ * End-to-end tests to validate the behavior of the DDL queries suggestion handler.
+ */
+public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest {
+    @Override
+    protected int nodes() {
+        return 1;
+    }
+
+    @AfterEach
+    void dropTable() {
+        server(0).sql().executeScript("DROP TABLE t");
+    }
+
+    @Test
+    void ddlIsTrackedByConnection() {
+        server(0).sql().executeScript("CREATE TABLE t(id INT PRIMARY KEY)");
+
+        IgniteClient client1 = client();
+        ClientInboundMessageHandler handler1 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
+
+        // The handler "test reference" is updated after a new connection is established.
+        IgniteClient client2 = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+        ClientInboundMessageHandler handler2 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
+
+        assertThat(handler1, not(sameInstance(handler2)));
+
+        addColumn(client1, 0);
+        addColumn(client1, 1);
+
+        assertThat(handler1.ddlQueriesInRow(), is(2));
+        assertThat(handler2.ddlQueriesInRow(), is(0));
+
+        addColumn(client2, 2);
+
+        assertThat(handler1.ddlQueriesInRow(), is(2));
+        assertThat(handler2.ddlQueriesInRow(), is(1));
+    }
+
+    @Test
+    void disableSuggestion() {
+        server(0).sql().executeScript("CREATE TABLE t(id INT PRIMARY KEY)");
+
+        SuggestionsClusterExtensionConfiguration config = unwrapIgniteImpl(server(0)).clusterConfiguration()
+                .getConfiguration(SuggestionsClusterExtensionConfiguration.KEY);
+
+        { // Suggestion is enabled by default
+            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
+
+            addColumn(client(), 0);
+            assertThat(handler.ddlQueriesInRow(), is(1));
+        }
+
+        { // Disable suggestion
+            await(config.suggestions().change(c -> c.changeDdlBatchingSuggestionEnabled(false)));
+
+            // The handler "test reference" is updated after a new connection is established.
+            IgniteClient client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
+
+            addColumn(client, 1);
+            addColumn(client, 2);
+            assertThat(handler.ddlQueriesInRow(), is(-1));
+        }
+
+        { // Enable suggestion
+            await(config.suggestions().change(c -> c.changeDdlBatchingSuggestionEnabled(true)));
+
+            IgniteClient client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
+
+            addColumn(client, 3);
+            addColumn(client, 4);
+            assertThat(handler.ddlQueriesInRow(), is(2));
+        }
+    }
+
+    private static void addColumn(IgniteClient client, int columnNumber) {
+        String ddlQuery = IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN col{} int;", columnNumber);
+
+        client.sql().execute(null, ddlQuery).close();
+    }
+}

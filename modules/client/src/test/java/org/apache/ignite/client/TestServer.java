@@ -50,6 +50,7 @@ import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.eventlog.api.Event;
@@ -200,6 +202,11 @@ public class TestServer implements AutoCloseable {
         ClientConnectorConfiguration clientConnectorConfiguration = cfg
                 .getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
 
+        SuggestionsConfiguration suggestionsConfiguration = mock(SuggestionsConfiguration.class);
+        ConfigurationValue<Boolean> booleanValue = mock(ConfigurationValue.class);
+        Mockito.when(booleanValue.value()).thenReturn(true);
+        Mockito.when(suggestionsConfiguration.ddlBatchingSuggestionEnabled()).thenReturn(booleanValue);
+
         clientConnectorConfiguration.change(
                 local -> local
                         .changePort(port != null ? port : getFreePort())
@@ -284,6 +291,7 @@ public class TestServer implements AutoCloseable {
                         catalogService,
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
+                        suggestionsConfiguration,
                         new TestLowWatermark(),
                         new SystemPropertiesNodeProperties(),
                         Runnable::run
