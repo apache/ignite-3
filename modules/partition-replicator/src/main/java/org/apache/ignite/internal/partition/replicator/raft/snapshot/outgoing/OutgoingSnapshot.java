@@ -222,7 +222,7 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
-            snapshotStats.updateSnapshotMeta(txState.lastAppliedIndex(), txState.lastAppliedTerm(), config, catalogVersion);
+            snapshotStats.setSnapshotMeta(txState.lastAppliedIndex(), txState.lastAppliedTerm(), config, catalogVersion);
 
             return snapshotMetaAt(
                     txState.lastAppliedIndex(),
@@ -237,7 +237,7 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
-            snapshotStats.updateSnapshotMeta(
+            snapshotStats.setSnapshotMeta(
                     partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
                     partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
                     config,

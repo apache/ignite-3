@@ -93,8 +93,8 @@ class OutgoingSnapshotStatsTest {
     }
 
     @Test
-    void updateSnapshotMeta() {
-        stats.updateSnapshotMeta(LAST_APPLIED_INDEX, LAST_APPLIED_TERM, CONFIG, CATALOG_VERSION);
+    void setSnapshotMeta() {
+        stats.setSnapshotMeta(LAST_APPLIED_INDEX, LAST_APPLIED_TERM, CONFIG, CATALOG_VERSION);
 
         assertThat(stats.lastAppliedIndex, is(LAST_APPLIED_INDEX));
         assertThat(stats.lastAppliedTerm, is(LAST_APPLIED_TERM));
