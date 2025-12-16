@@ -396,7 +396,38 @@ namespace Apache.Ignite.Internal
 
         private async Task InitEndpointsAsync()
         {
-            _endpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
+            HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
+            IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
+            var resList = new List<SocketEndpoint>(newEndpoints.Count);
+
+            await _socketLock.WaitAsync().ConfigureAwait(false);
+
+            try
+            {
+                // Retain existing sockets for endpoints that are still present.
+                foreach (var oldEndpoint in oldEndpoints)
+                {
+                    if (newEndpoints.Remove(oldEndpoint))
+                    {
+                        resList.Add(oldEndpoint);
+                    }
+                    else if (oldEndpoint.Socket is { } oldEndpointSocket)
+                    {
+                        // Dispose sockets for removed endpoints.
+                        _endpointsByName.Remove(oldEndpointSocket.ConnectionContext.ClusterNode.Name, out _);
+                        oldEndpointSocket.Dispose();
+                    }
+                }
+
+                // Add remaining endpoints that were not known before.
+                resList.AddRange(newEndpoints);
+
+                _endpoints = resList;
+            }
+            finally
+            {
+                _socketLock.Release();
+            }
         }
 
         /// <summary>
@@ -599,9 +630,9 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the endpoints: all combinations of IP addresses and ports according to configuration.
         /// </summary>
-        private async Task<List<SocketEndpoint>> GetIpEndPointsAsync(IgniteClientConfiguration cfg)
+        private async Task<HashSet<SocketEndpoint>> GetIpEndPointsAsync(IgniteClientConfiguration cfg)
         {
-            var res = new List<SocketEndpoint>();
+            var res = new HashSet<SocketEndpoint>(new SocketEndpointComparer());
 
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
