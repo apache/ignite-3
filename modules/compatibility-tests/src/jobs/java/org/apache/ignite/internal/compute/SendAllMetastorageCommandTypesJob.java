@@ -35,13 +35,14 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
 // TODO IGNITE-26874 Add a check that all write commands are covered.
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-        IgniteImpl igniteImpl = JobsCommon.unwrapIgniteImpl(context.ignite());
+        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
         byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
