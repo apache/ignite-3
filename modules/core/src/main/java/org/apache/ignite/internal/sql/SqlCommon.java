@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 
 import java.time.ZoneId;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.QualifiedName;
 
@@ -29,7 +28,7 @@ import org.apache.ignite.table.QualifiedName;
  */
 public final class SqlCommon {
     /** Normalized name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseIdentifier(QualifiedName.DEFAULT_SCHEMA_NAME);
+    public static final String DEFAULT_SCHEMA_NAME = parseIdentifier(QualifiedName.DEFAULT_SCHEMA_NAME);
 
     /** Default page size. */
     public static final int DEFAULT_PAGE_SIZE = 1024;
