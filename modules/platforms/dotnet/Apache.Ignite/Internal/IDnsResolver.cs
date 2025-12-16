@@ -26,7 +26,7 @@ using System.Threading.Tasks;
 internal interface IDnsResolver
 {
     /// <summary>
-    /// Resolves the specified host name.
+    /// Resolves the specified host name into an array of IP addresses.
     /// </summary>
     /// <param name="hostName">Host name.</param>
     /// <returns>Address list.</returns>
