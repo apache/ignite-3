@@ -80,6 +80,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -717,7 +718,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         alterZone(node.catalogManager(), testZone, 0, null, null);
 
         // Wait until stable switch message is blocked.
-        assertTrue(waitForCondition(reached::get, 10_000L));
+        Awaitility.await().timeout(10, SECONDS).until(reached::get);
 
         CompletableFuture<Void> restartPartitionsWithCleanupFuture = node4.disasterRecoveryManager().restartPartitionsWithCleanup(
                 Set.of(node4.name()),
