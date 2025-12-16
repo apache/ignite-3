@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
+using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -29,6 +30,13 @@ public class DnsResolveTests
     public async Task TestClientResolvesHostNamesToAllIps()
     {
         await Task.Delay(1);
+
+        using var servers = FakeServerGroup.Create(5);
+
+        // TODO: The ports are different but DNS does not deal with ports.
+        var hostNameMap = servers.Servers
+            .ToDictionary(x => "host-" + x.Node.Name, x => x.Endpoint);
+
         Assert.Fail("TODO");
     }
 
