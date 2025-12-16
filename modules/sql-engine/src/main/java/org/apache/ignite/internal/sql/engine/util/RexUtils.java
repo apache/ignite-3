@@ -1473,6 +1473,12 @@ public class RexUtils {
             return source.getPrecision() <= target.getPrecision();
         }
 
-        return RexUtil.isLosslessCast(source, target);
+        if (source.getSqlTypeName() == SqlTypeName.REAL && target.getSqlTypeName() == SqlTypeName.FLOAT) {
+            return false;
+        } else if (source.getSqlTypeName() == SqlTypeName.FLOAT && target.getSqlTypeName() == SqlTypeName.REAL) {
+            return false;
+        } else {
+            return RexUtil.isLosslessCast(source, target);
+        }
     }
 }
