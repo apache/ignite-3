@@ -307,6 +307,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
+     * Refresh leader.
+     *
      * @return a future with the time in ms that was spent on refreshing the leader.
      */
     private CompletableFuture<Long> refreshLeader(long timeout, Supplier<String> originDescription) {

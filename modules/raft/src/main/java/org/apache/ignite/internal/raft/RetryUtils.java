@@ -29,12 +29,12 @@ class RetryUtils {
 
     /**
      * Computes a monotonic-time deadline based on the provided timeout.
-     * <p>
-     * The returned value is expressed in the same time domain as
+     *
+     * <p>The returned value is expressed in the same time domain as
      * {@link Utils#monotonicMs()} and is intended for comparisons against
      * that value (for example, {@code now >= deadline}).
-     * <p>
-     * Timeout semantics:
+     *
+     * <p>Timeout semantics:
      * <ul>
      *     <li>{@code timeoutMillis == 0} — the deadline equals the current
      *     monotonic time, effectively allowing only a single attempt.</li>
@@ -57,7 +57,6 @@ class RetryUtils {
             return Utils.monotonicMs() + timeoutMillis;
         }
     }
-
 
     static long remainingTimeout(long initialTimeoutMillis, long spentTimeMillis) throws TimeoutException {
         // Do nothing if the timeout is unbounded.
