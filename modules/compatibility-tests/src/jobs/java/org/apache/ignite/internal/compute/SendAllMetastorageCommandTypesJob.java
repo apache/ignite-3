@@ -48,7 +48,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
 
         MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
 
-        return allOf(
+        CompletableFuture<Void> sendCommandsFuture = allOf(
                 metastorage.put(ByteArray.fromString("put"), value),
                 metastorage.putAll(Map.of(ByteArray.fromString("putAll"), value)),
                 metastorage.remove(ByteArray.fromString("remove")),
@@ -66,21 +66,19 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
                                 ops().yield()
                         )
                 ),
-                metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
-                sendCompactionCommand(metastorage)
-        ).thenCompose((v) -> metastorage.storage().flush());
+                metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE)
+        );
+
+        return sendCommandsFuture
+                // Send compaction command after other commands have been applied to guarantee a non-zero applied index.
+                .thenCompose(v -> sendCompactionCommand(metastorage))
+                .thenCompose(v -> metastorage.storage().flush());
     }
 
     private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage) {
         try {
             Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
             sendCompactionCommand.setAccessible(true);
-
-            // This is effectively a no-op (applied revision is not 0 at this point), we are waiting just in case to increase test
-            // robustness.
-            while (metastorage.appliedRevision() == 0) {
-                Thread.onSpinWait();
-            }
 
             return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, 0);
         } catch (Exception e) {
