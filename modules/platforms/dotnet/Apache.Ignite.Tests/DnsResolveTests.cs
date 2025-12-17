@@ -32,25 +32,43 @@ using NUnit.Framework;
 /// </summary>
 public class DnsResolveTests
 {
-    [Test]
-    public async Task TestClientResolvesHostNamesToAllIps()
+    private ConsoleLogger _logger;
+
+    private FakeServerGroup _servers;
+
+    private ConcurrentDictionary<string, string[]> _dnsMap;
+
+    [SetUp]
+    public void SetUp()
     {
-        using var logger = new ConsoleLogger(LogLevel.Trace);
-        using var servers = FakeServerGroup.Create(
+        _logger = new ConsoleLogger(LogLevel.Trace);
+
+        _servers = FakeServerGroup.Create(
             count: 6,
             x => new FakeServer(nodeName: "fake-node-" + x, address: IPAddress.Parse("127.0.0.1" + x), port: 10902));
 
-        var dnsMap = new ConcurrentDictionary<string, string[]>
+        _dnsMap = new ConcurrentDictionary<string, string[]>
         {
             ["fake-host"] = ["127.0.0.10", "127.0.0.11"]
         };
+    }
 
+    [TearDown]
+    public void TearDown()
+    {
+        _servers.Dispose();
+        _logger.Flush();
+    }
+
+    [Test]
+    public async Task TestClientResolvesHostNamesToAllIps()
+    {
         var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
-            LoggerFactory = logger
+            LoggerFactory = _logger
         };
 
-        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(dnsMap));
+        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(_dnsMap));
         client.WaitForConnections(2);
 
         var conns = client.GetConnections().OrderBy(x => x.Node.Name).ToList();
@@ -65,30 +83,20 @@ public class DnsResolveTests
     [Test]
     public async Task TestClientReResolvesHostNamesOnDisconnect()
     {
-        using var logger = new ConsoleLogger(LogLevel.Trace);
-        using var servers = FakeServerGroup.Create(
-            count: 6,
-            x => new FakeServer(nodeName: "fake-node-" + x, address: IPAddress.Parse("127.0.0.1" + x), port: 10902));
-
-        var dnsMap = new ConcurrentDictionary<string, string[]>
-        {
-            ["fake-host"] = ["127.0.0.10", "127.0.0.11"]
-        };
-
         var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
             ReResolveAddressesInterval = Timeout.InfiniteTimeSpan,
             ReconnectInterval = TimeSpan.FromMilliseconds(500),
-            LoggerFactory = logger
+            LoggerFactory = _logger
         };
 
-        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(dnsMap));
+        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(_dnsMap));
         client.WaitForConnections(2, timeoutMs: 3000);
 
-        dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
+        _dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
 
         // Close one of the existing connections to trigger re-resolve.
-        servers.Servers[0].Dispose();
+        _servers.Servers[0].Dispose();
 
         client.WaitForConnections(4, timeoutMs: 3000);
     }
@@ -96,58 +104,38 @@ public class DnsResolveTests
     [Test]
     public async Task TestClientReResolvesHostNamesPeriodically()
     {
-        using var logger = new ConsoleLogger(LogLevel.Trace);
-        using var servers = FakeServerGroup.Create(
-            count: 6,
-            x => new FakeServer(nodeName: "fake-node-" + x, address: IPAddress.Parse("127.0.0.1" + x), port: 10902));
-
-        var dnsMap = new ConcurrentDictionary<string, string[]>
-        {
-            ["fake-host"] = ["127.0.0.10", "127.0.0.11"]
-        };
-
         var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
             ReResolveAddressesInterval = TimeSpan.FromMilliseconds(300),
             ReconnectInterval = TimeSpan.FromMilliseconds(500),
-            LoggerFactory = logger
+            LoggerFactory = _logger
         };
 
-        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(dnsMap));
+        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(_dnsMap));
         client.WaitForConnections(2, timeoutMs: 3000);
 
-        dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
+        _dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
         client.WaitForConnections(4, timeoutMs: 3000);
     }
 
     [Test]
     public async Task TestClientReResolvesHostNamesOnPrimaryReplicaAssignmentChange()
     {
-        using var logger = new ConsoleLogger(LogLevel.Trace);
-        using var servers = FakeServerGroup.Create(
-            count: 6,
-            x => new FakeServer(nodeName: "fake-node-" + x, address: IPAddress.Parse("127.0.0.1" + x), port: 10902));
-
-        var dnsMap = new ConcurrentDictionary<string, string[]>
-        {
-            ["fake-host"] = ["127.0.0.10", "127.0.0.11"]
-        };
-
         var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
             ReResolveAddressesInterval = Timeout.InfiniteTimeSpan,
             ReconnectInterval = TimeSpan.FromMilliseconds(500),
-            LoggerFactory = logger,
+            LoggerFactory = _logger,
             HeartbeatInterval = TimeSpan.FromMilliseconds(100)
         };
 
-        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(dnsMap));
+        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(_dnsMap));
         client.WaitForConnections(2, timeoutMs: 3000);
 
-        dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
+        _dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
 
         // Heartbeat will trigger re-resolve on assignment change.
-        servers.Servers[0].PartitionAssignmentTimestamp = 42;
+        _servers.Servers[0].PartitionAssignmentTimestamp = 42;
 
         client.WaitForConnections(4, timeoutMs: 3000);
     }
