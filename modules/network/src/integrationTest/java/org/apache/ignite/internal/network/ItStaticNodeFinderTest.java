@@ -59,6 +59,6 @@ class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
 
         IgniteInternalException actual = (IgniteInternalException) unwrapRootCause(throwable);
         Assertions.assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
-        Assertions.assertEquals("No network address found", actual.getMessage());
+        Assertions.assertEquals("No network addresses resolved through any provided names", actual.getMessage());
     }
 }

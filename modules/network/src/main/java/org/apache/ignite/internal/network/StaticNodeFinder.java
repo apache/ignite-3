@@ -24,8 +24,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -61,7 +61,7 @@ public class StaticNodeFinder implements NodeFinder {
     @Override
     public Collection<NetworkAddress> findNodes() {
         if (addresses.isEmpty()) {
-            return Collections.emptyList();
+            return Set.of();
         }
 
         Collection<NetworkAddress> networkAddresses = addresses.parallelStream()
@@ -72,7 +72,7 @@ public class StaticNodeFinder implements NodeFinder {
                 .collect(toSet());
 
         if (networkAddresses.isEmpty()) {
-            throw new IgniteInternalException(ADDRESS_UNRESOLVED_ERR, "No network address found");
+            throw new IgniteInternalException(ADDRESS_UNRESOLVED_ERR, "No network addresses resolved through any provided names");
         }
 
         return networkAddresses;
