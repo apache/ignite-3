@@ -44,6 +44,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final int zoneId;
 
+    // TODO remove
     private final boolean colocationEnabled;
 
     /**

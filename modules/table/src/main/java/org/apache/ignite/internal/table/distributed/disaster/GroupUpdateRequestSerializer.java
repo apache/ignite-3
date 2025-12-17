@@ -31,6 +31,7 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link GroupUpdateRequest} instances.
  */
+// TODO check and update
 class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateRequest> {
     /** Serializer instance. */
     static final GroupUpdateRequestSerializer INSTANCE = new GroupUpdateRequestSerializer();

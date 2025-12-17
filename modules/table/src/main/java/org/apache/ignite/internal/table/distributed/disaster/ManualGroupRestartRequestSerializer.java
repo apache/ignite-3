@@ -30,6 +30,7 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link ManualGroupRestartRequest} instances.
  */
+// TODO check and update
 class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGroupRestartRequest> {
     /** Serializer instance. */
     static final ManualGroupRestartRequestSerializer INSTANCE = new ManualGroupRestartRequestSerializer();

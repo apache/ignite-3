@@ -34,9 +34,7 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalTablePartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalZonePartitionStatesSystemView;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalTablePartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalZonePartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
@@ -300,9 +298,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     public List<SystemView<?>> systemViews() {
         return List.of(
                 createGlobalZonePartitionStatesSystemView(this),
-                createLocalZonePartitionStatesSystemView(this),
-                createGlobalTablePartitionStatesSystemView(this),
-                createLocalTablePartitionStatesSystemView(this)
+                createLocalZonePartitionStatesSystemView(this)
         );
     }
 
@@ -371,6 +367,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Future that completes when partitions are reset.
      */
+    // TODO remove
     public CompletableFuture<Void> resetTablePartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
         return inBusyLock(busyLock, () -> {
             int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
@@ -393,6 +390,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
+    // TODO remove
     public CompletableFuture<Void> resetTablePartitions(
             String zoneName,
             String schemaName,
@@ -464,6 +462,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param colocationEnabled Whether the update is a zone request (enabled colocation) or a table request (colocation disabled).
      * @return Future that completes when partitions are reset.
      */
+    // TODO remove colocationEnabled param
     private CompletableFuture<Void> resetPartitions(
             String zoneName,
             Map<Integer, Set<Integer>> partitionIds,
