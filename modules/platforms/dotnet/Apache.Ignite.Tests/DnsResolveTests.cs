@@ -143,4 +143,11 @@ public class DnsResolveTests
 
         client.WaitForConnections(4, timeoutMs: 3000);
     }
+
+    [Test]
+    public async Task TestClientRetainsExistingConnectionsOnEndpointRefresh()
+    {
+        await Task.Yield();
+        Assert.Fail("TODO");
+    }
 }
