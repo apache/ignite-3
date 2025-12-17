@@ -45,6 +45,7 @@ import org.apache.ignite.network.NetworkAddress;
 public class StaticNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
     private static final long RETRY_WAIT_BASE_MILLIS = 500;
+    private static final int MAX_TRIES = 3;
 
     /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
@@ -86,7 +87,6 @@ public class StaticNodeFinder implements NodeFinder {
     private static String[] resolveAll(String host) {
         InetAddress[] inetAddresses = null;
 
-        final int maxTries = 3;
         int tryCount = 0;
         boolean resolved = false;
 
@@ -97,7 +97,7 @@ public class StaticNodeFinder implements NodeFinder {
                 inetAddresses = InetAddress.getAllByName(host);
                 resolved = true;
             } catch (UnknownHostException e) {
-                if (tryCount == maxTries) {
+                if (tryCount == MAX_TRIES) {
                     LOG.warn("Cannot resolve {}", host);
                     return ArrayUtils.STRING_EMPTY_ARRAY;
                 }

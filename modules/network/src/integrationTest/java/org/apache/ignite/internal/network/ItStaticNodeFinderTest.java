@@ -40,7 +40,6 @@ class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
     protected String getNodeBootstrapConfigTemplate() {
         return "ignite {\n"
                 + "  network: {\n"
-                + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ \"bad.host:1234\" ]\n"
                 + "  },\n"
                 + "}";
