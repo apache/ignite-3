@@ -25,13 +25,11 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -126,11 +124,6 @@ public class TestServer {
 
         ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "Test Server");
 
-        SuggestionsConfiguration suggestionsConfiguration = mock(SuggestionsConfiguration.class);
-        ConfigurationValue<Boolean> booleanValue = mock(ConfigurationValue.class);
-        Mockito.when(booleanValue.value()).thenReturn(true);
-        Mockito.when(suggestionsConfiguration.enabled()).thenReturn(booleanValue);
-
         var module = new ClientHandlerModule(
                 mock(QueryProcessor.class),
                 mock(IgniteTablesInternal.class),
@@ -147,10 +140,10 @@ public class TestServer {
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
-                suggestionsConfiguration,
                 new TestLowWatermark(),
                 new SystemPropertiesNodeProperties(),
-                Runnable::run
+                Runnable::run,
+                () -> true
         );
 
         module.startAsync(componentContext).join();

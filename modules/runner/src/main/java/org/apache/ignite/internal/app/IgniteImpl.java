@@ -1309,10 +1309,10 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
-                suggestionsConfiguration,
                 lowWatermark,
                 nodeProperties,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                () -> suggestionsConfiguration.ddlBatching().enabled().value()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);

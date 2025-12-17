@@ -24,10 +24,13 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,14 +38,18 @@ import org.junit.jupiter.api.Test;
  * End-to-end tests to validate the behavior of the DDL queries suggestion handler.
  */
 public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest {
+    private final List<AutoCloseable> closeables = new ArrayList<>();
+
     @Override
     protected int nodes() {
         return 1;
     }
 
     @AfterEach
-    void dropTable() {
-        server(0).sql().executeScript("DROP TABLE t");
+    void tearDown() throws Exception {
+        server(0).sql().executeScript("DROP TABLE IF EXISTS t");
+
+        IgniteUtils.closeAll(closeables);
     }
 
     @Test
@@ -53,7 +60,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         ClientInboundMessageHandler handler1 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
         // The handler "test reference" is updated after a new connection is established.
-        IgniteClient client2 = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+        IgniteClient client2 = startClient();
         ClientInboundMessageHandler handler2 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
         assertThat(handler1, not(sameInstance(handler2)));
@@ -85,10 +92,10 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         }
 
         { // Disable suggestion
-            await(config.suggestions().change(c -> c.changeEnabled(false)));
+            await(config.suggestions().ddlBatching().change(c -> c.changeEnabled(false)));
 
             // The handler "test reference" is updated after a new connection is established.
-            IgniteClient client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+            IgniteClient client = startClient();
             ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
             addColumn(client, 1);
@@ -97,9 +104,9 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         }
 
         { // Enable suggestion
-            await(config.suggestions().change(c -> c.changeEnabled(true)));
+            await(config.suggestions().ddlBatching().change(c -> c.changeEnabled(true)));
 
-            IgniteClient client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+            IgniteClient client = startClient();
             ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
             addColumn(client, 3);
@@ -112,5 +119,15 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         String ddlQuery = IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN col{} int;", columnNumber);
 
         client.sql().execute(null, ddlQuery).close();
+    }
+
+    private IgniteClient startClient() {
+        IgniteClient client = IgniteClient.builder()
+                .addresses(getClientAddresses().toArray(new String[0]))
+                .build();
+
+        closeables.add(client);
+
+        return client;
     }
 }

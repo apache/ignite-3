@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
 
-/** Configuration related to system suggestions. */
+/** Configuration related to DDL batching suggestion. */
 @Config
-public class SuggestionsConfigurationSchema {
-    /** DDL batching suggestion configuration. */
-    @ConfigValue
-    public SuggestionsDdlBatchingConfigurationSchema ddlBatching;
+public class SuggestionsDdlBatchingConfigurationSchema {
+    /** Enable/disable suggestion about DDL batching. */
+    @Value(hasDefault = true)
+    public final boolean enabled = true;
 }

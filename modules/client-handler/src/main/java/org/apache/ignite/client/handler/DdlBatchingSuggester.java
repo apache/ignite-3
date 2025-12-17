@@ -60,7 +60,9 @@ public class DdlBatchingSuggester implements Consumer<SqlQueryType> {
 
         if (counter.incrementAndGet() == THRESHOLD) {
             printer.accept("The system detected that a batch of DDL commands was executed one by one. "
-                    + "For better performance, it is recommended to combine DDL commands into a single SQL script.");
+                    + "For better performance, it is recommended to combine DDL commands into a single "
+                    + "SQL script. To disable this suggestion, change the cluster configuration property "
+                    + "'ignite.suggestions.ddlBatching.enabled' to 'false'.");
         }
     }
 

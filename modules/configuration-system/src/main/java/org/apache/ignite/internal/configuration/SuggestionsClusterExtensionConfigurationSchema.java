@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
- * Extension for suggestions distributed endpoint subtree.
+ * Extension for suggestions distributed configuration schema.
  */
 @ConfigurationExtension
 public class SuggestionsClusterExtensionConfigurationSchema extends ClusterConfigurationSchema {
