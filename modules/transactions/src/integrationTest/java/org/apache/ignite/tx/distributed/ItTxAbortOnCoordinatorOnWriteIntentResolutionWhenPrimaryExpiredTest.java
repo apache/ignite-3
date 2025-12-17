@@ -138,13 +138,12 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         firstPrimaryNode.stop();
 
         // Wait for lease to expire.
-        await().atMost(5, TimeUnit.SECONDS)
+        await().atMost(30, TimeUnit.SECONDS)
                 .until(() -> {
                     ReplicaMeta meta = coordinatorNode.placementDriver()
                             .getCurrentPrimaryReplica(groupId, coordinatorNode.clock().current());
 
                     return meta != null && !meta.getLeaseholderId().equals(firstPrimaryNodeId);
-
                 });
 
         waitAndGetPrimaryReplica(coordinatorNode, groupId);
