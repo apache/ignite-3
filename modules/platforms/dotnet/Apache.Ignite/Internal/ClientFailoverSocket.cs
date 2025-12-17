@@ -591,7 +591,8 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private void ScheduleReResolveDns() => ThreadPool.QueueUserWorkItem(o => _ = ReResolveDns());
+        private void ScheduleReResolveDns() =>
+            ThreadPool.QueueUserWorkItem(static thisSock => _ = thisSock.ReResolveDns(), this, false);
 
         /// <summary>
         /// Throws if disposed.
