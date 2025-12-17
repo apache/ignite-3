@@ -764,7 +764,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 dataStorageManager,
                 outgoingSnapshotManager,
-                clusterSvc.messagingService(),
+                messagingServiceReturningToStorageOperationsPool,
                 replicaService
         );
 

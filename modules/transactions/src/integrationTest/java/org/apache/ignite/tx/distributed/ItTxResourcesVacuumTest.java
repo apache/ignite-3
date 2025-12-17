@@ -164,7 +164,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-
     @Test
     public void test1() throws ExecutionException, InterruptedException {
         IgniteImpl node = anyNode();
@@ -1148,5 +1147,4 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             return txStatePartitionStorage.get(txId);
         });
     }
-
 }

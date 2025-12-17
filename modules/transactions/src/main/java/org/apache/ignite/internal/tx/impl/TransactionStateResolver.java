@@ -39,7 +39,6 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -443,7 +442,7 @@ public class TransactionStateResolver {
      * @return Future that should be completed with transaction state meta.
      */
     private CompletableFuture<@Nullable TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
-        /*clockService.updateClock(request.readTimestamp());
+        clockService.updateClock(request.readTimestamp());
 
         UUID txId = request.txId();
 
@@ -466,28 +465,12 @@ public class TransactionStateResolver {
                         : request.senderGroupId().asZonePartitionId();
 
                 if (tx != null && !tx.isReadOnly() && currentConsistencyToken != null && groupId != null) {
-                    return txManager
-                            .checkEnlistedPartitionsAndAbortIfNeeded(txStateMeta, tx, currentConsistencyToken, groupId);
+                    return txManager.checkEnlistedPartitionsAndAbortIfNeeded(txStateMeta, tx, currentConsistencyToken, groupId);
                 }
             }
         }
 
-        return completedFuture(txStateMeta);*/
-        clockService.updateClock(request.readTimestamp());
-
-        UUID txId = request.txId();
-
-        TxStateMeta txStateMeta = txManager.stateMeta(txId);
-
-        if (txStateMeta != null && txStateMeta.txState() == FINISHING) {
-            assert txStateMeta instanceof TxStateMetaFinishing;
-
-            TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
-
-            return txStateMetaFinishing.txFinishFuture();
-        } else {
-            return completedFuture(txStateMeta);
-        }
+        return completedFuture(txStateMeta);
     }
 
     private static @Nullable TransactionMetaMessage toTransactionMetaMessage(@Nullable TransactionMeta transactionMeta) {

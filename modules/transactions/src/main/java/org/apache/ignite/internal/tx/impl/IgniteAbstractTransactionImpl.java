@@ -45,7 +45,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     protected final TxManager txManager;
 
     /** The tracker is used to track an observable timestamp. */
-protected final HybridTimestampTracker observableTsTracker;
+    protected final HybridTimestampTracker observableTsTracker;
 
     /** Transaction coordinator ephemeral ID. */
     private final UUID coordinatorId;

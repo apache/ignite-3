@@ -1102,7 +1102,7 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 dataStorageMgr,
                 outgoingSnapshotsManager,
-                clusterSvc.messagingService(),
+                messagingServiceReturningToStorageOperationsPool,
                 replicaSvc
         );
 

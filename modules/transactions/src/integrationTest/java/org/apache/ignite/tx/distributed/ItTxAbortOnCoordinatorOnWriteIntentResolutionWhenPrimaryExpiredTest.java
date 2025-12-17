@@ -19,29 +19,51 @@ package org.apache.ignite.tx.distributed;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runInExecutor;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.partitionIdForTuple;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.table;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.txId;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.zoneId;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for transaction abort on coordinator when write-intent resolution happens after primary replica expiration.
  */
-public class ItTxAbortOnCoordinatorOnWIResolutionWhenPrimaryExpiredTest extends ClusterPerTestIntegrationTest {
+public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest extends ClusterPerTestIntegrationTest {
     /** Zone name. */
     private static final String ZONE_NAME = "test_zone";
 
@@ -54,8 +76,14 @@ public class ItTxAbortOnCoordinatorOnWIResolutionWhenPrimaryExpiredTest extends 
             .set("key", t.longValue("key") + 1)
             .set("val", "" + (t.longValue("key") + 1));
 
+    private ExecutorService storageExecutor;
+
     @BeforeEach
     public void setup() {
+        storageExecutor = Executors.newSingleThreadExecutor(
+                IgniteThreadFactory.create("test", "storage-test-pool", log, ThreadOperation.STORAGE_READ)
+        );
+
         String zoneSql = "create zone " + ZONE_NAME + " (partitions 20, replicas 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
         String sql = "create table " + TABLE_NAME + " (key bigint primary key, val varchar(20)) zone " + ZONE_NAME;
 
@@ -63,6 +91,11 @@ public class ItTxAbortOnCoordinatorOnWIResolutionWhenPrimaryExpiredTest extends 
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
+    }
+
+    @AfterEach
+    public void tearDown() {
+        shutdownAndAwaitTermination(storageExecutor, 10, TimeUnit.SECONDS);
     }
 
     @Override
@@ -78,14 +111,15 @@ public class ItTxAbortOnCoordinatorOnWIResolutionWhenPrimaryExpiredTest extends 
         log.info("Test: firstPrimaryNode: {}, firstPrimaryNode id: {}", firstPrimaryNode.name(), firstPrimaryNode.id());
         log.info("Test: coordinatorNode: {}, coordinatorNode id: {}", coordinatorNode.name(), coordinatorNode.id());
 
-        RecordView<Tuple> view = firstPrimaryNode.tables().table(TABLE_NAME).recordView();
+        RecordView<Tuple> view = coordinatorNode.tables().table(TABLE_NAME).recordView();
 
-        Transaction txx = firstPrimaryNode.transactions().begin();
+        Transaction txx = coordinatorNode.transactions().begin();
         Tuple tuple = findTupleToBeHostedOnNode(firstPrimaryNode, TABLE_NAME, txx, INITIAL_TUPLE, NEXT_TUPLE, true);
         int partId = partitionIdForTuple(firstPrimaryNode, TABLE_NAME, tuple, txx);
         var groupId = new ZonePartitionId(zoneId(firstPrimaryNode, TABLE_NAME), partId);
         log.info("Test: groupId: " + groupId);
         view.upsert(txx, tuple);
+
         txx.commit();
 
         Transaction tx0 = coordinatorNode.transactions().begin();
@@ -93,32 +127,73 @@ public class ItTxAbortOnCoordinatorOnWIResolutionWhenPrimaryExpiredTest extends 
         view.upsert(tx0, tuple);
         // Don't commit or rollback tx0.
 
-        // for replication
-        Thread.sleep(1000);
+        // Wait for replication.
+        Tuple keyTuple = Tuple.create().set("key", tuple.longValue("key"));
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> checkKeyInStorageOnAllNodes(partId, keyTuple));
 
         UUID firstPrimaryNodeId = firstPrimaryNode.id();
 
         log.info("Test: node stop: " + firstPrimaryNode.name());
         firstPrimaryNode.stop();
 
-        // for lease to expire
-        waitForCondition(() -> {
-            ReplicaMeta meta = coordinatorNode.placementDriver().getCurrentPrimaryReplica(groupId, coordinatorNode.clock().current());
+        // Wait for lease to expire.
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> {
+                    ReplicaMeta meta = coordinatorNode.placementDriver()
+                            .getCurrentPrimaryReplica(groupId, coordinatorNode.clock().current());
 
-            return meta != null && !meta.getLeaseholderId().equals(firstPrimaryNodeId);
-        }, 30_000);
+                    return meta != null && !meta.getLeaseholderId().equals(firstPrimaryNodeId);
+
+                });
 
         waitAndGetPrimaryReplica(coordinatorNode, groupId);
-
-        RecordView<Tuple> view1 = coordinatorNode.tables().table(TABLE_NAME).recordView();
 
         Transaction tx = coordinatorNode.transactions().begin();
         log.info("Test: new tx: " + txId(tx));
         log.info("Test: upsert");
 
+        Tuple newTuple = Tuple.create().set("key", tuple.longValue("key")).set("val", "v");
+
         // If coordinator of tx0 doesn't abort it, tx will stumble into write intent and fail with TxIdMismatchException.
-        view1.upsert(tx, tuple);
+        view.upsert(tx, newTuple);
 
         tx.commit();
+
+        // Check that new value is written successfully.
+        Tuple actual = view.get(null, keyTuple);
+        assertEquals(newTuple, actual);
+    }
+
+    private boolean checkKeyInStorageOnAllNodes(int partId, Tuple key) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .allMatch(n -> checkKeyInStorage(n, partId, key));
+    }
+
+    private boolean checkKeyInStorage(IgniteImpl node, int partId, Tuple key) {
+        return runInExecutor(storageExecutor, () -> {
+            HybridClock clock = node.clock();
+
+            TableImpl table = table(node, TABLE_NAME);
+            InternalTable internalTable = table.internalTable();
+            TableSchemaAwareIndexStorage pkIndex = table.indexStorageAdapters(partId).get().get(table.pkId());
+
+            MvPartitionStorage partitionStorage = internalTable.storage().getMvPartition(partId);
+
+            var marshaller = new TupleMarshallerImpl(() -> QualifiedName.of("default", TABLE_NAME), table.schemaView().lastKnownSchema());
+            Row keyRow = marshaller.marshalKey(key);
+            BinaryTuple keyBinaryTuple = pkIndex.resolve(keyRow.byteBuffer());
+
+            for (RowId rowId : pkIndex.storage().get(keyBinaryTuple)) {
+                ReadResult readResult = partitionStorage.read(rowId, clock.current());
+
+                if (!readResult.isEmpty()) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
     }
 }
