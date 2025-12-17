@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.raft.configuration;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/** Common utilities for jobs in compatibility tests. */
-class JobsCommon {
-    static IgniteImpl unwrapIgniteImpl(Ignite ignite) {
-        return Wrappers.unwrap(ignite, IgniteImpl.class);
-    }
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+/**
+ * Annotations used to mark {@link LogStorageConfiguration} fields to enable their validation.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface ValidLogStorageConfiguration {
 }

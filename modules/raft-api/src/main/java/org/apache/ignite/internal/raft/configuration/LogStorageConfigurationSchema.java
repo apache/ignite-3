@@ -26,18 +26,42 @@ import org.apache.ignite.configuration.validation.Range;
 /** Configuration of the Raft log storage. */
 @Config
 public class LogStorageConfigurationSchema {
+    public static final int DEFAULT_MAX_CHECKPOINT_QUEUE_SIZE = 10;
+
+    public static final int DEFAULT_SEGMENT_FILE_SIZE_BYTES = Integer.MAX_VALUE;
+
+    public static final int UNSPECIFIED_MAX_LOG_ENTRY_SIZE = -1;
+
     /**
      * Maximum size of the log storage checkpoint queue.
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public int maxCheckpointQueueSize = 10;
+    public int maxCheckpointQueueSize = DEFAULT_MAX_CHECKPOINT_QUEUE_SIZE;
 
     /**
      * Size of a segment file in bytes.
      */
-    @SuppressWarnings("PointlessArithmeticExpression") // Suppressed for better readability.
     @Value(hasDefault = true)
-    @Range(min = 1 * KiB, max = Integer.MAX_VALUE)
-    public long segmentFileSizeBytes = Integer.MAX_VALUE;
+    @Range(min = 4 * KiB, max = Integer.MAX_VALUE)
+    public long segmentFileSizeBytes = DEFAULT_SEGMENT_FILE_SIZE_BYTES;
+
+    /**
+     * Maximum allowed size of a log entry in bytes.
+     */
+    @Value(hasDefault = true)
+    public int maxLogEntrySizeBytes = UNSPECIFIED_MAX_LOG_ENTRY_SIZE;
+
+    /**
+     * Computes the default maximum log entry size based on the segment file size.
+     *
+     * <p>Should be used to calculate the maximum log entry size when it is equal to {@link #UNSPECIFIED_MAX_LOG_ENTRY_SIZE}.
+     */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static int computeDefaultMaxLogEntrySizeBytes(long segmentFileSizeBytes) {
+        // We set the max entry size to 90% of the segment file to leave some space for metadata overhead.
+        long maxAllowedEntrySize = (long) (segmentFileSizeBytes * 0.9);
+
+        return (int) Math.min(Integer.MAX_VALUE, maxAllowedEntrySize);
+    }
 }

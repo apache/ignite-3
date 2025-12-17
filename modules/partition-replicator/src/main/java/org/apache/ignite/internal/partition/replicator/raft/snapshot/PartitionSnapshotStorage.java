@@ -279,6 +279,8 @@ public class PartitionSnapshotStorage {
     }
 
     private void completeSnapshotOperation(UUID snapshotId) {
+        LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
         synchronized (snapshotOperationLock) {
             CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 

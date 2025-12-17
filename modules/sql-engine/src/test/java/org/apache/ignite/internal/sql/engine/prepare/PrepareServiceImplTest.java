@@ -350,8 +350,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         CacheFactory cacheFactory = new DummyCacheFactory(cache);
 
-        // Set planning timeout 1 millisecond, this value is small enough to cause a planning timeout exception. 
-        PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 1);
+        // Set planning timeout 1 millisecond, this value is small enough to cause a planning timeout exception.
+        PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 1L);
 
         StringBuilder stmt = new StringBuilder();
         for (int i = 0; i < 100; i++) {
@@ -408,7 +408,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table));
 
-        PrepareServiceImpl service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE);
+        PrepareServiceImpl service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Long.MAX_VALUE);
 
         assertThat(service.cache.size(), is(0));
 
@@ -452,10 +452,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1, table2));
 
         // 1 item cache plan size
-        PrepareServiceImpl service = (PrepareServiceImpl) createPlannerService(schema, 1);
+        PrepareServiceImpl service = createPlannerService(schema, 1);
 
-        String selectQuery = "SELECT * FROM test.t1 WHERE c = 1";
-        await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+        String query1 = "SELECT * FROM test.t1 WHERE c = 1";
+        await(service.prepareAsync(parse(query1), operationContext().build()));
 
         assertThat(service.cache.size(), is(1));
         CacheKey key1 = service.cache.entrySet().iterator().next().getKey();
@@ -490,7 +490,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         configurationValue.update(60).join();
 
         // Starts in createPlannerService
-        PrepareServiceImpl service = (PrepareServiceImpl) createPlannerService(schema, 1);
+        PrepareServiceImpl service = createPlannerService(schema, 1);
 
         // Initial values
         configurationValue.update(42).join();
@@ -551,7 +551,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         runScheduledTasks();
         // Let eviction tasks to run.
-        Awaitility.await().untilAsserted(() -> 
+        Awaitility.await().untilAsserted(() ->
                 assertNotSame(plan2, await(service.prepareAsync(parse(selectQuery), operationContext().build()))));
 
         // previous catalog, get cached plan
@@ -642,7 +642,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         Awaitility.await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
             int expireSeconds = 2;
             PrepareServiceImpl service =
-                    createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, expireSeconds, 1000);
+                    createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Long.MAX_VALUE, expireSeconds, 1000);
 
             String query = "SELECT * FROM test.t WHERE c = 1";
             QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
@@ -674,7 +674,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
 
-        PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000);
+        PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000L);
 
         await(service.prepareAsync(parse("SELECT * FROM t1"), createContext()));
         await(service.prepareAsync(parse("SELECT * FROM t1 WHERE C > 0"), createContext()));
@@ -697,7 +697,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
 
-        PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000);
+        PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000L);
 
         { // Simple name.
             await(service.prepareAsync(parse("SELECT * FROM t1"), createContext()));
@@ -767,7 +767,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         ));
 
         PrepareServiceImpl service =
-                createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, 100, 1000);
+                createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Long.MAX_VALUE, 100, 1000);
 
         BlockingQueue<PreparedPlan> result = new LinkedBlockingQueue<>();
 
@@ -874,22 +874,25 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return createPlannerService(createSchema());
     }
 
-    private PrepareService createPlannerService(IgniteSchema schema, int cacheSize) {
-        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000, Integer.MAX_VALUE, cacheSize);
+    private PrepareServiceImpl createPlannerService(IgniteSchema schema, int cacheSize) {
+        // Run clean up tasks in the current thread, so no eviction event is delayed.
+        CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
+
+        return createPlannerService(schema, cacheFactory, 10000L, Integer.MAX_VALUE, cacheSize);
     }
 
     private PrepareService createPlannerService(IgniteSchema schema) {
-        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000);
+        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000L);
     }
 
-    private PrepareServiceImpl createPlannerService(IgniteSchema schemas, CacheFactory cacheFactory, int timeoutMillis) {
+    private PrepareServiceImpl createPlannerService(IgniteSchema schemas, CacheFactory cacheFactory, long timeoutMillis) {
         return createPlannerService(schemas, cacheFactory, timeoutMillis, Integer.MAX_VALUE, 1000);
     }
 
     private PrepareServiceImpl createPlannerService(
             IgniteSchema schemas,
             CacheFactory cacheFactory,
-            int timeoutMillis,
+            long timeoutMillis,
             int planExpireSeconds,
             int cacheSize
     ) {
