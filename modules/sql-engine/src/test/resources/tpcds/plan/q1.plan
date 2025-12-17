@@ -7,7 +7,7 @@ Sort
       projection: [C_CUSTOMER_ID]
       est: (rows=5739)
     Filter
-        predicate: >(CTR_TOTAL_RETURN, CAST(EXPR$0):DECIMAL(32767, 2))
+        predicate: >(CAST(CTR_TOTAL_RETURN):DECIMAL(30, 17), EXPR$0)
         est: (rows=5739)
       CorrelatedNestedLoopJoin
           predicate: true

@@ -63,6 +63,8 @@ import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
@@ -421,6 +423,36 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             } else {
                 assertNull(tuple);
             }
+        }
+    }
+
+    @Test
+    public void testManyItemsWithSql() {
+        ignite().sql().executeScript("delete from " + TABLE_NAME);
+
+        int count = 10_000;
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = view.streamData(publisher, options);
+
+            for (int i = 0; i < count; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
+            }
+        }
+
+        streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
+
+        ArrayList<String> sqlRes = new ArrayList<>(count);
+        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " order by id");
+        resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
+
+        assertEquals(count, sqlRes.size());
+
+        for (int i = 0; i < sqlRes.size(); i++) {
+            assertEquals("foo-" + i, sqlRes.get(i));
         }
     }
 

@@ -155,7 +155,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -890,7 +890,7 @@ public class ItTxTestCluster {
                 )
         );
 
-        PartitionListener tablePartitionRaftListener = new PartitionListener(
+        TablePartitionProcessor tablePartitionRaftListener = new TablePartitionProcessor(
                 txManagers.get(assignment),
                 partitionDataStorage,
                 storageUpdateHandler,

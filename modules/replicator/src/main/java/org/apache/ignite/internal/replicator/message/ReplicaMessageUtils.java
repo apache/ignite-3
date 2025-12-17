@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
@@ -76,26 +75,5 @@ public class ReplicaMessageUtils {
         }
 
         return toZonePartitionIdMessage(messagesFactory, zonePartitionId);
-    }
-
-    /**
-     * Converts to a network message.
-     *
-     * @param messagesFactory Messages factory.
-     * @param replicationGroupId Replication group ID for a given partition.
-     * @return New instance of network message.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-27174 remove this method and its usages.
-    // For now, this method is left intentionally to facilitate the merge process.
-    public static ZonePartitionIdMessage toReplicationGroupIdMessage(
-            ReplicaMessagesFactory messagesFactory,
-            ReplicationGroupId replicationGroupId
-    ) {
-        assert replicationGroupId instanceof ZonePartitionId :
-                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
-                        + ", value=" + replicationGroupId
-                        + ", requiredType = ZonePartitionId].";
-
-        return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
     }
 }

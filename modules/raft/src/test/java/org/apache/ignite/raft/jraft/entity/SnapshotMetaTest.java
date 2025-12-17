@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.raft.jraft.entity;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-/** Common utilities for jobs in compatibility tests. */
-class JobsCommon {
-    static IgniteImpl unwrapIgniteImpl(Ignite ignite) {
-        return Wrappers.unwrap(ignite, IgniteImpl.class);
+import java.lang.reflect.Field;
+import org.junit.jupiter.api.Test;
+
+class SnapshotMetaTest {
+    @Test
+    void implementationHasExpectedSerialVersionUid() throws Exception {
+        Field field = SnapshotMetaImpl.class.getDeclaredField("serialVersionUID");
+        field.setAccessible(true);
+
+        assertThat(field.get(null), is(7302290474182723103L));
     }
 }

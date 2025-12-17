@@ -30,19 +30,14 @@ import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAt
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 
-import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -55,15 +50,10 @@ import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHand
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -85,11 +75,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-// TODO ignite-22522 Rename to TablePartitionProcessor and remove implements RaftGroupListener
-public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
-
+public class TablePartitionProcessor implements RaftTableProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -123,7 +109,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
-    public PartitionListener(
+    public TablePartitionProcessor(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
@@ -193,66 +179,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else {
             return !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId());
         }
-    }
-
-    @Override
-    public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
-            Command command = clo.command();
-
-            assert false : "No read commands expected, [cmd=" + command + ']';
-        });
-    }
-
-    @Override
-    public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
-            WriteCommand command = clo.command();
-
-            long commandIndex = clo.index();
-            long commandTerm = clo.term();
-            @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
-            assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
-
-            long storagesAppliedIndex = storage.lastAppliedIndex();
-
-            assert commandIndex > storagesAppliedIndex :
-                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
-                            + ", mvAppliedIndex=" + storage.lastAppliedIndex() + "]";
-
-            CommandResult result;
-
-            // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
-            // storages!
-            // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
-            // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
-            // in comparison with 'snapshot' state stored in our storages; and if we install a snapshot from our storages
-            // to a follower at this point, for a subsequent AppendEntries the leader will not be able to get prevLogTerm
-            // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
-            // repeat same thing over and over again.
-
-            storage.acquirePartitionSnapshotsReadLock();
-
-            try {
-                result = processCommand(command, commandIndex, commandTerm, safeTimestamp);
-            } catch (Throwable t) {
-                LOG.error(
-                        "Got error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                        t,
-                        clo.index(), clo.index(), command
-                );
-
-                clo.result(t);
-
-                throw t;
-            } finally {
-                storage.releasePartitionSnapshotsReadLock();
-            }
-
-            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
-            // trigger other actions taking same locks.
-            clo.result(result.result());
-        });
     }
 
     @Override
@@ -565,17 +491,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         currentGroupTopology.clear();
         currentGroupTopology.addAll(config.peers());
         currentGroupTopology.addAll(config.learners());
-    }
-
-    @Override
-    public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        throw new UnsupportedOperationException("!!! It's not expected that PartitionListener onSnapshotSave will be called.");
-
-    }
-
-    @Override
-    public boolean onSnapshotLoad(Path path) {
-        return true;
     }
 
     @Override

@@ -22,20 +22,21 @@ import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSna
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot reader implementation to read the metadata of downloaded snapshot.
  */
 class IncomingSnapshotReader extends SnapshotReader {
     /** Snapshot meta. */
-    private final PartitionSnapshotMeta snapshotMeta;
+    private final @Nullable PartitionSnapshotMeta snapshotMeta;
 
     /**
      * Constructor.
      *
      * @param snapshotMeta Snapshot meta.
      */
-    IncomingSnapshotReader(PartitionSnapshotMeta snapshotMeta) {
+    IncomingSnapshotReader(@Nullable PartitionSnapshotMeta snapshotMeta) {
         this.snapshotMeta = snapshotMeta;
     }
 
