@@ -390,7 +390,9 @@ public class InternalTableImpl implements InternalTable {
 
                     long ts = (txStartTs == null) ? actualTx.schemaTimestamp().getPhysical() : txStartTs;
 
-                    if (canRetry(e, ts, timeout)) {
+                    boolean canRetry = canRetry(e, ts, timeout);
+
+                    if (canRetry) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -2335,7 +2337,7 @@ public class InternalTableImpl implements InternalTable {
                 unwrapCause(e),
                 ACQUIRE_LOCK_ERR,
                 GROUP_OVERLOADED_ERR,
-                 REPLICA_MISS_ERR,
+                REPLICA_MISS_ERR,
                 REPLICA_UNAVAILABLE_ERR,
                 PRIMARY_REPLICA_AWAIT_ERR,
                 PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR

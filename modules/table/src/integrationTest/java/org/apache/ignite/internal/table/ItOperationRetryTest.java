@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,9 +37,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -82,6 +85,16 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         });
     }
 
+    @Override
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        super.customizeInitParameters(builder);
+
+        long txTimeoutMs = SECONDS.toMillis(AWAIT_PRIMARY_REPLICA_TIMEOUT * 2);
+
+        // In retryImplicitTransactionsDueToReplicationTimeoutTest we want to ensure that retry will be triggered before default tx timeout.
+        builder.clusterConfiguration("ignite { transaction: { readWriteTimeoutMillis: " + txTimeoutMs + " } }");
+    }
+
     @Test
     public void testLockExceptionRetry() {
         IgniteImpl leaseholderNode = findLeaseholderNode(testPartitionGroupId());
@@ -114,6 +127,52 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
         tx2.commit();
 
+        assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
+    }
+
+    @Test
+    public void retryImplicitTransactionsDueToReplicationTimeoutTest() throws InterruptedException {
+        ZonePartitionId partitionGroupId = testPartitionGroupId();
+
+        // We want node 0 as MG leader, node 1 as leaseholder and node 2 as implicit tx coordinator.
+        int leaseholderNodeIdx = 1;
+        String leaseholderNodeName = waitAndGetPrimaryReplica(partitionGroupId);
+
+        // Move lease to node 1 in case of it was granted for a wrong node.
+        if (nodeIndex(leaseholderNodeName) != leaseholderNodeIdx) {
+            leaseholderNodeName = node(leaseholderNodeIdx).name();
+            transferPrimaryTo(leaseholderNodeName, partitionGroupId);
+        }
+
+        IgniteImpl transactionCoordinatorNode = unwrapIgniteImpl(node(2));
+
+        // Now we stop MS updates handling on coordinator nodes then we won't see any new lease updates there.
+        WatchListenerInhibitor txCoordInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(transactionCoordinatorNode);
+        txCoordInhibitor.startInhibit();
+
+        // Stopping leaseholder node that should trigger lease changes for the group.
+        stopNode(leaseholderNodeName);
+
+        // Even with inhibitor schema sync and value trackers should work, so we won't hang there.
+        RecordView<Tuple> view = transactionCoordinatorNode.tables().table(TABLE_NAME).recordView();
+        CompletableFuture<Void> futureUpsert = view.upsertAsync(null, NEW_RECORD_TUPLE);
+
+        // Let's wait for replication timeout that will lead to the retry.
+        long msTimeout = SECONDS.toMillis(AWAIT_PRIMARY_REPLICA_TIMEOUT + 1);
+        log.info("Test: waiting for {}ms.", msTimeout);
+        Thread.sleep(msTimeout);
+
+        // Let's return back the node and ability to find lease updates on the coordinator.
+        log.info("Test: waiting is over, starting node {}.", leaseholderNodeIdx);
+        txCoordInhibitor.stopInhibit();
+        startNode(leaseholderNodeIdx);
+
+        // Waiting unitl lease will be granted for the group and the coordinator should be able to get the primary replica for the retry.
+        waitAndGetPrimaryReplica(transactionCoordinatorNode,  partitionGroupId);
+
+        // Finally we expect the upsert will succeed eventually because of retry with new leaseholder enlisted.
+        assertThat(futureUpsert, willSucceedIn(10, SECONDS));
+        // And we can also read the expected value too.
         assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
     }
 
