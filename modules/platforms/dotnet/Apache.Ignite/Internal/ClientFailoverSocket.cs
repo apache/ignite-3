@@ -448,7 +448,7 @@ namespace Apache.Ignite.Internal
                     var addedStr = newEndpoints.Select(e => e.EndPointString).StringJoin();
                     var removedStr = toRemove?.Select(e => e.EndPointString).StringJoin();
 
-                    _logger.LogEndpointListUpdatedTrace(addedStr, removedStr);
+                    _logger.LogEndpointListUpdatedTrace(addedStr, removedStr ?? string.Empty);
                 }
 
                 // Add remaining endpoints that were not known before.
