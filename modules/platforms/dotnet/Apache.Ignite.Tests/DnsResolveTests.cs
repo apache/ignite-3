@@ -123,7 +123,32 @@ public class DnsResolveTests
     [Test]
     public async Task TestClientReResolvesHostNamesOnPrimaryReplicaAssignmentChange()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        using var logger = new ConsoleLogger(LogLevel.Trace);
+        using var servers = FakeServerGroup.Create(
+            count: 6,
+            x => new FakeServer(nodeName: "fake-node-" + x, address: IPAddress.Parse("127.0.0.1" + x), port: 10902));
+
+        var dnsMap = new ConcurrentDictionary<string, string[]>
+        {
+            ["fake-host"] = ["127.0.0.10", "127.0.0.11"]
+        };
+
+        var cfg = new IgniteClientConfiguration("fake-host:10902")
+        {
+            ReResolveAddressesInterval = Timeout.InfiniteTimeSpan,
+            ReconnectInterval = TimeSpan.FromMilliseconds(500),
+            LoggerFactory = logger,
+            HeartbeatInterval = TimeSpan.FromMilliseconds(100)
+        };
+
+        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(dnsMap));
+        client.WaitForConnections(2, timeoutMs: 3000);
+
+        dnsMap["fake-host"] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
+
+        // Heartbeat will trigger re-resolve on assignment change.
+        servers.Servers[0].PartitionAssignmentTimestamp = 42;
+
+        client.WaitForConnections(4, timeoutMs: 3000);
     }
 }
