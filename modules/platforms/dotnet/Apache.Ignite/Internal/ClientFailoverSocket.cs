@@ -378,6 +378,16 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        /// <inheritdoc/>
+        void IClientSocketEventListener.OnDisconnect(Exception? ex)
+        {
+            if (ex is IgniteClientConnectionException)
+            {
+                // Connection failed => potential topology change.
+                ScheduleReResolveDns();
+            }
+        }
+
         /// <summary>
         /// Gets active sockets.
         /// </summary>
