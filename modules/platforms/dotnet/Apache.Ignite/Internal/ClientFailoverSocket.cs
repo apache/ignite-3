@@ -444,6 +444,14 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
+                if (_logger.IsEnabled(LogLevel.Trace) && (newEndpoints.Count > 0 || toRemove != null))
+                {
+                    var addedStr = newEndpoints.Select(e => e.EndPointString).StringJoin();
+                    var removedStr = toRemove?.Select(e => e.EndPointString).StringJoin();
+
+                    _logger.LogEndpointListUpdatedTrace(addedStr, removedStr);
+                }
+
                 // Add remaining endpoints that were not known before.
                 resList.AddRange(newEndpoints);
 

@@ -273,4 +273,10 @@ internal static partial class LogMessages
         Level = LogLevel.Warning,
         EventId = 1037)]
     internal static partial void LogErrorWhileReResolvingDnsWarn(this ILogger logger, Exception e, string message);
+
+    [LoggerMessage(
+        Message = "Endpoints updated [added=[{Added}], removed=[{Removed}]]",
+        Level = LogLevel.Warning,
+        EventId = 1038)]
+    internal static partial void LogEndpointListUpdatedTrace(this ILogger logger, string? added, string? removed);
 }
