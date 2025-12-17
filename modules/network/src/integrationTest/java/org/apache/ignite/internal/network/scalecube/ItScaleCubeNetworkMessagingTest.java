@@ -63,7 +63,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -1410,7 +1409,7 @@ class ItScaleCubeNetworkMessagingTest {
 
             List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
 
-            this.nodeFinder = new StaticNodeFinder(addresses, new NoOpFailureManager());
+            this.nodeFinder = new StaticNodeFinder(addresses);
 
             members = addresses.stream()
                     .map(addr -> startNode(testInfo, addr, clusterIdSupplierFactory, productVersionSourceFactory))

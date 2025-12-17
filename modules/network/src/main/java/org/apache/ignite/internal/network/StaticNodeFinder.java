@@ -26,8 +26,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -52,16 +50,13 @@ public class StaticNodeFinder implements NodeFinder {
     /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
 
-    private final FailureProcessor  failureProcessor;
-
     /**
      * Constructor.
      *
      * @param addresses Addresses of initial cluster members.
      */
-    public StaticNodeFinder(List<NetworkAddress> addresses, FailureProcessor failureProcessor) {
+    public StaticNodeFinder(List<NetworkAddress> addresses) {
         this.addresses = addresses;
-        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -78,8 +73,7 @@ public class StaticNodeFinder implements NodeFinder {
                 .collect(toSet());
 
         if (networkAddresses.isEmpty()) {
-            var err = new IgniteInternalException(ADDRESS_UNRESOLVED_ERR, "No network addresses found");
-            failureProcessor.process(new FailureContext(err, "Failed to resolve node addresses"));
+            throw new IgniteInternalException(ADDRESS_UNRESOLVED_ERR, "No network address found");
         }
 
         return networkAddresses;

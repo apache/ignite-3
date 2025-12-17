@@ -30,7 +30,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -74,7 +73,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
 
     protected List<MockNode> createNodes(int numNodes, BiConsumer<Integer, RaftGroupConfiguration> onConfigurationCommittedListener) {
         List<NetworkAddress> seedAddresses = createSeedAddresses(numNodes);
-        NodeFinder nodeFinder = new StaticNodeFinder(seedAddresses, new NoOpFailureManager());
+        NodeFinder nodeFinder = new StaticNodeFinder(seedAddresses);
 
         return IntStream.range(0, numNodes)
                 .mapToObj(i -> new MockNode(
@@ -107,7 +106,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
         return new MockNode(
                 testInfo,
                 new NetworkAddress("localhost", PORT_BASE + idx),
-                new StaticNodeFinder(createSeedAddresses(clusterSize), new NoOpFailureManager()),
+                new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
                 systemLocalConfiguration,
@@ -126,7 +125,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
         return new MockNode(
                 testInfo,
                 new NetworkAddress("localhost", PORT_BASE + idx),
-                new StaticNodeFinder(createSeedAddresses(clusterSize), new NoOpFailureManager()),
+                new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
                 systemLocalConfiguration,

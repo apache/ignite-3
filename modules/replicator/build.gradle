@@ -76,7 +76,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
-    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
 }
 
 description = 'ignite-replicator'

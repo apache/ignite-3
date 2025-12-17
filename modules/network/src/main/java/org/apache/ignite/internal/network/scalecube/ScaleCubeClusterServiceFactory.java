@@ -192,8 +192,7 @@ public class ScaleCubeClusterServiceFactory {
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(
                         configView.nodeFinder(),
                         nodeName(),
-                        connectionMgr.localBindAddress(),
-                        failureProcessor
+                        connectionMgr.localBindAddress()
                 );
                 finder.start();
 
