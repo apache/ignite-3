@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
@@ -28,6 +27,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that writes values specified in constants to node's vault. */
 public class PutVaultEntriesJob implements ComputeJob<String, Void> {
@@ -50,7 +50,7 @@ public class PutVaultEntriesJob implements ComputeJob<String, Void> {
 
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-        IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
+        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
         VaultManager vault = igniteImpl.vault();
 
