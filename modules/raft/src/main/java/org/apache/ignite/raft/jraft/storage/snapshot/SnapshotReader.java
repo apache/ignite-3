@@ -18,7 +18,8 @@ package org.apache.ignite.raft.jraft.storage.snapshot;
 
 import java.io.Closeable;
 import org.apache.ignite.raft.jraft.Lifecycle;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot reader.
