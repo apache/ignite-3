@@ -46,6 +46,21 @@ class LogStorageConfigurationValidatorTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void correctLogEntrySizeIsValid() {
+        var config = new MockLogStorageView(
+                DEFAULT_MAX_CHECKPOINT_QUEUE_SIZE,
+                DEFAULT_SEGMENT_FILE_SIZE_BYTES,
+                (int) (DEFAULT_SEGMENT_FILE_SIZE_BYTES * 0.9)
+        );
+
+        validate(
+                validator,
+                mock(ValidLogStorageConfiguration.class),
+                mockValidationContext(null, config)
+        );
+    }
+
+    @Test
     void zeroLogEntrySizeIsNotValid() {
         var config = new MockLogStorageView(
                 DEFAULT_MAX_CHECKPOINT_QUEUE_SIZE,
