@@ -152,6 +152,8 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
                         (leaderWithTerm, throwable) -> {
                             if (throwable != null) {
                                 LOG.warn("Could not refresh and get leader with term [grp={}].", groupId(), throwable);
+
+                                return;
                             }
 
                             InternalClusterNode leaderHost = clusterService.topologyService()
