@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,7 +35,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyEventHandler;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
@@ -48,19 +45,17 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The RAFT group service is based on the cluster physical topology. This service has ability to subscribe of a RAFT group leader update.
  */
-public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
+public class PhysicalTopologyAwareRaftGroupService extends WrappedRaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TopologyAwareRaftGroupService.class);
 
@@ -75,9 +70,6 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
 
     /** Cluster service. */
     private final ClusterService clusterService;
-
-    /** RPC RAFT client. */
-    private final RaftGroupService raftClient;
 
     /** Executor to invoke RPC requests. */
     private final Executor executor;
@@ -103,11 +95,12 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
             RaftGroupService raftClient,
             RaftGroupEventsClientListener eventsClientListener
     ) {
+        super(raftClient);
+
         this.failureManager = failureManager;
         this.clusterService = clusterService;
         this.executor = executor;
         this.raftConfiguration = raftConfiguration;
-        this.raftClient = raftClient;
 
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
 
@@ -319,115 +312,10 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public ReplicationGroupId groupId() {
-        return raftClient.groupId();
-    }
-
-    @Override
-    public @Nullable Peer leader() {
-        return raftClient.leader();
-    }
-
-    @Override
-    public List<Peer> peers() {
-        return raftClient.peers();
-    }
-
-    @Override
-    public @Nullable List<Peer> learners() {
-        return raftClient.learners();
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshLeader() {
-        return raftClient.refreshLeader();
-    }
-
-    @Override
-    public CompletableFuture<LeaderWithTerm> refreshAndGetLeaderWithTerm() {
-        return raftClient.refreshAndGetLeaderWithTerm();
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshMembers(boolean onlyAlive) {
-        return raftClient.refreshMembers(onlyAlive);
-    }
-
-    @Override
-    public CompletableFuture<Void> addPeer(Peer peer, long sequenceToken) {
-        return raftClient.addPeer(peer, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> removePeer(Peer peer, long sequenceToken) {
-        return raftClient.removePeer(peer, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
-        return raftClient.changePeersAndLearners(peersAndLearners, term, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
-        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken) {
-        return raftClient.addLearners(learners, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken) {
-        return raftClient.removeLearners(learners, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken) {
-        return raftClient.resetLearners(learners, sequenceToken);
-    }
-
-    @Override
-    public CompletableFuture<Void> snapshot(Peer peer, boolean forced) {
-        return raftClient.snapshot(peer, forced);
-    }
-
-    @Override
-    public CompletableFuture<Void> transferLeadership(Peer newLeader) {
-        return raftClient.transferLeadership(newLeader);
-    }
-
-    @Override
     public void shutdown() {
         finishSubscriptions();
 
-        raftClient.shutdown();
-    }
-
-    @Override
-    public CompletableFuture<Long> readIndex() {
-        return raftClient.readIndex();
-    }
-
-    @Override
-    public ClusterService clusterService() {
-        return raftClient.clusterService();
-    }
-
-    @Override
-    public void updateConfiguration(PeersAndLearners configuration) {
-        raftClient.updateConfiguration(configuration);
-    }
-
-    @Override
-    public <R> CompletableFuture<R> run(Command cmd) {
-        return raftClient.run(cmd);
-    }
-
-    @Override
-    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
-        return raftClient.run(cmd, timeoutMillis);
+        super.shutdown();
     }
 
     /**
@@ -512,8 +400,4 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
         }
     }
 
-    @Override
-    public void markAsStopping() {
-        raftClient.markAsStopping();
-    }
 }
