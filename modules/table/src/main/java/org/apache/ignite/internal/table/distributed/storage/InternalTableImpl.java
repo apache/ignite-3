@@ -137,7 +137,6 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage of table rows.
@@ -1609,7 +1608,6 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    @TestOnly
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
@@ -1622,7 +1620,6 @@ public class InternalTableImpl implements InternalTable {
         return readWriteScan(partId, actualTx, null, null);
     }
 
-    @TestOnly
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
@@ -1766,7 +1763,6 @@ public class InternalTableImpl implements InternalTable {
         };
     }
 
-    @TestOnly
     private Publisher<BinaryRow> readWriteScan(
             int partId,
             InternalClusterNode recipient,

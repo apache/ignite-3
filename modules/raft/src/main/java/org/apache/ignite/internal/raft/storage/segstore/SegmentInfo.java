@@ -151,6 +151,11 @@ class SegmentInfo {
         return new SegmentInfo(-1, firstIndexKept);
     }
 
+    static SegmentInfo resetTombstone(long nextLogIndex) {
+        // This is essentially a combination of a prefix and a suffix tombstone.
+        return new SegmentInfo(nextLogIndex + 1, nextLogIndex);
+    }
+
     private SegmentInfo(long logIndexBase, long firstIndexKept, ArrayWithSize segmentFileOffsets) {
         this.logIndexBase = logIndexBase;
         this.firstIndexKept = firstIndexKept;
@@ -297,6 +302,18 @@ class SegmentInfo {
         int newSize = toIntExact(lastLogIndexExclusive - firstIndexKept);
 
         return new SegmentInfo(firstIndexKept, firstIndexKept, segmentFileOffsets.truncatePrefix(newSize));
+    }
+
+    SegmentInfo reset(long nextLogIndex) {
+        assert nextLogIndex > logIndexBase : String.format("nextLogIndex=%d, logIndexBase=%d", nextLogIndex, logIndexBase);
+
+        int nextOffsetIndex = toIntExact(nextLogIndex - logIndexBase);
+
+        int offsetToKeep = segmentFileOffsets.get(nextOffsetIndex);
+
+        ArrayWithSize newSegmentFileOffsets = new ArrayWithSize().add(offsetToKeep);
+
+        return new SegmentInfo(nextLogIndex, nextLogIndex, newSegmentFileOffsets);
     }
 
     private void setSegmentFileOffsets(ArrayWithSize segmentFileOffsets, ArrayWithSize newSegmentFileOffsets) {

@@ -307,6 +307,7 @@ class IndexFileManager {
             long firstIndexKept = segmentInfo.firstIndexKept();
 
             // On recovery we are only creating missing index files, in-memory meta will be created on Index File Manager start.
+            // (see recoverIndexFileMetas).
             if (!onRecovery) {
                 IndexFileMeta indexFileMeta = createIndexFileMeta(
                         firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal

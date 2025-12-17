@@ -19,16 +19,18 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesPattern;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.CompatibilityTestBase;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -73,10 +75,13 @@ public class JdbcOverThinSqlWithOldServerCompatibilityTest extends Compatibility
 
         IgniteClientConnectionException connectEx = (IgniteClientConnectionException) cause;
 
+        String expectedDriverVer = Pattern.quote(IgniteProductVersion.CURRENT_VERSION.toString());
+
         assertThat(connectEx.getMessage(),
-                containsString("Connection to node aborted, because the node does not support the feature required "
-                        + "by the driver being used. Please refer to the documentation and use a compatible version "
-                        + "of the JDBC driver to connect to this node"));
+                matchesPattern("Connection to node aborted, because the node does not support the feature required "
+                        + "by the driver being used\\. Please refer to the documentation and use a compatible version "
+                        + "of the JDBC driver to connect to this node "
+                        + "\\[nodeName=.+, nodeAddress=.+, nodeVersion=.+, driverVersion=" + expectedDriverVer + ']'));
         assertThat(connectEx.code(), is(Client.CONNECTION_ERR));
     }
 }

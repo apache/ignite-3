@@ -48,9 +48,9 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Snapshot storage for a partition.
+ * Snapshot storage for a zone partition.
  *
- * <p>In case of zone partitions manages all table storages of a zone partition.
+ * <p>Manages all table storages of a zone partition.
  *
  * <p>Utilizes the fact that every partition already stores its latest applied index and thus can itself be used as its own snapshot.
  *
@@ -66,7 +66,7 @@ public class PartitionSnapshotStorage {
     /** Default number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
     private static final int DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS = 3000;
 
-    private final PartitionKey partitionKey;
+    private final ZonePartitionKey partitionKey;
 
     private final TopologyService topologyService;
 
@@ -102,7 +102,7 @@ public class PartitionSnapshotStorage {
 
     /** Constructor. */
     public PartitionSnapshotStorage(
-            PartitionKey partitionKey,
+            ZonePartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txState,
@@ -126,7 +126,7 @@ public class PartitionSnapshotStorage {
 
     /** Constructor. */
     public PartitionSnapshotStorage(
-            PartitionKey partitionKey,
+            ZonePartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txState,
@@ -302,12 +302,15 @@ public class PartitionSnapshotStorage {
         for (PartitionMvStorageAccess partitionStorage : partitionsByTableId.values()) {
             long lastAppliedIndex = partitionStorage.lastAppliedIndex();
 
-            assert lastAppliedIndex >= 0 :
-                    String.format("Partition storage [tableId=%d, partitionId=%d] contains an unexpected applied index value: %d.",
-                            partitionStorage.tableId(),
-                            partitionStorage.partitionId(),
-                            lastAppliedIndex
-                    );
+            if (lastAppliedIndex < 0) {
+                throw new IllegalStateException(String.format(
+                        "MV partition storage [tableId=%d, zoneId=%d, partitionId=%d] contains an unexpected applied index value: %d.",
+                        partitionStorage.tableId(),
+                        partitionKey.zoneId(),
+                        partitionStorage.partitionId(),
+                        lastAppliedIndex
+                ));
+            }
 
             if (lastAppliedIndex == 0) {
                 return null;
@@ -319,7 +322,17 @@ public class PartitionSnapshotStorage {
             }
         }
 
-        if (txState.lastAppliedIndex() < minLastAppliedIndex) {
+        long txStateLastAppliedIndex = txState.lastAppliedIndex();
+        if (txStateLastAppliedIndex < 0) {
+            throw new IllegalStateException(
+                    String.format("Tx state partition storage [key=%s] contains an unexpected applied index value: %d.",
+                            partitionKey,
+                            txStateLastAppliedIndex
+                    )
+            );
+        }
+
+        if (txStateLastAppliedIndex < minLastAppliedIndex) {
             return startupSnapshotMetaFromTxStorage();
         } else {
             assert storageWithMinLastAppliedIndex != null;

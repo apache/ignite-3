@@ -82,8 +82,8 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
     public Cursor<RowT> find(RowT lower, RowT upper, boolean lowerInclude, boolean upperInclude) {
         int firstCol = first(collation.getKeys());
 
-        Object lowerBound = (lower == null) ? null : ectx.rowHandler().get(firstCol, lower);
-        Object upperBound = (upper == null) ? null : ectx.rowHandler().get(firstCol, upper);
+        Object lowerBound = (lower == null) ? null : ectx.rowAccessor().get(firstCol, lower);
+        Object upperBound = (upper == null) ? null : ectx.rowAccessor().get(firstCol, upper);
 
         RowT lowerRow = (lowerBound == null) ? null : lower;
         RowT upperRow = (upperBound == null) ? null : upper;

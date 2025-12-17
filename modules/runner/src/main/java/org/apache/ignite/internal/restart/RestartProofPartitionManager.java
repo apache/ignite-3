@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.restart;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -25,22 +26,33 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Reference to {@link PartitionManager} under a swappable {@link Ignite} instance. When a restart happens, this switches to the new Ignite
- * instance.
+ * Reference to {@link PartitionDistribution} under a swappable {@link Ignite} instance. When a restart happens,
+ * this switches to the new Ignite instance.
  *
  * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
-class RestartProofPartitionManager extends RestartProofApiObject<PartitionManager> implements PartitionManager {
+class RestartProofPartitionManager extends RestartProofApiObject<PartitionDistribution> implements PartitionManager {
     RestartProofPartitionManager(
             IgniteAttachmentLock attachmentLock,
             Ignite initialIgnite,
-            Function<Ignite, PartitionManager> factory
+            Function<Ignite, PartitionDistribution> factory
     ) {
         super(attachmentLock, initialIgnite, factory);
+    }
+
+    @Override
+    public CompletableFuture<List<Partition>> partitionsAsync() {
+        return attachedAsync(PartitionDistribution::partitionsAsync);
+    }
+
+    @Override
+    public List<Partition> partitions() {
+        return attached(PartitionDistribution::partitions);
     }
 
     @Override
@@ -49,8 +61,28 @@ class RestartProofPartitionManager extends RestartProofApiObject<PartitionManage
     }
 
     @Override
+    public ClusterNode primaryReplica(Partition partition) {
+        return attached(view -> view.primaryReplica(partition));
+    }
+
+    @Override
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
-        return attachedAsync(PartitionManager::primaryReplicasAsync);
+        return attachedAsync(PartitionDistribution::primaryReplicasAsync);
+    }
+
+    @Override
+    public CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node) {
+        return attachedAsync(view -> view.primaryReplicasAsync(node));
+    }
+
+    @Override
+    public Map<Partition, ClusterNode> primaryReplicas() {
+        return attached(PartitionDistribution::primaryReplicas);
+    }
+
+    @Override
+    public List<Partition> primaryReplicas(ClusterNode node) {
+        return attached(view -> view.primaryReplicas(node));
     }
 
     @Override
@@ -61,5 +93,15 @@ class RestartProofPartitionManager extends RestartProofApiObject<PartitionManage
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
         return attachedAsync(view -> view.partitionAsync(key));
+    }
+
+    @Override
+    public <K> Partition partition(K key, Mapper<K> mapper) {
+        return attached(view -> view.partition(key, mapper));
+    }
+
+    @Override
+    public Partition partition(Tuple key) {
+        return attached(view -> view.partition(key));
     }
 }

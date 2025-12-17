@@ -1138,6 +1138,18 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    void ensureLiteralsInValueAreCorrectlyCoerced() {
+        sql("CREATE TABLE test (id INT PRIMARY KEY, val REAL)");
+        sql("INSERT INTO test VALUES (1, 1), (2, NULL), (3, 3)");
+
+        assertQuery("SELECT * FROM test")
+                .returns(1, 1.0F)
+                .returns(2, null)
+                .returns(3, 3.0F)
+                .check();
+    }
+
     private static Stream<Arguments> decimalLimits() {
         return Stream.of(
                 arguments(SqlTypeName.BIGINT.getName(), Long.MAX_VALUE, Long.MIN_VALUE),

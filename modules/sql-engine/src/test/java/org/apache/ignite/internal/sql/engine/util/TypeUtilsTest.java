@@ -243,6 +243,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
         Object[] newRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType,
                 ArrayRowHandler.INSTANCE,
+                ArrayRowHandler.INSTANCE,
                 input,
                 () -> rowSchema
         );
