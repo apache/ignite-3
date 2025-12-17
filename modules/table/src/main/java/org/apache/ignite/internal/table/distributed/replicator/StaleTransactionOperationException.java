@@ -23,8 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION
 import java.util.UUID;
 import org.apache.ignite.internal.tx.TransactionInternalException;
 
-/** Error that occurs when a stale operation of a completed transaction is detected. */
-// TODO: IGNITE-22748 - make this exception public?
+/** Error that occurs when a stale operation is detected. */
 public class StaleTransactionOperationException extends TransactionInternalException {
     /**
      * Constructor.
@@ -32,6 +31,6 @@ public class StaleTransactionOperationException extends TransactionInternalExcep
      * @param txId Transaction ID.
      */
     public StaleTransactionOperationException(UUID txId) {
-        super(TX_STALE_OPERATION_ERR, format("Stale operation of a completed transaction was detected: [txId={}]", txId));
+        super(TX_STALE_OPERATION_ERR, format("Stale operation was detected: [txId={}]", txId));
     }
 }
