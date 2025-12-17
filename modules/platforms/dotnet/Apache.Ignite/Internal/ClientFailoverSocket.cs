@@ -423,7 +423,6 @@ namespace Apache.Ignite.Internal
                     return;
                 }
 
-                // TODO: Log trace.
                 HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
                 IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
 
