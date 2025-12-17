@@ -18,7 +18,7 @@ Sort
             projection: [_UTF-8'store', I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, SALES, NUMBER_SALES]
             est: (rows=77935)
           NestedLoopJoin
-              predicate: >(SALES, CAST(AVERAGE_SALES):DECIMAL(32767, 2))
+              predicate: >(CAST(SALES):DECIMAL(48, 16), CAST(AVERAGE_SALES):DECIMAL(48, 16))
               type: inner
               est: (rows=77935)
             ColocatedHashAggregate
@@ -195,7 +195,7 @@ Sort
                         est: (rows=18000)
             Project
                 fieldNames: [AVERAGE_SALES]
-                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(f0_0, f1_1, 31, 16))]
+                projection: [CASE(=(CAST(f0_0):DECIMAL(34, 2), 0:DECIMAL(38, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(34, 2), f1_1, 31, 16))]
                 est: (rows=1)
               ReduceSortAggregate
                   fieldNames: [f0_0, f1_1]
@@ -205,7 +205,7 @@ Sort
                   est: (rows=1)
                 Project
                     fieldNames: [0, 1]
-                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                    projection: [CAST(_ACC0):DECIMAL(68, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                     est: (rows=1)
                   Exchange
                       distribution: single
@@ -287,7 +287,7 @@ Sort
           projection: [_UTF-8'catalog', I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, SALES, NUMBER_SALES]
           est: (rows=39004)
         NestedLoopJoin
-            predicate: >(SALES, CAST(AVERAGE_SALES):DECIMAL(32767, 2))
+            predicate: >(CAST(SALES):DECIMAL(48, 16), CAST(AVERAGE_SALES):DECIMAL(48, 16))
             type: inner
             est: (rows=39004)
           ColocatedHashAggregate
@@ -463,7 +463,7 @@ Sort
                       est: (rows=18000)
           Project
               fieldNames: [AVERAGE_SALES]
-              projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(f0_0, f1_1, 31, 16))]
+              projection: [CASE(=(CAST(f0_0):DECIMAL(34, 2), 0:DECIMAL(38, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(34, 2), f1_1, 31, 16))]
               est: (rows=1)
             ReduceSortAggregate
                 fieldNames: [f0_0, f1_1]
@@ -473,7 +473,7 @@ Sort
                 est: (rows=1)
               Project
                   fieldNames: [0, 1]
-                  projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                  projection: [CAST(_ACC0):DECIMAL(68, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                   est: (rows=1)
                 Exchange
                     distribution: single
@@ -558,7 +558,7 @@ Sort
             projection: [_UTF-8'web', I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, SALES, NUMBER_SALES]
             est: (rows=19464)
           NestedLoopJoin
-              predicate: >(SALES, CAST(AVERAGE_SALES):DECIMAL(32767, 2))
+              predicate: >(CAST(SALES):DECIMAL(48, 16), CAST(AVERAGE_SALES):DECIMAL(48, 16))
               type: inner
               est: (rows=19464)
             ColocatedHashAggregate
@@ -740,7 +740,7 @@ Sort
                                       est: (rows=18000)
             Project
                 fieldNames: [AVERAGE_SALES]
-                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(f0_0, f1_1, 31, 16))]
+                projection: [CASE(=(CAST(f0_0):DECIMAL(34, 2), 0:DECIMAL(38, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(34, 2), f1_1, 31, 16))]
                 est: (rows=1)
               ReduceSortAggregate
                   fieldNames: [f0_0, f1_1]
@@ -750,7 +750,7 @@ Sort
                   est: (rows=1)
                 Project
                     fieldNames: [0, 1]
-                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                    projection: [CAST(_ACC0):DECIMAL(68, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                     est: (rows=1)
                   Exchange
                       distribution: single
@@ -844,7 +844,7 @@ Limit
           projection: [_UTF-8'store', I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, SALES, NUMBER_SALES]
           est: (rows=25952)
         NestedLoopJoin
-            predicate: >(SALES, CAST(AVERAGE_SALES):DECIMAL(32767, 2))
+            predicate: >(CAST(SALES):DECIMAL(48, 16), CAST(AVERAGE_SALES):DECIMAL(48, 16))
             type: inner
             est: (rows=25952)
           ColocatedSortAggregate
@@ -1048,7 +1048,7 @@ Limit
                                     est: (rows=18000)
           Project
               fieldNames: [AVERAGE_SALES]
-              projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(f0_0, f1_1, 31, 16))]
+              projection: [CASE(=(CAST(f0_0):DECIMAL(34, 2), 0:DECIMAL(38, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(34, 2), f1_1, 31, 16))]
               est: (rows=1)
             ReduceSortAggregate
                 fieldNames: [f0_0, f1_1]
@@ -1058,7 +1058,7 @@ Limit
                 est: (rows=1)
               Project
                   fieldNames: [0, 1]
-                  projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                  projection: [CAST(_ACC0):DECIMAL(68, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                   est: (rows=1)
                 Exchange
                     distribution: single
@@ -1140,7 +1140,7 @@ Limit
         projection: [_UTF-8'store', I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, SALES, NUMBER_SALES]
         est: (rows=25952)
       NestedLoopJoin
-          predicate: >(SALES, CAST(AVERAGE_SALES):DECIMAL(32767, 2))
+          predicate: >(CAST(SALES):DECIMAL(48, 16), CAST(AVERAGE_SALES):DECIMAL(48, 16))
           type: inner
           est: (rows=25952)
         ColocatedSortAggregate
@@ -1344,7 +1344,7 @@ Limit
                                   est: (rows=18000)
         Project
             fieldNames: [AVERAGE_SALES]
-            projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(f0_0, f1_1, 31, 16))]
+            projection: [CASE(=(CAST(f0_0):DECIMAL(34, 2), 0:DECIMAL(38, 0)), null:DECIMAL(31, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(34, 2), f1_1, 31, 16))]
             est: (rows=1)
           ReduceSortAggregate
               fieldNames: [f0_0, f1_1]
@@ -1354,7 +1354,7 @@ Limit
               est: (rows=1)
             Project
                 fieldNames: [0, 1]
-                projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                projection: [CAST(_ACC0):DECIMAL(68, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                 est: (rows=1)
               Exchange
                   distribution: single

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a projection specifically designed for SQL join operations.
  *
- * <p>This interface defines a single method, {@link #project(ExecutionContext, Object, Object)}, 
+ * <p>This interface defines a single method, {@link #project(SqlEvaluationContext, Object, Object)}, 
  * which computes projection based on two rows (the left and right rows) within the context of a join operation. 
  * It allows to fuse rows concatenation and consequent projection (for example, restoring original order of columns
  * after join input was switched), reducing the need for additional post-join transformations and optimizing
@@ -39,5 +39,5 @@ public interface SqlJoinProjection {
      * @param <RowT> The type of the execution row.
      * @return The projected row, which may be a modified version of the input rows or a new row.
      */
-    <RowT> RowT project(ExecutionContext<RowT> context, RowT left, RowT right);
+    <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT left, RowT right);
 }

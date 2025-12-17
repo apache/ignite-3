@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static java.util.Objects.requireNonNull;
+
 import com.squareup.javapoet.ClassName;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.MessageSerialVersionUid;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -212,7 +215,25 @@ public class MessageClass {
         return Character.toLowerCase(str.charAt(0)) + str.substring(1);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns {@code true} if serial version UID generation is requested via the {@link MessageSerialVersionUid} annotation.
+     */
+    public boolean generateMessageSerialVersionUid() {
+        return element.getAnnotation(MessageSerialVersionUid.class) != null;
+    }
+
+    /**
+     * Returns the desired serial version UID specified via the {@link MessageSerialVersionUid} annotation.
+     *
+     * @throws NullPointerException if the {@link MessageSerialVersionUid} annotation is not present.
+     */
+    public long messageSerialVersionUid() {
+        MessageSerialVersionUid serialVersionUidAnnotation = element.getAnnotation(MessageSerialVersionUid.class);
+        requireNonNull(serialVersionUidAnnotation);
+
+        return serialVersionUidAnnotation.value();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -225,7 +246,6 @@ public class MessageClass {
         return element.equals(clazz.element);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Objects.hash(element);

@@ -69,6 +69,7 @@ def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     classpath = files 'lib/*'
     outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3'
+    defaultJvmOpts += ['--add-opens=java.base/java.lang=ALL-UNNAMED', '-Xmx256m']
 }
 
 def tokens = [

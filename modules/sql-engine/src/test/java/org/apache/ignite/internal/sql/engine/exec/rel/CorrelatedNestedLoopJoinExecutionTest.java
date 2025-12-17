@@ -36,6 +36,7 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -55,7 +56,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
     @EnumSource(value = JoinRelType.class, mode = Mode.INCLUDE, names = {"INNER", "LEFT"})
     public void testCorrelatedNestedLoopJoin(JoinRelType joinType) {
         ExecutionContext<Object[]> ctx = executionContext(true);
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         ScanNode<Object[]> left = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -80,7 +81,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
                 joinType,
-                hnd.factory(convertStructuredType(rightType)),
+                ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
                 identityProjection()
         );
 
@@ -229,14 +230,14 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         return new CorrelatedNestedLoopJoinNode<>(
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
                 joinType,
-                hnd.factory(convertStructuredType(rightType)),
+                ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
                 identityProjection()
         );
     }
@@ -293,6 +294,11 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -39,6 +40,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// </summary>
     /// <param name="typeName">Job type name.</param>
     /// <returns>Job execution delegate.</returns>
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
         CreateWrapper<IComputeJobWrapper>(
             typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>));
@@ -48,6 +50,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// </summary>
     /// <param name="typeName">Receiver type name.</param>
     /// <returns>Receiver execution delegate.</returns>
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     public IDataStreamerReceiverWrapper CreateReceiverWrapper(string typeName) =>
         CreateWrapper<IDataStreamerReceiverWrapper>(
             typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>));
@@ -55,6 +58,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <inheritdoc/>
     public void Dispose() => AssemblyLoadContext.Unload();
 
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType)
     {
         var (type, closedWrapperType) = _typeCache.GetOrAdd(
@@ -74,7 +78,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
-    private static void CheckPublicCtor(Type type, Exception e)
+    private static void CheckPublicCtor(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, Exception e)
     {
         if (type.GetConstructor(BindingFlags.Public, []) == null)
         {
@@ -82,6 +87,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
+    [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "No AOT on server side.")]
     private static (Type Type, Type ClosedWrapperType) GetClosedWrapperType(
         string typeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
     {
@@ -102,6 +109,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
+    [RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
     {
         try
@@ -159,7 +167,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     }
 
     // Simple lookup by name. Will throw in a case of ambiguity.
-    private static Type FindInterface(Type type, Type interfaceType) =>
+    private static Type FindInterface(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type, Type interfaceType) =>
         type.GetInterface(interfaceType.Name, ignoreCase: false) ??
         throw new InvalidOperationException($"Failed to find interface '{interfaceType}' in type '{type}'");
 }

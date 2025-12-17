@@ -43,6 +43,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
@@ -471,6 +472,11 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         return ArrayRowHandler.INSTANCE;
     }
 
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
     @ParameterizedTest
     @EnumSource(JoinRelType.class)
     void equiJoinWithDifferentBufferSize(JoinRelType joinType) {
@@ -703,7 +709,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         if (joinAlgo() == JoinAlgo.NESTED_LOOP) {
-            RowHandler<Object[]> hnd = ctx.rowHandler();
+            RowHandler<Object[]> hnd = ctx.rowAccessor();
 
             BiPredicate<Object[], Object[]> condition = nonEquiCondition != null
                     ? nonEquiCondition

@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -146,6 +147,7 @@ public class TestNode implements LifecycleAware {
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+        RowFactoryFactory<Object[]> rowFactoryFactory = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
 
@@ -192,6 +194,7 @@ public class TestNode implements LifecycleAware {
                 ddlCommandHandler,
                 taskExecutor,
                 rowHandler,
+                rowFactoryFactory,
                 mailboxRegistry,
                 exchangeService,
                 mappingService,

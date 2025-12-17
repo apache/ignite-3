@@ -70,8 +70,9 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
@@ -144,7 +145,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             sizes[i] = inBufSize * (i + 1) + ThreadLocalRandom.current().nextInt(100);
         }
 
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(convertStructuredType(rowType));
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(convertStructuredType(rowType));
 
         int i = 0;
 
@@ -274,7 +275,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 .collect(Collectors.toList());
 
         StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));
         TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scannableTable, c -> partitions, null, null, null);
@@ -382,6 +383,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

@@ -30,6 +30,9 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -41,8 +44,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Handler for rows that implemented as a simple objects array.
  */
-public class ArrayRowHandler implements RowHandler<Object[]> {
-    public static final RowHandler<Object[]> INSTANCE = new ArrayRowHandler();
+public class ArrayRowHandler implements RowHandler<Object[]>, RowFactoryFactory<Object[]> {
+    public static final ArrayRowHandler INSTANCE = new ArrayRowHandler();
 
     private ArrayRowHandler() {
     }
@@ -60,7 +63,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public int columnCount(Object[] row) {
+    public int columnsCount(Object[] row) {
         return row.length;
     }
 
@@ -83,16 +86,10 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public RowFactory<Object[]> factory(StructNativeType rowType) {
+    public RowFactory<Object[]> create(StructNativeType rowType) {
         int schemaLen = rowType.fields().size();
 
         return new RowFactory<>() {
-            /** {@inheritDoc} */
-            @Override
-            public RowHandler<Object[]> handler() {
-                return ArrayRowHandler.this;
-            }
-
             @Override
             public RowBuilder<Object[]> rowBuilder() {
                 return new RowBuilderImpl(schemaLen);

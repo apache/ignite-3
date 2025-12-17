@@ -1269,4 +1269,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         return property == null ? defaultValue : Long.parseLong(property.propertyValue());
     }
+
+    @TestOnly
+    public void clearLocalRwTxCounter() {
+        localRwTxCounter.clear();
+    }
 }
