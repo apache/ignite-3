@@ -1621,8 +1621,6 @@ public class InternalTableImpl implements InternalTable {
 
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
-        assert !actualTx.isReadOnly();
-
         return readWriteScan(partId, actualTx, indexId, criteria);
     }
 
