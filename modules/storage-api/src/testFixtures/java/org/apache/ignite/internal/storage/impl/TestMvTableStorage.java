@@ -294,7 +294,9 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     private CompletableFuture<Void> startRebalancePartitionBusy(int partitionId) {
-        LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", tableDescriptor.getId(), partitionId);
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", tableDescriptor.getId(), partitionId);
+        }
 
         return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();

@@ -246,10 +246,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                     if (LOG.isInfoEnabled()) {
                         LOG.info(
-                                "Finished waiting for the catalog readiness [snapshotId={}, {}, waitingTime={}ms]",
+                                "Finished waiting for the catalog readiness [snapshotId={}, {}, waitingTime={}ms, result={}]",
                                 snapshotUri.snapshotId,
                                 createPartitionInfo(),
-                                snapshotStats.totalWaitingCatalogPhaseDuration()
+                                snapshotStats.totalWaitingCatalogPhaseDuration(),
+                                metadataIsSufficientlyComplete(snapshotMeta) ? "success" : "timeout"
                         );
                     }
                 });

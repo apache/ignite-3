@@ -296,7 +296,9 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
-            LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", getTableId(), partitionId);
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", getTableId(), partitionId);
+            }
 
             mvPartitionStorage.startRebalance();
 

@@ -311,7 +311,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
-            LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", getTableId(), partitionId);
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", getTableId(), partitionId);
+            }
 
             try (WriteBatch writeBatch = new WriteBatch()) {
                 mvPartitionStorage.startRebalance(writeBatch);
