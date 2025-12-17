@@ -62,6 +62,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -1164,6 +1165,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * <li>Truncates TIME/TIMESTAMP literals to millis, because sub-millisecond values are lost during serilization,
      * since calcite's runtime does not support sub-millisecond precision for these types.</li>
      * <li>Expands all calls to {@code SEARCH} operator) see See RelJson toJson(RexNode node).</li>
+     * <li>Flattens ANDs and ORs.</li>
      * </ul>
      */
     private static class RewriteExpressionsToComparisonFormShuttle extends IgniteRelShuttle {
@@ -1201,9 +1203,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             @Override
             public RexNode visitCall(RexCall call) {
                 RexNode newCall = super.visitCall(call);
+                RexBuilder rexBuilder = Commons.emptyCluster().getRexBuilder();
+
                 if (newCall.isA(SqlKind.SEARCH)) {
-                    // Expands SEARCH see RelJson  toJson(RexNode node)
-                    return RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, newCall);
+                    return RexUtil.expandSearch(rexBuilder, null, newCall);
+                } else if (newCall.isA(SqlKind.AND) || newCall.isA(SqlKind.OR)) {
+                    return RexUtil.flatten(rexBuilder, newCall);
                 } else {
                     return newCall;
                 }
