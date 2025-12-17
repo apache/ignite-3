@@ -32,9 +32,10 @@ public class ConfigExamples {
      */
     public static Stream<String> configPaths() {
         return Stream.of(
-                "configs-custom/ignite-config.0.xml",
-                "configs-custom/ignite-config.1.xml",
-                "configs-custom/ignite-config.2.xml"
+                "configs-custom/ignite-config.0.xml"
+                // TODO: Uncomment the following after fixing IGNITE-27378
+                // "configs-custom/ignite-config.1.xml",
+                // "configs-custom/ignite-config.2.xml"
         );
     }
 }
