@@ -4,7 +4,7 @@ import React from 'react';
 
 /**
  * Root page that redirects to the latest documentation version.
- * This ensures that accessing /docs/ redirects to /docs/3.1.0/
+ * This ensures that accessing /docs/ignite3/ redirects to /docs/ignite3/3.1.0/
  */
 export default function Home(): React.ReactElement {
   const targetUrl = useBaseUrl('/3.1.0/');

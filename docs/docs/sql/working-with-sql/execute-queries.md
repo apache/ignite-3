@@ -187,4 +187,4 @@ handle->cancel_async(ignite_result<void> cancellationResult) {
 </TabItem>
 </Tabs>
 
-Another way to cancel queries is by using the SQL [KILL QUERY](/docs/3.1.0/sql/reference/data-types-and-functions/operational-commands#kill-query) command. The query id can be retrieved via the `SQL_QUERIES` [system view](/docs/3.1.0/configure-and-operate/monitoring/metrics-system-views).
+Another way to cancel queries is by using the SQL [KILL QUERY](/3.1.0/sql/reference/data-types-and-functions/operational-commands#kill-query) command. The query id can be retrieved via the `SQL_QUERIES` [system view](/3.1.0/configure-and-operate/monitoring/metrics-system-views).

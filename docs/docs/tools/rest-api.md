@@ -10,7 +10,7 @@ The Apache Ignite clusters provide an [OpenAPI](https://www.openapis.org/) speci
 
 ## REST Connector Configuration
 
-By default, rest connector starts on port 10300. This port can be configured in the `ignite.rest` [node configuration](/docs/3.1.0/configure-and-operate/reference/node-configuration).
+By default, rest connector starts on port 10300. This port can be configured in the `ignite.rest` [node configuration](/3.1.0/configure-and-operate/reference/node-configuration).
 
 ## Using HTTP Tools
 
@@ -20,7 +20,7 @@ Once the cluster is started, you can use external tools to monitor the cluster o
 curl 'http://localhost:10300/management/v1/cluster/state'
 ```
 
-You are not limited to only monitoring, as Apache Ignite REST API provides endpoints that can be used to manage the cluster as well. For example, you can create a [snapshot](/docs/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) via REST:
+You are not limited to only monitoring, as Apache Ignite REST API provides endpoints that can be used to manage the cluster as well. For example, you can create a [snapshot](/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) via REST:
 
 ```bash
 curl -H "Content-Type: application/json" -d '{"snapshotType": "FULL","tableNames": "table1,table2","startTimeEpochMilli": 0}' http://localhost:10300/management/v1/snapshot/create

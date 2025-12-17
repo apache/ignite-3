@@ -61,7 +61,7 @@ docker compose -f docker-compose.yml up -d
 ## Running CLI Tool in Docker
 
 :::note
-It is not recommended to run the CLI tool in docker. Instead, we recommend to [download and install](/docs/3.1.0/configure-and-operate/installation/install-zip) CLI tool locally.
+It is not recommended to run the CLI tool in docker. Instead, we recommend to [download and install](/3.1.0/configure-and-operate/installation/install-zip) CLI tool locally.
 :::
 
 CLI tool is used to manage Apache Ignite nodes. By default, docker nodes are isolated and run on different networks, so CLI tool will not be able to connect to the target container from another container. To fix that, you need to create a network and add all containers running the nodes to it.

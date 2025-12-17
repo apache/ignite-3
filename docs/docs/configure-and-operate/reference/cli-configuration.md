@@ -46,7 +46,7 @@ ignite.auth.basic.password=
 
 ## Configuration Profiles
 
-Apache Ignite [CLI](/docs/3.1.0/tools/cli-commands#interactive-cli-mode) supports configuration profiles to manage different sets of settings.
+Apache Ignite [CLI](/3.1.0/tools/cli-commands#interactive-cli-mode) supports configuration profiles to manage different sets of settings.
 
 Use the following commands to create and manage profiles:
 

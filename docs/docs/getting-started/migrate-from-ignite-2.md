@@ -66,17 +66,17 @@ Note:
 
 #### Client Configuration
 
-All clients in Apache Ignite 3 are "thin", and use a similar `clientConnector` configuration. See [Apache Ignite Clients](/docs/3.1.0/develop/ignite-clients/) section for more information on configuring client connector.
+All clients in Apache Ignite 3 are "thin", and use a similar `clientConnector` configuration. See [Apache Ignite Clients](/3.1.0/develop/ignite-clients/) section for more information on configuring client connector.
 
 #### Network Configuration
 
-Node network configuration is now performed in the `network` section of the [node configuration](/docs/3.1.0/configure-and-operate/reference/node-configuration).
+Node network configuration is now performed in the `network` section of the [node configuration](/3.1.0/configure-and-operate/reference/node-configuration).
 
 #### REST API Configuration
 
 REST API is a significant part of Apache Ignite 3. It can be used for multiple purposes, including cluster and node configuration and running SQL requests.
 
-You can configure REST properties in [node configuration](/docs/3.1.0/configure-and-operate/reference/node-configuration).
+You can configure REST properties in [node configuration](/3.1.0/configure-and-operate/reference/node-configuration).
 
 ### Cluster Configuration
 
@@ -89,7 +89,7 @@ Events configuration is simplified in Apache Ignite 3. It is separated in 2 conf
 * Event **channels** define what is collected.
 * Event **sinks** define where the data is sent.
 
-In the current release, only `log` sink are supported. You can configure events as described in the [Events](/docs/3.1.0/develop/work-with-data/events) section.
+In the current release, only `log` sink are supported. You can configure events as described in the [Events](/3.1.0/develop/work-with-data/events) section.
 
 #### Metrics Collection
 
@@ -99,7 +99,7 @@ All metrics are grouped according to their metric sources, and are enabled in cl
 
 Then, these metrics will be available in Apache Ignite JMX beans.
 
-For instructions on configuring metrics, see [Metrics Configuration](/docs/3.1.0/configure-and-operate/configuration/metrics-configuration).
+For instructions on configuring metrics, see [Metrics Configuration](/3.1.0/configure-and-operate/configuration/metrics-configuration).
 
 ## Code Migration
 

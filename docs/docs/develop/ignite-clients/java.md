@@ -50,7 +50,7 @@ try (IgniteClient client = IgniteClient.builder()
 
 ## Authentication
 
-To pass [authentication](/docs/3.1.0/configure-and-operate/configuration/config-authentication) information, use the `IgniteClientAuthenticator` class and pass it to `IgniteClient` builder:
+To pass [authentication](/3.1.0/configure-and-operate/configuration/config-authentication) information, use the `IgniteClientAuthenticator` class and pass it to `IgniteClient` builder:
 
 <Tabs groupId="languages">
 <TabItem value="java" label="Java">

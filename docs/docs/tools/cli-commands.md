@@ -12,7 +12,7 @@ The Apache Ignite CLI communicates with the cluster via the REST API, allowing y
 
 ### Interactive CLI Mode
 
-To use the CLI in the interactive mode, first [run](/docs/3.1.0/getting-started/quick-start#start-the-ignite-cli) it, then configure the [cluster](/docs/3.1.0/configure-and-operate/configuration/config-cluster-and-nodes) or [node](/docs/3.1.0/configure-and-operate/reference/node-configuration) using the `update` command.
+To use the CLI in the interactive mode, first [run](/3.1.0/getting-started/quick-start#start-the-ignite-cli) it, then configure the [cluster](/3.1.0/configure-and-operate/configuration/config-cluster-and-nodes) or [node](/3.1.0/configure-and-operate/reference/node-configuration) using the `update` command.
 
 For example, to add a new user to the cluster:
 

@@ -63,7 +63,7 @@ public class MyJob implements ComputeJob<String, String> {
 }
 ```
 
-You can manage deployment units using either [CLI](/docs/3.1.0/tools/cli-commands) commands or the [REST API](https://ignite.apache.org/releases/3.0.0/openapi.yaml). Both methods provide the same functionality for deploying, listing, and undeploying code.
+You can manage deployment units using either [CLI](/3.1.0/tools/cli-commands) commands or the [REST API](https://ignite.apache.org/releases/3.0.0/openapi.yaml). Both methods provide the same functionality for deploying, listing, and undeploying code.
 
 ## Deploying Units with Folder Structures
 
@@ -77,7 +77,7 @@ To deploy your code this way, package your files into a ZIP archive and deploy i
 
 ## Deployment Unit Location
 
-By default, nodes store the deployment units in the `{IGNITE_HOME}/work/deployment` directory. This can be changed with the [`ignite.deployment.location`](/docs/3.1.0/configure-and-operate/reference/node-configuration) node configuration parameter.
+By default, nodes store the deployment units in the `{IGNITE_HOME}/work/deployment` directory. This can be changed with the [`ignite.deployment.location`](/3.1.0/configure-and-operate/reference/node-configuration) node configuration parameter.
 
 The deployment units have the following structure:
 

@@ -390,4 +390,4 @@ Ignite 2 used multiple CLI scripts with overlapping functionality. Ignite 3 prov
 - [Distribution and Colocation](./distribution-and-colocation) for partitioning
 - [Transactions and MVCC](./transactions-and-mvcc) for concurrency control
 - [Compute and Events](./compute-and-events) for distributed processing
-- [Getting Started](/docs/3.1.0/getting-started/) to deploy your first cluster
+- [Getting Started](/3.1.0/getting-started/) to deploy your first cluster

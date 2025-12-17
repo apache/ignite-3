@@ -100,7 +100,7 @@ The metrics for Ignite Java Virtual Machine resource use.
 ## storage.aipersist.\{profile\}
 
 :::note
-Each [storage profile](/docs/3.1.0/configure-and-operate/configuration/config-storage-overview) with `aipersist` storage engine has an individual metrics exporter.
+Each [storage profile](/3.1.0/configure-and-operate/configuration/config-storage-overview) with `aipersist` storage engine has an individual metrics exporter.
 :::
 
 | Metric name | Description |

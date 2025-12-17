@@ -4,7 +4,7 @@ title: Cluster and Node Configuration
 sidebar_label: Cluster and Nodes
 ---
 
-In Ignite 3, configuration is performed by using the [CLI utility](/docs/3.1.0/tools/cli-commands). Ignite 3 configuration is stored in HOCON format. You can manage and configure parameters at any point during cluster runtime and during cluster startup.
+In Ignite 3, configuration is performed by using the [CLI utility](/3.1.0/tools/cli-commands). Ignite 3 configuration is stored in HOCON format. You can manage and configure parameters at any point during cluster runtime and during cluster startup.
 
 In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node" called `ignite`. All configuration sections are children, grandchildren, etc., of that node.
 

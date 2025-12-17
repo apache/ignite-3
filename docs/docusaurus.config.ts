@@ -17,8 +17,8 @@ const config: Config = {
   // Set the production url of your site here
   url: 'https://ignite.apache.org',
   // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/docs/',
+  // Serves Ignite 3 docs at /docs/ignite3/ on the main website
+  baseUrl: '/docs/ignite3/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.

@@ -185,7 +185,7 @@ Maximum length: `2147483648`
 ### TIME
 
 :::note
-The following Java types are not supported and cannot be used from [table API](/docs/3.1.0/develop/work-with-data/table-api):
+The following Java types are not supported and cannot be used from [table API](/3.1.0/develop/work-with-data/table-api):
 
 - `java.sql.Time`
 - `java.util.Date`
@@ -208,7 +208,7 @@ Mapped to: `LocalTime`
 ### DATE
 
 :::note
-The following Java types are not supported and cannot be used from [table API](/docs/3.1.0/develop/work-with-data/table-api):
+The following Java types are not supported and cannot be used from [table API](/3.1.0/develop/work-with-data/table-api):
 
 - `java.sql.Time`
 - `java.util.Date`
@@ -233,7 +233,7 @@ The timestamp data type only supports precision up to milliseconds (3 symbols). 
 :::
 
 :::note
-The following Java types are not supported and cannot be used from [table API](/docs/3.1.0/develop/work-with-data/table-api):
+The following Java types are not supported and cannot be used from [table API](/3.1.0/develop/work-with-data/table-api):
 
 - `java.sql.Time`
 - `java.util.Date`
@@ -263,7 +263,7 @@ The timestamp with local time zone data type only supports precision up to milli
 :::
 
 :::note
-The following Java types are not supported and cannot be used from [table API](/docs/3.1.0/develop/work-with-data/table-api):
+The following Java types are not supported and cannot be used from [table API](/3.1.0/develop/work-with-data/table-api):
 
 - `java.sql.Time`
 - `java.util.Date`

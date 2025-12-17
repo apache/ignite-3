@@ -78,7 +78,7 @@ All paths to certificate file and keys should be provided in string format appro
 
 ### Configuring Authorization
 
-If the cluster uses [basic authorization](/docs/3.1.0/configure-and-operate/configuration/config-authentication), you need to provide user `identity` and `secret` to authorize on it, for example:
+If the cluster uses [basic authorization](/3.1.0/configure-and-operate/configuration/config-authentication), you need to provide user `identity` and `secret` to authorize on it, for example:
 
 ```python
 def create_authenticated_connection():

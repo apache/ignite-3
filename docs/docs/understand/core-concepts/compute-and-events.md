@@ -463,6 +463,6 @@ JobDescriptor<String, String> descriptor = JobDescriptor
 
 ## Related Topics
 
-- [Compute API](/docs/3.1.0/develop/work-with-data/compute) for detailed API usage
-- [Code Deployment](/docs/3.1.0/develop/work-with-data/code-deployment) for deployment patterns
-- [Events](/docs/3.1.0/develop/work-with-data/events) for event handling details
+- [Compute API](/3.1.0/develop/work-with-data/compute) for detailed API usage
+- [Code Deployment](/3.1.0/develop/work-with-data/code-deployment) for deployment patterns
+- [Events](/3.1.0/develop/work-with-data/events) for event handling details

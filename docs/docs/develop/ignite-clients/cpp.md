@@ -117,7 +117,7 @@ scl enable devtoolset-11 bash
 
 ## Client Connector Configuration
 
-Client connection parameters are controlled by the client connector configuration. By default, Ignite accepts client connections on port 10800. You can change the configuration for the node by using the [CLI tool](/docs/3.1.0/tools/cli-commands) at any time.
+Client connection parameters are controlled by the client connector configuration. By default, Ignite accepts client connections on port 10800. You can change the configuration for the node by using the [CLI tool](/3.1.0/tools/cli-commands) at any time.
 
 Here is how the client connector configuration looks like in the JSON format.
 
@@ -157,7 +157,7 @@ The table below covers the configuration for client connector:
 | port | 10800 | The port the client connector will be listening to. |
 | sendServerExceptionStackTraceToClient | `false` | Defines if cluster exceptions are sent to the client. |
 | ssl.ciphers | | The cipher used for SSL communication. |
-| ssl.clientAuth | | Type of client authentication used by clients. For more information, see [SSL/TLS](/docs/3.1.0/configure-and-operate/configuration/config-ssl-tls). |
+| ssl.clientAuth | | Type of client authentication used by clients. For more information, see [SSL/TLS](/3.1.0/configure-and-operate/configuration/config-ssl-tls). |
 | ssl.enabled | | Defines if SSL is enabled. |
 | ssl.keyStore.password | | SSL keystore password. |
 | ssl.keyStore.path | | Path to the SSL keystore. |
@@ -270,7 +270,7 @@ namespace ignite {
 
 ## SQL API
 
-Ignite 3 is focused on SQL, and SQL API is the primary way to work with the data. You can read more about supported SQL statements in the [SQL Reference](/docs/3.1.0/sql/reference/language-definition/ddl) section. Here is how you can send SQL requests:
+Ignite 3 is focused on SQL, and SQL API is the primary way to work with the data. You can read more about supported SQL statements in the [SQL Reference](/3.1.0/sql/reference/language-definition/ddl) section. Here is how you can send SQL requests:
 
 <Tabs groupId="languages">
 <TabItem value="cpp" label="C++">

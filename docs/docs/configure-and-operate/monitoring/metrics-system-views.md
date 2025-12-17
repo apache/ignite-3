@@ -45,7 +45,7 @@ SELECT svc.*
 | TABLE_ID | INT32 | The ID of the table stored in the partition. |
 | SCHEMA_NAME | STRING | The name of the schema the table belongs to. |
 | PARTITION_ID | INT32 | The unique identifier of the partition. |
-| STATE | STRING | Partition status. Possible values: `AVAILABLE`, `DEGRADED`, `READ_ONLY`, `UNAVAILABLE`. See [Disaster Recovery](/docs/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) documentation for more information. |
+| STATE | STRING | Partition status. Possible values: `AVAILABLE`, `DEGRADED`, `READ_ONLY`, `UNAVAILABLE`. See [Disaster Recovery](/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) documentation for more information. |
 
 ### INDEXES
 
@@ -82,7 +82,7 @@ A node system view that lists the currently active locks.
 | TABLE_ID | INT32 | The ID of the table stored in the partition. |
 | SCHEMA | STRING | The name of the schema the table belongs to. |
 | PARTITION_ID | INT32 | The unique identifier of the partition. |
-| STATE | STRING | Partition status. Possible values: `AVAILABLE`, `DEGRADED`, `READ_ONLY`, `UNAVAILABLE`. See [Disaster Recovery](/docs/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) documentation for more information. |
+| STATE | STRING | Partition status. Possible values: `AVAILABLE`, `DEGRADED`, `READ_ONLY`, `UNAVAILABLE`. See [Disaster Recovery](/3.1.0/configure-and-operate/operations/disaster-recovery-partitions) documentation for more information. |
 | ESTIMATED_ROWS | INT64 | The estimated number of rows in a partition. |
 
 ### SQL_QUERIES
@@ -119,7 +119,7 @@ Describes available system view columns.
 |---|---|---|
 | VIEW_ID | INT32 | System view ID. |
 | NAME | STRING | Column name. |
-| TYPE | STRING | Column type. Can by any of the [supported types](/docs/3.1.0/sql/reference/data-types-and-functions/data-types). |
+| TYPE | STRING | Column type. Can by any of the [supported types](/3.1.0/sql/reference/data-types-and-functions/data-types). |
 | NULLABLE | BOOLEAN | Defines if the column can be empty. |
 | PRECISION | INT32 | Maximum number of digits. |
 | SCALE | INT32 | Maximum number of decimal places. |

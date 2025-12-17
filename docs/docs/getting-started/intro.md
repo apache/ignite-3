@@ -18,13 +18,13 @@ Apache Ignite 3 is a distributed database that provides:
 
 Follow these guides to begin working with Apache Ignite 3:
 
-1. **[Quick Start](/docs/3.1.0/getting-started/quick-start)** - Install and run your first cluster
-2. **[Start a Cluster in Docker](/docs/3.1.0/getting-started/start-cluster)** - Set up a multi-node cluster using Docker
-3. **[Working with SQL](/docs/3.1.0/getting-started/work-with-sql)** - Learn SQL capabilities and data operations
-4. **[Using Java API](/docs/3.1.0/getting-started/key-value-api)** - Build applications with the Java client
-5. **[Embedded Mode](/docs/3.1.0/getting-started/embedded-mode)** - Run Ignite from your Java application
-6. **[Configuration Tips](/docs/3.1.0/getting-started/best-practices)** - Configure storage, memory, and logging
-7. **[Migrating from Ignite 2](/docs/3.1.0/getting-started/migrate-from-ignite-2)** - Upgrade from Apache Ignite 2
+1. **[Quick Start](/3.1.0/getting-started/quick-start)** - Install and run your first cluster
+2. **[Start a Cluster in Docker](/3.1.0/getting-started/start-cluster)** - Set up a multi-node cluster using Docker
+3. **[Working with SQL](/3.1.0/getting-started/work-with-sql)** - Learn SQL capabilities and data operations
+4. **[Using Java API](/3.1.0/getting-started/key-value-api)** - Build applications with the Java client
+5. **[Embedded Mode](/3.1.0/getting-started/embedded-mode)** - Run Ignite from your Java application
+6. **[Configuration Tips](/3.1.0/getting-started/best-practices)** - Configure storage, memory, and logging
+7. **[Migrating from Ignite 2](/3.1.0/getting-started/migrate-from-ignite-2)** - Upgrade from Apache Ignite 2
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ For Docker-based setups, you'll also need:
 
 Choose your path based on your needs:
 
-* **Quick evaluation**: Start with [Quick Start](/docs/3.1.0/getting-started/quick-start)
-* **Development setup**: Use [Start a Cluster in Docker](/docs/3.1.0/getting-started/start-cluster)
-* **Learning SQL**: Go to [Working with SQL](/docs/3.1.0/getting-started/work-with-sql)
-* **Java development**: Begin with [Using Java API](/docs/3.1.0/getting-started/key-value-api)
+* **Quick evaluation**: Start with [Quick Start](/3.1.0/getting-started/quick-start)
+* **Development setup**: Use [Start a Cluster in Docker](/3.1.0/getting-started/start-cluster)
+* **Learning SQL**: Go to [Working with SQL](/3.1.0/getting-started/work-with-sql)
+* **Java development**: Begin with [Using Java API](/3.1.0/getting-started/key-value-api)

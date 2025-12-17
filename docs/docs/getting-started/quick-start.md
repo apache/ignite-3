@@ -7,9 +7,9 @@ import TabItem from '@theme/TabItem';
 
 This guide shows you how to start working with Ignite. In this guide, we will download Ignite from the website, install it, start the database and perform some simple SQL queries by using the provided CLI tool.
 
-We will be using the [zip archive](/docs/3.1.0/configure-and-operate/installation/install-zip) to demonstrate how to use Ignite. When using [deb or rpm packages](/docs/3.1.0/configure-and-operate/installation/install-deb-rpm), or when running Ignite in Docker, some steps may be different.
+We will be using the [zip archive](/3.1.0/configure-and-operate/installation/install-zip) to demonstrate how to use Ignite. When using [deb or rpm packages](/3.1.0/configure-and-operate/installation/install-deb-rpm), or when running Ignite in Docker, some steps may be different.
 
-If you are more comfortable with running the database from Java code, you can try [starting Ignite from code](/docs/3.1.0/getting-started/embedded-mode).
+If you are more comfortable with running the database from Java code, you can try [starting Ignite from code](/3.1.0/getting-started/embedded-mode).
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ This section describes the platform requirements for machines running Ignite. Ig
 
 1. [Download](https://ignite.apache.org/download.cgi) Ignite from the website. This archive contains everything related to the Ignite database itself.
 
-2. Also from the same page, download the [Ignite command line interface](/docs/3.1.0/tools/cli-commands). This tool is the main way of interacting with Ignite database and will be used in the tutorial.
+2. Also from the same page, download the [Ignite command line interface](/3.1.0/tools/cli-commands). This tool is the main way of interacting with Ignite database and will be used in the tutorial.
 
 3. Unpack the downloaded archives:
 
@@ -87,7 +87,7 @@ bash bin\ignite3db
 
 ## Start the Ignite CLI
 
-The primary means of interacting with your nodes and cluster is the [Ignite CLI](/docs/3.1.0/tools/cli-commands). It can connect to a node running on a local or remote machine, and is the main tool that is used to manually configure and manage the database. In this example, we will be connecting to a local node.
+The primary means of interacting with your nodes and cluster is the [Ignite CLI](/3.1.0/tools/cli-commands). It can connect to a node running on a local or remote machine, and is the main tool that is used to manually configure and manage the database. In this example, we will be connecting to a local node.
 
 To start the Ignite CLI:
 
@@ -159,7 +159,7 @@ Cluster was initialized successfully
 </TabItem>
 </Tabs>
 
-Optionally, you can pass the `--metastorage-group` parameter to specify the nodes that will be used to store cluster meta information. In most scenarios, you want to have 3, 5 or 7 metastorage group nodes.  For more information on what they are and cluster lifecycle, see [Cluster Lifecycle](/docs/3.1.0/configure-and-operate/operations/lifecycle).
+Optionally, you can pass the `--metastorage-group` parameter to specify the nodes that will be used to store cluster meta information. In most scenarios, you want to have 3, 5 or 7 metastorage group nodes.  For more information on what they are and cluster lifecycle, see [Cluster Lifecycle](/3.1.0/configure-and-operate/operations/lifecycle).
 
 :::warning
 Cluster and node configurations in Ignite are separated and cannot be used interchangeably. When initializing a cluster, make sure to provide the **cluster** configuration file.
@@ -167,7 +167,7 @@ Cluster and node configurations in Ignite are separated and cannot be used inter
 
 ## Run SQL Statements Against the Cluster
 
-Once your cluster has been initialized, you can start working with it. In this tutorial, we will be using the CLI tool to create a table, insert some rows and retrieve data. In most real scenarios you would have a [client](/docs/3.1.0/develop/ignite-clients/) writing data to a cluster and retrieving it, but the CLI tool can still be used for debugging or minor adjustments.
+Once your cluster has been initialized, you can start working with it. In this tutorial, we will be using the CLI tool to create a table, insert some rows and retrieve data. In most real scenarios you would have a [client](/3.1.0/develop/ignite-clients/) writing data to a cluster and retrieving it, but the CLI tool can still be used for debugging or minor adjustments.
 
 To work with the SQL in CLI:
 
@@ -257,7 +257,7 @@ SELECT * FROM Person
 5. If needed, exit the REPL mode with the `exit` command.
 
 :::note
-For more information about available SQL statements, see the [SQL Reference](/docs/3.1.0/sql/reference/language-definition/ddl) section.
+For more information about available SQL statements, see the [SQL Reference](/3.1.0/sql/reference/language-definition/ddl) section.
 :::
 
 ## Stop the Node
@@ -413,7 +413,7 @@ Start each node as described in [Start Ignite Node](#start-ignite-node).
 
 #### Initialize Your Cluster
 
-Before initializing the cluster, it is important to check that all nodes found each other and can connect into a cluster. Nodes visible to each other, but not necessarily connected into a cluster form [physical topology](/docs/3.1.0/configure-and-operate/operations/lifecycle). You can check it by connecting to any node using the CLI tool and executing the following command:
+Before initializing the cluster, it is important to check that all nodes found each other and can connect into a cluster. Nodes visible to each other, but not necessarily connected into a cluster form [physical topology](/3.1.0/configure-and-operate/operations/lifecycle). You can check it by connecting to any node using the CLI tool and executing the following command:
 
 <Tabs>
 <TabItem value="command" label="Command">
@@ -492,5 +492,5 @@ If all nodes are in the command output, the cluster is now started and can be wo
 
 From here, you may want to:
 
-* Check out the [Ignite CLI Tool](/docs/3.1.0/tools/cli-commands) page for more detail on supported commands
+* Check out the [Ignite CLI Tool](/3.1.0/tools/cli-commands) page for more detail on supported commands
 * Try out our [examples](https://github.com/apache/ignite-3/tree/main/examples)

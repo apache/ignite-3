@@ -7,7 +7,7 @@ sidebar_label: Data Partitions Recovery
 You perform _disaster recovery_ operations to recover from situation when data operations on your Apache Ignite cluster nodes become unfeasible because Apache Ignite cannot guarantee data consistency. In such cases, you need to either return data to a consistent state or declare the current state consistent.
 
 :::note
-Disaster recovery for system groups, [Cluster Management Group](/docs/3.1.0/configure-and-operate/operations/disaster-recovery-system-groups#cluster-management-group) and [Metastorage Group](/docs/3.1.0/configure-and-operate/operations/disaster-recovery-system-groups#metastorage-group), is described in a separate page.
+Disaster recovery for system groups, [Cluster Management Group](/3.1.0/configure-and-operate/operations/disaster-recovery-system-groups#cluster-management-group) and [Metastorage Group](/3.1.0/configure-and-operate/operations/disaster-recovery-system-groups#metastorage-group), is described in a separate page.
 :::
 
 ## Disaster Scenarios and Recovery Instructions
@@ -16,7 +16,7 @@ Disaster recovery for system groups, [Cluster Management Group](/docs/3.1.0/conf
 
 _Minority_ refers to less than half of the number of _replicas_ configured for a distribution zone (DZ). For example, of DZ1 is configured with 2 replicas and DZ2 with 3 replicas, losing a single Apache Ignite node is a majority loss for DZ1 and a minority loss for DZ2.
 
-You may discover that one or more of your cluster nodes are offline in a number of ways, including the `recovery partition states` [CLI command](/docs/3.1.0/tools/cli-commands) with the `--global` option, which would show `Read-only partition`, `Degraded partition`, or `Unavailable partition` for offline nodes.
+You may discover that one or more of your cluster nodes are offline in a number of ways, including the `recovery partition states` [CLI command](/3.1.0/tools/cli-commands) with the `--global` option, which would show `Read-only partition`, `Degraded partition`, or `Unavailable partition` for offline nodes.
 
 Once a minority offline status has been discovered:
 

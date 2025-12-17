@@ -19,7 +19,7 @@ Apache Ignite 3 requires Java 11 or later.
 Apache Ignite provides 2 archives for distribution:
 
 - `ignite3-db-{version}` - this archive contains everything related to the Apache Ignite database. When unpacked, it creates the folder where data will be stored by default. You start Apache Ignite nodes from this folder.
-- `ignite3-cli-{version}` - this archive contains the [Apache Ignite CLI tool](/docs/3.1.0/tools/cli-commands). This tool is the main way of interacting with Apache Ignite clusters and nodes.
+- `ignite3-cli-{version}` - this archive contains the [Apache Ignite CLI tool](/3.1.0/tools/cli-commands). This tool is the main way of interacting with Apache Ignite clusters and nodes.
 
 ## Installing Apache Ignite Database
 
@@ -100,4 +100,4 @@ unzip -xf ignite3-cli-{version}.zip & cd ignite3-cli-{version}
 
 ## Next Steps
 
-With Apache Ignite installed, you can proceed with the [Getting Started Guide](/docs/3.1.0/getting-started/quick-start) or [use the available APIs](/docs/3.1.0/develop/work-with-data/table-api) immediately.
+With Apache Ignite installed, you can proceed with the [Getting Started Guide](/3.1.0/getting-started/quick-start) or [use the available APIs](/3.1.0/develop/work-with-data/table-api) immediately.

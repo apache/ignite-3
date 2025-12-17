@@ -79,7 +79,7 @@ Keywords and parameters:
 
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
 * `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key.
-* `ZONE` - sets the [Distribution Zone](/docs/3.1.0/sql/reference/language-definition/distribution-zones). Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exist at the moment of table creation, and can be created before writing data.
+* `ZONE` - sets the [Distribution Zone](/3.1.0/sql/reference/language-definition/distribution-zones). Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exist at the moment of table creation, and can be created before writing data.
 * `STORAGE PROFILE` - sets the [storage profile](../../../configure-and-operate/reference/node-configuration) that will be used to store the table. Must be specified as a case-sensitive string.
 
 Examples:
@@ -261,7 +261,7 @@ Terminal(')')
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `data_type` - a valid [data type](/docs/3.1.0/sql/reference/data-types-and-functions/data-types).
+* `data_type` - a valid [data type](/3.1.0/sql/reference/data-types-and-functions/data-types).
 
 Examples:
 

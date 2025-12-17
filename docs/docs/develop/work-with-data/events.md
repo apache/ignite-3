@@ -7,7 +7,7 @@ Apache Ignite can generate events for a variety of operations happening in the c
 
 ## Enabling Events
 
-In Ignite 3, events are configured cluster-wide, in [cluster configuration](/docs/3.1.0/configure-and-operate/configuration/config-cluster-and-nodes). Events are organized in **channels**, each channel tracking one or more event types. You cannot enable or disable individual events, instead you need to disable event channels.
+In Ignite 3, events are configured cluster-wide, in [cluster configuration](/3.1.0/configure-and-operate/configuration/config-cluster-and-nodes). Events are organized in **channels**, each channel tracking one or more event types. You cannot enable or disable individual events, instead you need to disable event channels.
 
 To create an event channel:
 
@@ -114,7 +114,7 @@ All events in Apache Ignite 3 follow the same basic structure described below. S
 | Field | Description |
 |-------|-------------|
 | type | The type of the event. For the full list of event types, see [Events List](./events-list). |
-| user | The name of the user, and the [authentication](/docs/3.1.0/configure-and-operate/configuration/config-authentication) provider used to authorize. |
+| user | The name of the user, and the [authentication](/3.1.0/configure-and-operate/configuration/config-authentication) provider used to authorize. |
 | timestamp | Even time in UNIX epoch time. |
 | productVersion | Apache Ignite version used by the client. |
 | fields | Event-specific data. |

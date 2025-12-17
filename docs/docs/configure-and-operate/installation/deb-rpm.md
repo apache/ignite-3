@@ -54,7 +54,7 @@ The packages will be installed in the following way:
 ## Running Apache Ignite as a Service
 
 :::note
-When running on Windows 10 WSL or Docker, you should start Apache Ignite as a stand-alone process (not as a service). We recommend to [install Apache Ignite 3 using ZIP archive](/docs/3.1.0/configure-and-operate/installation/install-zip) in these environments.
+When running on Windows 10 WSL or Docker, you should start Apache Ignite as a stand-alone process (not as a service). We recommend to [install Apache Ignite 3 using ZIP archive](/3.1.0/configure-and-operate/installation/install-zip) in these environments.
 :::
 
 To start an Apache Ignite node with a custom configuration, run the following command:
@@ -79,4 +79,4 @@ sudo bash /usr/share/ignite3db/start.sh 1>/tmp/ignite3-start.log 2>&1 &
 
 ## Next Steps
 
-With Apache Ignite installed, you can proceed with the [Getting Started Guide](/docs/3.1.0/getting-started/quick-start) or [use the available APIs](/docs/3.1.0/develop/work-with-data/table-api) immediately.
+With Apache Ignite installed, you can proceed with the [Getting Started Guide](/3.1.0/getting-started/quick-start) or [use the available APIs](/3.1.0/develop/work-with-data/table-api) immediately.

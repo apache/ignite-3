@@ -52,7 +52,7 @@ bin/ignite3 node config show > node-config.conf
 
 The following sections detail all available node configuration parameters:
 
-- [Client Connector Configuration](/docs/3.1.0/develop/ignite-clients/)
+- [Client Connector Configuration](/3.1.0/develop/ignite-clients/)
 - Compute Configuration
 - Code Deployment Configuration
 - Failure Handler Configuration

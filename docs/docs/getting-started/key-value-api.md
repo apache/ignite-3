@@ -305,7 +305,7 @@ Person2: Joe
 
 ## Understanding Table Views in Ignite 3
 
-Ignite 3 provides multiple view patterns for interacting with tables on top of providing a robust SQL API. Examples below showcase how you can work with Ignite tables from your project without SQL. For examples of working with SQL, see the [Getting Started with SQL](/docs/3.1.0/getting-started/work-with-sql) tutorial.
+Ignite 3 provides multiple view patterns for interacting with tables on top of providing a robust SQL API. Examples below showcase how you can work with Ignite tables from your project without SQL. For examples of working with SQL, see the [Getting Started with SQL](/3.1.0/getting-started/work-with-sql) tutorial.
 
 ### RecordView Pattern
 

@@ -5,9 +5,9 @@ title: Creating Tables from Java Classes
 
 ## Overview
 
-While [SQL DDL](/docs/3.1.0/sql/reference/language-definition/ddl) supports a full set of table manipulation commands, you can also create tables and build indexes directly from a POJO using a simple Java API.
+While [SQL DDL](/3.1.0/sql/reference/language-definition/ddl) supports a full set of table manipulation commands, you can also create tables and build indexes directly from a POJO using a simple Java API.
 
-This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating [KeyValueView and RecordView](/docs/3.1.0/develop/work-with-data/table-api).
+This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating [KeyValueView and RecordView](/3.1.0/develop/work-with-data/table-api).
 
 The Java API lets you perform the following operations:
 
@@ -90,7 +90,7 @@ public static void main(String[] args) {
 ```
 
 :::note
-You need to create a [storage profile](/docs/3.1.0/configure-and-operate/configuration/config-storage-overview) in node configuration by using the CLI tool.
+You need to create a [storage profile](/3.1.0/configure-and-operate/configuration/config-storage-overview) in node configuration by using the CLI tool.
 :::
 
 The result is equivalent to the following SQL multi-statement:
@@ -200,4 +200,4 @@ System.out.println(
 
 ## Next Steps
 
-Once you have created a table using the Java API, you can manipulate it using the [SQL commands](/docs/3.1.0/sql/reference/language-definition/ddl).
+Once you have created a table using the Java API, you can manipulate it using the [SQL commands](/3.1.0/sql/reference/language-definition/ddl).

@@ -52,9 +52,9 @@ npm start
 ```
 
 This command:
-- Starts a local development server at `http://localhost:3000/docs/`
+- Starts a local development server at `http://localhost:3000/docs/ignite3/`
 - Enables hot reload (most changes are reflected live without restarting)
-- Makes the server accessible on your local network via your IP address (e.g., `http://192.168.1.x:3000/docs/`)
+- Makes the server accessible on your local network via your IP address (e.g., `http://192.168.1.x:3000/docs/ignite3/`)
 
 **What you'll see**:
 - The documentation homepage with navigation to all sections
@@ -68,7 +68,7 @@ For faster startup during active development:
 npm run start:fast
 ```
 
-The development server is accessible on your local network via your IP address (e.g., `http://192.168.1.x:3000/docs/`).
+The development server is accessible on your local network via your IP address (e.g., `http://192.168.1.x:3000/docs/ignite3/`).
 
 ## Build
 
@@ -109,7 +109,7 @@ npm run build
 npm run serve
 ```
 
-The production build will be available at `http://localhost:3000/docs/`.
+The production build will be available at `http://localhost:3000/docs/ignite3/`.
 
 ## Validation
 

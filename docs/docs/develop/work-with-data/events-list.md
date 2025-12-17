@@ -25,7 +25,7 @@ These events are fired when the user performs an action that requires authentica
 
 ## Authorization Events
 
-These events are fired when the user performs an action that requires authentication. Each event body has a list of `privileges`, where every `privelege` is an object with the `action` and `selector`. For more details see [User Permissions and Roles](/docs/3.1.0/configure-and-operate/configuration/config-cluster-security) section.
+These events are fired when the user performs an action that requires authentication. Each event body has a list of `privileges`, where every `privelege` is an object with the `action` and `selector`. For more details see [User Permissions and Roles](/3.1.0/configure-and-operate/configuration/config-cluster-security) section.
 
 | Event Type | Description |
 |------------|-------------|

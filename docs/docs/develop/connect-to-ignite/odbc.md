@@ -6,7 +6,7 @@ sidebar_position: 2
 
 ## Overview
 
-Ignite 3 includes an ODBC driver that allows you both to select and to modify data stored in a distributed cache by using standard SQL queries and native ODBC API. ODBC driver uses your [client connection configuration](/docs/3.1.0/develop/ignite-clients/).
+Ignite 3 includes an ODBC driver that allows you both to select and to modify data stored in a distributed cache by using standard SQL queries and native ODBC API. ODBC driver uses your [client connection configuration](/3.1.0/develop/ignite-clients/).
 
 ODBC driver only provides thread-safety at the connections level. This means that you should not access the same connection from multiple threads without additional synchronization, though you can create separate connections for every thread and use them simultaneously.
 
@@ -34,7 +34,7 @@ ODBC driver uses the client connector to work with the cluster. Make sure to con
 node config update clientConnector.port=10469
 ```
 
-For more information on configuring client connector, see [Client Connector Configuration](/docs/3.1.0/develop/ignite-clients/).
+For more information on configuring client connector, see [Client Connector Configuration](/3.1.0/develop/ignite-clients/).
 
 ### Installing on Linux
 

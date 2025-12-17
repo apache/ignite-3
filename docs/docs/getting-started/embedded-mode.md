@@ -55,7 +55,7 @@ First, you need to add Ignite to your project. The easiest way to do this is by 
 
 ## Prepare Ignite Configuration
 
-To start an Ignite node, you will need an Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend [installing](/docs/3.1.0/configure-and-operate/installation/install-zip) Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.0.0/etc/ignite-config.conf` file.
+To start an Ignite node, you will need an Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend [installing](/3.1.0/configure-and-operate/installation/install-zip) Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.0.0/etc/ignite-config.conf` file.
 
 ## Pass JVM Parameters
 
@@ -141,5 +141,5 @@ More examples of working with Ignite can be found in the [examples](https://gith
 
 From here, you may want to:
 
-* Check out the [Developers guide](/docs/3.1.0/develop/work-with-data/table-api) page for more information on available APIs
+* Check out the [Developers guide](/3.1.0/develop/work-with-data/table-api) page for more information on available APIs
 * Try out our [examples](https://github.com/apache/ignite-3/tree/main/examples)

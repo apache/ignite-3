@@ -33,4 +33,4 @@ Apache Ignite provides CLI commands for disaster recovery operations:
 - `recovery partitions restart`: Restart partitions to resolve issues
 - `recovery partitions reset`: Reset partitions to a consistent state
 
-For complete command reference, see [CLI Commands](/docs/3.1.0/tools/cli-commands).
+For complete command reference, see [CLI Commands](/3.1.0/tools/cli-commands).

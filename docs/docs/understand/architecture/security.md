@@ -290,6 +290,6 @@ Apache Ignite 3 currently provides authentication only. Authorization features (
 
 ## Next Steps
 
-- [Configure Authentication](/docs/3.1.0/configure-and-operate/configuration/config-authentication) - Step-by-step authentication setup
-- [Configure SSL/TLS](/docs/3.1.0/configure-and-operate/configuration/config-ssl-tls) - SSL configuration guide
-- [Cluster Security](/docs/3.1.0/configure-and-operate/configuration/config-cluster-security) - Additional security recommendations
+- [Configure Authentication](/3.1.0/configure-and-operate/configuration/config-authentication) - Step-by-step authentication setup
+- [Configure SSL/TLS](/3.1.0/configure-and-operate/configuration/config-ssl-tls) - SSL configuration guide
+- [Cluster Security](/3.1.0/configure-and-operate/configuration/config-cluster-security) - Additional security recommendations

@@ -51,4 +51,4 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 
 Additional exception categories (SQL, Index, Transactions, Replicator, Storage, Distribution Zone, Network, Node Configuration, Code Deployment, Authentication, Compute, Catalog, Critical Workers, Disaster Recovery, Metastorage) follow the same format with their specific error codes and recommended actions.
 
-For complete exception documentation, refer to the [full exception handling guide](/docs/3.1.0/configure-and-operate/operations/handle-exceptions).
+For complete exception documentation, refer to the [full exception handling guide](/3.1.0/configure-and-operate/operations/handle-exceptions).

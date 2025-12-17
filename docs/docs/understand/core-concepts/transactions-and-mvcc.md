@@ -347,5 +347,5 @@ var roTx = client.transactions().begin(
 
 ## Related Topics
 
-- [Performing Transactions](/docs/3.1.0/develop/work-with-data/transactions) for API usage
-- [Data Partitioning](/docs/3.1.0/understand/core-concepts/data-partitioning) for version storage details
+- [Performing Transactions](/3.1.0/develop/work-with-data/transactions) for API usage
+- [Data Partitioning](/3.1.0/understand/core-concepts/data-partitioning) for version storage details

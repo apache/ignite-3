@@ -18,7 +18,7 @@ API documentation is generated from source code comments using Doxygen.
 
 ### Access the Documentation
 
-<a href="/docs/api/cpp/index.html" target="_blank" rel="noopener noreferrer" style={{
+<a href="/docs/ignite3/api/cpp/index.html" target="_blank" rel="noopener noreferrer" style={{
   display: 'inline-block',
   padding: '12px 24px',
   backgroundColor: '#0066cc',

@@ -7,7 +7,7 @@ sidebar_label: Kubernetes
 You can install Apache Ignite 3 and run an Apache Ignite cluster on Kubernetes cluster. This section describes all the necessary steps, as well as provides the configurations and manifests that you can copy and paste into your environment.
 
 :::note
-Using the [Helm chart](https://ignite.apache.org/docs/3.0.0/installation/kubernetes#install-using-helm) is recommended, however, if you choose not to use Helm, this guide will walk you through installing Apache Ignite on Kubernetes.
+Using a Helm chart is recommended for production deployments, however, if you choose not to use Helm, this guide will walk you through installing Apache Ignite on Kubernetes manually.
 :::
 
 ## Prerequisites
