@@ -26,9 +26,6 @@ public interface StaleNodeHandlingParams {
     /** Returns the size of the physical topology. */
     int physicalTopologySize();
 
+    /** Returns the minimal value of node name from the physical topology. */
     @Nullable String minNodeName();
-//
-//    List<TopologyNodeMessage> physicalTopology();
-//
-//    List<TopologyNodeMessage> logicalTopology();
 }
