@@ -30,7 +30,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -55,7 +54,6 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
-import org.apache.ignite.table.QualifiedName;
 
 /**
  * Disaster recovery controller.
@@ -64,11 +62,9 @@ import org.apache.ignite.table.QualifiedName;
 @Requires(classes = IgniteInternalExceptionHandler.class)
 public class DisasterRecoveryController implements DisasterRecoveryApi, ResourceHolder {
     private DisasterRecoveryManager disasterRecoveryManager;
-    private NodeProperties nodeProperties;
 
-    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager, NodeProperties nodeProperties) {
+    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager) {
         this.disasterRecoveryManager = disasterRecoveryManager;
-        this.nodeProperties = nodeProperties;
     }
 
     @Override
@@ -99,80 +95,42 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     @Override
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
-        if (nodeProperties.colocationEnabled()) {
-            return resetZonePartitions(new ResetZonePartitionsRequest(
-                    command.zoneName(),
-                    command.partitionIds()
-            ));
-        }
-
-        QualifiedName tableName = QualifiedName.parse(command.tableName());
-        return disasterRecoveryManager.resetTablePartitions(
+        return resetZonePartitions(new ResetZonePartitionsRequest(
                 command.zoneName(),
-                tableName.schemaName(),
-                tableName.objectName(),
                 command.partitionIds()
-        );
+        ));
     }
 
     @Override
     public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
-        if (nodeProperties.colocationEnabled()) {
-            return restartZonePartitions(new RestartZonePartitionsRequest(
-                    command.nodeNames(),
-                    command.zoneName(),
-                    command.partitionIds()
-            ));
-        }
-        QualifiedName tableName = QualifiedName.parse(command.tableName());
-        return disasterRecoveryManager.restartTablePartitions(
+        return restartZonePartitions(new RestartZonePartitionsRequest(
                 command.nodeNames(),
                 command.zoneName(),
-                tableName.schemaName(),
-                tableName.objectName(),
                 command.partitionIds()
-        );
+        ));
     }
 
     @Override
     public CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsRequest command) {
-        if (nodeProperties.colocationEnabled()) {
-            return restartZonePartitionsWithCleanup(new RestartZonePartitionsRequest(
-                    command.nodeNames(),
-                    command.zoneName(),
-                    command.partitionIds()
-            ));
-        }
-
-        QualifiedName tableName = QualifiedName.parse(command.tableName());
-
-        return disasterRecoveryManager.restartTablePartitionsWithCleanup(
+        return restartZonePartitionsWithCleanup(new RestartZonePartitionsRequest(
                 command.nodeNames(),
                 command.zoneName(),
-                tableName.schemaName(),
-                tableName.objectName(),
                 command.partitionIds()
-        );
+        ));
     }
 
     @Override
     public CompletableFuture<Void> resetZonePartitions(ResetZonePartitionsRequest command) {
-        checkColocationEnabled();
-
         return disasterRecoveryManager.resetPartitions(command.zoneName(), command.partitionIds());
     }
 
     @Override
     public CompletableFuture<Void> restartZonePartitions(RestartZonePartitionsRequest command) {
-        checkColocationEnabled();
-
         return disasterRecoveryManager.restartPartitions(command.nodeNames(), command.zoneName(), command.partitionIds());
     }
 
     @Override
     public CompletableFuture<Void> restartZonePartitionsWithCleanup(RestartZonePartitionsRequest command) {
-        checkColocationEnabled();
-
         return disasterRecoveryManager.restartPartitionsWithCleanup(command.nodeNames(), command.zoneName(), command.partitionIds());
     }
 
@@ -182,8 +140,9 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> nodeNames,
             Optional<Set<Integer>> partitionIds
     ) {
-        checkColocationEnabled();
+        //checkColocationEnabled();
 
+        // TODO?
         return disasterRecoveryManager.localPartitionStates(
                 zoneNames.orElse(emptySet()),
                 nodeNames.orElse(emptySet()),
@@ -196,8 +155,9 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> zoneNames,
             Optional<Set<Integer>> partitionIds
     ) {
-        checkColocationEnabled();
+        //checkColocationEnabled();
 
+        // TODO?
         return disasterRecoveryManager.globalPartitionStates(
                 zoneNames.orElse(emptySet()),
                 partitionIds.orElse(emptySet())
@@ -306,15 +266,8 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return new GlobalZonePartitionStatesResponse(states);
     }
 
-    private void checkColocationEnabled() {
-        if (!nodeProperties.colocationEnabled()) {
-            throw new UnsupportedOperationException("This method is unsupported when colocation is disabled.");
-        }
-    }
-
     @Override
     public void cleanResources() {
         disasterRecoveryManager = null;
-        nodeProperties = null;
     }
 }

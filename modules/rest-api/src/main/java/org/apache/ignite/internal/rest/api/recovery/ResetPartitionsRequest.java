@@ -28,6 +28,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Disaster recovery request to reset partitions. */
+// TODO remove
 @Schema(description = "Reset partitions configuration.")
 public class ResetPartitionsRequest {
     @Schema(description = "Name of the zone to reset partitions of. Without quotes, case-sensitive.")

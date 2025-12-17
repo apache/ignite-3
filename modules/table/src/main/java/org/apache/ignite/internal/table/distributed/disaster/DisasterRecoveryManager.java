@@ -145,7 +145,7 @@ import org.jetbrains.annotations.TestOnly;
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
  * As a reaction to these updates, manager performs actual recovery operations,
- * such as {@link #resetTablePartitions(String, String, String, Set, boolean, long)}.
+ * such as {@link #resetPartitions(String, Set)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
@@ -203,7 +203,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private final WatchListener watchListener;
 
     /** Table manager. */
-    final TableManager tableManager;
+    private final TableManager tableManager;
 
     final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
@@ -356,58 +356,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
-     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
-     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
-     * so that a new leader could be elected.
-     *
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
-     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
-     * @return Future that completes when partitions are reset.
-     */
-    // TODO remove
-    public CompletableFuture<Void> resetTablePartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
-        return inBusyLock(busyLock, () -> {
-            int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
-
-            return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1, false);
-        });
-    }
-
-    /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
-     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
-     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
-     * so that a new leader could be elected.
-     *
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
-     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
-     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
-     * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
-     * @return Future that completes when partitions are reset.
-     */
-    // TODO remove
-    public CompletableFuture<Void> resetTablePartitions(
-            String zoneName,
-            String schemaName,
-            String tableName,
-            Set<Integer> partitionIds,
-            boolean manualUpdate,
-            long triggerRevision
-    ) {
-        return inBusyLock(busyLock, () -> {
-            int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
-
-            return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision, false);
-        });
-    }
-
-    /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * Updates assignments of the zone in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
      * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
      * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
      * so that a new leader could be elected.
@@ -425,7 +374,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * Updates assignments of the zone in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
      * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
      * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
      * so that a new leader could be elected.
@@ -450,7 +399,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Updates assignments of the table or zone in a forced manner, allowing for the recovery of raft group with lost majorities. It is
+     * Updates assignments of the zone in a forced manner, allowing for the recovery of raft group with lost majorities. It is
      * achieved via triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required.
      * New pending assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via
      * "resetPeers" so that a new leader could be elected.
@@ -462,7 +411,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param colocationEnabled Whether the update is a zone request (enabled colocation) or a table request (colocation disabled).
      * @return Future that completes when partitions are reset.
      */
-    // TODO remove colocationEnabled param
+    // TODO remove colocationEnabled param, partitionIds?
     private CompletableFuture<Void> resetPartitions(
             String zoneName,
             Map<Integer, Set<Integer>> partitionIds,
@@ -489,98 +438,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         ),
                         triggerRevision
                 );
-            } catch (Throwable t) {
-                return failedFuture(t);
-            }
-        });
-    }
-
-    /**
-     * Restarts replica service and raft group of passed partitions.
-     *
-     * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
-     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
-     * @return Future that completes when partitions are restarted.
-     */
-    public CompletableFuture<Void> restartTablePartitions(
-            Set<String> nodeNames,
-            String zoneName,
-            String schemaName,
-            String tableName,
-            Set<Integer> partitionIds
-    ) {
-        return inBusyLock(busyLock, () -> {
-            try {
-                // Validates passed node names.
-                getNodes(nodeNames);
-
-                Catalog catalog = catalogLatestVersion();
-
-                CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
-
-                CatalogTableDescriptor table = tableDescriptor(catalog, schemaName, tableName);
-
-                checkPartitionsRange(partitionIds, Set.of(zone));
-
-                return processNewRequest(new ManualGroupRestartRequest(
-                        UUID.randomUUID(),
-                        zone.id(),
-                        table.id(),
-                        partitionIds,
-                        nodeNames,
-                        catalog.time(),
-                        false
-                ));
-            } catch (Throwable t) {
-                return failedFuture(t);
-            }
-        });
-    }
-
-    /**
-     * Restarts replica service and raft group of passed partitions with cleaning up partition storages.
-     *
-     * @param nodeNames Names specifying nodes to restart partitions. Only one node is allowed.
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
-     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
-     * @return Future that completes when partitions are restarted.
-     */
-    public CompletableFuture<Void> restartTablePartitionsWithCleanup(
-            Set<String> nodeNames,
-            String zoneName,
-            String schemaName,
-            String tableName,
-            Set<Integer> partitionIds
-    ) {
-        return inBusyLock(busyLock, () -> {
-            try {
-                // Validates passed node names.
-                getNodes(nodeNames);
-
-                Catalog catalog = catalogLatestVersion();
-
-                CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
-
-                CatalogTableDescriptor table = tableDescriptor(catalog, schemaName, tableName);
-
-                checkPartitionsRange(partitionIds, Set.of(zone));
-
-                checkOnlyOneNodeSpecified(nodeNames);
-
-                return processNewRequest(new ManualGroupRestartRequest(
-                        UUID.randomUUID(),
-                        zone.id(),
-                        table.id(),
-                        partitionIds,
-                        nodeNames,
-                        catalog.time(),
-                        true
-                ));
             } catch (Throwable t) {
                 return failedFuture(t);
             }

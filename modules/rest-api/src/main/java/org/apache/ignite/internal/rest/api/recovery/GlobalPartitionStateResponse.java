@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * Global partition state schema class.
  */
+// TODO remove
 @Schema(description = "Information about global partition state.")
 public class GlobalPartitionStateResponse {
     private final int partitionId;

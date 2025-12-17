@@ -38,6 +38,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 /**
  * Disaster recovery controller.
  */
+// TODO cleanup
 @Controller("/management/v1/recovery")
 @Tag(name = "recovery")
 public interface DisasterRecoveryApi {

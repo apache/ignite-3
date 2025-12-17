@@ -27,6 +27,7 @@ import java.util.List;
 /**
  * Global partition states schema class.
  */
+// TODO remove
 @Schema(description = "Information about global partition states.")
 public class GlobalPartitionStatesResponse {
     // Using JsonInclude to handle empty list correctly.

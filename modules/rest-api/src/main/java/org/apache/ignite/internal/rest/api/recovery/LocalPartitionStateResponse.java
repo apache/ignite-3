@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * Local partition state schema class.
  */
+// TODO remove
 @Schema(description = "Information about local partition state.")
 public class LocalPartitionStateResponse {
     private final int partitionId;

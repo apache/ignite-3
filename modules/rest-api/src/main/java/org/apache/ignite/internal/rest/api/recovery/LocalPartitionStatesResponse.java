@@ -27,6 +27,7 @@ import java.util.List;
 /**
  * Local partition states schema class.
  */
+// TODO remove
 @Schema(description = "Information about local partition states.")
 public class LocalPartitionStatesResponse {
     // Using JsonInclude to handle empty list correctly.
