@@ -47,7 +47,6 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -162,39 +161,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     @Override
     protected String getNodeBootstrapConfigTemplate() {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
-    }
-
-    @Test
-    public void test1() throws ExecutionException, InterruptedException {
-        IgniteImpl node = anyNode();
-        IgniteImpl node1 = findNode(n -> !n.name().equals(node.name()));
-        log.info("qqq node: {}, nodeId: {}", node.name(), node.id());
-        log.info("qqq node1: {}, node1Id: {}", node1.name(), node1.id());
-        RecordView<Tuple> view = node.tables().table(TABLE_NAME).recordView();
-        Transaction txx = node.transactions().begin();
-        Tuple tuple = findTupleToBeHostedOnNode(node, TABLE_NAME, txx, INITIAL_TUPLE, NEXT_TUPLE, true);
-        int partId = partitionIdForTuple(node, TABLE_NAME, tuple, txx);
-        var groupId = new ZonePartitionId(zoneId(node, TABLE_NAME), partId);
-        log.info("qqq groupId: " + groupId);
-        view.upsert(txx, tuple);
-        txx.commit();
-        Transaction tx0 = node1.transactions().begin();
-        log.info("qqq unfinished tx id: " + txId(tx0));
-        view.upsert(tx0, tuple);
-        // Don't commit or rollback tx0.
-        // for replication
-        Thread.sleep(1000);
-        log.info("qqq node stop: " + node.name());
-        node.stop();
-        // for lease to expire
-        Thread.sleep(5100);
-        waitAndGetPrimaryReplica(node1, groupId);
-        RecordView<Tuple> view1 = node1.tables().table(TABLE_NAME).recordView();
-        Transaction tx = node1.transactions().begin();
-        log.info("qqq new tx: " + txId(tx));
-        log.info("qqq upsert");
-        // TxIdMismatchException is thrown here.
-        view1.upsert(tx, tuple);
     }
 
     /**
