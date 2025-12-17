@@ -138,7 +138,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     eq(txId),
                     any(HybridTimestamp.class),
                     any(Long.class),
-                    any()
+                    any(ZonePartitionId.class)
                 ))
                 .thenReturn(completedFuture(response));
 
@@ -149,7 +149,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     eq(commitPartitionId),
                     any(Long.class),
                     any(Long.class),
-                    any())
+                    any(ZonePartitionId.class))
                 )
                 .thenReturn(completedFuture(pendingMeta));
 
@@ -157,8 +157,8 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 txId,
                 commitPartitionId,
                 timestamp,
-                null,
-                null
+                timestamp.longValue(),
+                commitPartitionId
         );
 
         assertThat(result, willCompleteSuccessfully());
@@ -204,7 +204,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     eq(txId),
                     any(HybridTimestamp.class),
                     any(Long.class),
-                    any())
+                    any(ZonePartitionId.class))
                 )
                 .thenReturn(failedFuture);
         // Mock the commit partition resolution to complete the future.
@@ -215,7 +215,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     eq(commitPartitionId),
                     any(Long.class),
                     any(Long.class),
-                    any()
+                    any(ZonePartitionId.class)
                 ))
                 .thenReturn(completedFuture(abandonedMeta));
 
@@ -223,8 +223,8 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 txId,
                 commitPartitionId,
                 timestamp,
-                null,
-                null
+                timestamp.longValue(),
+                commitPartitionId
         );
 
         assertThat(result, willCompleteSuccessfully());
@@ -274,7 +274,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     eq(txId),
                     any(HybridTimestamp.class),
                     any(Long.class),
-                    any()
+                    any(ZonePartitionId.class)
                 ))
                 .thenReturn(completedFuture(response));
 
@@ -282,8 +282,8 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 txId,
                 commitPartitionId,
                 timestamp,
-                null,
-                null
+                timestamp.longValue(),
+                commitPartitionId
         );
 
         assertThat(result, willCompleteSuccessfully());
