@@ -61,9 +61,9 @@ class OutgoingSnapshotStats {
 
     final StopWatchTimer totalSnapshotTimer = new StopWatchTimer();
 
-    long lastAppliedIndex;
+    long lastIncludedIndex;
 
-    long lastAppliedTerm;
+    long lastIncludedTerm;
 
     final List<String> peers = new ArrayList<>();
 
@@ -94,8 +94,8 @@ class OutgoingSnapshotStats {
     }
 
     void setSnapshotMeta(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration config, int catalogVersion) {
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
+        this.lastIncludedIndex = lastAppliedIndex;
+        this.lastIncludedTerm = lastAppliedTerm;
         this.catalogVersion = catalogVersion;
 
         peers.addAll(config.peers());
@@ -140,7 +140,7 @@ class OutgoingSnapshotStats {
         outOfOrderTotalBytesSent += totalBytes;
     }
 
-    void onProcessRow(long rowVersions, long totalBytes) {
+    void onProcessRegularRow(long rowVersions, long totalBytes) {
         rowsSent++;
 
         rowVersionsSent += rowVersions;
@@ -152,7 +152,7 @@ class OutgoingSnapshotStats {
             LOG.info("Outgoing snapshot installation completed [partitionKey={}, snapshotId={}, rows={}, rowVersions={}, totalBytes={}, "
                             + " outOfOrderRows={}, outOfOrderVersions={}, outOfOrderTotalBytes={}, totalBatches={},"
                             + " avgBatchProcessingTime={}ms, minBatchProcessingTime={}ms, maxBatchProcessingTime={}ms,"
-                            + " totalSnapshotInstallationTime={}ms, lastAppliedIndex={}, lastAppliedTerm={}, peers=[{}], oldPeers=[{}],"
+                            + " totalSnapshotInstallationTime={}ms, lastIncludedIndex={}, lastIncludedTerm={}, peers=[{}], oldPeers=[{}],"
                             + " learners=[{}], oldLearners=[{}], catalogVersion={}]",
                     partitionKey,
                     snapshotId,
@@ -167,8 +167,8 @@ class OutgoingSnapshotStats {
                     minBatchDuration,
                     maxBatchDuration,
                     totalSnapshotTimer.duration(MILLISECONDS),
-                    lastAppliedIndex,
-                    lastAppliedTerm,
+                    lastIncludedIndex,
+                    lastIncludedTerm,
                     peers,
                     oldPeers,
                     learners,

@@ -36,8 +36,6 @@ public class StopWatchTimer {
 
     /** Ends timer. */
     public void end() {
-        assert startNanos != 0 : "start() should be called before end() was called.";
-
         endNanos = System.nanoTime();
     }
 
@@ -53,8 +51,6 @@ public class StopWatchTimer {
 
     /** Returns the duration in the specified time unit. */
     public long duration(TimeUnit timeUnit) {
-        assert endNanos != 0 : "end() should be called before the timer result can be retrieved.";
-
         return timeUnit.convert(endNanos - startNanos, TimeUnit.NANOSECONDS);
     }
 }

@@ -27,16 +27,15 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link OutgoingSnapshotStats}.
  */
 class OutgoingSnapshotStatsTest {
-    private static final long LAST_APPLIED_INDEX = 1;
+    private static final long LAST_INCLUDED_INDEX = 1;
 
-    private static final long LAST_APPLIED_TERM = 2;
+    private static final long LAST_INCLUDED_TERM = 2;
 
     private static final List<String> PEERS = List.of("node1", "node2");
 
@@ -47,8 +46,8 @@ class OutgoingSnapshotStatsTest {
     private static final List<String> OLD_LEARNERS = List.of("node7", "node8");
 
     private static final RaftGroupConfiguration CONFIG = new RaftGroupConfiguration(
-            LAST_APPLIED_INDEX,
-            LAST_APPLIED_TERM,
+            LAST_INCLUDED_INDEX,
+            LAST_INCLUDED_TERM,
             0,
             0,
             PEERS,
@@ -59,12 +58,7 @@ class OutgoingSnapshotStatsTest {
 
     private static final int CATALOG_VERSION = 10;
 
-    private OutgoingSnapshotStats stats;
-
-    @BeforeEach
-    void setUp() {
-        stats = new OutgoingSnapshotStats(UUID.randomUUID(), new ZonePartitionKey(0, 0));
-    }
+    private final OutgoingSnapshotStats stats = new OutgoingSnapshotStats(UUID.randomUUID(), new ZonePartitionKey(0, 0));
 
     @Test
     void totalSnapshotDuration() throws InterruptedException {
@@ -94,10 +88,10 @@ class OutgoingSnapshotStatsTest {
 
     @Test
     void setSnapshotMeta() {
-        stats.setSnapshotMeta(LAST_APPLIED_INDEX, LAST_APPLIED_TERM, CONFIG, CATALOG_VERSION);
+        stats.setSnapshotMeta(LAST_INCLUDED_INDEX, LAST_INCLUDED_TERM, CONFIG, CATALOG_VERSION);
 
-        assertThat(stats.lastAppliedIndex, is(LAST_APPLIED_INDEX));
-        assertThat(stats.lastAppliedTerm, is(LAST_APPLIED_TERM));
+        assertThat(stats.lastIncludedIndex, is(LAST_INCLUDED_INDEX));
+        assertThat(stats.lastIncludedTerm, is(LAST_INCLUDED_TERM));
 
         assertThat(stats.peers, containsInAnyOrder(PEERS.toArray()));
         assertThat(stats.oldPeers, containsInAnyOrder(OLD_PEERS.toArray()));
@@ -112,7 +106,7 @@ class OutgoingSnapshotStatsTest {
         long rowVersions = 10;
         long bytes = 100;
 
-        stats.onProcessRow(rowVersions, bytes);
+        stats.onProcessRegularRow(rowVersions, bytes);
 
         assertThat(stats.rowsSent, is(1L));
         assertThat(stats.rowVersionsSent, is(rowVersions));

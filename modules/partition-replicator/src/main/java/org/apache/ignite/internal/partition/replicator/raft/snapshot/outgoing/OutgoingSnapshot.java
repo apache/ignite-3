@@ -430,7 +430,7 @@ public class OutgoingSnapshot {
 
                 totalBatchSize += rowSize;
 
-                snapshotStats.onProcessRow(rowEntry.rowVersions().size(), rowSize);
+                snapshotStats.onProcessRegularRow(rowEntry.rowVersions().size(), rowSize);
             }
         }
 
