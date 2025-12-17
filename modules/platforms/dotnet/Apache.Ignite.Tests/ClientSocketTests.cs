@@ -100,6 +100,11 @@ namespace Apache.Ignite.Tests
             {
                 // No-op.
             }
+
+            public void OnDisconnect(Exception? ex)
+            {
+                // No-op.
+            }
         }
     }
 }
