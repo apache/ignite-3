@@ -19,7 +19,6 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -37,15 +36,16 @@ public class DnsResolveTests
     public async Task TestClientResolvesHostNamesToAllIps()
     {
         using var logger = new ConsoleLogger(LogLevel.Trace);
-        using var server1 = new FakeServer(nodeName: "fake-node-1", port: 10901, address: IPAddress.Parse("127.0.0.10"));
-        using var server2 = new FakeServer(nodeName: "fake-node-2", port: 10901, address: IPAddress.Parse("127.0.0.11"));
+        using var servers = FakeServerGroup.Create(
+            count: 6,
+            x => new FakeServer(nodeName: "fake-node-" + x, address: IPAddress.Parse("127.0.0.1" + x), port: 10902));
 
-        var dnsMap = new Dictionary<string, string[]>
+        var dnsMap = new ConcurrentDictionary<string, string[]>
         {
             ["fake-host"] = ["127.0.0.10", "127.0.0.11"]
         };
 
-        var cfg = new IgniteClientConfiguration("fake-host:10901")
+        var cfg = new IgniteClientConfiguration("fake-host:10902")
         {
             LoggerFactory = logger
         };
@@ -55,11 +55,11 @@ public class DnsResolveTests
 
         var conns = client.GetConnections().OrderBy(x => x.Node.Name).ToList();
 
-        Assert.AreEqual("127.0.0.10:10901", conns[0].Node.Address.ToString());
-        Assert.AreEqual("fake-node-1", conns[0].Node.Name);
+        Assert.AreEqual("127.0.0.10:10902", conns[0].Node.Address.ToString());
+        Assert.AreEqual("fake-node-0", conns[0].Node.Name);
 
-        Assert.AreEqual("127.0.0.11:10901", conns[1].Node.Address.ToString());
-        Assert.AreEqual("fake-node-2", conns[1].Node.Name);
+        Assert.AreEqual("127.0.0.11:10902", conns[1].Node.Address.ToString());
+        Assert.AreEqual("fake-node-1", conns[1].Node.Name);
     }
 
     [Test]
