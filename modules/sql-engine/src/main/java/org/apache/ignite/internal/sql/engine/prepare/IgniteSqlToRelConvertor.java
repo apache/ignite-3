@@ -152,12 +152,16 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         // if fieldType is NOT NULLABLE INT and def's type is NULLABLE INT then
         // resulting expression is wrapped into CAST(NULLABLE INT AS NOT NULLABLE INT)
         // but that cast expression always results in 0 (INT) thus breaking a NOT NULL constraint.
-        SqlValidatorScope scope = validator.getOverScope(values);
-        assert scope != null;
-        Blackboard bb = createBlackboard(scope, null, false);
+        if (datasetStack.peek() instanceof SqlInsert) {
+            SqlValidatorScope scope = validator.getOverScope(values);
+            assert scope != null;
+            Blackboard bb = createBlackboard(scope, null, false);
 
-        convertValuesImplEx(bb, values, targetRowType);
-        return bb.root();
+            convertValuesImplEx(bb, values, targetRowType);
+            return bb.root();
+        } else {
+            return super.convertValues(values, targetRowType);
+        }
     }
 
     private void convertValuesImplEx(Blackboard bb, SqlCall values, RelDataType targetRowType) {
