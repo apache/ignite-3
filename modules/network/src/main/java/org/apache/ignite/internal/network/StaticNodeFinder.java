@@ -44,7 +44,7 @@ import org.apache.ignite.network.NetworkAddress;
  */
 public class StaticNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
-    private static final long RETRY_WAIT_FACTOR = 500;
+    private static final long RETRY_WAIT_BASE_MILLIS = 500;
 
     /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
@@ -103,7 +103,7 @@ public class StaticNodeFinder implements NodeFinder {
                 }
 
                 try {
-                    Thread.sleep(tryCount * RETRY_WAIT_FACTOR);
+                    Thread.sleep(tryCount * RETRY_WAIT_BASE_MILLIS);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
 

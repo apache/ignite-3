@@ -20,10 +20,10 @@ package org.apache.ignite.internal.network;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -58,7 +58,7 @@ class ItStaticNodeFinderTest extends ClusterPerClassIntegrationTest {
                 IgniteInternalException.class);
 
         IgniteInternalException actual = (IgniteInternalException) unwrapRootCause(throwable);
-        Assertions.assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
-        Assertions.assertEquals("No network addresses resolved through any provided names", actual.getMessage());
+        assertEquals(ADDRESS_UNRESOLVED_ERR, actual.code());
+        assertEquals("No network addresses resolved through any provided names", actual.getMessage());
     }
 }
