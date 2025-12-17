@@ -102,7 +102,7 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT COUNT(1), 1, COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L, 1, 10L)
-                .columnNames("\"COUNT(1)\"", "\"1\"", "COUNT(*)")
+                .columnNames("\"COUNT(1)\"", "\"1\"", "\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT COUNT(*) FROM test as x (a, b)")

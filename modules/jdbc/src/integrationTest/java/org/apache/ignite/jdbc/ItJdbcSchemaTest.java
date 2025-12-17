@@ -223,7 +223,7 @@ public class ItJdbcSchemaTest extends AbstractJdbcSelfTest {
                 assertEquals(1, rs.getLong(1));
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                assertEquals("\"Ta \"", metaData.getTableName(1));
+                assertEquals("\"Ta ble1\"", metaData.getTableName(1));
                 assertEquals("\"Sche Ma1\"", metaData.getSchemaName(1));
             }
 
