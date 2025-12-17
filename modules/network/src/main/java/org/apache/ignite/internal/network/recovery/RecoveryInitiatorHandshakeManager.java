@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.clusterNodeToMessage;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.maybeFailOnStaleNodeDetection;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -33,9 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
-import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParams;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -382,34 +380,8 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         return acceptorClusterId != null && initiatorClusterId != null && !acceptorClusterId.equals(initiatorClusterId);
     }
 
-    private void maybeFail(StaleNodeHandlingParams local, StaleNodeHandlingParams remote) {
-        int localSize = local.physicalTopologySize();
-        int remoteSize = remote.physicalTopologySize();
-
-        if (localSize > remoteSize) {
-            return;
-        }
-
-        if (localSize == remoteSize) {
-            String localMinNodeName = local.minNodeName();
-            String remoteMinNodeName = remote.minNodeName();
-
-            if (localMinNodeName == null || remoteMinNodeName == null) {
-                return;
-            }
-
-            if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
-                return;
-            }
-        }
-
-        if (!stopping.getAsBoolean()) {
-            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
-        }
-    }
-
     private void handleStaleAcceptorId(HandshakeStartMessage msg) {
-        maybeFail(new MyStaleNodeHandlingParams(topologyService), msg);
+        maybeFailOnStaleNodeDetection(failureProcessor, new MyStaleNodeHandlingParams(topologyService), msg);
 
         String message = String.format("%s:%s is stale, node should be restarted so that other nodes can connect",
                 msg.serverNode().name(), msg.serverNode().id()

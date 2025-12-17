@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.maybeFailOnStaleNodeDetection;
 import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -110,6 +112,9 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     @SuppressWarnings("FieldCanBeLocal")
     private final TopologyService topologyService;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -130,7 +135,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
             IgniteProductVersionSource productVersionSource,
-            TopologyService topologyService
+            TopologyService topologyService,
+            FailureProcessor failureProcessor
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -141,6 +147,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
         this.topologyService = topologyService;
+        this.failureProcessor = failureProcessor;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -174,7 +181,11 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onConnectionOpen() {
-        sendHandshakeStartMessage();
+        if (stopping.getAsBoolean()) {
+            sendRejectionMessageAndFailHandshake("poopoo peepee", HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
+        } else {
+            sendHandshakeStartMessage();
+        }
     }
 
     private void sendHandshakeStartMessage() {
@@ -269,7 +280,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleInitiatorId(HandshakeStartResponseMessage msg) {
-
+        maybeFailOnStaleNodeDetection(failureProcessor, new MyStaleNodeHandlingParams(topologyService), msg);
 
         String message = String.format("%s:%s is stale, it should be restarted to be allowed to connect",
                 msg.clientNode().name(), msg.clientNode().id()

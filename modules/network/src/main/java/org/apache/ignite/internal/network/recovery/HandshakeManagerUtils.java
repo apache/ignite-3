@@ -23,6 +23,9 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -35,6 +38,7 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
+import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParams;
 
 class HandshakeManagerUtils {
     private static final IgniteLogger LOG = Loggers.forClass(HandshakeManagerUtils.class);
@@ -87,5 +91,33 @@ class HandshakeManagerUtils {
         return msg.reason() == HandshakeRejectionReason.STOPPING
                 ? new RecipientLeftException(msg.message())
                 : new HandshakeException(msg.message());
+    }
+
+    static void maybeFailOnStaleNodeDetection(
+            FailureProcessor failureProcessor,
+            StaleNodeHandlingParams local,
+            StaleNodeHandlingParams remote
+    ) {
+        int localSize = local.physicalTopologySize();
+        int remoteSize = remote.physicalTopologySize();
+
+        if (localSize > remoteSize) {
+            return;
+        }
+
+        if (localSize == remoteSize) {
+            String localMinNodeName = local.minNodeName();
+            String remoteMinNodeName = remote.minNodeName();
+
+            if (localMinNodeName == null || remoteMinNodeName == null) {
+                return;
+            }
+
+            if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
+                return;
+            }
+        }
+
+        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
     }
 }
