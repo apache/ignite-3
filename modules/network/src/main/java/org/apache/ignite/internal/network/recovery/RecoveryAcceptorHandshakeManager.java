@@ -253,14 +253,14 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
-        if (staleIdDetector.isIdStale(message.clientNode().id())) {
-            handleStaleInitiatorId(message);
+        if (stopping.getAsBoolean()) {
+            handleRefusalToEstablishConnectionDueToStopping(message);
 
             return true;
         }
 
-        if (stopping.getAsBoolean()) {
-            handleRefusalToEstablishConnectionDueToStopping(message);
+        if (staleIdDetector.isIdStale(message.clientNode().id())) {
+            handleStaleInitiatorId(message);
 
             return true;
         }

@@ -327,12 +327,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             return true;
         }
 
-        if (staleIdDetector.isIdStale(message.serverNode().id())) {
-            handleStaleAcceptorId(message);
-
-            return true;
-        }
-
         if (clusterIdMismatch(message.serverClusterId(), clusterIdSupplier.clusterId())) {
             handleClusterIdMismatch(message);
 
@@ -353,6 +347,12 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
         if (stopping.getAsBoolean()) {
             handleRefusalToEstablishConnectionDueToStopping(message);
+
+            return true;
+        }
+
+        if (staleIdDetector.isIdStale(message.serverNode().id())) {
+            handleStaleAcceptorId(message);
 
             return true;
         }
