@@ -81,7 +81,7 @@ public abstract class StateMachineAdapter implements StateMachine {
     @Override
     public void onError(final RaftException e) {
         LOG.error(
-            "Encountered an error={} on StateMachine {}",
+            "Encountered an error={} on StateMachine {}, label={}",
             e, e.getStatus(), label);
     }
 

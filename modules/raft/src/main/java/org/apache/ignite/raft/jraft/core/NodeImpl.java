@@ -1721,21 +1721,7 @@ public class NodeImpl implements Node, RaftServerService {
                 }
 
                 // To prevent safe timestamp values from becoming stale, we must assign them under a valid leader lock.
-                if (task.done instanceof SafeTimeAwareCommandClosure) {
-                    SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) task.done;
-                    WriteCommand command = clo.command();
-                    HybridTimestamp timestamp = command.initiatorTime();
-
-                    if (timestamp != null) {
-                        if (safeTs == null) {
-                            safeTs = clock.update(timestamp);
-                        } else if (timestamp.compareTo(safeTs) > 0) {
-                            safeTs = clock.update(timestamp);
-                        }
-
-                        clo.safeTimestamp(safeTs);
-                    }
-                }
+                safeTs = tryAssignSafeTimestamp(task, safeTs);
 
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
@@ -1750,6 +1736,26 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    private @Nullable HybridTimestamp tryAssignSafeTimestamp(LogEntryAndClosure task, @Nullable HybridTimestamp safeTs) {
+        if (task.done instanceof SafeTimeAwareCommandClosure) {
+            SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) task.done;
+            WriteCommand command = clo.command();
+            HybridTimestamp timestamp = command.initiatorTime();
+
+            if (timestamp != null) {
+                if (safeTs == null) {
+                    safeTs = clock.update(timestamp);
+                } else if (timestamp.compareTo(safeTs) > 0) {
+                    safeTs = clock.update(timestamp);
+                }
+
+                clo.safeTimestamp(safeTs);
+            }
+        }
+
+        return safeTs;
     }
 
     /**

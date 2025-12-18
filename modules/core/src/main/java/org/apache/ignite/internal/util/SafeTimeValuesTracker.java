@@ -36,7 +36,7 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
     // Holds successful application context.
     private long commandIndex;
     private long commandTerm;
-    private String cmdCls;
+    private String commandClassName;
 
     /**
      * Update safe timestamp.
@@ -44,9 +44,9 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
      * @param safeTs The value.
      * @param commandIndex Command index.
      * @param commandTerm Command term.
-     * @param cmdCls Command class name.
+     * @param command The command.
      */
-    public void update(HybridTimestamp safeTs, long commandIndex, long commandTerm, String cmdCls) {
+    public void update(HybridTimestamp safeTs, long commandIndex, long commandTerm, Object command) {
         if (!enterBusy()) {
             throw new TrackerClosedException();
         }
@@ -60,9 +60,12 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
             if (comparator.compare(newEntry, current) < 0) {
                 throw new IgniteInternalException(INTERNAL_ERR,
                         "Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1()
-                                + ", index=" + this.commandIndex
-                                + ", term=" + this.commandTerm
-                                + ", cmdCls=" + this.cmdCls
+                                + ", oldIndex=" + this.commandIndex
+                                + ", oldTerm=" + this.commandTerm
+                                + ", oldCommandClassName=" + this.commandClassName
+                                + ", newIndex=" + this.commandIndex
+                                + ", newTerm=" + this.commandTerm
+                                + ", command=" + command.toString()
                                 + ']');
             }
 
@@ -70,7 +73,7 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
 
             this.commandIndex = commandIndex;
             this.commandTerm = commandTerm;
-            this.cmdCls = cmdCls;
+            this.commandClassName = command.getClass().getName();
         } finally {
             leaveBusy();
         }

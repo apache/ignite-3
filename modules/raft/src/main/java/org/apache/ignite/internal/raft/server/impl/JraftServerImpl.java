@@ -863,6 +863,8 @@ public class JraftServerImpl implements RaftServer {
             try {
                 listener.onWrite(iterWrapper);
             } catch (Throwable err) {
+                LOG.error("Unexpected error while processing command [label={}]", err, label);
+
                 Status st;
 
                 if (err.getMessage() != null) {
@@ -874,11 +876,7 @@ public class JraftServerImpl implements RaftServer {
                 if (iterWrapper.done != null) {
                     CommandClosure<WriteCommand> clo = (CommandClosure<WriteCommand>) iterWrapper.done;
 
-                    LOG.error(
-                            "Unexpected error while processing command [commandIndex={}, commandTerm={}, command={}, label={}]",
-                            err,
-                            clo.index(), clo.term(), clo.command(), label
-                    );
+
 
                     // Trigger internal error for state machine.
                     iterWrapper.done.run(st);
