@@ -156,7 +156,9 @@ class Unit {
 
         CompletableFuture<Void> result = entryNode.deployment().nodeUnitFileStructure(id, version).thenAccept(folder -> {
             try {
-                processEntry(folder, currentDir);
+                for (UnitEntry child : folder.children()) {
+                    processEntry(child, currentDir);
+                }
             } catch (IOException e) {
                 fail(e);
             }
