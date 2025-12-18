@@ -1,40 +1,54 @@
 Sort
     collation: [CA_ZIP ASC]
     fetch: 100
+    est: (rows=100)
   ColocatedHashAggregate
       fieldNames: [CA_ZIP, EXPR$1]
       group: [CA_ZIP]
       aggregation: [SUM(CS_SALES_PRICE)]
+      est: (rows=22379)
     Project
         fieldNames: [CA_ZIP, CS_SALES_PRICE]
         projection: [CA_ZIP, CS_SALES_PRICE]
+        est: (rows=111896)
       HashJoin
           predicate: AND(=(CS_BILL_CUSTOMER_SK, C_CUSTOMER_SK), OR(SEARCH(SUBSTR(CA_ZIP, 1, 5), Sarg[_UTF-8'80348':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'81792':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'83405':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'85392':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'85460':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'85669':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'86197':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'86475':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'88274':VARCHAR(10) CHARACTER SET "UTF-8"]:VARCHAR(10) CHARACTER SET "UTF-8"), SEARCH(CA_STATE, Sarg[_UTF-8'CA':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'GA':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'WA':VARCHAR(2) CHARACTER SET "UTF-8"]:VARCHAR(2) CHARACTER SET "UTF-8"), >(CS_SALES_PRICE, 500.00)))
           type: inner
+          est: (rows=111896)
         HashJoin
             predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
             type: inner
+            est: (rows=159852)
           Exchange
               distribution: single
+              est: (rows=1441548)
             TableScan
                 table: PUBLIC.CATALOG_SALES
                 fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_SALES_PRICE]
+                est: (rows=1441548)
           Exchange
               distribution: single
+              est: (rows=8100)
             TableScan
                 table: PUBLIC.DATE_DIM
                 predicate: AND(=(D_QOY, 2), =(D_YEAR, 1998))
                 fieldNames: [D_DATE_SK, D_YEAR, D_QOY]
+                est: (rows=8100)
         HashJoin
             predicate: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
             type: inner
+            est: (rows=100000)
           Exchange
               distribution: single
+              est: (rows=100000)
             TableScan
                 table: PUBLIC.CUSTOMER
                 fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                est: (rows=100000)
           Exchange
               distribution: single
+              est: (rows=50000)
             TableScan
                 table: PUBLIC.CUSTOMER_ADDRESS
                 fieldNames: [CA_ADDRESS_SK, CA_STATE, CA_ZIP]
+                est: (rows=50000)

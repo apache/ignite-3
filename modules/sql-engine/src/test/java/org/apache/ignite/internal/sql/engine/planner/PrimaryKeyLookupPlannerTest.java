@@ -204,7 +204,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 128");
 
             assertThat(plan, instanceOf(MultiStepPlan.class));
-            assertEmptyScan((MultiStepPlan) plan);
+            assertEmptyValuesNode((MultiStepPlan) plan);
         }
 
         // Out of range: TINYINT_MIN - 1.
@@ -212,7 +212,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -129");
 
             assertThat(plan, instanceOf(MultiStepPlan.class));
-            assertEmptyScan((MultiStepPlan) plan);
+            assertEmptyValuesNode((MultiStepPlan) plan);
         }
 
         // TINYINT_MAX - no predicate expected.
@@ -234,7 +234,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         }
     }
 
-    private static void assertEmptyScan(MultiStepPlan plan) {
+    private static void assertEmptyValuesNode(MultiStepPlan plan) {
         assertThat(plan.getRel(), instanceOf(IgniteValues.class));
         assertThat(((IgniteValues) plan.getRel()).tuples, Matchers.empty());
     }

@@ -221,8 +221,9 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     }
 
     /**
-     * This method was copy-pasted from super-method except this changes: - For updateCall we require all columns in the project and should
-     * not skip anything. - If there is no updateCall, LEFT JOIN converted to ANTI JOIN.
+     * This method was copy-pasted from super-method except this changes:
+     * - For updateCall we require all columns in the project and should not skip anything.
+     * - If there is no updateCall, LEFT JOIN converted to ANTI JOIN.
      */
     private RelNode convertMerge(SqlMerge call) {
         RelOptTable targetTable = getTargetTable(call);
