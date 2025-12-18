@@ -297,6 +297,7 @@ namespace Apache.Ignite.Internal
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         public void Dispose()
         {
+            _initEndpointsLock.Wait();
             _socketLock.Wait();
 
             try
@@ -323,6 +324,7 @@ namespace Apache.Ignite.Internal
             finally
             {
                 _socketLock.Release();
+                _initEndpointsLock.Release();
             }
         }
 
