@@ -110,14 +110,15 @@ const config: Config = {
     colorMode: {
       defaultMode: 'light',
       disableSwitch: false,
-      respectPrefersColorScheme: true,
+      // Don't auto-detect system preference - start with light, then respect user's manual choice
+      respectPrefersColorScheme: false,
     },
     navbar: {
       logo: {
         alt: 'Apache Ignite Logo',
         src: 'img/logo.svg',
         srcDark: 'img/logo-dark.svg',
-        href: '/3.1.0/',
+        href: '/',
         target: '_self',
       },
       items: [
