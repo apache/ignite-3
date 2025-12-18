@@ -103,7 +103,8 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             // by getting the input stream and closing it.
             // In case of normal operation the Netty resource will be properly released by the CompletedFileUpload#getInputStream call in
             // the CompletedFileUploadSubscriber.
-            return Flux.from(unitContent).doOnNext(completedFileUpload -> {
+            return Flux.from(unitContent)
+                    .doOnNext(completedFileUpload -> {
                         try {
                             completedFileUpload.getInputStream().close();
                         } catch (IOException ex) {
