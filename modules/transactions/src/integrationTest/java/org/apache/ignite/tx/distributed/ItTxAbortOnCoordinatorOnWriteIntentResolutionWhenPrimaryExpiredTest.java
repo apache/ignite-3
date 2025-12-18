@@ -127,10 +127,10 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         view.upsert(tx0, tuple);
         // Don't commit or rollback tx0.
 
-        // Wait for replication.
+        // Wait for replication of write intent.
         Tuple keyTuple = Tuple.create().set("key", tuple.longValue("key"));
         await().atMost(5, TimeUnit.SECONDS)
-                .until(() -> checkKeyInStorageOnAllNodes(partId, keyTuple));
+                .until(() -> checkWriteIntentInStorageOnAllNodes(partId, keyTuple));
 
         UUID firstPrimaryNodeId = firstPrimaryNode.id();
 
@@ -164,13 +164,13 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         assertEquals(newTuple, actual);
     }
 
-    private boolean checkKeyInStorageOnAllNodes(int partId, Tuple key) {
+    private boolean checkWriteIntentInStorageOnAllNodes(int partId, Tuple key) {
         return cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
-                .allMatch(n -> checkKeyInStorage(n, partId, key));
+                .allMatch(n -> checkWriteIntentInStorage(n, partId, key));
     }
 
-    private boolean checkKeyInStorage(IgniteImpl node, int partId, Tuple key) {
+    private boolean checkWriteIntentInStorage(IgniteImpl node, int partId, Tuple key) {
         return runInExecutor(storageExecutor, () -> {
             HybridClock clock = node.clock();
 
@@ -187,7 +187,7 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
             for (RowId rowId : pkIndex.storage().get(keyBinaryTuple)) {
                 ReadResult readResult = partitionStorage.read(rowId, clock.current());
 
-                if (!readResult.isEmpty()) {
+                if (readResult.isWriteIntent()) {
                     return true;
                 }
             }
