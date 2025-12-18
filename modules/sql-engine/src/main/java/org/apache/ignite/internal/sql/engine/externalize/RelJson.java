@@ -404,6 +404,7 @@ class RelJson {
     }
 
     private Object toJson(RexNode node) {
+        // removes calls to SEARCH and the included Sarg and converts them to comparisons
         node = RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, node);
 
         Map<String, Object> map;

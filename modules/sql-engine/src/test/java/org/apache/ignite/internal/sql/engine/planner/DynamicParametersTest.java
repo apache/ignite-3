@@ -70,6 +70,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     public Stream<DynamicTest> testArithExprs() {
         return Stream.of(
                 sql("SELECT 1 + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).ok(),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-27395 SELECT NULL + ?int is not simplified to NULL
                 sql("SELECT NULL + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("+(null:NULL, ?0)"),
                 sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("+(?0, null)"),
 

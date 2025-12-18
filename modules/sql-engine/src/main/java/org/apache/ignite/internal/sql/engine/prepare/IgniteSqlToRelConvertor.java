@@ -70,6 +70,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     private static final Throwable INIT_ERROR;
 
     static {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27398 Remove this workaround
         MethodHandle handle;
         Throwable err;
         try {
@@ -116,6 +117,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         if (qry.getKind() == SqlKind.MERGE) {
             return RelRoot.of(convertMerge((SqlMerge) qry), qry.getKind());
         } else if (qry.getKind() == SqlKind.UPDATE) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-27398 Remove this workaround and use calcite's method.
             return RelRoot.of(convertUpdateFixed((SqlUpdate) qry), qry.getKind());
         } else {
             return super.convertQueryRecursive(qry, top, targetRowType);
@@ -138,6 +140,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     }
 
     @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27396
         // FIX: Original convertValuesImpl adds additional type casts that are not correct
         // and break NOT NULL constraints.
         //
@@ -374,6 +377,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         return super.getTargetTable(call);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27398 Remove this workaround
     // This method is a copy of SqlToRelConverter convertUpdate.
     private RelNode convertUpdateFixed(SqlUpdate call) {
         final SqlSelect sourceSelect =
