@@ -19,12 +19,14 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Common;
 using Microsoft.Extensions.Logging;
+using Network;
 using NUnit.Framework;
 
 /// <summary>
@@ -147,7 +149,22 @@ public class DnsResolveTests
     [Test]
     public async Task TestClientRetainsExistingConnectionsOnEndpointRefresh()
     {
-        await Task.Yield();
-        Assert.Fail("TODO");
+        var cfg = new IgniteClientConfiguration($"{HostName}:{Port}")
+        {
+            ReResolveAddressesInterval = TimeSpan.FromMilliseconds(300),
+            ReconnectInterval = TimeSpan.FromMilliseconds(500),
+            LoggerFactory = _logger
+        };
+
+        using var client = await IgniteClient.StartInternalAsync(cfg, new TestDnsResolver(_dnsMap));
+        client.WaitForConnections(2, timeoutMs: 3000);
+        List<IClusterNode> initialConns = client.GetConnections().Select(x => x.Node).OrderBy(x => x.Name).ToList();
+
+        _dnsMap[HostName] = ["127.0.0.12", "127.0.0.11", "127.0.0.10"]; // Same two + new one
+        client.WaitForConnections(3, timeoutMs: 3000);
+        List<IClusterNode> updatedConns = client.GetConnections().Select(x => x.Node).OrderBy(x => x.Name).ToList();
+
+        Assert.AreSame(initialConns[0], updatedConns[0]);
+        Assert.AreSame(initialConns[1], updatedConns[1]);
     }
 }
