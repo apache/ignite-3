@@ -22,17 +22,18 @@ plugins {
     alias(libs.plugins.dockerRemoteApi)
 }
 
+
+import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerExecContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStopContainer
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 import dev.welbyseely.CMakeBuildTask
 import dev.welbyseely.CMakeConfigureTask
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.crypto.checksum.Checksum
-import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
-import com.bmuschko.gradle.docker.tasks.container.DockerStopContainer
-import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
-import com.bmuschko.gradle.docker.tasks.container.DockerExecContainer
-import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 
 configurations {
     cppClient
@@ -245,6 +246,7 @@ def updateVersion = tasks.register('updateVersion', Task) {
         updateCMakeVersion(version)
         updateDotnetVersion(version)
         updatePythonVersion(version)
+        updateDockerComposeVersion(version)
     }
 }
 
@@ -275,6 +277,14 @@ private void updateDotnetVersion(String version) {
 private void updatePythonVersion(String version) {
     def versionFile = file("$projectDir/python/pyignite_dbapi/_version.txt")
     versionFile.text = simpleProjectVersion(version)
+}
+
+private void updateDockerComposeVersion(String version) {
+    def composeFile = file("$rootDir/packaging/docker/docker-compose.yml")
+    def content = composeFile.text
+    def pattern = 'image: apacheignite/ignite:\\$\\{IGNITE3_VERSION:-[^}]+\\}'
+    def replacement = 'image: apacheignite/ignite:\\${IGNITE3_VERSION:-' + version + '}'
+    composeFile.text = content.replaceAll(pattern, replacement)
 }
 
 def buildWindowsDbApiWheels = tasks.register('buildWindowsDbApiWheels', Exec) {
