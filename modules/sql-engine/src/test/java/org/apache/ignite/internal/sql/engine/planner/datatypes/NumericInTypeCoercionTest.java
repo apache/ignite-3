@@ -20,11 +20,9 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
 
-import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -2793,9 +2791,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
             String format = "0." + "#".repeat(numDigits + numFractions) + "E0";    
             DecimalFormat decimalFormat = new DecimalFormat(format);
             if (literalType.spec() == ColumnType.FLOAT) {
-               litVal = decimalFormat.format(Float.parseFloat(strVal));
+                litVal = decimalFormat.format(Float.parseFloat(strVal));
             } else {
-               litVal = decimalFormat.format(Double.parseDouble(strVal));
+                litVal = decimalFormat.format(Double.parseDouble(strVal));
             }
         } else {
             litVal = strVal;

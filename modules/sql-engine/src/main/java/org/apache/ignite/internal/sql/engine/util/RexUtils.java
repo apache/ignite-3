@@ -21,7 +21,6 @@ import static org.apache.calcite.rel.RelFieldCollation.Direction.ASCENDING;
 import static org.apache.calcite.rel.RelFieldCollation.Direction.DESCENDING;
 import static org.apache.calcite.rel.RelFieldCollation.NullDirection.FIRST;
 import static org.apache.calcite.rel.RelFieldCollation.NullDirection.LAST;
-import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rex.RexUtil.composeConjunction;
 import static org.apache.calcite.rex.RexUtil.composeDisjunction;
 import static org.apache.calcite.rex.RexUtil.flattenAnd;
@@ -1506,7 +1505,7 @@ public class RexUtils {
                 sourceLength += source.getScale() + 1; // include decimal mark
             }
             final int targetPrecision = target.getPrecision();
-            return targetPrecision == PRECISION_NOT_SPECIFIED || targetPrecision >= sourceLength;
+            return targetPrecision == RelDataType.PRECISION_NOT_SPECIFIED || targetPrecision >= sourceLength;
         }
         // Return FALSE by default
         return false;
