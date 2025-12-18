@@ -530,6 +530,7 @@ class ItScaleCubeNetworkMessagingTest {
     @SuppressWarnings("ConstantConditions")
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @MuteFailureManagerLogging
     public void nodeCannotReuseOldId(boolean keepPreExistingConnections) throws Exception {
         testCluster = new Cluster(3, testInfo);
 
@@ -912,6 +913,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     public void doesNotDeliverMessagesWhoseSenderLeftPhysicalTopology() throws Exception {
         testCluster = new Cluster(2, testInfo);
 
