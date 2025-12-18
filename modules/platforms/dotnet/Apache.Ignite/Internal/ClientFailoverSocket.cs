@@ -415,19 +415,19 @@ namespace Apache.Ignite.Internal
             return res;
         }
 
-        private async Task InitEndpointsAsync(int lockWaitTimeoutMs = Timeout.Infinite)
+        private async Task<bool> InitEndpointsAsync(int lockWaitTimeoutMs = Timeout.Infinite)
         {
             bool lockAcquired = await _initEndpointsLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
             if (!lockAcquired)
             {
-                return;
+                return false;
             }
 
             try
             {
                 if (_disposed)
                 {
-                    return;
+                    return false;
                 }
 
                 HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
@@ -492,10 +492,7 @@ namespace Apache.Ignite.Internal
                 // Apply the new endpoint list.
                 _endpoints = resList;
 
-                if (newEndpoints.Count > 0)
-                {
-                    await ConnectAllSockets().ConfigureAwait(false);
-                }
+                return newEndpoints.Count > 0;
             }
             finally
             {
@@ -539,10 +536,6 @@ namespace Apache.Ignite.Internal
             return await GetNextSocketAsync().ConfigureAwait(false);
         }
 
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
             while (!_disposed)
@@ -554,25 +547,7 @@ namespace Apache.Ignite.Internal
                     _logger.LogTryingToEstablishSecondaryConnectionsDebug(endpoints.Count);
                 }
 
-                int failed = 0;
-
-                foreach (var endpoint in endpoints)
-                {
-                    if (endpoint.IsAbandoned)
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        await ConnectAsync(endpoint).ConfigureAwait(false);
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
-                        failed++;
-                    }
-                }
+                var failed = await ConnectAllSocketsInnerAsync(endpoints).ConfigureAwait(false);
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
@@ -587,6 +562,35 @@ namespace Apache.Ignite.Internal
 
                 await Task.Delay(Configuration.Configuration.ReconnectInterval).ConfigureAwait(false);
             }
+        }
+
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Secondary connection errors can be ignored.")]
+        private async Task<int> ConnectAllSocketsInnerAsync(IReadOnlyList<SocketEndpoint> endpoints)
+        {
+            int failed = 0;
+
+            foreach (var endpoint in endpoints)
+            {
+                if (endpoint.IsAbandoned)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await ConnectAsync(endpoint).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
+                    failed++;
+                }
+            }
+
+            return failed;
         }
 
         private async Task ReResolveDnsPeriodically()
@@ -615,7 +619,12 @@ namespace Apache.Ignite.Internal
             try
             {
                 // Skip if another operation is in progress.
-                await InitEndpointsAsync(lockWaitTimeoutMs: 1).ConfigureAwait(false);
+                var changed = await InitEndpointsAsync(lockWaitTimeoutMs: 1).ConfigureAwait(false);
+
+                if (changed)
+                {
+                    await ConnectAllSocketsInnerAsync(_endpoints).ConfigureAwait(false);
+                }
             }
             catch (Exception e)
             {
