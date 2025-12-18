@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.rowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
@@ -37,19 +37,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
@@ -86,8 +82,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final ClockService clockService;
 
-    private final NodeProperties nodeProperties;
-
     private final InternalTable table;
 
     private final ReplicaService replicaService;
@@ -100,24 +94,19 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     /** Constructor. */
     UpdatableTableImpl(
-            int tableId,
-            int zoneId,
             TableDescriptor desc,
-            int partitions,
             InternalTable table,
             ReplicaService replicaService,
             ClockService clockService,
-            NodeProperties nodeProperties,
             TableRowConverter rowConverter
     ) {
-        this.tableId = tableId;
-        this.zoneId = zoneId;
+        this.tableId = table.tableId();
+        this.zoneId = table.zoneId();
         this.table = table;
         this.desc = desc;
         this.replicaService = replicaService;
         this.clockService = clockService;
-        this.nodeProperties = nodeProperties;
-        this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
+        this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % table.partitions();
         this.rowConverter = rowConverter;
     }
 
@@ -129,16 +118,16 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+        ZonePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
 
-        validateNotNullConstraint(ectx.rowHandler(), rows);
+        validateNotNullConstraint(ectx.rowAccessor(), rows);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx, rows, schemaSupplier);
 
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -154,14 +143,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            ReplicationGroupId partGroupId = targetReplicationGroupId(partToRows.getIntKey());
+            ZonePartitionId partGroupId = new ZonePartitionId(zoneId, partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(serializeReplicationGroupId(partGroupId))
+                    .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partGroupId))
                     .tableId(tableId)
-                    .commitPartitionId(serializeReplicationGroupId(commitPartitionId))
+                    .commitPartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
@@ -198,18 +187,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return result;
     }
 
-    private ReplicationGroupId targetReplicationGroupId(int partitionId) {
-        if (nodeProperties.colocationEnabled()) {
-            return new ZonePartitionId(zoneId, partitionId);
-        } else {
-            return new TablePartitionId(tableId, partitionId);
-        }
-    }
-
-    private static ReplicationGroupIdMessage serializeReplicationGroupId(ReplicationGroupId id) {
-        return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, id);
-    }
-
     @Override
     public TableDescriptor descriptor() {
         return desc;
@@ -224,12 +201,18 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         assert tx != null;
 
-        validateNotNullConstraint(ectx.rowHandler(), row);
+        validateNotNullConstraint(ectx.rowAccessor(), row);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
+        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(
+                rowType,
+                ectx.rowAccessor(),
+                ectx.rowFactoryFactory(),
+                row,
+                schemaSupplier
+        );
 
         BinaryRowEx tableRow = rowConverter.toFullRow(ectx, validatedRow);
 
@@ -239,7 +222,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                         return null;
                     }
 
-                    RowHandler<RowT> rowHandler = ectx.rowHandler();
+                    RowHandler<RowT> rowHandler = ectx.rowAccessor();
 
                     throw conflictKeysException(List.of(rowHandler.toString(validatedRow)));
                 });
@@ -253,14 +236,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+        ZonePartitionId commitPartitionId = txAttributes.commitPartition();
 
-        validateNotNullConstraint(ectx.rowHandler(), rows);
+        validateNotNullConstraint(ectx.rowAccessor(), rows);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
-        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx, rows, schemaSupplier);
 
         assert commitPartitionId != null;
 
@@ -270,14 +253,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            ReplicationGroupId partGroupId = targetReplicationGroupId(partitionId);
+            ZonePartitionId partGroupId = new ZonePartitionId(zoneId, partitionId);
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
             ReadWriteMultiRowReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(serializeReplicationGroupId(partGroupId))
+                    .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partGroupId))
                     .tableId(tableId)
-                    .commitPartitionId(serializeReplicationGroupId(commitPartitionId))
+                    .commitPartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
@@ -332,7 +315,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+        ZonePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
 
@@ -350,14 +333,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            ReplicationGroupId partGroupId = targetReplicationGroupId(partToRows.getIntKey());
+            ZonePartitionId partGroupId = new ZonePartitionId(zoneId, partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
-                    .groupId(serializeReplicationGroupId(partGroupId))
+                    .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partGroupId))
                     .tableId(tableId)
-                    .commitPartitionId(serializeReplicationGroupId(commitPartitionId))
+                    .commitPartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
@@ -384,9 +367,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
                         return null;
                     }
 
-                    RowHandler<RowT> handler = ectx.rowHandler();
+                    RowHandler<RowT> handler = ectx.rowAccessor();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(convertStructuredType(rowType(desc, typeFactory)));
+                    RowFactory<RowT> rowFactory = ectx.rowFactoryFactory().create(convertStructuredType(rowType(desc, typeFactory)));
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
 
@@ -415,14 +398,20 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private static <RowT> List<RowT> validateCharactersOverflowAndTrimIfPossible(
             RelDataType rowType,
-            RowHandler<RowT> rowHandler,
+            ExecutionContext<RowT> context,
             List<RowT> rows,
             Supplier<StructNativeType> schemaSupplier
     ) {
         List<RowT> out = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
-            out.add(TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, rowHandler, row, schemaSupplier));
+            out.add(TypeUtils.validateStringTypesOverflowAndTrimIfPossible(
+                    rowType,
+                    context.rowAccessor(),
+                    context.rowFactoryFactory(),
+                    row,
+                    schemaSupplier
+            ));
         }
 
         return out;

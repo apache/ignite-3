@@ -27,6 +27,7 @@ import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
  *
  * <p>This command is replaced with {@link FinishTxCommandV2} and only exists in the source code for backward compatibility.</p>
  */
+@Deprecated(forRemoval = true)
 @Transferable(Commands.FINISH_TX_V1)
 public interface FinishTxCommandV1 extends FinishTxCommand {
     /** Returns ordered replication groups IDs. */

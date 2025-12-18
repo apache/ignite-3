@@ -79,7 +79,7 @@ class TxStateRocksDbSharedStorageTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void remembersCreatedTableOrZoneIdsOnDisk(boolean restart) {
+    void remembersCreatedZoneIdsOnDisk(boolean restart) {
         createZoneTxStateStorageLeavingTraceOnDisk(1);
         createZoneTxStateStorageLeavingTraceOnDisk(3);
 
@@ -87,7 +87,7 @@ class TxStateRocksDbSharedStorageTest {
             flushAndRestartSharedStorage();
         }
 
-        assertThat(sharedStorage.tableOrZoneIdsOnDisk(), containsInAnyOrder(1, 3));
+        assertThat(sharedStorage.zoneIdsOnDisk(), containsInAnyOrder(1, 3));
     }
 
     private void createZoneTxStateStorageLeavingTraceOnDisk(int zoneId) {
@@ -109,7 +109,7 @@ class TxStateRocksDbSharedStorageTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void tableOrZoneIdsOnDiskGetRemovedOnPersistedDestruction(boolean restart) {
+    void zoneIdsOnDiskGetRemovedOnPersistedDestruction(boolean restart) {
         createZoneTxStateStorageLeavingTraceOnDisk(1);
         createZoneTxStateStorageLeavingTraceOnDisk(3);
 
@@ -119,6 +119,6 @@ class TxStateRocksDbSharedStorageTest {
             flushAndRestartSharedStorage();
         }
 
-        assertThat(sharedStorage.tableOrZoneIdsOnDisk(), contains(3));
+        assertThat(sharedStorage.zoneIdsOnDisk(), contains(3));
     }
 }

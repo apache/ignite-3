@@ -302,17 +302,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException;
 
     /**
-     * Returns the head of GC queue.
+     * Returns entries from the queue starting from the head.
      *
      * @param lowWatermark Upper bound for commit timestamp of GC entry, inclusive.
-     * @return Queue head or {@code null} if there are no entries below passed low watermark.
+     * @param count Requested count of entries.
+     * @return First entries in the GC queue that are less than or equal to passed low watermark.
      */
-    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+    List<GcEntry> peek(HybridTimestamp lowWatermark, int count);
 
     /**
      * Delete GC entry from the GC queue and corresponding version chain. Row ID of the entry must be locked to call this method.
      *
-     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
+     * @param entry Entry, previously returned by {@link #peek}.
      * @return Polled binary row, or {@code null} if the entry has already been deleted by another thread.
      *
      * @see Locker#lock(RowId)
@@ -343,6 +344,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Estimated size of this partition.
      */
     long estimatedSize();
+
+    /**
+     * Returns a cursor that traverses all row IDs of write intents registered with the write intents' list.
+     *
+     * <p>Volatile storages will always return an empty cursor.
+     *
+     * <p>Persistent storages might maintain the corresponding list or not. If they don't, they return an empty cursor as well.
+     * If they do, they do their best effort to return all registered write intents, but they might miss some of them that were
+     * created before the corresponding write intent's list was introduced.
+     *
+     * <p>The caller is responsible for closing the returned cursor.
+     *
+     * @return A {@link Cursor} of {@link RowId} objects representing the write intents.
+     */
+    Cursor<RowId> scanWriteIntents();
 
     /**
      * Closes the storage.

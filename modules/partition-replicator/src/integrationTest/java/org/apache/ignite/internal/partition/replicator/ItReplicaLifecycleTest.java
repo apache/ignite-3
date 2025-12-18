@@ -732,8 +732,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Check that the storages close method was triggered
         verify(internalTable.storage())
                 .close();
-        verify(internalTable.txStateStorage())
-                .close();
     }
 
     @Test
@@ -764,7 +762,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Tables must not be stopped on partition replica stop.
         verify(internalTable.storage(), never()).close();
-        verify(internalTable.txStateStorage(), never()).close();
     }
 
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
@@ -820,8 +817,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         verify(internalTable.storage(), never())
                 .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), never())
-                .destroyPartitionStorage(partitionId);
     }
 
     private static void checkDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
@@ -829,7 +824,5 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), never())
-                .destroyPartitionStorage(partitionId);
     }
 }

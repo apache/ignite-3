@@ -30,7 +30,7 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 
 /**
@@ -44,7 +44,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private final JoinRelType joinType;
 
-    private final SqlJoinProjection<RowT> joinProjection;
+    private final SqlJoinProjection joinProjection;
 
     private final int leftInBufferSize;
 
@@ -90,7 +90,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             Set<CorrelationId> correlationIds,
             JoinRelType joinType,
             RowFactory<RowT> rightRowFactory,
-            SqlJoinProjection<RowT> joinProjection
+            SqlJoinProjection joinProjection
     ) {
         super(ctx);
 

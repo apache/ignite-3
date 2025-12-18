@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.datapage;
 
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Controls page memory traversal.
@@ -41,7 +42,7 @@ public interface PageMemoryTraversal<T> {
      * @param arg      argument passed to the traversal
      * @return next row link or {@link #STOP_TRAVERSAL} to stop the traversal
      */
-    long consumePagePayload(long link, long pageAddr, DataPagePayload payload, T arg);
+    long consumePagePayload(long link, long pageAddr, DataPagePayload payload, @Nullable T arg);
 
     /**
      * Called when the traversal is finished successfully.

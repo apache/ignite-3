@@ -40,7 +40,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -76,7 +76,7 @@ public class PlacementDriverHelper {
      * @return Future that completes with node id that is a primary for the provided partition, or completes with exception if no primary
      *         appeared during the await timeout.
      */
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(ReplicationGroupId partitionId) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(ZonePartitionId partitionId) {
         return awaitPrimaryReplicaWithExceptionHandling(partitionId, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
     }
 
@@ -90,7 +90,7 @@ public class PlacementDriverHelper {
      *         appeared during the await timeout.
      */
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
-            ReplicationGroupId partitionId,
+            ZonePartitionId partitionId,
             long timeout,
             TimeUnit timeUnit
     ) {
@@ -100,7 +100,7 @@ public class PlacementDriverHelper {
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
-            ReplicationGroupId partitionId,
+            ZonePartitionId partitionId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit timeUnit
@@ -112,7 +112,7 @@ public class PlacementDriverHelper {
 
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
                                 "Failed to get the primary replica"
-                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + timestamp + ']', e);
+                                        + " [zonePartitionId=" + partitionId + ", awaitTimestamp=" + timestamp + ']', e);
                     }
 
                     return primaryReplica;
@@ -126,7 +126,7 @@ public class PlacementDriverHelper {
      * @return A future that completes with a map of node to the partitions the node is primary for and a collection of partitions that we
      *         failed to find the primary for.
      */
-    public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<ReplicationGroupId> partitions) {
+    public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<ZonePartitionId> partitions) {
         // Please note that we are using `get primary replica` instead of `await primary replica`.
         // This method is faster, yet we still have the correctness:
         // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
@@ -141,8 +141,8 @@ public class PlacementDriverHelper {
      * @param partitions A collection of partitions.
      * @return A future that completes with a map of node to the partitions the node is primary for.
      */
-    public CompletableFuture<Map<String, Set<ReplicationGroupId>>> awaitPrimaryReplicas(Collection<ReplicationGroupId> partitions) {
-        BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> action = (groupId, timestamp)
+    public CompletableFuture<Map<String, Set<ZonePartitionId>>> awaitPrimaryReplicas(Collection<ZonePartitionId> partitions) {
+        BiFunction<ZonePartitionId, HybridTimestamp, CompletableFuture<ReplicaMeta>> action = (groupId, timestamp)
                 -> awaitPrimaryReplicaWithExceptionHandling(groupId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         return computePrimaryReplicas(partitions, action)
                 .thenApply(partitionData -> partitionData.partitionsByNode);
@@ -156,8 +156,8 @@ public class PlacementDriverHelper {
      *         failed to find the primary for.
      */
     private CompletableFuture<PartitionData> computePrimaryReplicas(
-            Collection<ReplicationGroupId> partitions,
-            BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
+            Collection<ZonePartitionId> partitions,
+            BiFunction<ZonePartitionId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
     ) {
         if (partitions == null || partitions.isEmpty()) {
             return completedFuture(new PartitionData(emptyMap(), emptySet()));
@@ -165,23 +165,23 @@ public class PlacementDriverHelper {
 
         HybridTimestamp timestamp = clockService.now();
 
-        Map<ReplicationGroupId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
+        Map<ZonePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
 
-        for (ReplicationGroupId partitionId : partitions) {
+        for (ZonePartitionId partitionId : partitions) {
             primaryReplicaFutures.put(partitionId, placementFunction.apply(partitionId, timestamp));
         }
 
         return allOf(primaryReplicaFutures.values().toArray(new CompletableFuture<?>[0]))
                 .thenApply(v -> {
-                    Map<String, Set<ReplicationGroupId>> partitionsByNode = new HashMap<>();
+                    Map<String, Set<ZonePartitionId>> partitionsByNode = new HashMap<>();
 
-                    Set<ReplicationGroupId> partitionsWithoutPrimary = new HashSet<>();
+                    Set<ZonePartitionId> partitionsWithoutPrimary = new HashSet<>();
 
-                    for (Entry<ReplicationGroupId, CompletableFuture<ReplicaMeta>> entry : primaryReplicaFutures.entrySet()) {
+                    for (Entry<ZonePartitionId, CompletableFuture<ReplicaMeta>> entry : primaryReplicaFutures.entrySet()) {
                         // Safe to call join, the future has already finished.
                         ReplicaMeta meta = entry.getValue().join();
 
-                        ReplicationGroupId partition = entry.getKey();
+                        ZonePartitionId partition = entry.getKey();
 
                         if (meta != null && meta.getLeaseholder() != null) {
                             partitionsByNode.computeIfAbsent(meta.getLeaseholder(), s -> new HashSet<>())
@@ -198,11 +198,11 @@ public class PlacementDriverHelper {
      * The result of retrieving primary replicas for a collection of partitions.
      */
     public static class PartitionData {
-        final Map<String, Set<ReplicationGroupId>> partitionsByNode;
+        final Map<String, Set<ZonePartitionId>> partitionsByNode;
 
-        final Set<ReplicationGroupId> partitionsWithoutPrimary;
+        final Set<ZonePartitionId> partitionsWithoutPrimary;
 
-        PartitionData(Map<String, Set<ReplicationGroupId>> partitionsByNode, Set<ReplicationGroupId> partitionsWithoutPrimary) {
+        PartitionData(Map<String, Set<ZonePartitionId>> partitionsByNode, Set<ZonePartitionId> partitionsWithoutPrimary) {
             this.partitionsByNode = partitionsByNode;
             this.partitionsWithoutPrimary = partitionsWithoutPrimary;
         }

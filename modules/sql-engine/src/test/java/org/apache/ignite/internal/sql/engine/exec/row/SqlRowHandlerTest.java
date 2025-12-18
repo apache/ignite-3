@@ -36,9 +36,8 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -62,7 +61,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for {@link SqlRowHandler}.
  */
 public class SqlRowHandlerTest extends IgniteAbstractTest {
-    private static final RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+    private static final SqlRowHandler handler = SqlRowHandler.INSTANCE;
 
     private final long seed = ThreadLocalRandom.current().nextLong();
 
@@ -81,7 +80,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         int elementsCount = schema.fields().size();
 
-        RowFactory<RowWrapper> factory = handler.factory(schema);
+        RowFactory<RowWrapper> factory = handler.create(schema);
         RowWrapper src = factory.create(wrap(sourceData, schema));
 
         // Serialization to binary tuple representation.
@@ -113,22 +112,22 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         Object[] sourceData = values(columnTypes);
         StructNativeType schema = rowSchema(columnTypes, sourceData);
 
-        RowFactory<RowWrapper> factory = handler.factory(schema);
+        RowFactory<RowWrapper> factory = handler.create(schema);
 
         RowWrapper srcRow = factory.create(sourceData);
 
         RowWrapper srcBinRow = factory.create(handler.toBinaryTuple(srcRow));
 
         StructNativeType mappedSchema = rowSchema(columnTypes.subList(0, mapping.length), Arrays.copyOf(sourceData, mapping.length));
-        RowFactory<RowWrapper> mappedFactory = handler.factory(mappedSchema);
+        RowFactory<RowWrapper> mappedFactory = handler.create(mappedSchema);
 
         RowWrapper mappedRow = mappedFactory.map(srcRow, mapping);
         RowWrapper mappedFromBinRow = mappedFactory.map(srcBinRow, mapping);
 
         RowWrapper deserializedMappedBinRow = mappedFactory.create(handler.toBinaryTuple(mappedFromBinRow));
 
-        assertThat(handler.columnCount(mappedRow), equalTo(mapping.length));
-        assertThat(handler.columnCount(mappedFromBinRow), equalTo(mapping.length));
+        assertThat(handler.columnsCount(mappedRow), equalTo(mapping.length));
+        assertThat(handler.columnsCount(mappedFromBinRow), equalTo(mapping.length));
 
         for (int i = 0; i < mapping.length; i++) {
             Object expected = handler.get(mapping[i], srcRow);
@@ -141,14 +140,14 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     @Test
     public void testUpdateRowSchemaOnMapping() {
-        RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+        SqlRowHandler handler = SqlRowHandler.INSTANCE;
 
         StructNativeType rowSchema = NativeTypes.rowBuilder()
                 .addField("C1", NativeTypes.INT32, false)
                 .addField("C2", NativeTypes.STRING, false)
                 .build();
 
-        RowWrapper row1 = handler.factory(rowSchema).rowBuilder()
+        RowWrapper row1 = handler.create(rowSchema).rowBuilder()
                 .addField(1).addField("2")
                 .build();
 
@@ -157,7 +156,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
                 .addField("C2", NativeTypes.INT32, false)
                 .build();
 
-        RowFactory<RowWrapper> factory = handler.factory(reverseRowSchema);
+        RowFactory<RowWrapper> factory = handler.create(reverseRowSchema);
 
         RowWrapper reverseMapping = factory.map(row1, new int[]{1, 0});
 
@@ -181,7 +180,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         Object value1 = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
 
         StructNativeType rowSchema = rowSchema(List.of(type), new Object[]{value1});
-        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = handler.create(rowSchema);
         RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
 
         RowWrapper row00 = builder.addField(value1).build();
@@ -200,7 +199,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     @Test
     public void testRowBuilderRejectInvalidField() {
         StructNativeType rowSchema = rowSchema(List.of(ColumnType.INT32), new Object[]{1});
-        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = handler.create(rowSchema);
 
         RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
         builder.addField(1);
@@ -212,7 +211,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     @Test
     public void testRowBuilderBuildReset() {
         StructNativeType rowSchema = rowSchema(List.of(ColumnType.INT32), new Object[]{1});
-        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = handler.create(rowSchema);
 
         RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
 
@@ -238,7 +237,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     @Test
     public void testRowBuilderBuildingIncompleteRowIsNotAllowed() {
         StructNativeType rowSchema = rowSchema(List.of(ColumnType.INT32, ColumnType.INT32), new Object[]{1, 2});
-        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = handler.create(rowSchema);
 
         RowBuilder<RowWrapper> rowBuilder = rowFactory.rowBuilder();
         rowBuilder.addField(1);
@@ -249,7 +248,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     @Test
     public void testRowBuilderEmptyRow() {
-        RowFactory<RowWrapper> rowFactory = handler.factory(NativeTypes.rowBuilder().build());
+        RowFactory<RowWrapper> rowFactory = handler.create(NativeTypes.rowBuilder().build());
         RowBuilder<RowWrapper> rowBuilder = rowFactory.rowBuilder();
         assertNotNull(rowBuilder.build());
     }
@@ -264,7 +263,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
                 .addField("C1", nativeType, true)
                 .build();
 
-        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = handler.create(rowSchema);
 
         {
             RowWrapper row = rowFactory.create(new Object[]{null});

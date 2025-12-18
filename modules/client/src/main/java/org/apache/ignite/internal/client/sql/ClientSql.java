@@ -334,9 +334,7 @@ public class ClientSql implements IgniteSql {
 
         PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
 
-        PartitionMapping mapping = mappingProvider != null
-                ? mappingProvider.get(arguments)
-                : null;
+        PartitionMapping mapping = resolveMapping(transaction, mappingProvider, arguments);
 
         // Write context carries request execution details over async chain.
         WriteContext ctx = new WriteContext(ch.observableTimestamp(), ClientOp.SQL_EXEC);
@@ -369,6 +367,28 @@ public class ClientSql implements IgniteSql {
                 null,
                 false
         )).exceptionally(ClientSql::handleException);
+    }
+
+    private static @Nullable PartitionMapping resolveMapping(
+            @Nullable Transaction transaction,
+            @Nullable PartitionMappingProvider provider,
+            @Nullable Object... arguments
+    ) {
+        if (provider == null) {
+            // Nothing to resolve.
+            return null;
+        }
+
+        if (explicitRw(transaction) && provider.directTxMode() == ClientDirectTxMode.NOT_SUPPORTED) {
+            // Current statement doesn't support direct transactions which is part of the explicit RW transactions handling.
+            return null;
+        }
+
+        return provider.get(arguments);
+    }
+
+    private static boolean explicitRw(@Nullable Transaction transaction) {
+        return transaction != null && !transaction.isReadOnly();
     }
 
     private <T> PayloadReader<AsyncResultSet<T>> payloadReader(

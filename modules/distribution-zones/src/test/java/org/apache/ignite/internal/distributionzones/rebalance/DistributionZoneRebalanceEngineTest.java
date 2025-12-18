@@ -113,7 +113,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests the distribution zone dataNodes watch listener in {@link DistributionZoneRebalanceEngineV2}.
+ * Tests the distribution zone dataNodes watch listener in {@link DistributionZoneRebalanceEngine}.
  */
 @ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
@@ -131,7 +131,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private final DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
 
-    private DistributionZoneRebalanceEngineV2 rebalanceEngine;
+    private DistributionZoneRebalanceEngine rebalanceEngine;
 
     private WatchListener watchListener;
 
@@ -488,7 +488,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     private void createRebalanceEngine(MetaStorageManager metaStorageManager) {
-        rebalanceEngine = new DistributionZoneRebalanceEngineV2(
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 distributionZoneManager,

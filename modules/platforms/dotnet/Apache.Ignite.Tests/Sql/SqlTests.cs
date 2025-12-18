@@ -31,6 +31,7 @@ namespace Apache.Ignite.Tests.Sql
     using Microsoft.Extensions.Logging.Abstractions;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
@@ -759,7 +760,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlBatchException>(
                 async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1]]));
 
-            Assert.AreEqual("Invalid SQL statement type. Expected [DML] but got QUERY.", ex.Message);
+            Assert.AreEqual("Statement of type \"Query\" is not allowed in current context [allowedTypes=[DML]].", ex.Message);
         }
 
         [Test]

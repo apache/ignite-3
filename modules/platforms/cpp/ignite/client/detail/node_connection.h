@@ -49,6 +49,23 @@ class node_connection : public std::enable_shared_from_this<node_connection> {
 public:
     typedef std::function<void(protocol::writer&, const protocol::protocol_context&)> writer_function_type;
 
+    struct pending_request {
+        /** Handler function for request */
+        std::shared_ptr<response_handler> handler{};
+
+        /**
+         * Optional request timeout.
+         * When provided contains time point after which request would be considered as timed out.
+         */
+        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at{};
+
+        explicit pending_request(
+            std::shared_ptr<response_handler> handler,
+            std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at)
+            : handler(std::move(handler))
+            , timeouts_at(timeouts_at) {}
+    };
+
     // Deleted
     node_connection() = delete;
     node_connection(node_connection &&) = delete;
@@ -103,8 +120,11 @@ public:
      * @param handler response handler.
      * @return A request ID on success and @c std::nullopt otherwise.
      */
-    [[nodiscard]] std::optional<std::int64_t> perform_request(protocol::client_operation op, const writer_function_type &wr,
-        std::shared_ptr<response_handler> handler) {
+    [[nodiscard]] std::optional<std::int64_t> perform_request(
+        protocol::client_operation op,
+        const writer_function_type &wr,
+        std::shared_ptr<response_handler> handler)
+    {
         auto req_id = generate_request_id();
         std::vector<std::byte> message;
         {
@@ -119,9 +139,14 @@ public:
             buffer.write_length_header();
         }
 
+        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeout{};
+        if (m_configuration.get_operation_timeout().count() > 0) {
+            timeout = std::chrono::steady_clock::now() + m_configuration.get_operation_timeout();
+        }
+
         {
             std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
-            m_request_handlers[req_id] = std::move(handler);
+            m_request_handlers.emplace(req_id, pending_request(std::move(handler), timeout));
         }
 
         if (m_logger->is_debug_enabled()) {
@@ -134,6 +159,7 @@ public:
             get_and_remove_handler(req_id);
             return {};
         }
+
         return {req_id};
     }
 
@@ -148,8 +174,11 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    [[nodiscard]] std::optional<std::int64_t> perform_request(protocol::client_operation op, const writer_function_type &wr,
-        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+    [[nodiscard]] std::optional<std::int64_t> perform_request(
+        protocol::client_operation op,
+        const writer_function_type &wr,
+        std::function<T(protocol::reader &)> rd,
+        ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
     }
@@ -202,6 +231,8 @@ public:
      * @return Logger associated with the connection.
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
+
+    void handle_timeouts();
 
 private:
     /**
@@ -290,7 +321,7 @@ private:
     std::atomic_int64_t m_req_id_gen{0};
 
     /** Pending request handlers. */
-    std::unordered_map<std::int64_t, std::shared_ptr<response_handler>> m_request_handlers;
+    std::unordered_map<std::int64_t, pending_request> m_request_handlers;
 
     /** Handlers map mutex. */
     std::recursive_mutex m_request_handlers_mutex;

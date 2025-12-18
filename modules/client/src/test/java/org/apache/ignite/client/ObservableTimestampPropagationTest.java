@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_S
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
@@ -49,7 +48,10 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void startServer2() {
         ignite = new FakeIgnite("server-2", new TestHybridClock(currentServerTimestamp::get));
-        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, true, null);
+        testServer = TestServer.builder()
+                .ignite(ignite)
+                .nodeName("server-2")
+                .build();
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }

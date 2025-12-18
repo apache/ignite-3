@@ -32,7 +32,8 @@ public class HashPartition implements Partition {
         this.partitionId = partitionId;
     }
 
-    public int partitionId() {
+    @Override
+    public long id() {
         return partitionId;
     }
 

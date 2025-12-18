@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSD
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.properties.IgniteProductVersion.fromString;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.awaitility.Awaitility.await;
@@ -41,7 +42,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -123,7 +123,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             setupBaseVersion(client);
         }
 
-        boolean shouldEnableColocation = Version.parseVersion(baseVersion).compareTo(Version.parseVersion("3.1")) >= 0;
+        boolean shouldEnableColocation = fromString(baseVersion).compareTo(fromString("3.1.0")) >= 0;
 
         System.setProperty(COLOCATION_FEATURE_FLAG, String.valueOf(shouldEnableColocation));
 

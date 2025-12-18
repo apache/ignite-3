@@ -95,6 +95,7 @@ enum class code : underlying_t {
     HANDSHAKE_HEADER = 0x30008,
     SERVER_TO_CLIENT_REQUEST = 0x30009,
     RESOURCE_NOT_FOUND = 0x3000a,
+    OPERATION_TIMEOUT = 0x3000b,
 
     // Sql group. Group code: 4
     QUERY_NO_RESULT_SET = 0x40001,
@@ -137,6 +138,7 @@ enum class code : underlying_t {
     TX_STALE_OPERATION = 0x7000e,
     TX_STALE_READ_ONLY_OPERATION = 0x7000f,
     TX_ALREADY_FINISHED_WITH_TIMEOUT = 0x70010,
+    TX_DELAYED_ACK = 0x70011,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,

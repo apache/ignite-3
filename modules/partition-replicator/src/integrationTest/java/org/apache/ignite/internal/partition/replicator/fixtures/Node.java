@@ -190,7 +190,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -710,7 +709,8 @@ public class Node {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                metricManager
+                metricManager,
+                lowWatermark
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -820,14 +820,6 @@ public class Node {
 
                 return storage;
             }
-
-            @Override
-            protected TxStateStorage createTxStateTableStorage(
-                    CatalogTableDescriptor tableDescriptor,
-                    CatalogZoneDescriptor zoneDescriptor
-            ) {
-                return createSpy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
-            }
         };
 
         tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
@@ -854,7 +846,8 @@ public class Node {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
@@ -877,7 +870,6 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),

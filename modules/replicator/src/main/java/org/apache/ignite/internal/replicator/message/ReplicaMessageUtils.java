@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
@@ -56,28 +55,5 @@ public class ReplicaMessageUtils {
                 .zoneId(zonePartitionId.zoneId())
                 .partitionId(zonePartitionId.partitionId())
                 .build();
-    }
-
-    /**
-     * Converts to a network message.
-     *
-     * @param messagesFactory Messages factory.
-     * @param replicationGroupId Replication group ID for a given partition.
-     * @return New instance of network message.
-     */
-    public static ReplicationGroupIdMessage toReplicationGroupIdMessage(
-            ReplicaMessagesFactory messagesFactory,
-            ReplicationGroupId replicationGroupId
-    ) {
-        assert replicationGroupId instanceof TablePartitionId || replicationGroupId instanceof ZonePartitionId :
-                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
-                        + ", value=" + replicationGroupId
-                        + ", requiredType=TablePartitionId or ZonePartitionId].";
-
-        if (replicationGroupId instanceof TablePartitionId) {
-            return toTablePartitionIdMessage(messagesFactory, (TablePartitionId) replicationGroupId);
-        } else {
-            return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
-        }
     }
 }

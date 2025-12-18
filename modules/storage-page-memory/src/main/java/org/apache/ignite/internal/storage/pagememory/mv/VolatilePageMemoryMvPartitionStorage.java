@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
@@ -39,7 +41,9 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -47,6 +51,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStor
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -380,6 +385,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return Cursor.fromBareIterator(emptyIterator());
+    }
+
+    @Override
     public void incrementEstimatedSize() {
         ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
     }
@@ -387,5 +397,16 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void decrementEstimatedSize() {
         ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
+    }
+
+    @Override
+    AddWriteInvokeClosure newAddWriteInvokeClosure(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) {
+        return new AddWriteInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
     }
 }

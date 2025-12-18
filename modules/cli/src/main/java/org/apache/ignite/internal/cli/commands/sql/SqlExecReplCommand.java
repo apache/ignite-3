@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
@@ -168,7 +169,8 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     }
 
     private boolean highlightingEnabled() {
-        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
+        return isTreeSitterParserAvailable()
+                && Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 
     /**

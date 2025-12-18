@@ -598,7 +598,7 @@ public class IgniteImpl implements Ignite {
 
         FailureProcessorConfiguration failureProcessorConfiguration = nodeConfigRegistry.getConfiguration(
                 FailureProcessorExtensionConfiguration.KEY).failureHandler();
-        failureManager = new FailureManager(node::shutdown, failureProcessorConfiguration);
+        failureManager = new FailureManager(name, node::shutdown, failureProcessorConfiguration);
 
         SystemLocalConfiguration systemConfiguration = nodeConfigRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
 
@@ -1008,7 +1008,8 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration,
                 clockService,
                 nodeProperties,
-                metricManager
+                metricManager,
+                lowWatermark
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1068,7 +1069,6 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureManager,
-                nodeProperties,
                 metricManager
         );
 
@@ -1199,7 +1199,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                metricManager
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -1220,7 +1221,6 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 killCommandHandler,
@@ -1765,6 +1765,9 @@ public class IgniteImpl implements Ignite {
         }
 
         ExecutorService lifecycleExecutor = stopExecutor();
+
+        cmgMgr.markAsStopping();
+        metaStorageMgr.markAsStopping();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22570
         lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))

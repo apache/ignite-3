@@ -29,6 +29,7 @@ public class DisableWriteIntentSwitchExecutionJob implements ComputeJob<Void, Vo
     @Override
     public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, @Nullable Void arg) {
         IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+
         igniteImpl.dropMessages((recipientId, message) -> message.getClass().getName().contains("WriteIntentSwitchReplicaRequest"));
 
         return null;

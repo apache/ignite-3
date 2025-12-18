@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.partition;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -25,41 +26,82 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Wrapper around {@link PartitionManager} that maintains public API invariants relating to threading.
+ * Wrapper around {@link PartitionDistribution} that maintains public API invariants relating to threading.
  * That is, it adds protection against thread hijacking by users.
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */
 public class PublicApiThreadingPartitionManager implements PartitionManager {
-    private final PartitionManager partitionManager;
+    private final PartitionDistribution partitionDistribution;
     private final Executor asyncContinuationExecutor;
 
-    public PublicApiThreadingPartitionManager(PartitionManager partitionManager, Executor asyncContinuationExecutor) {
-        this.partitionManager = partitionManager;
+    public PublicApiThreadingPartitionManager(PartitionDistribution partitionDistribution, Executor asyncContinuationExecutor) {
+        this.partitionDistribution = partitionDistribution;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
+    public CompletableFuture<List<Partition>> partitionsAsync() {
+        return preventThreadHijack(partitionDistribution.partitionsAsync());
+    }
+
+    @Override
+    public List<Partition> partitions() {
+        return partitionDistribution.partitions();
+    }
+
+    @Override
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        return preventThreadHijack(partitionManager.primaryReplicaAsync(partition));
+        return preventThreadHijack(partitionDistribution.primaryReplicaAsync(partition));
+    }
+
+    @Override
+    public ClusterNode primaryReplica(Partition partition) {
+        return partitionDistribution.primaryReplica(partition);
     }
 
     @Override
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
-        return preventThreadHijack(partitionManager.primaryReplicasAsync());
+        return preventThreadHijack(partitionDistribution.primaryReplicasAsync());
+    }
+
+    @Override
+    public CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node) {
+        return preventThreadHijack(partitionDistribution.primaryReplicasAsync(node));
+    }
+
+    @Override
+    public Map<Partition, ClusterNode> primaryReplicas() {
+        return partitionDistribution.primaryReplicas();
+    }
+
+    @Override
+    public List<Partition> primaryReplicas(ClusterNode node) {
+        return partitionDistribution.primaryReplicas(node);
     }
 
     @Override
     public <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper) {
-        return preventThreadHijack(partitionManager.partitionAsync(key, mapper));
+        return preventThreadHijack(partitionDistribution.partitionAsync(key, mapper));
     }
 
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
-        return preventThreadHijack(partitionManager.partitionAsync(key));
+        return preventThreadHijack(partitionDistribution.partitionAsync(key));
+    }
+
+    @Override
+    public <K> Partition partition(K key, Mapper<K> mapper) {
+        return partitionDistribution.partition(key, mapper);
+    }
+
+    @Override
+    public Partition partition(Tuple key) {
+        return partitionDistribution.partition(key);
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {

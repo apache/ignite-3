@@ -30,7 +30,7 @@ Project
             projection: [PS_SUPPKEY]
             est: (rows=600000000)
           Filter
-              predicate: >(CAST(PS_AVAILQTY):DECIMAL(32767, 3) NOT NULL, EXPR$0)
+              predicate: >(CAST(PS_AVAILQTY):DECIMAL(32, 3) NOT NULL, EXPR$0)
               est: (rows=600000000)
             CorrelatedNestedLoopJoin
                 predicate: true
@@ -91,7 +91,7 @@ Project
                           index: L_SK_PK
                           type: SORTED
                           predicate: AND(=(L_PARTKEY, $cor2.PS_PARTKEY), =(L_SUPPKEY, $cor2.PS_SUPPKEY), SEARCH(L_SHIPDATE, Sarg[[1994-01-01..1995-01-01)]))
-                          searchBounds: [ExactBounds [bound=$cor2.PS_SUPPKEY], ExactBounds [bound=$cor2.PS_PARTKEY]]
+                          searchBounds: <$cor2.PS_SUPPKEY, $cor2.PS_PARTKEY>
                           fieldNames: [L_QUANTITY]
                           collation: []
                           est: (rows=166367)

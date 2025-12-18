@@ -61,6 +61,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT client aware of a logical topology to handle distributed events.
+ * TODO: IGNITE-27257 Refactor the class to make it more readable and maintainable.
  */
 public class TopologyAwareRaftGroupService implements RaftGroupService {
 
@@ -638,5 +639,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         subscribersMap.put(peer, fut);
 
         return fut;
+    }
+
+    @Override
+    public void markAsStopping() {
+        raftClient.markAsStopping();
     }
 }

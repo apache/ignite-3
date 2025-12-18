@@ -166,10 +166,10 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
         assertThreadAllowsToRead();
 
-        return partitionStorage.peek(lowWatermark);
+        return partitionStorage.peek(lowWatermark, count);
     }
 
     @Override
@@ -194,6 +194,13 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     @Override
     public long estimatedSize() {
         return partitionStorage.estimatedSize();
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.scanWriteIntents();
     }
 
     @Override

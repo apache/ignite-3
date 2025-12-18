@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -147,6 +147,7 @@ public class TestNode implements LifecycleAware {
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+        RowFactoryFactory<Object[]> rowFactoryFactory = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
 
@@ -193,6 +194,7 @@ public class TestNode implements LifecycleAware {
                 ddlCommandHandler,
                 taskExecutor,
                 rowHandler,
+                rowFactoryFactory,
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
@@ -200,9 +202,8 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
-                new ExpressionFactoryImpl<>(
+                new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 5_000

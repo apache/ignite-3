@@ -33,7 +33,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
@@ -61,7 +61,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         ImmutableBitSet grpSet = grpSets.get(0);
         StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
-        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+        RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
@@ -76,7 +76,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         if (group) {
             RelCollation collation = createOutCollation(grpSets);
 
-            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
             // Create sort node on the top to check sorted results
             SortNode<Object[]> sort = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
@@ -121,7 +121,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         // Map node
 
         RelDataType reduceRowType = PlanUtils.createHashAggRowType(grpSets, ctx.getTypeFactory(), inRowType, List.of(call));
-        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(TypeUtils.convertStructuredType(reduceRowType));
+        RowFactory<Object[]> mapRowFactory = ctx.rowFactoryFactory().create(TypeUtils.convertStructuredType(reduceRowType));
 
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
@@ -146,7 +146,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         );
 
         StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
-        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+        RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
@@ -160,7 +160,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = createOutCollation(grpSets);
 
-        SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
         if (group) {
             // Create sort node on the top to check sorted results

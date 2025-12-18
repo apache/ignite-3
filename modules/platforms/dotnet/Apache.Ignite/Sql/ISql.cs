@@ -19,8 +19,10 @@ namespace Apache.Ignite.Sql
 {
     using System.Collections.Generic;
     using System.Data.Common;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
+    using Internal.Table.Serialization;
     using Table;
     using Transactions;
 
@@ -57,6 +59,7 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction, SqlStatement statement, params object?[]? args)
             => ExecuteAsync<T>(transaction, statement, CancellationToken.None, args);
@@ -70,6 +73,7 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args);
 

@@ -212,6 +212,16 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testGetCompletedDeltaFiles() throws Exception {
+        DeltaFilePageStoreIo completedDeltaIo = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), completedDeltaIo))  {
+            filePageStore.getOrCreateNewDeltaFile(ignored -> workDir.resolve("testDelta"), () -> INT_EMPTY_ARRAY);
+            assertThat(filePageStore.getCompletedDeltaFiles(), contains(completedDeltaIo));
+        }
+    }
+
+    @Test
     void testStop() throws Exception {
         FilePageStoreIo filePageStoreIo = mock(FilePageStoreIo.class);
 

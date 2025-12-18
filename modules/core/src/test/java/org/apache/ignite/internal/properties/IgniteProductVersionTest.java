@@ -19,87 +19,49 @@ package org.apache.ignite.internal.properties;
 
 import static org.apache.ignite.internal.properties.IgniteProductVersion.fromString;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Test;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for parsing {@link IgniteProductVersion}.
  */
 public class IgniteProductVersionTest {
-    @Test
-    void testValidVersions() {
-        IgniteProductVersion version = fromString("3.2.4-SNAPSHOT");
-
-        assertThat(version.major(), is((byte) 3));
-        assertThat(version.minor(), is((byte) 2));
-        assertThat(version.maintenance(), is((byte) 4));
-        assertThat(version.patch(), is(nullValue()));
-        assertThat(version.preRelease(), is(equalTo("SNAPSHOT")));
-        assertThat(version.toString(), is(equalTo("3.2.4-SNAPSHOT")));
-
-        version = fromString("3.2.4.5-SNAPSHOT");
-
-        assertThat(version.major(), is((byte) 3));
-        assertThat(version.minor(), is((byte) 2));
-        assertThat(version.maintenance(), is((byte) 4));
-        assertThat(version.patch(), is((byte) 5));
-        assertThat(version.preRelease(), is(equalTo("SNAPSHOT")));
-        assertThat(version.toString(), is(equalTo("3.2.4.5-SNAPSHOT")));
-
-        version = fromString("1.2.3");
-
-        assertThat(version.major(), is((byte) 1));
-        assertThat(version.minor(), is((byte) 2));
-        assertThat(version.maintenance(), is((byte) 3));
-        assertThat(version.patch(), is(nullValue()));
-        assertThat(version.preRelease(), is(nullValue()));
-        assertThat(version.toString(), is(equalTo("1.2.3")));
-
-        version = fromString("1.2.3.4");
-
-        assertThat(version.major(), is((byte) 1));
-        assertThat(version.minor(), is((byte) 2));
-        assertThat(version.maintenance(), is((byte) 3));
-        assertThat(version.patch(), is((byte) 4));
-        assertThat(version.preRelease(), is(nullValue()));
-        assertThat(version.toString(), is(equalTo("1.2.3.4")));
-
-        version = fromString("3.1.2-alpha22");
-
-        assertThat(version.major(), is((byte) 3));
-        assertThat(version.minor(), is((byte) 1));
-        assertThat(version.maintenance(), is((byte) 2));
-        assertThat(version.patch(), is(nullValue()));
-        assertThat(version.preRelease(), is(equalTo("alpha22")));
-        assertThat(version.toString(), is(equalTo("3.1.2-alpha22")));
-
-        version = fromString("3.1.2.3-beta23");
-
-        assertThat(version.major(), is((byte) 3));
-        assertThat(version.minor(), is((byte) 1));
-        assertThat(version.maintenance(), is((byte) 2));
-        assertThat(version.patch(), is((byte) 3));
-        assertThat(version.preRelease(), is(equalTo("beta23")));
-        assertThat(version.toString(), is(equalTo("3.1.2.3-beta23")));
+    private static Stream<Arguments> validVersions() {
+        return Stream.of(
+                arguments("3.2.4-SNAPSHOT", version(3, 2, 4, null, "SNAPSHOT")),
+                arguments("3.2.4.5-SNAPSHOT", version(3, 2, 4, 5, "SNAPSHOT")),
+                arguments("1.2.3", version(1, 2, 3, null, null)),
+                arguments("1.2.3.4", version(1, 2, 3, 4, null)),
+                arguments("3.1.2-alpha22", version(3, 1, 2, null, "alpha22")),
+                arguments("3.1.2.3-beta23", version(3, 1, 2, 3, "beta23"))
+        );
     }
 
-    @Test
-    void testInvalidVersions() {
-        assertThrows(IllegalArgumentException.class, () -> fromString("  "));
-        assertThrows(IllegalArgumentException.class, () -> fromString("1.2"));
-        assertThrows(IllegalArgumentException.class, () -> fromString("a.b.c"));
-        assertThrows(IllegalArgumentException.class, () -> fromString("a.b.c.d"));
-        assertThrows(IllegalArgumentException.class, () -> fromString("1.2.3-"));
-        assertThrows(IllegalArgumentException.class, () -> fromString("1.2.3-SNAPSHOT-alpha123"));
+    @ParameterizedTest(name = "[{index}] {0}")
+    @MethodSource("validVersions")
+    void testValidVersions(String versionString, IgniteProductVersion expected) {
+        IgniteProductVersion version = fromString(versionString);
+
+        assertThat(version.major(), is(expected.major()));
+        assertThat(version.minor(), is(expected.minor()));
+        assertThat(version.maintenance(), is(expected.maintenance()));
+        assertThat(version.patch(), is(expected.patch()));
+        assertThat(version.preRelease(), is(expected.preRelease()));
+        assertThat(version.toString(), is(expected.toString()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"  ", "1.2", "a.b.c", "a.b.c.d", "1.2.3-", "1.2.3-SNAPSHOT-alpha123"})
+    void testInvalidVersions(String versionsString) {
+        assertThrows(IllegalArgumentException.class, () -> fromString(versionsString));
     }
 
     @ParameterizedTest(name = "[{index}] {0}.compareTo({1}) = {2}")
@@ -108,7 +70,7 @@ public class IgniteProductVersionTest {
         assertThat(Integer.signum(v1.compareTo(v2)), is(expected));
     }
 
-    static Stream<Arguments> versionCompareProvider() {
+    private static Stream<Arguments> versionCompareProvider() {
         return Stream.of(
                 // major version differences
                 arguments(fromString("2.0.0"), fromString("3.0.0"), -1),
@@ -140,5 +102,12 @@ public class IgniteProductVersionTest {
                 arguments(fromString("3.2.1-alpha"), fromString("3.2.1"), 1),
                 arguments(fromString("3.2.1"), fromString("3.2.1-beta"), -1)
         );
+    }
+
+    private static IgniteProductVersion version(
+            int major, int minor, int maintenance, @Nullable Integer patch, @Nullable String preRelease
+    ) {
+        Byte patchByte = patch != null ? patch.byteValue() : null;
+        return new IgniteProductVersion((byte) major, (byte) minor, (byte) maintenance, patchByte, preRelease);
     }
 }

@@ -30,7 +30,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
@@ -51,7 +51,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final ScannableTable table;
 
-    private final RowHandler.RowFactory<RowT> factory;
+    private final RowFactory<RowT> factory;
 
     /** Returns partitions to be used by this scan. */
     private final PartitionProvider<RowT> partitionProvider;
@@ -80,7 +80,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      */
     public IndexScanNode(
             ExecutionContext<RowT> ctx,
-            RowHandler.RowFactory<RowT> rowFactory,
+            RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             ScannableTable table,
             TableDescriptor tableDescriptor,

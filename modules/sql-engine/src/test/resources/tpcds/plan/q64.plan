@@ -171,13 +171,10 @@ Sort
                                                   table: PUBLIC.STORE_SALES
                                                   fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
                                                   est: (rows=2880404)
-                                              Exchange
-                                                  distribution: table PUBLIC.STORE_SALES in zone "Default" by [SR_ITEM_SK, SR_TICKET_NUMBER]
+                                              TableScan
+                                                  table: PUBLIC.STORE_RETURNS
+                                                  fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER]
                                                   est: (rows=287514)
-                                                TableScan
-                                                    table: PUBLIC.STORE_RETURNS
-                                                    fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER]
-                                                    est: (rows=287514)
                                           Exchange
                                               distribution: single
                                               est: (rows=2250)
@@ -187,7 +184,7 @@ Sort
                                                 fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
                                                 est: (rows=2250)
                                         Filter
-                                            predicate: >(SALE, *(2, REFUND))
+                                            predicate: >(CAST(SALE):DECIMAL(28, 2), *(2, REFUND))
                                             est: (rows=14407)
                                           ReduceHashAggregate
                                               fieldNames: [CS_ITEM_SK, SALE, REFUND]
@@ -214,13 +211,10 @@ Sort
                                                         table: PUBLIC.CATALOG_SALES
                                                         fieldNames: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
                                                         est: (rows=1441548)
-                                                    Exchange
-                                                        distribution: table PUBLIC.CATALOG_SALES in zone "Default" by [CR_ITEM_SK, CR_ORDER_NUMBER]
+                                                    TableScan
+                                                        table: PUBLIC.CATALOG_RETURNS
+                                                        fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
                                                         est: (rows=144067)
-                                                      TableScan
-                                                          table: PUBLIC.CATALOG_RETURNS
-                                                          fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
-                                                          est: (rows=144067)
                             Exchange
                                 distribution: single
                                 est: (rows=20)
@@ -410,13 +404,10 @@ Sort
                                                   table: PUBLIC.STORE_SALES
                                                   fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_CDEMO_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_PROMO_SK, SS_TICKET_NUMBER, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
                                                   est: (rows=2880404)
-                                              Exchange
-                                                  distribution: table PUBLIC.STORE_SALES in zone "Default" by [SR_ITEM_SK, SR_TICKET_NUMBER]
+                                              TableScan
+                                                  table: PUBLIC.STORE_RETURNS
+                                                  fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER]
                                                   est: (rows=287514)
-                                                TableScan
-                                                    table: PUBLIC.STORE_RETURNS
-                                                    fieldNames: [SR_ITEM_SK, SR_TICKET_NUMBER]
-                                                    est: (rows=287514)
                                           Exchange
                                               distribution: single
                                               est: (rows=2250)
@@ -426,7 +417,7 @@ Sort
                                                 fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
                                                 est: (rows=2250)
                                         Filter
-                                            predicate: >(SALE, *(2, REFUND))
+                                            predicate: >(CAST(SALE):DECIMAL(28, 2), *(2, REFUND))
                                             est: (rows=14407)
                                           ReduceHashAggregate
                                               fieldNames: [CS_ITEM_SK, SALE, REFUND]
@@ -453,13 +444,10 @@ Sort
                                                         table: PUBLIC.CATALOG_SALES
                                                         fieldNames: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
                                                         est: (rows=1441548)
-                                                    Exchange
-                                                        distribution: table PUBLIC.CATALOG_SALES in zone "Default" by [CR_ITEM_SK, CR_ORDER_NUMBER]
+                                                    TableScan
+                                                        table: PUBLIC.CATALOG_RETURNS
+                                                        fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
                                                         est: (rows=144067)
-                                                      TableScan
-                                                          table: PUBLIC.CATALOG_RETURNS
-                                                          fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
-                                                          est: (rows=144067)
                             Exchange
                                 distribution: single
                                 est: (rows=20)
