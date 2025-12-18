@@ -449,10 +449,27 @@ namespace Apache.Ignite.Internal
                         removed ??= new List<SocketEndpoint>();
                         removed.Add(oldEndpoint);
 
-                        if (oldEndpoint.Socket == null || oldEndpoint.Socket.IsDisposed)
+                        // Lock to avoid concurrent reconnect of abandoned endpoint.
+                        await _socketLock.WaitAsync().ConfigureAwait(false);
+
+                        try
                         {
-                            // Disconnected old endpoint - nothing to do.
-                            continue;
+                            var oldSock = oldEndpoint.Socket;
+                            if (oldSock == null || oldSock.IsDisposed)
+                            {
+                                // Disconnected old endpoint. Throw away.
+                                if (oldSock != null)
+                                {
+                                    _endpointsByName.TryRemove(
+                                        new KeyValuePair<string, SocketEndpoint>(oldSock.ConnectionContext.ClusterNode.Name, oldEndpoint));
+                                }
+
+                                continue;
+                            }
+                        }
+                        finally
+                        {
+                            _socketLock.Release();
                         }
 
                         // Mark as abandoned but keep the socket alive for existing operations.
@@ -693,6 +710,13 @@ namespace Apache.Ignite.Internal
                 if (endpoint.Socket?.IsDisposed == false)
                 {
                     return endpoint.Socket;
+                }
+
+                if (endpoint.IsAbandoned)
+                {
+                    throw new IgniteClientConnectionException(
+                        ErrorGroups.Client.Connection,
+                        $"Endpoint {endpoint.EndPoint} is abandoned and cannot be used for new connections.");
                 }
 
                 var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, this).ConfigureAwait(false);
