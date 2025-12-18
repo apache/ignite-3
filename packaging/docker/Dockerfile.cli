@@ -34,7 +34,7 @@ COPY --from=jre-build /javaruntime $JAVA_HOME
 
 # Copy and setup CLI app
 ENV IGNITE_CLI_HOME=/opt/ignite3cli
-ENV IGNITE_CLI_WORK_DIR=/var/lib/ignite3cli
+ENV IGNITE_CLI_WORK_DIR=/opt/ignite3cli/work
 
 COPY dist/cli $IGNITE_CLI_HOME
 
@@ -42,7 +42,7 @@ COPY dist/cli $IGNITE_CLI_HOME
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-WORKDIR $IGNITE_CLI_WORK_DIR
+WORKDIR $IGNITE_CLI_HOME
 
 # Use the CLI script directly as entrypoint for proper TTY handling
 ENTRYPOINT ["/opt/ignite3cli/bin/ignite3"]

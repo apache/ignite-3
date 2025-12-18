@@ -73,10 +73,6 @@ sql "SELECT * FROM test"
 To simplify CLI commands, set up an alias:
 
 ```bash
-# Add to your shell profile (~/.bashrc, ~/.zshrc, etc.)
-alias ignite-cli='docker run --rm -it --network ignite3_default apacheignite/ignite-cli:3.2.0-SNAPSHOT'
-
-# Or for the current session only
 alias ignite-cli='docker run --rm -it --network ignite3_default apacheignite/ignite-cli:3.2.0-SNAPSHOT'
 ```
 
@@ -142,7 +138,7 @@ If you want to connect from your host machine (not from a Docker container):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `IGNITE_CLI_WORK_DIR` | `/var/lib/ignite3cli` | CLI working directory |
+| `IGNITE_CLI_WORK_DIR` | `/opt/ignite3cli/work` | CLI working directory |
 
 ## Exposed Ports
 
