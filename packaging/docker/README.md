@@ -12,14 +12,14 @@ This directory contains Docker configurations for Apache Ignite 3.
 ## Building Images
 
 ```bash
-# Build server image
+# Build both images (server + CLI)
 ./gradlew docker
+
+# Build and push both images
+./gradlew docker -Pdocker_push
 
 # Build CLI-only image
 ./gradlew dockerCli
-
-# Build both images
-./gradlew dockerAll
 ```
 
 ## Running a 3-Node Cluster
