@@ -572,6 +572,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
             return tx.rollbackAsync()
                     .thenApply(unused -> {
                         TxStateMeta newMeta = stateMeta(tx.id());
