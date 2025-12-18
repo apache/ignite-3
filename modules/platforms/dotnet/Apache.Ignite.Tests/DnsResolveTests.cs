@@ -92,7 +92,6 @@ public class DnsResolveTests
         var cfg = new IgniteClientConfiguration($"{HostName}:{Port}")
         {
             ReResolveAddressesInterval = Timeout.InfiniteTimeSpan,
-            ReconnectInterval = TimeSpan.FromMilliseconds(500),
             LoggerFactory = _logger
         };
 
@@ -104,7 +103,7 @@ public class DnsResolveTests
         // Close one of the existing connections to trigger re-resolve.
         _servers.Servers[0].Dispose();
 
-        client.WaitForConnections(4, timeoutMs: 3000);
+        client.WaitForConnections(5, timeoutMs: 3000);
     }
 
     [Test]
@@ -113,7 +112,6 @@ public class DnsResolveTests
         var cfg = new IgniteClientConfiguration($"{HostName}:{Port}")
         {
             ReResolveAddressesInterval = TimeSpan.FromMilliseconds(300),
-            ReconnectInterval = TimeSpan.FromMilliseconds(500),
             LoggerFactory = _logger
         };
 
@@ -121,7 +119,7 @@ public class DnsResolveTests
         client.WaitForConnections(2, timeoutMs: 3000);
 
         _dnsMap[HostName] = ["127.0.0.12", "127.0.0.13", "127.0.0.14", "127.0.0.15"];
-        client.WaitForConnections(4, timeoutMs: 3000);
+        client.WaitForConnections(6, timeoutMs: 3000);
     }
 
     [Test]
@@ -130,7 +128,6 @@ public class DnsResolveTests
         var cfg = new IgniteClientConfiguration($"{HostName}:{Port}")
         {
             ReResolveAddressesInterval = Timeout.InfiniteTimeSpan,
-            ReconnectInterval = TimeSpan.FromMilliseconds(500),
             LoggerFactory = _logger,
             HeartbeatInterval = TimeSpan.FromMilliseconds(100)
         };
@@ -143,7 +140,7 @@ public class DnsResolveTests
         // Heartbeat will trigger re-resolve on assignment change.
         _servers.Servers[0].PartitionAssignmentTimestamp = 42;
 
-        client.WaitForConnections(4, timeoutMs: 3000);
+        client.WaitForConnections(6, timeoutMs: 3000);
     }
 
     [Test]
@@ -152,7 +149,6 @@ public class DnsResolveTests
         var cfg = new IgniteClientConfiguration($"{HostName}:{Port}")
         {
             ReResolveAddressesInterval = TimeSpan.FromMilliseconds(300),
-            ReconnectInterval = TimeSpan.FromMilliseconds(500),
             LoggerFactory = _logger
         };
 
