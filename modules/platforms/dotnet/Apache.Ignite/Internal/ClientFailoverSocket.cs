@@ -434,26 +434,37 @@ namespace Apache.Ignite.Internal
                 IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
 
                 var resList = new List<SocketEndpoint>(newEndpoints.Count);
-                List<SocketEndpoint>? toRemove = null;
+                List<SocketEndpoint>? removed = null;
 
                 // Retain existing sockets for endpoints that are still present.
                 foreach (var oldEndpoint in oldEndpoints)
                 {
                     if (newEndpoints.Remove(oldEndpoint))
                     {
+                        oldEndpoint.IsAbandoned = false; // Revive if it was abandoned before.
                         resList.Add(oldEndpoint);
                     }
                     else
                     {
-                        toRemove ??= new List<SocketEndpoint>();
-                        toRemove.Add(oldEndpoint);
+                        removed ??= new List<SocketEndpoint>();
+                        removed.Add(oldEndpoint);
+
+                        if (oldEndpoint.Socket == null || oldEndpoint.Socket.IsDisposed)
+                        {
+                            // Disconnected old endpoint - nothing to do.
+                            continue;
+                        }
+
+                        // Mark as abandoned but keep the socket alive for existing operations.
+                        oldEndpoint.IsAbandoned = true;
+                        resList.Add(oldEndpoint);
                     }
                 }
 
-                if (_logger.IsEnabled(LogLevel.Trace) && (newEndpoints.Count > 0 || toRemove != null))
+                if (_logger.IsEnabled(LogLevel.Trace) && (newEndpoints.Count > 0 || removed != null))
                 {
                     var addedStr = newEndpoints.Select(e => e.EndPointString).StringJoin();
-                    var removedStr = toRemove?.Select(e => e.EndPointString).StringJoin();
+                    var removedStr = removed?.Select(e => e.EndPointString).StringJoin();
 
                     _logger.LogEndpointListUpdatedTrace(addedStr, removedStr ?? string.Empty);
                 }
@@ -463,19 +474,6 @@ namespace Apache.Ignite.Internal
 
                 // Apply the new endpoint list.
                 _endpoints = resList;
-
-                // Dispose removed sockets after updating the endpoint list.
-                if (toRemove != null)
-                {
-                    foreach (var oldEndpoint in toRemove)
-                    {
-                        if (oldEndpoint.Socket is { } oldEndpointSocket)
-                        {
-                            _endpointsByName.Remove(oldEndpointSocket.ConnectionContext.ClusterNode.Name, out _);
-                            oldEndpointSocket.Dispose();
-                        }
-                    }
-                }
 
                 if (newEndpoints.Count > 0)
                 {
@@ -543,6 +541,11 @@ namespace Apache.Ignite.Internal
 
                 foreach (var endpoint in endpoints)
                 {
+                    if (endpoint.IsAbandoned)
+                    {
+                        continue;
+                    }
+
                     try
                     {
                         await ConnectAsync(endpoint).ConfigureAwait(false);
