@@ -107,8 +107,8 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
                     .doOnNext(completedFileUpload -> {
                         try {
                             completedFileUpload.getInputStream().close();
-                        } catch (IOException ex) {
-                            throw new RuntimeException(ex);
+                        } catch (IOException ignored) {
+                            // Ignore exceptions thrown from close
                         }
                     })
                     .collectList()
