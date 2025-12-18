@@ -799,11 +799,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     private void assertBounds(String sql, Predicate<SearchBounds>... predicates) throws Exception {
         assertPlan(sql, List.of(publicSchema), nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
-                .and(scan -> {
-                    boolean b = matchBounds(scan.searchBounds(), predicates);
-                    System.err.println(scan.searchBounds());
-                    return b;
-                })), List.of(),
+                .and(scan -> matchBounds(scan.searchBounds(), predicates))), List.of(),
                 "LogicalTableScanConverterRule", "UnionConverterRule");
     }
 
