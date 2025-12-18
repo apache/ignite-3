@@ -61,7 +61,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -749,7 +749,7 @@ public class TypeUtils {
      * @see IgniteTypeFactory#relDataTypeToNative(RelDataType)
      */
     public static StructNativeType structuredTypeFromRelTypeList(List<RelDataType> types) {
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
 
         int idx = 0;
         for (RelDataType type : types) {
@@ -776,7 +776,7 @@ public class TypeUtils {
     public static StructNativeType map(StructNativeType schema, int[] mapping) {
         assert mapping != null && mapping.length > 0;
 
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
 
         for (int i : mapping) {
             builder.addField(schema.fields().get(i));

@@ -274,7 +274,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 .mapToObj(i -> new PartitionWithConsistencyToken(1, 42L))
                 .collect(Collectors.toList());
 
-        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
+        StructNativeType schema = NativeTypes.structBuilder().addField("C1", NativeTypes.INT32, false).build();
         RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));

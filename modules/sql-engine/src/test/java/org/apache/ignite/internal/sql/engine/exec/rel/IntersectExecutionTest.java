@@ -38,7 +38,7 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
 
         switch (type) {
             case MAP:
-                rowSchema = NativeTypes.rowBuilder()
+                rowSchema = NativeTypes.structBuilder()
                         // input columns
                         .addField("C1", NativeTypes.STRING, false)
                         // counters
@@ -50,7 +50,7 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
                 break;
             case REDUCE:
             case SINGLE:
-                rowSchema = NativeTypes.rowBuilder()
+                rowSchema = NativeTypes.structBuilder()
                         .addField("C1", NativeTypes.STRING, false)
                         .addField("C2", NativeTypes.INT32, false)
                         .build();

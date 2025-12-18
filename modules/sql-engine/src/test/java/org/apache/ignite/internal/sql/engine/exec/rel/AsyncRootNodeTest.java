@@ -57,7 +57,7 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("NumericCastThatLosesPrecision")
 class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
-    private static final StructNativeType SINGLE_INT_ROW_SCHEMA = NativeTypes.rowBuilder()
+    private static final StructNativeType SINGLE_INT_ROW_SCHEMA = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.INT32, true)
             .build();
 

@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
 public class SqlRowHandler implements RowHandler<RowWrapper>, RowFactoryFactory<RowWrapper> {
     public static final SqlRowHandler INSTANCE = new SqlRowHandler();
 
-    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.rowBuilder().build(), new Object[0]);
+    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.structBuilder().build(), new Object[0]);
 
     private SqlRowHandler() {
     }

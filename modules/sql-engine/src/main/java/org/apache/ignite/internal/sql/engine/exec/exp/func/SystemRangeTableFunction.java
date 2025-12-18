@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /** Implementation of {@link IgniteSqlOperatorTable#SYSTEM_RANGE system range function}. */
 public final class SystemRangeTableFunction<RowT> implements TableFunction<RowT> {
 
-    private final StructNativeType rowSchema = NativeTypes.rowBuilder()
+    private final StructNativeType rowSchema = NativeTypes.structBuilder()
             .addField("X", NativeTypes.INT64, false)
             .build();
 

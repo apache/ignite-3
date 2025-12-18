@@ -113,7 +113,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      * Schema of the rows used in the tests. All data providers created within this test class must
      * conform to this row schema.
      */
-    private static final StructNativeType ROW_SCHEMA = NativeTypes.rowBuilder()
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.INT32, true)
             .addField("C2", NativeTypes.INT32, true)
             .build();

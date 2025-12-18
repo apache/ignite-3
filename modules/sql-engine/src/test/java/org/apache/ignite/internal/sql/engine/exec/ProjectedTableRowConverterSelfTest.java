@@ -68,7 +68,7 @@ public class ProjectedTableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        StructNativeType rowSchema = NativeTypes.rowBuilder()
+        StructNativeType rowSchema = NativeTypes.structBuilder()
                 .addField("C1", NativeTypes.STRING, false)
                 .addField("C2", NativeTypes.INT32, false)
                 .build();

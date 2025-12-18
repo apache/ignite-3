@@ -77,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
 
-    private static final StructNativeType MODIFY_RESULT = NativeTypes.rowBuilder()
+    private static final StructNativeType MODIFY_RESULT = NativeTypes.structBuilder()
             .addField("UPDATE_COUNT", NativeTypes.INT64, false)
             .build();
 

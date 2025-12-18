@@ -51,7 +51,7 @@ public class IdentityDistributionFunctionSelfTest {
     private final RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
     private final RowFactoryFactory<Object[]> rowFactoryFactory = ArrayRowHandler.INSTANCE;
 
-    private final StructNativeType rowSchema = NativeTypes.rowBuilder()
+    private final StructNativeType rowSchema = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.STRING, true)
             .addField("C2", NativeTypes.STRING, true)
             .build();

@@ -55,7 +55,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Assumptions;
@@ -771,7 +771,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             RelDataType inRowType,
             ImmutableBitSet grpSet
     ) {
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
 
         // Add keys
         for (int i = 0; i < grpSet.length(); i++) {

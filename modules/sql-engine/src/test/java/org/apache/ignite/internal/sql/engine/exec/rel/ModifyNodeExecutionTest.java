@@ -61,7 +61,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.type.StructNativeType.Field;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,7 +84,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     private static final long SOURCE_ID = 42;
 
-    private static final StructNativeType INT_LONG_SCHEMA = NativeTypes.rowBuilder()
+    private static final StructNativeType INT_LONG_SCHEMA = NativeTypes.structBuilder()
             .addField("C0", NativeTypes.INT32, true)
             .addField("C1", NativeTypes.INT64, true)
             .build();
@@ -97,7 +97,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     @BeforeEach
     void setUpMock() {
-        StructNativeType rowSchema = NativeTypes.rowBuilder()
+        StructNativeType rowSchema = NativeTypes.structBuilder()
                 .addField("C1", NativeTypes.INT32, false)
                 .addField("C2", NativeTypes.INT64, false)
                 .build();
@@ -326,7 +326,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         ExecutionContext<RowWrapper> context = executionContext();
         RowHandler<RowWrapper> rowHandler = context.rowAccessor();
 
-        RowTypeBuilder dstRowSchemaBuilder = NativeTypes.rowBuilder();
+        StructTypeBuilder dstRowSchemaBuilder = NativeTypes.structBuilder();
 
         for (int i = 0; i < colCount; i++) {
             dstRowSchemaBuilder.addField("C" + i, NativeTypes.INT32, true);
@@ -334,7 +334,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         StructNativeType dstRowSchema = dstRowSchemaBuilder.build();
 
-        RowTypeBuilder srcRowSchemaBuilder = NativeTypes.rowBuilder();
+        StructTypeBuilder srcRowSchemaBuilder = NativeTypes.structBuilder();
 
         for (int i = 0; i < colCount; i++) {
             srcRowSchemaBuilder.addField("C" + i, NativeTypes.INT32, true);
@@ -342,7 +342,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         StructNativeType srcRowSchema = srcRowSchemaBuilder.build();
 
-        StructNativeType updateSchema = NativeTypes.rowBuilder()
+        StructNativeType updateSchema = NativeTypes.structBuilder()
                 .addField("C0", NativeTypes.INT32, true)
                 .build();
 
@@ -511,7 +511,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     }
 
     private static StructNativeType concat(StructNativeType... types) {
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
 
         for (StructNativeType type : types) {
             for (Field field : type.fields()) {
