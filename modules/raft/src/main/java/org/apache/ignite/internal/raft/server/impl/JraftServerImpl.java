@@ -874,10 +874,6 @@ public class JraftServerImpl implements RaftServer {
                 }
 
                 if (iterWrapper.done != null) {
-                    CommandClosure<WriteCommand> clo = (CommandClosure<WriteCommand>) iterWrapper.done;
-
-
-
                     // Trigger internal error for state machine.
                     iterWrapper.done.run(st);
                 }
