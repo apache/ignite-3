@@ -17,15 +17,40 @@
 
 namespace Apache.Ignite.Internal;
 
-using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
 
 /// <summary>
-/// Internal Ignite client configuration.
+/// Equality comparer for <see cref="SocketEndpoint"/>.
 /// </summary>
-/// <param name="Configuration">Configuration.</param>
-/// <param name="ApiTask">API accessor task.</param>
-/// <param name="DnsResolver">DNS resolver.</param>
-internal sealed record IgniteClientConfigurationInternal(
-    IgniteClientConfiguration Configuration,
-    Task<IgniteApiAccessor> ApiTask,
-    IDnsResolver DnsResolver);
+internal sealed class SocketEndpointComparer : IEqualityComparer<SocketEndpoint>
+{
+    /// <inheritdoc/>
+    public bool Equals(SocketEndpoint? x, SocketEndpoint? y)
+    {
+        if (ReferenceEquals(x, y))
+        {
+            return true;
+        }
+
+        if (x is null)
+        {
+            return false;
+        }
+
+        if (y is null)
+        {
+            return false;
+        }
+
+        if (x.GetType() != y.GetType())
+        {
+            return false;
+        }
+
+        return x.EndPoint.Equals(y.EndPoint) && x.Host == y.Host;
+    }
+
+    /// <inheritdoc/>
+    public int GetHashCode(SocketEndpoint obj) => HashCode.Combine(obj.EndPoint, obj.Host);
+}

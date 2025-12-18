@@ -17,15 +17,19 @@
 
 namespace Apache.Ignite.Internal;
 
+using System.Net;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Internal Ignite client configuration.
+/// DNS resolver.
 /// </summary>
-/// <param name="Configuration">Configuration.</param>
-/// <param name="ApiTask">API accessor task.</param>
-/// <param name="DnsResolver">DNS resolver.</param>
-internal sealed record IgniteClientConfigurationInternal(
-    IgniteClientConfiguration Configuration,
-    Task<IgniteApiAccessor> ApiTask,
-    IDnsResolver DnsResolver);
+internal sealed class DnsResolver : IDnsResolver
+{
+    /// <summary>
+    /// Get the singleton instance.
+    /// </summary>
+    public static readonly DnsResolver Instance = new();
+
+    /// <inheritdoc/>
+    public Task<IPAddress[]> GetHostAddressesAsync(string hostName) => Dns.GetHostAddressesAsync(hostName);
+}

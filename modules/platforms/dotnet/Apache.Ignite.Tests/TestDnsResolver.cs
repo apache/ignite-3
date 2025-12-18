@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal;
+namespace Apache.Ignite.Tests;
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using Internal;
 
-/// <summary>
-/// Internal Ignite client configuration.
-/// </summary>
-/// <param name="Configuration">Configuration.</param>
-/// <param name="ApiTask">API accessor task.</param>
-/// <param name="DnsResolver">DNS resolver.</param>
-internal sealed record IgniteClientConfigurationInternal(
-    IgniteClientConfiguration Configuration,
-    Task<IgniteApiAccessor> ApiTask,
-    IDnsResolver DnsResolver);
+public sealed class TestDnsResolver(IReadOnlyDictionary<string, string[]> map) : IDnsResolver
+{
+    public Task<IPAddress[]> GetHostAddressesAsync(string hostName) =>
+        map.TryGetValue(hostName, out var ips) ?
+            Task.FromResult(ips.Select(IPAddress.Parse).ToArray()) :
+            throw new Exception("Unknown host: " + hostName);
+}
