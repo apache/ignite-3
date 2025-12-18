@@ -65,7 +65,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
@@ -134,10 +133,8 @@ import org.apache.ignite.internal.table.distributed.storage.NullMvTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
-import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -707,39 +704,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Returns states of partitions in the cluster. Result is a mapping of {@link TablePartitionId} to the global partition state value.
-     *
-     * @param zoneNames Names specifying zones to get partition states. Case-sensitive, empty set means "all zones".
-     * @param partitionIds IDs of partitions to get states of. Empty set means "all partitions".
-     * @return Future with the mapping.
-     */
-    public CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalTablePartitionStates(
-            Set<String> zoneNames,
-            Set<Integer> partitionIds
-    ) {
-        return inBusyLock(busyLock, () -> {
-            try {
-                Catalog catalog = catalogLatestVersion();
-
-                return localPartitionStatesInternal(
-                        zoneNames,
-                        Set.of(),
-                        partitionIds,
-                        catalog,
-                        zoneState()
-                )
-                        .thenCompose(res -> tableStateForZone(toZonesOnNodes(res), catalog.version())
-                                .thenApply(tableState -> zoneStateToTableState(res, tableState, catalog))
-                        )
-                        .thenApply(res -> normalizeTableLocal(res, catalog))
-                        .thenApply(res -> assembleTableGlobal(res, partitionIds, catalog));
-            } catch (Throwable t) {
-                return failedFuture(t);
-            }
-        });
-    }
-
-    /**
      * Converts {@link LocalPartitionStateMessageByNode} to a mapping of zone names to the set of zone partitions.
      *
      * @param partitionStateMap Partition state map.
@@ -1144,7 +1108,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         }));
                 break;
             default:
-                var error = new AssertionError("Unexpected request type: " + request.getClass());
+                var error = new AssertionError("Unexpected request type [type=" + request.type() + ", request=" + request + ']');
 
                 if (operationFuture != null) {
                     operationFuture.completeExceptionally(error);
@@ -1572,24 +1536,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return result;
     }
 
-    private static Map<TablePartitionId, GlobalTablePartitionState> assembleTableGlobal(
-            Map<TablePartitionId, LocalTablePartitionStateByNode> localResult,
-            Set<Integer> partitionIds,
-            Catalog catalog
-    ) {
-        Map<TablePartitionId, GlobalTablePartitionState> result = localResult.entrySet().stream()
-                .collect(toMap(Map.Entry::getKey, entry -> {
-                    TablePartitionId tablePartitionId = entry.getKey();
-                    LocalTablePartitionStateByNode map = entry.getValue();
-
-                    return assembleTableGlobalStateFromLocal(catalog, tablePartitionId, map);
-                }));
-
-        makeMissingTablePartitionsUnavailable(localResult, catalog, result, partitionIds);
-
-        return result;
-    }
-
     private static void makeMissingPartitionsUnavailable(
             Map<ZonePartitionId, LocalPartitionStateByNode> localResult,
             Catalog catalog,
@@ -1616,35 +1562,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 });
     }
 
-    private static void makeMissingTablePartitionsUnavailable(
-            Map<TablePartitionId, LocalTablePartitionStateByNode> localResult,
-            Catalog catalog,
-            Map<TablePartitionId, GlobalTablePartitionState> result,
-            Set<Integer> partitionIds
-    ) {
-        localResult.keySet().stream()
-                .map(TablePartitionId::tableId)
-                .distinct()
-                .forEach(tableId -> {
-                    CatalogTableDescriptor table = catalog.table(tableId);
-
-                    CatalogZoneDescriptor zoneDescriptor = catalog.zone(table.zoneId());
-                    CatalogSchemaDescriptor schemaDescriptor = catalog.schema(table.schemaId());
-
-                    if (partitionIds.isEmpty()) {
-                        int partitions = zoneDescriptor.partitions();
-
-                        for (int partitionId = 0; partitionId < partitions; partitionId++) {
-                            putUnavailableTableStateIfAbsent(catalog, result, tableId, partitionId, schemaDescriptor, zoneDescriptor);
-                        }
-                    } else {
-                        partitionIds.forEach(partitionId -> {
-                            putUnavailableTableStateIfAbsent(catalog, result, tableId, partitionId, schemaDescriptor, zoneDescriptor);
-                        });
-                    }
-                });
-    }
-
     private static void putUnavailableStateIfAbsent(
             Map<ZonePartitionId, GlobalPartitionState> states,
             int partitionId,
@@ -1656,29 +1573,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 new GlobalPartitionState(
                         zoneDescriptor.id(),
                         zoneDescriptor.name(),
-                        key.partitionId(),
-                        GlobalPartitionStateEnum.UNAVAILABLE
-                )
-        );
-    }
-
-    private static void putUnavailableTableStateIfAbsent(
-            Catalog catalog,
-            Map<TablePartitionId, GlobalTablePartitionState> states,
-            Integer tableId,
-            int partitionId,
-            CatalogSchemaDescriptor schemaDescriptor,
-            CatalogZoneDescriptor zoneDescriptor
-    ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
-
-        states.computeIfAbsent(tablePartitionId, key ->
-                new GlobalTablePartitionState(
-                        zoneDescriptor.id(),
-                        zoneDescriptor.name(),
-                        schemaDescriptor.id(), schemaDescriptor.name(),
-                        key.tableId(),
-                        catalog.table(key.tableId()).name(),
                         key.partitionId(),
                         GlobalPartitionStateEnum.UNAVAILABLE
                 )
@@ -1710,41 +1604,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         );
     }
 
-    private static GlobalTablePartitionState assembleTableGlobalStateFromLocal(
-            Catalog catalog,
-            TablePartitionId tablePartitionId,
-            LocalTablePartitionStateByNode map
-    ) {
-        // Tables, returned from local states request, are always present in the required version of the catalog.
-        CatalogTableDescriptor table = catalog.table(tablePartitionId.tableId());
-
-        CatalogSchemaDescriptor schemaDescriptor = catalog.schema(table.schemaId());
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(table.zoneId());
-
-        int replicas = zoneDescriptor.replicas();
-        int quorum = calculateQuorum(replicas);
-
-        Map<LocalPartitionStateEnum, List<LocalTablePartitionState>> groupedStates = map.values().stream()
-                .collect(groupingBy(localPartitionState -> localPartitionState.state));
-
-        int healthyReplicas = groupedStates.getOrDefault(HEALTHY, emptyList()).size();
-
-        GlobalPartitionStateEnum globalStateEnum = calculateGlobalState(replicas, healthyReplicas, quorum);
-
-        LocalTablePartitionState anyLocalState = map.values().iterator().next();
-
-        return new GlobalTablePartitionState(
-                zoneDescriptor.id(),
-                zoneDescriptor.name(),
-                schemaDescriptor.id(),
-                schemaDescriptor.name(),
-                anyLocalState.tableId,
-                anyLocalState.tableName,
-                tablePartitionId.partitionId(),
-                globalStateEnum
-        );
-    }
-
     private static GlobalPartitionStateEnum calculateGlobalState(int replicas, int healthyReplicas, int quorum) {
         if (healthyReplicas == replicas) {
             return AVAILABLE;
@@ -1769,16 +1628,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         assert catalog != null : catalogVersion;
 
         return catalog;
-    }
-
-    private static CatalogTableDescriptor tableDescriptor(Catalog catalog, String schemaName, String tableName) {
-        CatalogTableDescriptor tableDescriptor = catalog.table(schemaName, tableName);
-
-        if (tableDescriptor == null) {
-            throw new TableNotFoundException(QualifiedNameHelper.fromNormalized(schemaName, tableName));
-        }
-
-        return tableDescriptor;
     }
 
     private static CatalogZoneDescriptor zoneDescriptor(Catalog catalog, String zoneName) {

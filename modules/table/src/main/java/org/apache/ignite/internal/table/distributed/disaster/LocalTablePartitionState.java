@@ -23,6 +23,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Local partition state.
  */
+// TODO remove
 public class LocalTablePartitionState {
     public final int tableId;
     public final int zoneId;

@@ -42,42 +42,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 @Controller("/management/v1/recovery")
 @Tag(name = "recovery")
 public interface DisasterRecoveryApi {
-    @Get("state/local")
-    @Operation(operationId = "getLocalPartitionStates", description = "Returns local partition states.")
-    @ApiResponse(responseCode = "200", description = "Partition states returned.")
-    @ApiResponse(responseCode = "500", description = "Internal error.",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Bad request.",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(
-            @QueryValue
-            @Schema(description = "Names specifying zones to get partition states from. Case-sensitive, all zones if empty.")
-            Optional<Set<String>> zoneNames,
-            @QueryValue
-            @Schema(description = "Names specifying nodes to get partition states from. Case-sensitive, all nodes if empty.")
-            Optional<Set<String>> nodeNames,
-            @QueryValue
-            @Schema(description = "IDs of partitions to get states. All partitions if empty.") Optional<Set<Integer>> partitionIds
-    );
-
-    @Get("state/global")
-    @Operation(operationId = "getGlobalPartitionStates", description = "Returns global partition states.")
-    @ApiResponse(responseCode = "200", description = "Partition states returned.")
-    @ApiResponse(responseCode = "500", description = "Internal error.",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Bad request.",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(
-            @QueryValue
-            @Schema(description = "Names specifying zones to get partition states from. Case-sensitive, all zones if empty.")
-            Optional<Set<String>> zoneNames,
-            @QueryValue
-            @Schema(description = "IDs of partitions to get states of. All partitions if empty.")
-            Optional<Set<Integer>> partitionIds
-    );
-
+    // TODO remove
     @Post("partitions/reset")
     @Operation(
             operationId = "resetPartitions",
@@ -93,6 +58,7 @@ public interface DisasterRecoveryApi {
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command);
 
+    // TODO remove
     @Post("partitions/restart")
     @Operation(
             operationId = "restartPartitions",
@@ -107,6 +73,7 @@ public interface DisasterRecoveryApi {
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command);
 
+    // TODO remove
     @Post("partitions/restartWithCleanup")
     @Operation(
             operationId = "restartPartitionsWithCleanup",

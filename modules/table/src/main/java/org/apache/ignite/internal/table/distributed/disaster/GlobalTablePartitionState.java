@@ -22,6 +22,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Global partition state.
  */
+// TODO remove
 public class GlobalTablePartitionState {
     public final int zoneId;
     public final int schemaId;

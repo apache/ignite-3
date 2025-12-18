@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
 /** Container for LocalTablePartitionState to node name map. */
+// TODO remove
 public class LocalTablePartitionStateByNode {
     @IgniteToStringInclude
     private final Map<String, LocalTablePartitionState> map;

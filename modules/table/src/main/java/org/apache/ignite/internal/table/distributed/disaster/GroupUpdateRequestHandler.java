@@ -26,7 +26,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -38,7 +37,6 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.tableState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -60,7 +58,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -76,7 +73,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -90,10 +86,10 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
 
     private final GroupUpdateRequest request;
 
-    public static GroupUpdateRequestHandler<?> handler(GroupUpdateRequest request) {
-        return request.colocationEnabled()
-                ? new ZoneGroupUpdateRequestHandler(request)
-                : new TableGroupUpdateRequestHandler(request);
+    public static GroupUpdateRequestHandler handler(GroupUpdateRequest request) {
+        assert request.colocationEnabled() : "Non colocated mode is not supported anymore [request=" + request + ']';
+
+        return new ZoneGroupUpdateRequestHandler(request);
     }
 
     GroupUpdateRequestHandler(GroupUpdateRequest request) {
@@ -178,7 +174,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
      * @param timestamp Meta-storage timestamp to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
      * @param localStatesMap Local partition states retrieved by
-     *         {@link DisasterRecoveryManager#localTablePartitionStates(Set, Set, Set)}.
+     *         {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
     private CompletableFuture<Void> forceAssignmentsUpdate(
@@ -476,110 +472,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
         );
     }
 
-    static class TableGroupUpdateRequestHandler extends GroupUpdateRequestHandler<TablePartitionId> {
-
-        TableGroupUpdateRequestHandler(GroupUpdateRequest request) {
-            super(request);
-        }
-
-        @Override
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture(
-                DisasterRecoveryManager disasterRecoveryManager,
-                Set<String> zoneNames,
-                Set<Integer> partitionIds,
-                Catalog catalog
-        ) {
-            return disasterRecoveryManager.localPartitionStatesInternal(
-                    zoneNames,
-                    emptySet(),
-                    partitionIds,
-                    catalog,
-                    tableState()
-            );
-        }
-
-        @Override
-        CompletableFuture<Map<Integer, Assignments>> stableAssignments(
-                MetaStorageManager metaStorageManager,
-                int tableId,
-                int[] partitionIds) {
-            return tableStableAssignments(metaStorageManager, tableId, partitionIds);
-        }
-
-        @Override
-        TablePartitionId replicationGroupId(int id, int partitionId) {
-            return new TablePartitionId(id, partitionId);
-        }
-
-        /**
-         * Executes meta-storage's {@link MetaStorageManager#invoke(Iif)} call.
-         *
-         * <p>The internal {@link Iif} is:
-         * <ul>
-         *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
-         *     <li>Adds additional guard with comparison of real and proposed values of
-         *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
-         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
-         * </ul>
-         */
-        @Override
-        CompletableFuture<Integer> invoke(
-                TablePartitionId partId,
-                long revision,
-                HybridTimestamp timestamp,
-                MetaStorageManager metaStorageMgr,
-                long assignmentsTimestamp,
-                AssignmentsQueue assignmentsQueue,
-                boolean isProposedPendingEqualsProposedPlanned,
-                Set<Assignment> partAssignments
-        ) {
-            // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
-            Iif invokeClosure = executeInvoke(
-                    longToBytesKeepingOrder(timestamp.longValue()),
-                    assignmentsQueue.toBytes(),
-                    isProposedPendingEqualsProposedPlanned
-                            ? null
-                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true),
-                    RebalanceUtil.pendingChangeTriggerKey(partId),
-                    RebalanceUtil.pendingPartAssignmentsQueueKey(partId),
-                    RebalanceUtil.plannedPartAssignmentsKey(partId)
-            );
-
-            return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
-                switch (UpdateStatus.valueOf(sr.getAsInt())) {
-                    case PENDING_KEY_UPDATED:
-                        LOG.info(
-                                "Force update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
-                                RebalanceUtil.pendingPartAssignmentsQueueKey(partId).toString(),
-                                partId.partitionId(),
-                                partId.tableId(),
-                                assignmentsQueue
-                        );
-
-                        break;
-                    case OUTDATED_UPDATE_RECEIVED:
-                        LOG.info(
-                                "Received outdated force rebalance trigger event [revision={}, partition={}, table={}]",
-                                revision,
-                                partId.partitionId(),
-                                partId.tableId()
-                        );
-
-                        break;
-                    default:
-                        throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
-                }
-
-                return sr.getAsInt();
-            });
-        }
-    }
-
     private static class ZoneGroupUpdateRequestHandler extends GroupUpdateRequestHandler<ZonePartitionId> {
-
         ZoneGroupUpdateRequestHandler(GroupUpdateRequest request) {
             super(request);
         }

@@ -70,7 +70,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
@@ -315,37 +314,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 assertThat(state.partitionId, is(partitionId));
                 assertThat(state.state, is(LocalPartitionStateEnum.HEALTHY));
             }
-        }
-    }
-
-    @Test
-    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
-    void testGlobalPartitionStateTable() throws Exception {
-        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-
-        insert(0, 0);
-        insert(1, 1);
-
-        CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalStatesFuture =
-                node.disasterRecoveryManager().globalTablePartitionStates(emptySet(), emptySet());
-
-        assertThat(globalStatesFuture, willCompleteSuccessfully());
-        Map<TablePartitionId, GlobalTablePartitionState> globalState = globalStatesFuture.get();
-
-        // 2 partitions.
-        assertThat(globalState, aMapWithSize(2));
-
-        int tableId = tableId(node);
-
-        // Partitions size is 2.
-        for (int partitionId = 0; partitionId < 2; partitionId++) {
-            GlobalTablePartitionState state = globalState.get(new TablePartitionId(tableId, partitionId));
-            assertThat(state.tableId, is(tableId));
-            assertThat(state.tableName, is(TABLE_NAME));
-            assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
-            assertThat(state.partitionId, is(partitionId));
-            assertThat(state.zoneName, is(ZONE_NAME));
-            assertThat(state.state, is(GlobalPartitionStateEnum.AVAILABLE));
         }
     }
 
