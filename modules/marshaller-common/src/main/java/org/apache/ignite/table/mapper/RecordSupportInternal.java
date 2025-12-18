@@ -61,6 +61,9 @@ public final class RecordSupportInternal {
         Method getRecordComponentsMtd = Class.class.getDeclaredMethod("getRecordComponents");
 
         Object[] recordComponents = (Object[]) getRecordComponentsMtd.invoke(clazz);
+        if (recordComponents == null) {
+            throw new IllegalArgumentException("'" + clazz.getName() + "' does not seem to be a record.");
+        }
 
         Method getTypeMtd = Class.forName("java.lang.reflect.RecordComponent")
                 .getDeclaredMethod("getType");

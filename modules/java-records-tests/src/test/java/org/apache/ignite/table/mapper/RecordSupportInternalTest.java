@@ -17,20 +17,38 @@
 
 package org.apache.ignite.table.mapper;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-class RecordSupportTest {
+class RecordSupportInternalTest {
     @Test
     void pojoIsNotRecordTest() throws IllegalAccessException {
-        assertFalse(RecordSupport.isRecord(TestPojo.class));
+        assertFalse(RecordSupportInternal.isRecord(TestPojo.class));
     }
 
     @Test
     void recordIsRecordTest() throws IllegalAccessException {
-        assertTrue(RecordSupport.isRecord(TestRecord.class));
+        assertTrue(RecordSupportInternal.isRecord(TestRecord.class));
+    }
+
+    @Test
+    void pojoCanonicalConstructorTest() {
+        assertThrows(IllegalArgumentException.class, () -> RecordSupportInternal.getCanonicalConstructor(TestPojo.class));
+    }
+
+    @Test
+    void recordCanonicalConstructorTest() throws Exception {
+        var constructor = RecordSupportInternal.getCanonicalConstructor(TestRecord.class);
+        assertEquals(1, constructor.getParameterCount(), "Constructor must have one parameter");
+        assertSame(int.class, constructor.getParameterTypes()[0], "Constructor must have one int parameter");
+
+        assertDoesNotThrow(() -> constructor.newInstance(1));
     }
 
     record TestRecord(int id) {}
