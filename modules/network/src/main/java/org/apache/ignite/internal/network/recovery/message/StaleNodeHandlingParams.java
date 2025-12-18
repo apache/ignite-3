@@ -28,4 +28,7 @@ public interface StaleNodeHandlingParams {
 
     /** Returns the minimal value of node name from the physical topology. */
     @Nullable String minNodeName();
+
+    /** Returns the logical topology version. */
+    long topologyVersion();
 }

@@ -50,4 +50,7 @@ public interface HandshakeStartResponseMessage extends StaleNodeHandlingParams, 
 
     @Override
     @Nullable String minNodeName();
+
+    @Override
+    long topologyVersion();
 }

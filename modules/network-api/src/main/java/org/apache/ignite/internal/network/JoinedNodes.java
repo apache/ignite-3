@@ -26,13 +26,15 @@ public interface JoinedNodes {
      * Called when the node joins logical topology.
      *
      * @param node Node.
+     * @param topologyVersion Logical topology version.
      */
-    void onJoined(InternalClusterNode node);
+    void onJoined(InternalClusterNode node, long topologyVersion);
 
     /**
      * Called when the node leaves logical topology.
      *
      * @param node Node.
+     * @param topologyVersion Logical topology version.
      */
-    void onLeft(InternalClusterNode node);
+    void onLeft(InternalClusterNode node, long topologyVersion);
 }

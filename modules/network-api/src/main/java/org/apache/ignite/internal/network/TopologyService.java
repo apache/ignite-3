@@ -48,6 +48,11 @@ public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
     Collection<InternalClusterNode> logicalTopologyMembers();
 
     /**
+     * Returns the logical topology version.
+     */
+    long logicalTopologyVersion();
+
+    /**
      * Registers a handler for physical topology change events.
      *
      * @param handler Physical topology event handler.

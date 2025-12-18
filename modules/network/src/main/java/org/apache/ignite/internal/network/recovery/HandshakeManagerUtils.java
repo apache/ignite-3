@@ -98,24 +98,35 @@ class HandshakeManagerUtils {
             StaleNodeHandlingParams local,
             StaleNodeHandlingParams remote
     ) {
-        int localSize = local.physicalTopologySize();
-        int remoteSize = remote.physicalTopologySize();
+        long localTopologyVersion = local.topologyVersion();
+        long remoteTopologyVersion = remote.topologyVersion();
 
-        if (localSize > remoteSize) {
+        if (localTopologyVersion > remoteTopologyVersion) {
             return;
         }
 
-        if (localSize == remoteSize) {
-            String localMinNodeName = local.minNodeName();
-            String remoteMinNodeName = remote.minNodeName();
+        if (localTopologyVersion == remoteTopologyVersion) {
+            // I am not so sure about this.
+            int localSize = local.physicalTopologySize();
+            int remoteSize = remote.physicalTopologySize();
 
-            if (localMinNodeName == null || remoteMinNodeName == null) {
+            if (localSize > remoteSize) {
                 return;
             }
 
-            if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
-                return;
+            if (localSize == remoteSize) {
+                String localMinNodeName = local.minNodeName();
+                String remoteMinNodeName = remote.minNodeName();
+
+                if (localMinNodeName == null || remoteMinNodeName == null) {
+                    return;
+                }
+
+                if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
+                    return;
+                }
             }
+//            return;
         }
 
         failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));

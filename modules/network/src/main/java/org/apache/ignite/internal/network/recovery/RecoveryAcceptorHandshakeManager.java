@@ -212,6 +212,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 .productVersion(productVersionSource.productVersion().toString())
                 .physicalTopologySize(params.physicalTopologySize())
                 .minNodeName(params.minNodeName())
+                .topologyVersion(params.topologyVersion())
                 .build();
     }
 

@@ -38,4 +38,9 @@ class MyStaleNodeHandlingParams implements StaleNodeHandlingParams {
     public @Nullable String minNodeName() {
         return topologyService.allMembers().stream().map(InternalClusterNode::name).min(String::compareTo).orElse(null);
     }
+
+    @Override
+    public long topologyVersion() {
+        return topologyService.logicalTopologyVersion();
+    }
 }

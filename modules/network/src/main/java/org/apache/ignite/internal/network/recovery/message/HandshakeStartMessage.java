@@ -47,4 +47,7 @@ public interface HandshakeStartMessage extends StaleNodeHandlingParams, Internal
 
     @Override
     @Nullable String minNodeName();
+
+    @Override
+    long topologyVersion();
 }

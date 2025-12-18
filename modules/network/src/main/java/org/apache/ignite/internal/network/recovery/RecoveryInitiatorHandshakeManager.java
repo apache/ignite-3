@@ -516,6 +516,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 .connectionId(connectionId)
                 .physicalTopologySize(params.physicalTopologySize())
                 .minNodeName(params.minNodeName())
+                .topologyVersion(params.topologyVersion())
                 .build();
     }
 
