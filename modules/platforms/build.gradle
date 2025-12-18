@@ -278,7 +278,6 @@ private void updatePythonVersion(String version) {
     versionFile.text = simpleProjectVersion(version)
 }
 
-
 def buildWindowsDbApiWheels = tasks.register('buildWindowsDbApiWheels', Exec) {
     workingDir "$projectDir/python"
 
