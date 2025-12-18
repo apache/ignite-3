@@ -155,8 +155,9 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
     @Test
     public void versions() {
+        // Pass multiple files to test discarding in the error handler in the controller.
         assertThrowsProblem(
-                () -> deploy(UNIT_ID, "1.1.1.1-foo_", false, smallFile),
+                () -> deploy(UNIT_ID, "1.1.1.1-foo_", false, smallFile, smallFile, smallFile, smallFile, smallFile),
                 isProblem().withStatus(BAD_REQUEST).withDetail("Invalid version format of provided version: 1.1.1.1-foo_")
         );
 
