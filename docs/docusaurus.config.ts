@@ -110,8 +110,7 @@ const config: Config = {
     colorMode: {
       defaultMode: 'light',
       disableSwitch: false,
-      // Don't auto-detect system preference - start with light, then respect user's manual choice
-      respectPrefersColorScheme: false,
+      respectPrefersColorScheme: true,
     },
     navbar: {
       logo: {
