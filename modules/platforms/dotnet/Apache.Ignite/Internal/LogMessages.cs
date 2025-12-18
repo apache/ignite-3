@@ -276,7 +276,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         Message = "Endpoints updated [added=[{Added}], removed=[{Removed}]]",
-        Level = LogLevel.Warning,
+        Level = LogLevel.Trace,
         EventId = 1038)]
     internal static partial void LogEndpointListUpdatedTrace(this ILogger logger, string added, string removed);
 }
