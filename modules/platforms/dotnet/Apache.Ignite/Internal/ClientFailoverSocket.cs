@@ -59,6 +59,13 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
 
+        /** Socket connection lock. */
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA2213:DisposableFieldsShouldBeDisposed",
+            Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
+        private readonly SemaphoreSlim _initEndpointsLock = new(1);
+
         /** Endpoints with corresponding hosts - from configuration. */
         private volatile IReadOnlyList<SocketEndpoint> _endpoints = [];
 
@@ -410,7 +417,7 @@ namespace Apache.Ignite.Internal
 
         private async Task InitEndpointsAsync(int lockWaitTimeoutMs = Timeout.Infinite)
         {
-            bool lockAcquired = await _socketLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
+            bool lockAcquired = await _initEndpointsLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
             if (!lockAcquired)
             {
                 return;
@@ -469,10 +476,15 @@ namespace Apache.Ignite.Internal
                         }
                     }
                 }
+
+                if (newEndpoints.Count > 0)
+                {
+                    await ConnectAllSockets().ConfigureAwait(false);
+                }
             }
             finally
             {
-                _socketLock.Release();
+                _initEndpointsLock.Release();
             }
         }
 
