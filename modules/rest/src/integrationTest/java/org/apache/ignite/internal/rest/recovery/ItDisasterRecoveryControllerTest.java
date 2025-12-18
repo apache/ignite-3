@@ -23,7 +23,6 @@ import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
@@ -53,8 +52,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStateResponse;
@@ -95,8 +92,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     private static Set<String> nodeNames;
 
-    private static Set<Integer> tableIds;
-
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
     HttpClient client;
@@ -109,12 +104,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         });
 
         sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
-
-        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-
-        tableIds = catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(toSet());
 
         nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
@@ -435,10 +424,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         ZONES_CONTAINING_TABLES.forEach(name -> {
             sql(String.format("INSERT INTO PUBLIC.\"%s_table\" (id, val) values (%s, %s)", name, id, val));
         });
-    }
-
-    private static void assertEmptyStates(Object body, boolean local) {
-        assertThat(castStatesResponse(body, local), is(empty()));
     }
 
     private static Set<Long> collectEstimatedRows(Object body) {

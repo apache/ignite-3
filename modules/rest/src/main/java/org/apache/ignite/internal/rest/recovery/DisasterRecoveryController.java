@@ -21,7 +21,6 @@ import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
 
 import io.micronaut.context.annotation.Requires;
-import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,9 +36,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStateResp
 import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResponse;
-import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
-import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -57,32 +54,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager) {
         this.disasterRecoveryManager = disasterRecoveryManager;
-    }
-
-    @Override
-    public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
-        return resetZonePartitions(new ResetZonePartitionsRequest(
-                command.zoneName(),
-                command.partitionIds()
-        ));
-    }
-
-    @Override
-    public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
-        return restartZonePartitions(new RestartZonePartitionsRequest(
-                command.nodeNames(),
-                command.zoneName(),
-                command.partitionIds()
-        ));
-    }
-
-    @Override
-    public CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsRequest command) {
-        return restartZonePartitionsWithCleanup(new RestartZonePartitionsRequest(
-                command.nodeNames(),
-                command.zoneName(),
-                command.partitionIds()
-        ));
     }
 
     @Override

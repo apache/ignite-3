@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Disaster recovery request to restart partitions. */
-// TODO cleanup tablename -
+// TODO cleanup or remove tablename -
 @Schema(description = "restart partitions configuration.")
 public class RestartPartitionsRequest {
     @Schema(description = "Names specifying nodes to restart partitions. Case-sensitive. "

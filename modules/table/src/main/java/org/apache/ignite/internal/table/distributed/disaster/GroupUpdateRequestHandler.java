@@ -86,7 +86,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
 
     private final GroupUpdateRequest request;
 
-    public static GroupUpdateRequestHandler handler(GroupUpdateRequest request) {
+    public static GroupUpdateRequestHandler<?> handler(GroupUpdateRequest request) {
         assert request.colocationEnabled() : "Non colocated mode is not supported anymore [request=" + request + ']';
 
         return new ZoneGroupUpdateRequestHandler(request);

@@ -87,7 +87,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.InternalTable;
@@ -108,8 +107,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
-
     static final String HA_ZONE_NAME = "HA_ZONE";
 
     static final String HA_TABLE_NAME = "HA_TABLE";
