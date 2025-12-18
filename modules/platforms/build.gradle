@@ -246,7 +246,6 @@ def updateVersion = tasks.register('updateVersion', Task) {
         updateCMakeVersion(version)
         updateDotnetVersion(version)
         updatePythonVersion(version)
-        updateDockerComposeVersion(version)
     }
 }
 
@@ -279,13 +278,6 @@ private void updatePythonVersion(String version) {
     versionFile.text = simpleProjectVersion(version)
 }
 
-private void updateDockerComposeVersion(String version) {
-    def composeFile = file("$rootDir/packaging/docker/docker-compose.yml")
-    def content = composeFile.text
-    def pattern = 'image: apacheignite/ignite:\\$\\{IGNITE3_VERSION:-[^}]+\\}'
-    def replacement = 'image: apacheignite/ignite:\\${IGNITE3_VERSION:-' + version + '}'
-    composeFile.text = content.replaceAll(pattern, replacement)
-}
 
 def buildWindowsDbApiWheels = tasks.register('buildWindowsDbApiWheels', Exec) {
     workingDir "$projectDir/python"

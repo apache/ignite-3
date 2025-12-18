@@ -225,6 +225,20 @@ tasks.named('docker') {
     }
 }
 
+// Task to update docker-compose.yml with current project version
+tasks.register('updateVersion') {
+    description = 'Updates docker-compose.yml with the current project version'
+    group = 'versioning'
+
+    doLast {
+        def composeFile = file('docker/docker-compose.yml')
+        def content = composeFile.text
+        def pattern = 'image: apacheignite/ignite:\\$\\{IGNITE3_VERSION:-[^}]+\\}'
+        def replacement = 'image: apacheignite/ignite:\\${IGNITE3_VERSION:-' + project.version + '}'
+        composeFile.text = content.replaceAll(pattern, replacement)
+        logger.lifecycle("Updated docker-compose.yml to version ${project.version}")
+    }
+}
 
 // create an uber zip with all distributions
 // This task cannot be converted to lazy configuration due to some weird incompatibility with distribution plugin

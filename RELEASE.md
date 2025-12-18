@@ -43,6 +43,7 @@ For all the commands going forward:
 3. Update versions in `main` branch to the next development version (e.g., `x.y.z-SNAPSHOT`):
    * Update `gradle.properties` manually.
    * Run `./gradlew :platforms:updateVersion` to update platforms versions (.NET, C++, Python, etc.)
+   * Run `./gradlew :packaging:updateVersion` to update docker-compose.yml version.
    * Commit and push changes.
 4. Create and push a new branch for the release `ignite-{version}`.
 5. Update versions in `ignite-{version}` branch to the current release version, remove `-SNAPSHOT` suffix - same steps as in point 3.
