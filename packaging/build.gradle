@@ -92,6 +92,65 @@ def replaceVars = tasks.register('replaceVars', Copy) {
 }
 
 ext.docker_image_name = "apacheignite/ignite:${project.projectVersion.toString()}"
+ext.docker_cli_image_name = "apacheignite/ignite-cli:${project.projectVersion.toString()}"
+
+// CLI-only Docker image tasks (defined before main docker block so they can be referenced)
+def dockerCliPrepare = tasks.register('dockerCliPrepare', Copy) {
+    dependsOn cliStartScript
+
+    into "$buildDir/docker-cli"
+
+    into('dist/cli') {
+        into('') {
+            from "$rootDir/LICENSE"
+            from "$rootDir/NOTICE"
+            from "$rootDir/assembly/README.md"
+        }
+        into('bin') {
+            fileMode 0755
+            from cliStartScript
+        }
+        into('lib') {
+            from configurations.cliArtifacts
+        }
+    }
+
+    into('') {
+        from 'docker/Dockerfile.cli'
+    }
+}
+
+def dockerCli = tasks.register('dockerCli', Exec) {
+    dependsOn dockerCliPrepare
+
+    workingDir "$buildDir/docker-cli"
+
+    def imageTag = project.docker_cli_image_name
+    def dockerArgs = ['docker', 'build', '-f', 'Dockerfile.cli', '-t', imageTag]
+
+    if (project.hasProperty('target_platform')) {
+        dockerArgs.addAll(['--platform', project.properties["target_platform"]])
+    }
+
+    dockerArgs.add('.')
+
+    commandLine dockerArgs
+
+    doFirst {
+        logger.lifecycle("Building CLI Docker image: ${imageTag}")
+    }
+}
+
+def dockerCliPush = tasks.register('dockerCliPush', Exec) {
+    dependsOn dockerCli
+
+    def imageTag = project.docker_cli_image_name
+    commandLine 'docker', 'push', imageTag
+
+    doFirst {
+        logger.lifecycle("Pushing CLI Docker image: ${imageTag}")
+    }
+}
 
 docker {
     name project.docker_image_name
@@ -158,72 +217,14 @@ docker {
 
 dockerPrepare.dependsOn replaceVars
 
-// CLI-only Docker image
-ext.docker_cli_image_name = "apacheignite/ignite-cli:${project.projectVersion.toString()}"
-
-def dockerCliPrepare = tasks.register('dockerCliPrepare', Copy) {
-    dependsOn cliStartScript
-
-    into "$buildDir/docker-cli"
-
-    into('dist/cli') {
-        into('') {
-            from "$rootDir/LICENSE"
-            from "$rootDir/NOTICE"
-            from "$rootDir/assembly/README.md"
-        }
-        into('bin') {
-            fileMode 0755
-            from cliStartScript
-        }
-        into('lib') {
-            from configurations.cliArtifacts
-        }
-    }
-
-    into('') {
-        from 'docker/Dockerfile.cli'
-    }
-}
-
-def dockerCli = tasks.register('dockerCli', Exec) {
-    dependsOn dockerCliPrepare
-
-    workingDir "$buildDir/docker-cli"
-
-    def imageTag = project.docker_cli_image_name
-    def dockerArgs = ['docker', 'build', '-f', 'Dockerfile.cli', '-t', imageTag]
-
-    if (project.hasProperty('target_platform')) {
-        dockerArgs.addAll(['--platform', project.properties["target_platform"]])
-    }
-
-    dockerArgs.add('.')
-
-    commandLine dockerArgs
-
-    doFirst {
-        logger.lifecycle("Building CLI Docker image: ${imageTag}")
-    }
-}
-
-def dockerCliPush = tasks.register('dockerCliPush', Exec) {
+// Make 'docker' task also build CLI image, and push it when docker_push is set
+tasks.named('docker') {
     dependsOn dockerCli
-
-    def imageTag = project.docker_cli_image_name
-    commandLine 'docker', 'push', imageTag
-
-    doFirst {
-        logger.lifecycle("Pushing CLI Docker image: ${imageTag}")
+    if (project.hasProperty('docker_push')) {
+        finalizedBy dockerCliPush
     }
 }
 
-// Convenience task to build both Docker images
-tasks.register('dockerAll') {
-    dependsOn docker, dockerCli
-    description = 'Builds all Docker images (server and CLI)'
-    group = 'docker'
-}
 
 // create an uber zip with all distributions
 // This task cannot be converted to lazy configuration due to some weird incompatibility with distribution plugin
