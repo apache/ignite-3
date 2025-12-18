@@ -92,6 +92,13 @@
           url: developers-guide/sql/odbc/specification
     - title: Tables from Java Classes
       url: developers-guide/java-to-tables
+    - title: Events
+      url: developers-guide/events/overview
+      items:
+        - title: Working with Events
+          url: developers-guide/events/overview
+        - title: Available Events
+          url: developers-guide/events/events-list
     - title: Distributed Computing
       url: developers-guide/compute/compute
       items:
