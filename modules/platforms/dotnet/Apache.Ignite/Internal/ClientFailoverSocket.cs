@@ -651,6 +651,11 @@ namespace Apache.Ignite.Internal
                     return endPoint.Socket;
                 }
 
+                if (endPoint.IsAbandoned)
+                {
+                    continue;
+                }
+
                 try
                 {
                     return await ConnectAsync(endPoint).ConfigureAwait(false);
