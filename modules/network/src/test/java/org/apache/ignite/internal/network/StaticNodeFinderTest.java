@@ -24,6 +24,9 @@ import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +35,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.NetworkAddress;
@@ -50,6 +54,40 @@ class StaticNodeFinderTest {
         NodeFinder finder = new StaticNodeFinder(List.of(ipv4, ipv6));
 
         assertThat(finder.findNodes(), contains(ipv4, ipv6));
+    }
+
+    @Test
+    void removesDuplicateIpAddresses() {
+        NetworkAddress ip1 = new NetworkAddress("1.2.3.4", 3001);
+        NetworkAddress ip2 = new NetworkAddress("1.2.3.4", 3001);
+        NodeFinder finder = new StaticNodeFinder(List.of(ip1,  ip2));
+
+        assertThat(finder.findNodes(), contains(ip1));
+    }
+
+    @Test
+    void returnsEmptyResultForEmptyInput() {
+        NodeFinder finder = new StaticNodeFinder(List.of());
+
+        assertEquals(0, finder.findNodes().size());
+    }
+
+    @Test
+    void failsForNoResolvedIpAddresses() {
+        NetworkAddress ip1 = new NetworkAddress("badIpString", 3001);
+        NodeFinder finder = new StaticNodeFinder(List.of(ip1));
+
+        assertThrows(IgniteInternalException.class, finder::findNodes);
+    }
+
+    @Test
+    void succeedsForAtLeastOneResolvedIpAddresses() {
+        NetworkAddress ip1 = new NetworkAddress("badIpString", 3001);
+        NetworkAddress ip2 = new NetworkAddress("1.2.3.4", 3001);
+        NodeFinder finder = new StaticNodeFinder(List.of(ip1, ip2));
+
+        assertDoesNotThrow(finder::findNodes);
+        assertThat(finder.findNodes(), contains(ip2));
     }
 
     @Test
