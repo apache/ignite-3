@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.ConfigOverride;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -546,6 +547,7 @@ class ItScaleCubeNetworkMessagingTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @ConfigOverride(name = "ignite.failureHandler.dumpThreadsOnFailure", value = "false")
     public void nodeCannotCommunicateAfterLeavingPhysicalTopology(boolean keepPreExistingConnections) throws Exception {
         testCluster = new Cluster(3, testInfo);
 
