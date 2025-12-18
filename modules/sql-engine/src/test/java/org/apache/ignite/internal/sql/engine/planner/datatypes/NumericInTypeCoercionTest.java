@@ -2786,20 +2786,19 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
         } else {
             strVal = intPart;
         }
-        
-        // Format floats and double
-        DecimalFormat decimalFormat = new DecimalFormat("0.###E0");
+
         Object litVal;
-        switch (literalType.spec()) {
-        case FLOAT:
-            litVal = decimalFormat.format(Float.parseFloat(strVal));
-            break;
-        case DOUBLE:
-            litVal = decimalFormat.format(Double.parseDouble(strVal));
-            break;       
-        default: 
+        if (isFloatingPointType(literalType)) {
+            // Format floats and double
+            String format = "0." + "#".repeat(numDigits + numFractions) + "E0";    
+            DecimalFormat decimalFormat = new DecimalFormat(format);
+            if (literalType.spec() == ColumnType.FLOAT) {
+               litVal = decimalFormat.format(Float.parseFloat(strVal));
+            } else {
+               litVal = decimalFormat.format(Double.parseDouble(strVal));
+            }
+        } else {
             litVal = strVal;
-            break;
         }
         return SqlTestUtils.makeLiteral(litVal, literalType);
     }
