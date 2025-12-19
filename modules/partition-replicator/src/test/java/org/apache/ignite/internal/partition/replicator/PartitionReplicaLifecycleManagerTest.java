@@ -243,8 +243,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 failureManager,
                 executorService,
-                replicaManager,
-                new NoOpMetricManager()
+                replicaManager
         ) {
             @Override
             protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
@@ -284,7 +283,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 txManager,
                 schemaManager,
                 dataStorageManager,
-                zoneResourcesManager
+                zoneResourcesManager,
+                new NoOpMetricManager()
         );
 
         var componentContext = new ComponentContext();

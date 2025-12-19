@@ -266,6 +266,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
+    private final MetricManager metricManager;
+
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
@@ -348,9 +350,9 @@ public class PartitionReplicaLifecycleManager extends
                         catalogService,
                         failureProcessor,
                         partitionOperationsExecutor,
-                        replicaMgr,
-                        metricManager
-                )
+                        replicaMgr
+                ),
+                metricManager
         );
     }
 
@@ -374,7 +376,8 @@ public class PartitionReplicaLifecycleManager extends
             TxManager txManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            ZoneResourcesManager zoneResourcesManager
+            ZoneResourcesManager zoneResourcesManager,
+            MetricManager metricManager
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -394,6 +397,7 @@ public class PartitionReplicaLifecycleManager extends
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
+        this.metricManager = metricManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -434,6 +438,9 @@ public class PartitionReplicaLifecycleManager extends
         rebalanceRetryDelayConfiguration.init();
 
         executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
+
+        metricManager.registerSource(zoneResourcesManager.snapshotsMetricsSource());
+        metricManager.enable(zoneResourcesManager.snapshotsMetricsSource());
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -1661,6 +1668,8 @@ public class PartitionReplicaLifecycleManager extends
         }
 
         try {
+            metricManager.unregisterSource(zoneResourcesManager.snapshotsMetricsSource());
+
             IgniteUtils.closeAllManually(zoneResourcesManager);
         } catch (Exception e) {
             return failedFuture(e);

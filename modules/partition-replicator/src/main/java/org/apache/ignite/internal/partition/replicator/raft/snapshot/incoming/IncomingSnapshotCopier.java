@@ -360,7 +360,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         snapshotStats.onLoadSnapshotPhaseStart();
-        snapshotsMetricsSource.onLoadSnapshotPhaseStart();
+        snapshotsMetricsSource.onLoadSnapshotMetaPhaseStart();
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Start loading snapshot meta [snapshotId={}, {}]", snapshotUri.snapshotId, createPartitionInfo());
@@ -375,7 +375,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 PartitionSnapshotMeta snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
                 snapshotStats.onLoadSnapshotPhaseEnd();
-                snapshotsMetricsSource.onLoadSnapshotPhaseEnd();
+                snapshotsMetricsSource.onLoadSnapshotMetaPhaseEnd();
 
                 if (LOG.isInfoEnabled()) {
                     LOG.info(

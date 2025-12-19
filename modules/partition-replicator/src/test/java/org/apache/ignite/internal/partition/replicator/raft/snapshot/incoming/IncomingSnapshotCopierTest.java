@@ -851,7 +851,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         when(metaResponse.meta()).thenReturn(meta);
 
-        CompletableFuture<NetworkMessage> loadSnapshotFuture = new CompletableFuture<>();
+        CompletableFuture<NetworkMessage> loadSnapshotMetaFuture = new CompletableFuture<>();
 
         CompletableFuture<NetworkMessage> loadMvDataFuture = new CompletableFuture<>();
 
@@ -863,7 +863,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         SnapshotTxDataResponse txMetaResponse = mock(SnapshotTxDataResponse.class);
         when(txMetaResponse.finish()).thenReturn(true);
 
-        MessagingService messagingService = messagingServiceForMetrics(loadSnapshotFuture, loadMvDataFuture, loadTxMetaFuture);
+        MessagingService messagingService = messagingServiceForMetrics(loadSnapshotMetaFuture, loadMvDataFuture, loadTxMetaFuture);
 
         CompletableFuture<Void> catalogReadyFuture = new CompletableFuture<>();
 
@@ -890,41 +890,36 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 snapshotMetricSource
         );
 
-        assertThatMetricHasValue(snapshotMetricSource, "TotalIncomingSnapshots", "0");
-
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "TotalIncomingSnapshots", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
 
         copier.start();
 
-        assertThatMetricHasValue(snapshotMetricSource, "TotalIncomingSnapshots", "1");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshots", "1");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "1");
 
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "1");
+        loadSnapshotMetaFuture.complete(metaResponse);
 
-        loadSnapshotFuture.complete(metaResponse);
-
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
-
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsWaitingCatalog", "1");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsWaitingCatalog", "1");
 
         catalogReadyFuture.complete(null);
 
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsWaitingCatalog", "0");
-
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMvData", "1");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsWaitingCatalog", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMvData", "1");
 
         loadMvDataFuture.complete(mvDataResponse);
 
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMvData", "0");
-
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingTxMeta", "1");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMvData", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingTxMeta", "1");
 
         loadTxMetaFuture.complete(txMetaResponse);
 
-        assertThatMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingTxMeta", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingTxMeta", "0");
 
         copier.join();
 
-        assertThatMetricHasValue(snapshotMetricSource, "TotalIncomingSnapshots", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshots", "0");
     }
 
     private static void assertThatTargetStoragesAreEmpty(
@@ -958,7 +953,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 .get();
     }
 
-    private static void assertThatMetricHasValue(
+    private static void waitTillMetricHasValue(
             RaftSnapshotsMetricsSource snapshotsMetricsSource,
             String metricName,
             String expectedValue
@@ -969,7 +964,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private MessagingService messagingServiceForMetrics(
-            CompletableFuture<NetworkMessage> loadSnapshotFuture,
+            CompletableFuture<NetworkMessage> loadSnapshotMetaFuture,
             CompletableFuture<NetworkMessage> loadMvDataFuture,
             CompletableFuture<NetworkMessage> loadTxMetaFuture
     ) {
@@ -979,7 +974,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(getLowWatermarkResponse.lowWatermark()).thenReturn(HybridTimestamp.NULL_HYBRID_TIMESTAMP);
 
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong()))
-                .thenReturn(loadSnapshotFuture);
+                .thenReturn(loadSnapshotMetaFuture);
 
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMvDataRequest.class), anyLong()))
                 .thenReturn(loadMvDataFuture);

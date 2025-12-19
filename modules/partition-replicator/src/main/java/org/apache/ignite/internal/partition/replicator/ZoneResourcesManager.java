@@ -28,7 +28,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
@@ -72,9 +71,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
     private final ReplicaManager replicaManager;
 
-    private final MetricManager metricManager;
-
-    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
 
     /** Map from zone IDs to their resource holders. */
     private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
@@ -89,8 +86,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor partitionOperationsExecutor,
-            ReplicaManager replicaManager,
-            MetricManager metricManager
+            ReplicaManager replicaManager
     ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
         this.txManager = txManager;
@@ -100,11 +96,6 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         this.failureProcessor = failureProcessor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicaManager = replicaManager;
-        this.metricManager = metricManager;
-
-        this.snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
-        metricManager.registerSource(snapshotsMetricsSource);
-        metricManager.enable(snapshotsMetricsSource);
     }
 
     ZonePartitionResources allocateZonePartitionResources(
@@ -188,8 +179,6 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         }
 
         resourcesByZoneId.clear();
-
-        metricManager.unregisterSource(snapshotsMetricsSource);
     }
 
     void destroyZonePartitionResources(ZonePartitionId zonePartitionId) {
@@ -231,6 +220,10 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         }
 
         return resources.txStateStorage.getPartitionStorage(partitionId);
+    }
+
+    RaftSnapshotsMetricsSource snapshotsMetricsSource() {
+        return snapshotsMetricsSource;
     }
 
     private static class ZoneResources {

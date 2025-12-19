@@ -38,7 +38,6 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -96,8 +95,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 catalogService,
                 mock(FailureProcessor.class),
                 executor,
-                replicaManager,
-                new NoOpMetricManager()
+                replicaManager
         );
 
         storageIndexTracker = new PendingComparableValuesTracker<>(0L);
