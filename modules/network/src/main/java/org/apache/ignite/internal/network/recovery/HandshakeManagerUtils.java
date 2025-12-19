@@ -125,8 +125,9 @@ class HandshakeManagerUtils {
                 if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
                     return;
                 }
+
+                return;
             }
-//            return;
         }
 
         failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
