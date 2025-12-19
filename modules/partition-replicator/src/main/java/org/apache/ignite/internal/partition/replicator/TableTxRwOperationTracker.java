@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface TableTxRwOperationTracker {
     /**
-     * Waits for RW transactions operations to complete strictly lower than the requested version.
+     * Waits for RW transactions operations to complete strictly lower than the requested catalog version.
      *
      * @param catalogVersion Catalog version in question.
      */
