@@ -256,4 +256,12 @@ public interface RaftGroupService extends RaftCommandRunner {
      * @param configuration Peers and learners configuration.
      */
     void updateConfiguration(PeersAndLearners configuration);
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark service as stopping.
+     */
+    default void markAsStopping() {
+        // No-op
+    }
 }

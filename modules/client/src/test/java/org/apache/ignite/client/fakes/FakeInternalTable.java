@@ -60,7 +60,6 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
@@ -437,10 +436,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             InternalClusterNode recipientNode,
             OperationContext operationContext
     ) {
-        return null;
-    }
-
-    @Override public TxStateStorage txStateStorage() {
         return null;
     }
 

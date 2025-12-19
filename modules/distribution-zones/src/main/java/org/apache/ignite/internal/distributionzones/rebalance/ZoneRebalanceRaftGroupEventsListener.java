@@ -828,7 +828,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             long configurationTerm,
             long configurationIndex
     ) {
-        // We write this key only in HA mode. See TableManager.writeTableAssignmentsToMetastore.
+        // We write this key only in HA mode. See PartitionReplicaLifecycleManager#writeZoneAssignmentsToMetastore.
         if (assignmentsChainEntry.value() != null) {
             AssignmentsChain updatedAssignmentsChain = updateAssignmentsChain(
                     AssignmentsChain.fromBytes(assignmentsChainEntry.value()),

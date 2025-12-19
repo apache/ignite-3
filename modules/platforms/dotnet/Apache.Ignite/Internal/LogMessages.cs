@@ -21,6 +21,7 @@ using System;
 using System.Net;
 using System.Net.Security;
 using Ignite.Sql;
+using Ignite.Transactions;
 using Microsoft.Extensions.Logging;
 using Proto;
 
@@ -240,4 +241,42 @@ internal static partial class LogMessages
         EventId = 1032)]
     internal static partial void LogObservableTsUpdatedTrace(
         this ILogger logger, long prev, long current);
+
+    [LoggerMessage(
+        Message = "Lazy tx created [options={Options}, readTimestamp={ReadTimestamp}]",
+        Level = LogLevel.Trace,
+        EventId = 1033)]
+    internal static partial void LogLazyTxCreatedTrace(
+        this ILogger logger, TransactionOptions options, long readTimestamp);
+
+    [LoggerMessage(
+        Message = "Tx started [options={Options}, readTimestamp={ReadTimestamp}, txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1034)]
+    internal static partial void LogTxStartedTrace(
+        this ILogger logger, TransactionOptions options, long readTimestamp, long txId);
+
+    [LoggerMessage(
+        Message = "Tx committed [txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1035)]
+    internal static partial void LogTxCommitTrace(this ILogger logger, long txId);
+
+    [LoggerMessage(
+        Message = "Tx rolled back [txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1036)]
+    internal static partial void LogTxRollbackTrace(this ILogger logger, long txId);
+
+    [LoggerMessage(
+        Message = "Error while re-resolving addresses: {Message}",
+        Level = LogLevel.Warning,
+        EventId = 1037)]
+    internal static partial void LogErrorWhileReResolvingDnsWarn(this ILogger logger, Exception e, string message);
+
+    [LoggerMessage(
+        Message = "Endpoints updated [added=[{Added}], removed=[{Removed}]]",
+        Level = LogLevel.Trace,
+        EventId = 1038)]
+    internal static partial void LogEndpointListUpdatedTrace(this ILogger logger, string added, string removed);
 }

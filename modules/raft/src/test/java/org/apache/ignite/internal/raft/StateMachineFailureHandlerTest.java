@@ -84,6 +84,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
+                "test",
                 TEST_LISTENER,
                 mock(Marshaller.class),
                 testFailureManager(reached)
@@ -99,6 +100,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
+                "test",
                 TEST_LISTENER,
                 mock(Marshaller.class),
                 testFailureManager(reached)
@@ -118,6 +120,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
+                "test",
                 TEST_LISTENER,
                 mock(Marshaller.class),
                 testFailureManager(reached)

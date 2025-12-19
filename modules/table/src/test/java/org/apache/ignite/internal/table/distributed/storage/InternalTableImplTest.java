@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -76,7 +75,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.SwapR
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -90,13 +88,11 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -142,7 +138,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     void setupMocks() {
         lenient().when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
                 .then(invocation -> {
-                    ReplicationGroupId groupId = invocation.getArgument(0);
+                    ZonePartitionId groupId = invocation.getArgument(0);
 
                     return completedFuture(
                             new Lease(clusterNode.name(), clusterNode.id(), HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE, groupId)
@@ -233,7 +229,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                mock(TxStateStorage.class),
                 replicaService,
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
@@ -344,7 +339,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(EnlistingOperation.class)
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void tableIdGetsEnlisted(EnlistingOperation operation) {
         InternalTable table = newInternalTable(10, 1);
         InternalTransaction transaction = newReadWriteTransaction();
@@ -359,7 +353,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(EnlistingOperation.class)
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void anotherTableIdGetsEnlistedInSameZonePartitionEnlistment(EnlistingOperation operation) {
         InternalTable table1 = newInternalTable(10, 1);
         InternalTable table2 = newInternalTable(11, 1);

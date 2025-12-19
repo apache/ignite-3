@@ -10,11 +10,11 @@ Sort
     UnionAll
         est: (rows=519378729)
       Project
-          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):INTEGER, SALES, CAST(RETURNS):DECIMAL(32767, 2), PROFIT]
+          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):INTEGER, SALES, CAST(RETURNS):DECIMAL(14, 2), PROFIT]
           est: (rows=144020)
         Project
             fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
-            projection: [_UTF-8'store channel', S_STORE_SK, SALES, CASE(IS NOT NULL(RETURNS), CAST(RETURNS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)), -(PROFIT, CASE(IS NOT NULL(PROFIT_LOSS), CAST(PROFIT_LOSS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)))]
+            projection: [_UTF-8'store channel', S_STORE_SK, SALES, CASE(IS NOT NULL(RETURNS), CAST(RETURNS):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)), -(PROFIT, CASE(IS NOT NULL(PROFIT_LOSS), CAST(PROFIT_LOSS):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)))]
             est: (rows=144020)
           HashJoin
               predicate: =(S_STORE_SK, S_STORE_SK$0)
@@ -164,11 +164,11 @@ Sort
                       fieldNames: [D_DATE_SK, D_DATE]
                       est: (rows=18262)
       Project
-          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):INTEGER, SALES, CAST(RETURNS):DECIMAL(32767, 2), PROFIT]
+          projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):INTEGER, SALES, CAST(RETURNS):DECIMAL(14, 2), PROFIT]
           est: (rows=35969)
         Project
             fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
-            projection: [_UTF-8'web channel', WP_WEB_PAGE_SK, SALES, CASE(IS NOT NULL(RETURNS), CAST(RETURNS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)), -(PROFIT, CASE(IS NOT NULL(PROFIT_LOSS), CAST(PROFIT_LOSS):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)))]
+            projection: [_UTF-8'web channel', WP_WEB_PAGE_SK, SALES, CASE(IS NOT NULL(RETURNS), CAST(RETURNS):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)), -(PROFIT, CASE(IS NOT NULL(PROFIT_LOSS), CAST(PROFIT_LOSS):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)))]
             est: (rows=35969)
           HashJoin
               predicate: =(WP_WEB_PAGE_SK, WP_WEB_PAGE_SK$0)

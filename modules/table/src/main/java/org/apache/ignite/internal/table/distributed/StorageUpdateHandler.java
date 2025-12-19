@@ -396,6 +396,7 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
+        assert !(commit && commitTimestamp == null) : "Commit timestamp cant be null when tx is set to commit: " + txId;
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
         // for example, when primary (PartitionReplicaListener) is collocated with the raft node (PartitionListener)
@@ -404,23 +405,46 @@ public class StorageUpdateHandler {
         // However, we still need to run `onApplication` if it is not null, e.g. called in TxCleanupCommand handler in PartitionListener
         // to update indexes. In this case it should be executed under `runConsistently`.
         if (!pendingRowIds.isEmpty() || onApplication != null) {
-            storage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
+            Iterator<RowId> pendingRowIdsIterator = pendingRowIds.iterator();
+            boolean finished = false;
+            while (!finished) {
+                finished = storage.runConsistently(locker -> {
+                    int modificationsCount = 0;
+                    boolean shouldRelease = false;
+                    while (pendingRowIdsIterator.hasNext()) {
+                        RowId rowId = pendingRowIdsIterator.next();
+                        locker.lock(rowId);
 
-                // Here we don't need to check for mismatch of the transaction that created the write intent and commits it. Since the
-                // commit can happen in #handleUpdate and #handleUpdateAll.
-                if (commit) {
-                    performCommitWrite(txId, pendingRowIds, commitTimestamp);
-                } else {
-                    performAbortWrite(txId, pendingRowIds, indexIds);
-                }
+                        // Here we don't need to check for mismatch of the transaction that created the write intent and commits it.
+                        // Since the commit can happen in #handleUpdate and #handleUpdateAll.
+                        if (commit) {
+                            storage.commitWrite(rowId, commitTimestamp, txId);
+                            modificationsCount++;
+                        } else {
+                            performAbortWrite(txId, rowId, indexIds);
+                        }
 
-                if (onApplication != null) {
-                    onApplication.run();
-                }
+                        shouldRelease = locker.shouldRelease();
+                        if (shouldRelease) {
+                            break;
+                        }
+                    }
 
-                return null;
-            });
+                    if (commit) {
+                        modificationCounter.updateValue(modificationsCount, commitTimestamp);
+                    }
+
+                    if (shouldRelease) {
+                        return false;
+                    }
+
+                    if (onApplication != null) {
+                        onApplication.run();
+                    }
+
+                    return true;
+                });
+            }
         }
     }
 
@@ -449,29 +473,27 @@ public class StorageUpdateHandler {
      * <p>Transaction that created write intent is expected to abort it.</p>
      *
      * @param txId Transaction ID.
-     * @param pendingRowIds Row IDs of write-intents to be aborted.
+     * @param rowId Row ID of write-intent to be aborted.
      * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
-        for (RowId rowId : pendingRowIds) {
-            AbortResult abortResult = storage.abortWrite(rowId, txId);
+    private void performAbortWrite(UUID txId, RowId rowId, @Nullable List<Integer> indexIds) {
+        AbortResult abortResult = storage.abortWrite(rowId, txId);
 
-            if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
-                continue;
-            }
+        if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
+            return;
+        }
 
-            if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
-                continue;
-            }
+        if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
+            return;
+        }
 
-            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                indexUpdateHandler.tryRemoveFromIndexes(
-                        abortResult.previousWriteIntent(),
-                        rowId,
-                        cursor,
-                        indexIds
-                );
-            }
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            indexUpdateHandler.tryRemoveFromIndexes(
+                    abortResult.previousWriteIntent(),
+                    rowId,
+                    cursor,
+                    indexIds
+            );
         }
     }
 
@@ -592,7 +614,7 @@ public class StorageUpdateHandler {
             // So if we got up to here, it means that the previous transaction was aborted,
             // but the storage was not cleaned after it.
             // Action: abort this write intent.
-            performAbortWrite(writeIntentTxId, Set.of(rowId), indexIds);
+            performAbortWrite(writeIntentTxId, rowId, indexIds);
         }
     }
 

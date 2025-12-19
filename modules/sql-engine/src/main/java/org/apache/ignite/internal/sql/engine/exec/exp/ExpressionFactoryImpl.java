@@ -27,7 +27,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.validate.SqlConformance;
@@ -45,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
  * wrapper over it is returned.
  */
-public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
+public class ExpressionFactoryImpl implements ExpressionFactory {
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
     private static final RexBuilder REX_BUILDER = Commons.rexBuilder();
     private static final SqlConformance SQL_CONFORMANCE = FRAMEWORK_CONFIG.getParserConfig().conformance();
@@ -59,7 +58,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private final RowProviderImplementor rowProviderImplementor;
     private final ScalarImplementor scalarImplementor;
     private final SearchBoundsImplementor searchBoundsImplementor;
-    private final ValuesImplementor valuesImplementor;
 
     /**
      * Constructs the object.
@@ -97,12 +95,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
         );
         searchBoundsImplementor = new SearchBoundsImplementor();
-        valuesImplementor = new ValuesImplementor(TYPE_FACTORY);
     }
 
     /** {@inheritDoc} */
     @Override
-    public AccumulatorsFactory<RowT> accumulatorsFactory(
+    public <RowT> AccumulatorsFactory<RowT> accumulatorsFactory(
             AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
@@ -114,64 +111,58 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public SqlComparator<RowT> comparator(RelCollation collation) {
+    public SqlComparator comparator(RelCollation collation) {
         return comparatorImplementor.implement(collation);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlComparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
+    public SqlComparator comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
         return comparatorImplementor.implement(left, right, equalNulls);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlPredicate<RowT> predicate(RexNode filter, RelDataType rowType) {
+    public SqlPredicate predicate(RexNode filter, RelDataType rowType) {
         return predicateImplementor.implement(filter, rowType);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize) {
+    public SqlJoinPredicate joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize) {
         return joinPredicateImplementor.implement(filter, rowType, firstRowSize);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlProjection<RowT> project(List<RexNode> projects, RelDataType inputRowType) {
+    public SqlProjection project(List<RexNode> projects, RelDataType inputRowType) {
         return projectionImplementor.implement(projects, inputRowType);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize) {
+    public SqlJoinProjection joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize) {
         return joinProjectionImplementor.implement(projects, rowType, firstRowSize);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlRowProvider<RowT> rowSource(List<RexNode> values) {
+    public SqlRowProvider rowSource(List<RexNode> values) {
         return rowProviderImplementor.implement(values);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> SqlScalar<RowT, T> scalar(RexNode node) {
+    public <T> SqlScalar<T> scalar(RexNode node) {
         return scalarImplementor.implement(node);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlScalar<RowT, List<RowT>> values(List<List<RexLiteral>> values, RelDataType rowType) {
-        return valuesImplementor.implement(values, rowType);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SqlScalar<RowT, RangeIterable<RowT>> ranges(
+    public SqlRangeConditionsProvider ranges(
             List<SearchBounds> searchBounds,
             RelDataType rowType,
-            @Nullable SqlComparator<RowT> comparator
+            @Nullable SqlComparator comparator
     ) {
         return searchBoundsImplementor.implement(searchBounds, rowType, comparator, this::rowSource, this::scalar);
     }

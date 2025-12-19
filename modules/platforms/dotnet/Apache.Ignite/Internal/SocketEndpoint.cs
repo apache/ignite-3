@@ -28,6 +28,8 @@ namespace Apache.Ignite.Internal
     {
         private volatile ClientSocket? _socket;
 
+        private volatile bool _isAbandoned;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SocketEndpoint"/> class.
         /// </summary>
@@ -42,11 +44,10 @@ namespace Apache.Ignite.Internal
             // Cache endpoint string for metrics and logging.
             EndPointString = endPoint.ToString();
 
-            MetricsContext = new MetricsContext(new[]
-            {
+            MetricsContext = new MetricsContext([
                 new KeyValuePair<string, object?>(MetricTags.ClientId, clientId),
                 new KeyValuePair<string, object?>(MetricTags.NodeAddress, EndPointString)
-            });
+            ]);
         }
 
         /// <summary>
@@ -86,5 +87,16 @@ namespace Apache.Ignite.Internal
         /// Gets the metrics context.
         /// </summary>
         public MetricsContext MetricsContext { get; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this endpoint has been abandoned:
+        /// it is no longer present in the list of discovered endpoints and should be removed once disconnected.
+        /// We don't remove it immediately to avoid breaking in-flight operations.
+        /// </summary>
+        public bool IsAbandoned
+        {
+            get => _isAbandoned;
+            set => _isAbandoned = value;
+        }
     }
 }

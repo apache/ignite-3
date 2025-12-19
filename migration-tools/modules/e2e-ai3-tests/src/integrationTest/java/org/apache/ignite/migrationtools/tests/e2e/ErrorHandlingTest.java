@@ -40,7 +40,8 @@ public class ErrorHandlingTest {
     private static final Network network = Network.newNetwork();
 
     @Container
-    private static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network);
+    private static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network)
+            .withLabel(ErrorHandlingTest.class.getSimpleName());
 
     @Container
     private static final MigrationToolsContainer migrationToolsContainer = new MigrationToolsContainer(network);

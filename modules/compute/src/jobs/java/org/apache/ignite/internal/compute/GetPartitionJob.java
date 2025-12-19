@@ -22,12 +22,11 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.table.partition.HashPartition;
 
 /** Compute job that returns a partition id for the specified partition passed in the context. */
-public class GetPartitionJob implements ComputeJob<Void, Integer> {
+public class GetPartitionJob implements ComputeJob<Void, Long> {
     @Override
-    public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Void arg) {
-        return completedFuture(((HashPartition) context.partition()).partitionId());
+    public CompletableFuture<Long> executeAsync(JobExecutionContext context, Void arg) {
+        return completedFuture(context.partition().id());
     }
 }

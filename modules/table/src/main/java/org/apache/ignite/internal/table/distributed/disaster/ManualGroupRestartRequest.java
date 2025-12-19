@@ -163,8 +163,13 @@ class ManualGroupRestartRequest implements MultiNodeDisasterRecoveryRequest {
                 if (shouldProcessPartition(replicationGroupId, zoneDescriptor)) {
                     if (cleanUp) {
                         restartFutures.add(
-                                createRestartWithCleanupFuture(disasterRecoveryManager, replicationGroupId, revision, zoneDescriptor,
-                                        catalog)
+                                createRestartWithCleanupFuture(
+                                        disasterRecoveryManager,
+                                        replicationGroupId,
+                                        revision,
+                                        zoneDescriptor,
+                                        catalog
+                                )
                         );
                     } else {
                         restartFutures.add(createRestartFuture(disasterRecoveryManager, replicationGroupId, revision));

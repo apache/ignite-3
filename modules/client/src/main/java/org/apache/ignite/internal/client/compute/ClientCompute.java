@@ -66,7 +66,6 @@ import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -157,7 +156,7 @@ public class ClientCompute implements IgniteCompute {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             QualifiedName tableName = tableJobTarget.tableName();
             return getTable(tableName)
-                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
+                    .thenCompose(table -> table.partitionDistribution().primaryReplicasAsync())
                     .thenCompose(replicas -> {
                         //noinspection unchecked
                         CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
@@ -446,7 +445,7 @@ public class ClientCompute implements IgniteCompute {
             UUID taskId,
             @Nullable T arg
     ) {
-        int partitionId = ((HashPartition) partition).partitionId();
+        long partitionId = partition.id();
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_PARTITIONED,
                 (schema, outputChannel, unused) -> {
@@ -454,13 +453,13 @@ public class ClientCompute implements IgniteCompute {
 
                     w.packInt(t.tableId());
 
-                    w.packInt(partitionId);
+                    w.packLong(partitionId);
 
                     packJob(outputChannel, descriptor, arg);
                     packTaskId(outputChannel, taskId);
                 },
                 ClientCompute::unpackSubmitResult,
-                PartitionAwarenessProvider.of(partitionId),
+                PartitionAwarenessProvider.of(Math.toIntExact(partitionId)),
                 true,
                 null
         );

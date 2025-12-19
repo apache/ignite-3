@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.time.Clock;
@@ -32,7 +33,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<RowT> implements DataContext {
+public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
     /**
@@ -85,8 +85,9 @@ public class ExecutionContext<RowT> implements DataContext {
     private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
+    private final RowFactoryFactory<RowT> rowFactoryFactory;
 
-    private final ExpressionFactory<RowT> expressionFactory;
+    private final ExpressionFactory expressionFactory;
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
@@ -122,6 +123,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
      * @param handler Row handler.
+     * @param rowFactoryFactory Factory that produces factories to create row..
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
@@ -131,7 +133,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param topologyVersion Topology version the query was mapped on.
      */
     public ExecutionContext(
-            ExpressionFactory<RowT> expressionFactory,
+            ExpressionFactory expressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
             InternalClusterNode localNode,
@@ -139,6 +141,7 @@ public class ExecutionContext<RowT> implements DataContext {
             UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
@@ -152,6 +155,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.executionId = executionId;
         this.description = description;
         this.handler = handler;
+        this.rowFactoryFactory = rowFactoryFactory;
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
@@ -227,17 +231,20 @@ public class ExecutionContext<RowT> implements DataContext {
         return description.group(sourceId);
     }
 
-    /**
-     * Get handler to access row fields.
-     */
-    public RowHandler<RowT> rowHandler() {
+    @Override
+    public RowHandler<RowT> rowAccessor() {
         return handler;
+    }
+
+    @Override
+    public RowFactoryFactory<RowT> rowFactoryFactory() {
+        return rowFactoryFactory;
     }
 
     /**
      * Get expression factory.
      */
-    public ExpressionFactory<RowT> expressionFactory() {
+    public ExpressionFactory expressionFactory() {
         return expressionFactory;
     }
 
@@ -350,14 +357,9 @@ public class ExecutionContext<RowT> implements DataContext {
         return TypeUtils.toInternal(param, nativeType.spec());
     }
 
-    /**
-     * Gets correlated value.
-     *
-     * @param id Correlation ID.
-     * @return Correlated value.
-     */
-    public Object correlatedVariable(int id) {
-        return sharedState.correlatedVariable(id);
+    @Override
+    public RowT correlatedVariable(int id) {
+        return cast(sharedState.correlatedVariable(id));
     }
 
     /**

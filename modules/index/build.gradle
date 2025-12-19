@@ -78,6 +78,7 @@ dependencies {
     integrationTestImplementation project(':ignite-placement-driver-api')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))

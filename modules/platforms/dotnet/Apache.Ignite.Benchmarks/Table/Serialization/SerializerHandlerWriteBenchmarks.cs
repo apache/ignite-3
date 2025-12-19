@@ -26,13 +26,15 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> write methods.
     ///
-    /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
+    /// Results on i9-12900H, .NET SDK 8.0.416, Ubuntu 22.04:
     ///
-    /// |            Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
-    /// |------------------ |---------:|--------:|--------:|------:|--------:|-------:|----------:|
-    /// | WriteObjectManual | 116.4 ns | 1.33 ns | 1.11 ns |  1.00 |    0.00 | 0.0002 |      80 B |
-    /// |       WriteObject | 137.5 ns | 1.26 ns | 1.18 ns |  1.18 |    0.01 | 0.0002 |      80 B |
-    /// |        WriteTuple | 213.3 ns | 2.76 ns | 2.59 ns |  1.83 |    0.02 | 0.0007 |     184 B |.
+    /// | Method                          | Mean     | Error   | StdDev  | Ratio | Gen0   | Allocated | Alloc Ratio |
+    /// |-------------------------------- |---------:|--------:|--------:|------:|-------:|----------:|------------:|
+    /// | WriteObjectManual               | 117.5 ns | 0.40 ns | 0.36 ns |  1.00 | 0.0002 |      80 B |        1.00 |
+    /// | WriteObject                     | 129.2 ns | 0.43 ns | 0.38 ns |  1.10 | 0.0002 |      80 B |        1.00 |
+    /// | WriteObjectWithMapper           | 140.7 ns | 1.00 ns | 0.89 ns |  1.20 | 0.0002 |     112 B |        1.40 |
+    /// | WriteObjectWithMapperKnownOrder | 133.8 ns | 0.38 ns | 0.34 ns |  1.14 | 0.0002 |      80 B |        1.00 |
+    /// | WriteTuple                      | 180.7 ns | 0.46 ns | 0.43 ns |  1.54 | 0.0005 |     184 B |        2.30 |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
@@ -62,6 +64,28 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var writer = pooledWriter.MessageWriter;
 
             ObjectSerializerHandler.Write(ref writer, Schema, Object);
+
+            VerifyWritten(pooledWriter);
+        }
+
+        [Benchmark]
+        public void WriteObjectWithMapper()
+        {
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
+
+            MapperSerializerHandler.Write(ref writer, Schema, Object);
+
+            VerifyWritten(pooledWriter);
+        }
+
+        [Benchmark]
+        public void WriteObjectWithMapperKnownOrder()
+        {
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
+
+            MapperKnownOrderSerializerHandler.Write(ref writer, Schema, Object);
 
             VerifyWritten(pooledWriter);
         }
