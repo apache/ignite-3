@@ -1083,7 +1083,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 TransactionException.class,
                 Transactions.ACQUIRE_LOCK_ERR,
                 operation,
-                "Lock acquiring failed during request handling"
+                "Failed to acquire a lock during request handling"
         );
 
         Throwable rootCause = unwrapRootCause(transactionException);

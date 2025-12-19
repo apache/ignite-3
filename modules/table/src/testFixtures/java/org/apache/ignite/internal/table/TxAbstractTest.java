@@ -2382,7 +2382,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
     private static void assertTransactionLockException(Exception e) {
         assertInstanceOf(TransactionException.class, e);
-        assertThat(e.getMessage(), containsString("Lock acquiring failed during request handling"));
+        assertThat(e.getMessage(), containsString("Failed to acquire a lock during request handling"));
 
         Throwable rootCause = unwrapRootCause(e);
         assertInstanceOf(LockException.class, rootCause);

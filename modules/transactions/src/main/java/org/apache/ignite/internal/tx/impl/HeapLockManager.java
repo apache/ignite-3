@@ -51,12 +51,14 @@ import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.AcquireLockTimeoutException;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.LockTableOverflowException;
 import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
@@ -165,10 +167,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             LockState state = acquireLockState(lockKey);
 
             if (state == null) {
-                return failedFuture(new LockException(
-                        ACQUIRE_LOCK_ERR,
-                        "Failed to acquire a lock due to lock table overflow [txId=" + txId + ", limit=" + lockMapSize + ']'
-                ));
+                return failedFuture(new LockTableOverflowException(txId, lockMapSize));
             }
 
             IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
@@ -1047,9 +1046,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private void setWaiterTimeout(WaiterImpl waiter) {
             delayedExecutor.execute(() -> {
                 if (!waiter.fut.isDone()) {
-                    waiter.fut.completeExceptionally(new LockException(ACQUIRE_LOCK_TIMEOUT_ERR, "Failed to acquire a lock due to "
-                            + "timeout [txId=" + waiter.txId() + ", waiter=" + waiter
-                            + ", timeout=" + deadlockPreventionPolicy.waitTimeout() + ']'));
+                    waiter.fut.completeExceptionally(new AcquireLockTimeoutException(waiter, deadlockPreventionPolicy.waitTimeout()));
                 }
             });
         }
