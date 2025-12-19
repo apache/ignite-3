@@ -25,7 +25,7 @@ option disabled.
 
 USE_LOCAL_DEPS option set to OFF implies that dependencies will be downloaded, so you will need an internet connection.
 If you want to build project with your local dependencies you can set option USE_LOCAL_DEPS to ON. In this case you need 
-to specify location of the MbedTLS source code library with the MBEDTLS_SOURCE_DIR variable. 
+to specify location of the TF-PSA source code library with the TF_PSA_SOURCE_DIR variable. 
 In this case you have to install: 
  * msgpack-c >= 4.0.0 development package (for Ubuntu: libmsgpack-dev) 
  * Google test library >= 1.12.0 (for Ubuntu: libgtest-dev) if you want to build tests (ENABLE_TESTS = ON)

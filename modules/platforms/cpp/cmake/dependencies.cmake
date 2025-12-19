@@ -22,7 +22,6 @@ set(MBEDTLS_AS_SUBPROJECT ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_compile_definitions(MBEDTLS_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
 add_compile_definitions(TF_PSA_CRYPTO_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
@@ -54,11 +53,11 @@ if (${USE_LOCAL_DEPS})
         message(STATUS "MSGPACK FOUND: " ${msgpack_VERSION})
     endif()
 
-    if (NOT DEFINED MBEDTLS_SOURCE_DIR)
-        message( FATAL_ERROR "With USE_LOCAL_DEPS specified you have to set MBEDTLS_SOURCE_DIR to path to the MbedTLS source code")
+    if (NOT DEFINED TF_PSA_SOURCE_DIR)
+        message( FATAL_ERROR "With USE_LOCAL_DEPS specified you have to set TF_PSA_SOURCE_DIR to path to the TF-PSA-Crypto source code")
     endif()
 
-    add_subdirectory(${MBEDTLS_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/mbedtls EXCLUDE_FROM_ALL)
+    add_subdirectory(${TF_PSA_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/tf-psa EXCLUDE_FROM_ALL)
     find_package(uni-algo CONFIG REQUIRED)
 
     if (${ENABLE_TESTS})
@@ -73,11 +72,11 @@ if (${USE_LOCAL_DEPS})
 else()
     include(FetchContent)
     fetch_dependency(msgpack-c https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz 090df53a59b845767fcfc48221b30ee9)
-    fetch_dependency(mbedtls https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-4.0.0/mbedtls-4.0.0.tar.bz2 a158a8a34f1979b0834c4fbd3bf6a320)
+    fetch_dependency(tf-psa https://github.com/Mbed-TLS/TF-PSA-Crypto/releases/download/tf-psa-crypto-1.0.0/tf-psa-crypto-1.0.0.tar.bz2 39037452d0314496589ab18461c1535c)
     fetch_dependency(uni-algo https://github.com/uni-algo/uni-algo/archive/v1.2.0.tar.gz 6e0cce94a6b45ebee7b904316df9f87f)
     if (${ENABLE_TESTS})
         fetch_dependency(googletest https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz c8340a482851ef6a3fe618a082304cfc)
     endif()
 endif()
 
-target_compile_definitions(mbedtls INTERFACE MBEDTLS_ALLOW_PRIVATE_ACCESS)
+target_compile_definitions(tfpsacrypto INTERFACE MBEDTLS_ALLOW_PRIVATE_ACCESS)
