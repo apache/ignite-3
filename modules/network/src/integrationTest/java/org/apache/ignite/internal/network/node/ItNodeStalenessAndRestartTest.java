@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network.node;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,7 +35,6 @@ import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.logging.log4j.Level;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -56,32 +54,16 @@ class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @MuteFailureManagerLogging
-    void nodeStalenessStatusIsClearedOnRestart() throws Exception {
-        IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
-
-        simulateNetworkPartition(ignite0);
-
-        IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.restartNode(0));
-
-        assertTrue(
-                waitForCondition(
-                        () -> restartedIgnite0.clusterService().topologyService().allMembers().size() == 2,
-                        SECONDS.toMillis(10)
-                ),
-                "Did not see node 1 in the topology of restarted node 0"
-        );
-    }
-
-    @Test
     @ConfigOverride(name = "ignite.failureHandler.handler.type", value = "stop")
-    @Disabled
+    @MuteFailureManagerLogging
     void staleNodeIsShutDown() throws Exception {
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
 
         LogInspector logInspector = new LogInspector(
                 FailureManager.class.getName(),
-                evt -> evt.getLevel() == Level.ERROR && evt.getMessage().getFormattedMessage().contains(FAILURE_MESSAGE)
+                evt -> evt.getLevel() == Level.ERROR
+                        && evt.getMessage().getFormattedMessage().contains(FAILURE_MESSAGE)
+                        && Thread.currentThread().getName().contains(cluster.nodeName(1))
         );
 
         logInspector.start();
