@@ -425,14 +425,14 @@ class IndexBuildController implements ManuallyCloseable {
             return;
         }
 
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
-
-        IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
-
         @Nullable ReplicaTableSegment segment = replicaTableSegment(zonePartitionId, tableId, resources, indexDescriptor);
         if (segment == null) {
             return;
         }
+
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
+
+        IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndex(
                 zoneId,
@@ -465,14 +465,14 @@ class IndexBuildController implements ManuallyCloseable {
             return;
         }
 
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
-
-        IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
-
         @Nullable ReplicaTableSegment segment = replicaTableSegment(zonePartitionId, tableId, resources, indexDescriptor);
         if (segment == null) {
             return;
         }
+
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
+
+        IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
                 zoneId,
