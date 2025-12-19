@@ -11,7 +11,7 @@ import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 object CodeStyleJava17 : BuildType({
     id(getId(this::class))
     name = "Code Style (Java 17)"
-    description = "Check code's style rules with Checkstyle on Java 17"
+    description = "Runs code style checks that are missed by Java 11 code style build"
 
     artifactRules = """
         %VCSROOT__IGNITE3%/build/reports/checkstyle/*.html
@@ -24,7 +24,7 @@ object CodeStyleJava17 : BuildType({
     steps {
         customGradle {
             name = "Check code style by Checkstyle Gradle Plugin"
-            tasks = "checkstyle"
+            tasks = "java-records-tests:checkstyle"
             gradleParams = "--continue"
             workingDir = "%VCSROOT__IGNITE3%"
         }
