@@ -32,11 +32,15 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FailureManagerExtension.class)
 class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
 
     private static final String FAILURE_MESSAGE = "Ignite node is in invalid state due to a critical failure.";
@@ -52,6 +56,7 @@ class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void nodeStalenessStatusIsClearedOnRestart() throws Exception {
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
 
