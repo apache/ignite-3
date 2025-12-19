@@ -56,6 +56,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 
 /**
@@ -182,7 +183,11 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         if (stopping.getAsBoolean()) {
-            sendRejectionMessageAndFailHandshake("poopoo peepee", HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
+            sendRejectionMessageAndFailHandshake(
+                    S.toString("The node is stopping", "name", localNode.name(), false),
+                    HandshakeRejectionReason.STOPPING,
+                    m -> new NodeStoppingException()
+            );
         } else {
             sendHandshakeStartMessage();
         }
