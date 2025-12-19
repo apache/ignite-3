@@ -19,7 +19,7 @@
 
 #include "ignite_error.h"
 
-#include <mbedtls/build_info.h>
+#include <tf-psa-crypto/build_info.h>
 #include <mbedtls/private/bignum.h>
 
 #include <utility>
