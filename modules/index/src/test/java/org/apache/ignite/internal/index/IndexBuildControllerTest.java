@@ -41,7 +41,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -80,8 +80,12 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link IndexBuildController} testing. */
+@ExtendWith(MockitoExtension.class)
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 10;
 
@@ -98,7 +102,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private final ClockService clockService = new TestClockService(clock);
 
     @BeforeEach
-    void setUp() {
+    void setUp(@Mock PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
         indexBuilder = mock(IndexBuilder.class);
 
         IndexManager indexManager = mock(IndexManager.class, invocation -> {
@@ -119,15 +123,13 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         PartitionReplicaLifecycleManager partitionReplicaLifecycleManager = mock(PartitionReplicaLifecycleManager.class);
         ZonePartitionResources zonePartitionResources = mock(ZonePartitionResources.class);
-        doReturn(zonePartitionResources).when(partitionReplicaLifecycleManager).zonePartitionResourcesOrNull(any());
+        lenient().doReturn(zonePartitionResources).when(partitionReplicaLifecycleManager).zonePartitionResourcesOrNull(any());
 
         ZonePartitionReplicaListener replicaListener = mock(ZonePartitionReplicaListener.class);
-        doReturn(completedFuture(replicaListener)).when(zonePartitionResources).replicaListenerFuture();
+        lenient().doReturn(completedFuture(replicaListener)).when(zonePartitionResources).replicaListenerFuture();
 
         TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
-        //noinspection unchecked
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
-        doReturn(new ReplicaTableSegment(txRwOperationTracker, safeTime)).when(replicaListener).segmentFor(anyInt());
+        lenient().doReturn(new ReplicaTableSegment(txRwOperationTracker, safeTime)).when(replicaListener).segmentFor(anyInt());
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
