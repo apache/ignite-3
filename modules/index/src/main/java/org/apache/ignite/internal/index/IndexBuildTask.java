@@ -312,7 +312,9 @@ class IndexBuildTask {
                 assert transactionId != null;
 
                 // We only care about transactions which began after index creation.
-                if (TransactionIds.beginTimestamp(transactionId).compareTo(hybridTimestamp(indexCreationInfo.activationTimestamp())) < 0) {
+                HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(transactionId);
+                HybridTimestamp indexCreationTs = hybridTimestamp(indexCreationInfo.activationTimestamp());
+                if (txBeginTs.compareTo(indexCreationTs) < 0) {
                     transactionsToResolve.put(
                             row.transactionId(),
                             new CommitPartitionId(row.commitZoneId(), row.commitPartitionId())
