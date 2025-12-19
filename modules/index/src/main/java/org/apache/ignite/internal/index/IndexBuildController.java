@@ -59,6 +59,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ReplicaTableSegment;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -72,6 +76,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -103,6 +108,8 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final ClockService clockService;
 
+    private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     private final FailureProcessor failureProcessor;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -119,6 +126,7 @@ class IndexBuildController implements ManuallyCloseable {
             ClusterService clusterService,
             PlacementDriver placementDriver,
             ClockService clockService,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
             FailureProcessor failureProcessor
     ) {
         this.indexBuilder = indexBuilder;
@@ -127,6 +135,7 @@ class IndexBuildController implements ManuallyCloseable {
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.failureProcessor = failureProcessor;
     }
 
@@ -409,9 +418,21 @@ class IndexBuildController implements ManuallyCloseable {
             long enlistmentConsistencyToken,
             HybridTimestamp initialOperationTimestamp
     ) {
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionId);
+        ZonePartitionResources resources = partitionReplicaLifecycleManager.zonePartitionResourcesOrNull(zonePartitionId);
+        if (resources == null) {
+            // Already stopped/destroyed, ignore.
+            return;
+        }
+
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
+
+        @Nullable ReplicaTableSegment segment = replicaTableSegment(zonePartitionId, tableId, resources, indexDescriptor);
+        if (segment == null) {
+            return;
+        }
 
         indexBuilder.scheduleBuildIndex(
                 zoneId,
@@ -420,6 +441,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
+                segment.txRwOperationTracker(),
+                segment.safeTime(),
                 localNode(),
                 enlistmentConsistencyToken,
                 initialOperationTimestamp
@@ -435,9 +458,21 @@ class IndexBuildController implements ManuallyCloseable {
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionId);
+        ZonePartitionResources resources = partitionReplicaLifecycleManager.zonePartitionResourcesOrNull(zonePartitionId);
+        if (resources == null) {
+            // Already stopped/destroyed, ignore.
+            return;
+        }
+
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
+
+        @Nullable ReplicaTableSegment segment = replicaTableSegment(zonePartitionId, tableId, resources, indexDescriptor);
+        if (segment == null) {
+            return;
+        }
 
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
                 zoneId,
@@ -446,10 +481,38 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
+                segment.txRwOperationTracker(),
+                segment.safeTime(),
                 localNode(),
                 enlistmentConsistencyToken,
                 clockService.current()
         );
+    }
+
+    private static @Nullable ReplicaTableSegment replicaTableSegment(
+            ZonePartitionId zonePartitionId,
+            int tableId,
+            ZonePartitionResources resources,
+            CatalogIndexDescriptor indexDescriptor
+    ) {
+        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture = resources.replicaListenerFuture();
+        assert replicaListenerFuture.isDone() : "Replica listener future is not done for [zonePartitionId=" + zonePartitionId + "].";
+
+        ZonePartitionReplicaListener replicaListener = replicaListenerFuture.join();
+        @Nullable ReplicaTableSegment segment = replicaListener.segmentFor(tableId);
+
+        if (segment == null) {
+            LOG.info(
+                    "Segment is null, skipping index build scheduling "
+                            + "[zoneId={}, tableId={}, partitionId={}, indexId={}]",
+                    zonePartitionId.zoneId(),
+                    tableId,
+                    zonePartitionId.partitionId(),
+                    indexDescriptor.id()
+            );
+        }
+
+        return segment;
     }
 
     private InternalClusterNode localNode() {

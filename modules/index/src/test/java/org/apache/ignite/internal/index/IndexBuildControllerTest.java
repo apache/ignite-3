@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -61,6 +62,11 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ReplicaTableSegment;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -70,6 +76,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,13 +97,11 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
-    private IndexManager indexManager = null;
-
     @BeforeEach
     void setUp() {
         indexBuilder = mock(IndexBuilder.class);
 
-        indexManager = mock(IndexManager.class, invocation -> {
+        IndexManager indexManager = mock(IndexManager.class, invocation -> {
             MvTableStorage mvTableStorage = mock(MvTableStorage.class);
             MvPartitionStorage mvPartitionStorage = mock(MvPartitionStorage.class);
             IndexStorage indexStorage = mock(IndexStorage.class);
@@ -112,6 +117,18 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
+        PartitionReplicaLifecycleManager partitionReplicaLifecycleManager = mock(PartitionReplicaLifecycleManager.class);
+        ZonePartitionResources zonePartitionResources = mock(ZonePartitionResources.class);
+        doReturn(zonePartitionResources).when(partitionReplicaLifecycleManager).zonePartitionResourcesOrNull(any());
+
+        ZonePartitionReplicaListener replicaListener = mock(ZonePartitionReplicaListener.class);
+        doReturn(completedFuture(replicaListener)).when(zonePartitionResources).replicaListenerFuture();
+
+        TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
+        //noinspection unchecked
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
+        doReturn(new ReplicaTableSegment(txRwOperationTracker, safeTime)).when(replicaListener).segmentFor(anyInt());
+
         indexBuildController = new IndexBuildController(
                 indexBuilder,
                 indexManager,
@@ -119,6 +136,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 clusterService,
                 placementDriver,
                 clockService,
+                partitionReplicaLifecycleManager,
                 new NoOpFailureManager()
         );
 
@@ -151,6 +169,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -161,6 +181,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -186,6 +208,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -196,6 +220,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -219,6 +245,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -229,6 +257,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -252,6 +282,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(tableName))),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -262,6 +294,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -308,6 +342,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 anyInt(),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -318,6 +354,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
