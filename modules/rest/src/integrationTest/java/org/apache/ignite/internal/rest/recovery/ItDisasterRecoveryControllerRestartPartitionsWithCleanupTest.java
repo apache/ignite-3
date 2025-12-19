@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
@@ -67,17 +66,15 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
-
     private static final String RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT = "zone/partitions/restartWithCleanup";
 
     @Inject
     @Client(NODE_1_URL + "/management/v1/recovery/")
-    HttpClient client1;
+    private HttpClient client1;
 
     @Inject
     @Client(NODE_2_URL + "/management/v1/recovery/")
-    HttpClient client2;
+    private HttpClient client2;
 
     @BeforeAll
     public void setUp() {

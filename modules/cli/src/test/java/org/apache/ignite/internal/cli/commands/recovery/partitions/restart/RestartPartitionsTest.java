@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
@@ -42,8 +41,8 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
 
     @BeforeAll
     public static void beforeAll() {
-        PARTITIONS_RESTART_ENDPOINT = "partitions/restart";
-        PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP = "partitions/restartWithCleanup";
+        PARTITIONS_RESTART_ENDPOINT = "zone/partitions/restart";
+        PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP = "zone/partitions/restartWithCleanup";
     }
 
     @Test
@@ -65,7 +64,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
-                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME"
         );
 
@@ -88,7 +86,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
-                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_PARTITION_IDS_OPTION, "1,2"
         );
@@ -112,7 +109,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
-                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_NODE_NAMES_OPTION, "node_NAME,node_NAME_2"
         );
@@ -140,7 +136,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
-                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_WITH_CLEANUP_OPTION
         );
@@ -164,7 +159,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
-                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_PARTITION_IDS_OPTION, "1,2",
                 RECOVERY_WITH_CLEANUP_OPTION
