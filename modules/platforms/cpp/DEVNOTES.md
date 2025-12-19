@@ -194,3 +194,9 @@ To enable compatibility test pass `-DENABLE_COMPATIBILITY_TESTS=ON` to cmake bui
 If you are debugging then it is recommended to run one version at once by providing environment variable e.g `IGNITE_CPP_TESTS_COMPATIBILITY_VERSIONS_OVERRIDE=3.0.0`
 To start tests run in modules/platforms/cpp/tests/compatibility-tests
 `./cmake-build-debug/bin/ignite-client-compatibility-test`
+
+### Include what you use tool
+
+To enable IWYU (include-what-you-use) turn option ENABLE_IWYU on. This tool should be installed separately, and binary
+`iwyu` or `include-what-you-use` should be reachable with the PATH system variable. Build will produce messages about 
+missing includes in the source files. 
