@@ -56,7 +56,7 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
             assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
                     .matches(QueryChecker.containsSubPlan("Aggregate"))
                     .returns(10L)
-                    .columnNames("COUNT(*)")
+                    .columnNames("\"COUNT(*)\"")
                     .check();
 
             tx.commit();
@@ -68,7 +68,7 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
             assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
                     .matches(QueryChecker.containsSubPlan("Aggregate"))
                     .returns(10L)
-                    .columnNames("COUNT(*)")
+                    .columnNames("\"COUNT(*)\"")
                     .check();
 
             tx.commit();
@@ -77,44 +77,44 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
-                .columnNames("COUNT(*)")
+                .columnNames("\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT 1, COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(1, 10L)
-                .columnNames("1", "COUNT(*)")
+                .columnNames("\"1\"", "\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT ?, COUNT(*) FROM test")
                 .withParam(1)
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(1, 10L)
-                .columnNames("EXPR$0", "COUNT(*)")
+                .columnNames("\"EXPR$0\"", "\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT COUNT(1) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
-                .columnNames("COUNT(1)")
+                .columnNames("\"COUNT(1)\"")
                 .check();
 
         assertQuery("SELECT COUNT(1), 1, COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L, 1, 10L)
-                .columnNames("COUNT(1)", "1", "COUNT(*)")
+                .columnNames("\"COUNT(1)\"", "\"1\"", "\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT COUNT(*) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
-                .columnNames("COUNT(*)")
+                .columnNames("\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT COUNT(id) FROM test")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
-                .columnNames("COUNT(ID)")
+                .columnNames("\"COUNT(ID)\"")
                 .check();
 
         // Disable fast query optimization
@@ -125,19 +125,19 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
-                .columnNames("COUNT(*)")
+                .columnNames("\"COUNT(*)\"")
                 .check();
 
         assertQuery("SELECT COUNT(id) FROM test")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
-                .columnNames("COUNT(ID)")
+                .columnNames("\"COUNT(ID)\"")
                 .check();
 
         assertQuery("SELECT COUNT(b) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
-                .columnNames("COUNT(B)")
+                .columnNames("\"COUNT(B)\"")
                 .check();
     }
 

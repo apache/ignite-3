@@ -233,6 +233,15 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(expected, ex!.Message);
     }
 
+    [Test]
+    public void TestDateTimeFieldThrowsException()
+    {
+        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3"));
+
+        Assert.AreEqual("Conversion from NodaTime.LocalDateTime to System.DateTime is not supported (column 'DT').", ex!.Message);
+    }
+
     // ReSharper disable NotAccessedPositionalProperty.Local
     // ReSharper disable ClassNeverInstantiated.Local
     private record struct StructRec([property: Column("KEY")] int Id, string Str);
@@ -248,4 +257,6 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     private record NotMappedRec(int Key, [property: NotMapped] string? Str);
 
     private record ConvertTypeRec(sbyte Key, float Double, double Float, long Int8);
+
+    private record DateTimeRec(DateTime Dt);
 }

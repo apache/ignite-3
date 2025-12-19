@@ -147,7 +147,7 @@ public class PartitionSnapshotStorage {
         this.logStorage = logStorage;
     }
 
-    public PartitionKey partitionKey() {
+    public ZonePartitionKey partitionKey() {
         return partitionKey;
     }
 

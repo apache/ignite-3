@@ -38,3 +38,7 @@ dependencies {
     testFixturesApi testFixtures(project(':ignite-schema'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
 }
+
+javadoc {
+    exclude 'org/apache/ignite/table/mapper/**'
+}
