@@ -17,26 +17,22 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParams;
-import org.jetbrains.annotations.Nullable;
 
-class MyStaleNodeHandlingParams implements StaleNodeHandlingParams {
+/**
+ * Basic implementation of {@link StaleNodeHandlingParams}. Exists only to simplify the code and avoid code duplication.
+ */
+class StaleNodeHandlingParamsImpl implements StaleNodeHandlingParams {
     private final TopologyService topologyService;
 
-    MyStaleNodeHandlingParams(TopologyService topologyService) {
+    StaleNodeHandlingParamsImpl(TopologyService topologyService) {
         this.topologyService = topologyService;
     }
 
     @Override
     public int physicalTopologySize() {
         return topologyService.allMembers().size();
-    }
-
-    @Override
-    public @Nullable String minNodeName() {
-        return topologyService.allMembers().stream().map(InternalClusterNode::name).min(String::compareTo).orElse(null);
     }
 
     @Override

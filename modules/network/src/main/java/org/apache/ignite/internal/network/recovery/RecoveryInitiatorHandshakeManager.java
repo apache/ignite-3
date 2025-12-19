@@ -381,7 +381,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleAcceptorId(HandshakeStartMessage msg) {
-        maybeFailOnStaleNodeDetection(failureProcessor, new MyStaleNodeHandlingParams(topologyService), msg);
+        maybeFailOnStaleNodeDetection(failureProcessor, new StaleNodeHandlingParamsImpl(topologyService), msg);
 
         String message = String.format("%s:%s is stale, node should be restarted so that other nodes can connect",
                 msg.serverNode().name(), msg.serverNode().id()
@@ -508,14 +508,13 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     protected HandshakeStartResponseMessage createHandshakeStartResponseMessage(RecoveryDescriptor descriptor) {
-        MyStaleNodeHandlingParams params = new MyStaleNodeHandlingParams(topologyService);
+        StaleNodeHandlingParamsImpl params = new StaleNodeHandlingParamsImpl(topologyService);
 
         return MESSAGE_FACTORY.handshakeStartResponseMessage()
                 .clientNode(clusterNodeToMessage(localNode))
                 .receivedCount(descriptor.receivedCount())
                 .connectionId(connectionId)
                 .physicalTopologySize(params.physicalTopologySize())
-                .minNodeName(params.minNodeName())
                 .topologyVersion(params.topologyVersion())
                 .build();
     }

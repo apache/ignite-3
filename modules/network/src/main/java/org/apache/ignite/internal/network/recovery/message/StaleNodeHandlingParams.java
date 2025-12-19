@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Parameters required for handling stale state of the node.
  */
 public interface StaleNodeHandlingParams {
     /** Returns the size of the physical topology. */
     int physicalTopologySize();
-
-    /** Returns the minimal value of node name from the physical topology. */
-    @Nullable String minNodeName();
 
     /** Returns the logical topology version. */
     long topologyVersion();

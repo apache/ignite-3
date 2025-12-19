@@ -106,26 +106,7 @@ class HandshakeManagerUtils {
         }
 
         if (localTopologyVersion == remoteTopologyVersion) {
-            // I am not so sure about this.
-            int localSize = local.physicalTopologySize();
-            int remoteSize = remote.physicalTopologySize();
-
-            if (localSize > remoteSize) {
-                return;
-            }
-
-            if (localSize == remoteSize) {
-                String localMinNodeName = local.minNodeName();
-                String remoteMinNodeName = remote.minNodeName();
-
-                if (localMinNodeName == null || remoteMinNodeName == null) {
-                    return;
-                }
-
-                if (localMinNodeName.compareTo(remoteMinNodeName) >= 0) {
-                    return;
-                }
-
+            if (local.physicalTopologySize() >= remote.physicalTopologySize()) {
                 return;
             }
         }
