@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;

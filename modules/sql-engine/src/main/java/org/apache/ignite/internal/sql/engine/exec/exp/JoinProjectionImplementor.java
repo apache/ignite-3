@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.CodegenUtils.wrapWithConversionToEvaluationException;
 import static org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.structuredTypeFromRelTypeList;
@@ -27,6 +28,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.BlockStatement;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
@@ -38,15 +40,13 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.type.StructNativeType;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
 /** Implementor which implements {@link SqlJoinProjection}. */
 class JoinProjectionImplementor {
@@ -123,17 +123,13 @@ class JoinProjectionImplementor {
             builder.add(Expressions.statement(addRowField));
         }
 
-        ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
-        Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
-        BlockBuilder tryCatchBlock = new BlockBuilder();
-
-        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
+        BlockStatement methodBody = wrapWithConversionToEvaluationException(builder.toBlock());
 
         List<ParameterExpression> params = List.of(ctx, left, right, outBuilder);
 
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, void.class, "project",
-                params, tryCatchBlock.toBlock());
+                Modifier.PUBLIC, void.class, "project", params, methodBody
+        );
 
         Class<SqlJoinProjectionExt> clazz = cast(SqlJoinProjectionExt.class);
 

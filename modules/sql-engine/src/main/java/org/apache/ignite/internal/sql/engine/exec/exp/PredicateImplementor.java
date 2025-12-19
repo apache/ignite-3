@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.CodegenUtils.wrapWithConversionToEvaluationException;
 import static org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 
@@ -26,6 +27,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.BlockStatement;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
@@ -41,8 +43,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGe
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
 /** Implementor which implements {@link SqlPredicate}. */
 class PredicateImplementor {
@@ -106,17 +106,13 @@ class PredicateImplementor {
 
         builder.add(condition);
 
-        ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
-        Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
-        BlockBuilder tryCatchBlock = new BlockBuilder();
-
-        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
+        BlockStatement methodBody = wrapWithConversionToEvaluationException(builder.toBlock());
 
         List<ParameterExpression> params = List.of(ctx, row);
 
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, boolean.class, "test",
-                params, tryCatchBlock.toBlock());
+                Modifier.PUBLIC, boolean.class, "test", params, methodBody
+        );
 
         Class<SqlPredicate> clazz = cast(SqlPredicate.class);
 

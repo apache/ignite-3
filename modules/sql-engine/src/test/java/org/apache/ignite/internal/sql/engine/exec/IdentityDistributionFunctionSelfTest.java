@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.rel.RelDistribution.Type;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.trait.Destination;

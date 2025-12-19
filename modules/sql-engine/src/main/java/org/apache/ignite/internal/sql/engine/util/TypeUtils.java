@@ -52,9 +52,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -523,6 +523,23 @@ public class TypeUtils {
                 var dt = (TemporalNativeType) nativeType;
 
                 return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
+            case NULL:
+                return factory.createSqlType(SqlTypeName.NULL); 
+            case STRUCT:
+                assert nativeType instanceof StructNativeType;
+
+                var st = (StructNativeType) nativeType;
+
+                RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(factory);
+
+                for (StructNativeType.Field field : st.fields()) {
+                    builder.add(
+                            field.name(),
+                            native2relationalType(factory, field.type(), field.nullable()) 
+                    );
+                }
+
+                return builder.build();
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }

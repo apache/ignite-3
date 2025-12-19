@@ -29,8 +29,8 @@ import java.util.function.BiPredicate;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 
 /**
