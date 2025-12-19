@@ -53,6 +53,8 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -387,7 +389,9 @@ public class InternalTableImpl implements InternalTable {
 
                     long ts = (txStartTs == null) ? actualTx.schemaTimestamp().getPhysical() : txStartTs;
 
-                    if (canRetry(e, ts, timeout)) {
+                    boolean canRetry = canRetry(e, ts, timeout);
+
+                    if (canRetry) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -2325,7 +2329,15 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean exceptionAllowsImplicitTxRetry(Throwable e) {
-        return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR);
+        return matchAny(
+                unwrapCause(e),
+                ACQUIRE_LOCK_ERR,
+                GROUP_OVERLOADED_ERR,
+                REPLICA_MISS_ERR,
+                REPLICA_UNAVAILABLE_ERR,
+                PRIMARY_REPLICA_AWAIT_ERR,
+                PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR
+        );
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicationGroupId, HybridTimestamp timestamp) {
