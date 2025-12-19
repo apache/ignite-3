@@ -74,7 +74,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
@@ -386,7 +386,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
-                new ExpressionFactoryImpl(
+                new SqlExpressionFactoryImpl(
                         Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
                 ),
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT

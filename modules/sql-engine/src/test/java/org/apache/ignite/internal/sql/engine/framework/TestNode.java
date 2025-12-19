@@ -69,7 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
@@ -203,7 +203,7 @@ public class TestNode implements LifecycleAware {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
-                new ExpressionFactoryImpl(
+                new SqlExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 5_000

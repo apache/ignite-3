@@ -108,8 +108,8 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -575,7 +575,7 @@ public class TestBuilders {
         @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
-                    new ExpressionFactoryImpl(
+                    new SqlExpressionFactoryImpl(
                             Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                     ),
                     Objects.requireNonNull(executor, "executor"),

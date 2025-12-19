@@ -87,7 +87,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
@@ -186,7 +186,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
     private final KillCommandHandler killCommandHandler;
 
-    private final ExpressionFactory expressionFactory;
+    private final SqlExpressionFactory sqlExpressionFactory;
 
     /**
      * Constructor.
@@ -218,7 +218,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
-            ExpressionFactory expressionFactory,
+            SqlExpressionFactory sqlExpressionFactory,
             long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
@@ -234,7 +234,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
         this.killCommandHandler = killCommandHandler;
-        this.expressionFactory = expressionFactory;
+        this.sqlExpressionFactory = sqlExpressionFactory;
         this.shutdownTimeout = shutdownTimeout;
     }
 
@@ -276,7 +276,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
-            ExpressionFactory expressionFactory,
+            SqlExpressionFactory sqlExpressionFactory,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -299,7 +299,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 ),
                 clockService,
                 killCommandHandler,
-                expressionFactory,
+                sqlExpressionFactory,
                 shutdownTimeout
         );
     }
@@ -472,7 +472,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
     ) {
         ExecutionId executionId = nextExecutionId(operationContext.queryId());
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
-                expressionFactory,
+                sqlExpressionFactory,
                 taskExecutor,
                 executionId,
                 localNode,
@@ -1063,7 +1063,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 @Nullable Long topologyVersion
         ) {
             return new ExecutionContext<>(
-                    expressionFactory,
+                    sqlExpressionFactory,
                     taskExecutor,
                     executionId,
                     localNode,
