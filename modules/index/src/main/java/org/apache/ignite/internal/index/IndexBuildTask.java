@@ -84,6 +84,7 @@ class IndexBuildTask {
     private final IndexBuildTaskId taskId;
 
     private final MetaIndexStatusChange indexCreationInfo;
+
     private final HybridTimestamp indexBuildingStateActivationTimestamp;
 
     private final IndexStorage indexStorage;
