@@ -19,7 +19,8 @@
 
 #include "ignite_error.h"
 
-#include <mbedtls/bignum.h>
+#include <mbedtls/build_info.h>
+#include <mbedtls/private/bignum.h>
 
 #include <utility>
 #include <vector>
