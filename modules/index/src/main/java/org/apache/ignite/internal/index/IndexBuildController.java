@@ -502,6 +502,7 @@ class IndexBuildController implements ManuallyCloseable {
         @Nullable ReplicaTableSegment segment = replicaListener.segmentFor(tableId);
 
         if (segment == null) {
+            // Null means that the table has been removed due to table destruction.
             LOG.info(
                     "Segment is null, skipping index build scheduling "
                             + "[zoneId={}, tableId={}, partitionId={}, indexId={}]",
