@@ -77,12 +77,14 @@ class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
     }
 
     private void simulateNetworkPartition(IgniteImpl ignite0) throws InterruptedException {
+        String node1Name = cluster.node(1).name();
+
         CountDownLatch ignite1Left = new CountDownLatch(1);
 
         ignite0.clusterService().topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
             public void onDisappeared(InternalClusterNode member) {
-                if (member.name().equals(cluster.node(1).name())) {
+                if (member.name().equals(node1Name)) {
                     ignite1Left.countDown();
                 }
             }
