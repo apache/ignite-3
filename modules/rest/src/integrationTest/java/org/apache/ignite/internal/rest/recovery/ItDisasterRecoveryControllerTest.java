@@ -52,11 +52,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse;
-import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStatesResponse;
-import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
@@ -286,7 +283,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         String path = globalStatePath();
 
         assertThrowsProblem(
-                () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone", GlobalPartitionStatesResponse.class),
+                () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone", GlobalZonePartitionStatesResponse.class),
                 isProblem().withStatus(BAD_REQUEST).withDetail("Distribution zones were not found [zoneNames=[no-such-zone]]")
         );
     }
@@ -308,7 +305,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(
                         String.format("%s?partitionIds=0,4,%d&zoneNames=%s", globalStatePath(), DEFAULT_PARTITION_COUNT, zoneName),
-                        GlobalPartitionStatesResponse.class
+                        GlobalZonePartitionStatesResponse.class
                 ),
                 isProblem().withStatus(BAD_REQUEST)
                         .withDetail(String.format(
@@ -456,10 +453,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     private static int getPartitionId(Object state) {
         if (state instanceof LocalZonePartitionStateResponse) {
             return ((LocalZonePartitionStateResponse) state).partitionId();
-        } else if (state instanceof LocalPartitionStateResponse) {
-            return ((LocalPartitionStateResponse) state).partitionId();
-        } else if (state instanceof GlobalPartitionStateResponse) {
-            return ((GlobalPartitionStateResponse) state).partitionId();
         } else if (state instanceof GlobalZonePartitionStateResponse) {
             return ((GlobalZonePartitionStateResponse) state).partitionId();
         }
