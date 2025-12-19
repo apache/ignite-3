@@ -163,6 +163,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             } catch (Throwable t) {
                 clo.result(t);
 
+                LOG.error(
+                        "Failed to process write command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.term(), clo.command()
+                );
+
                 throw t;
             }
         });

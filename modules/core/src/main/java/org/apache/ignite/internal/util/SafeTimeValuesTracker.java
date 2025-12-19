@@ -63,9 +63,6 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
                                 + ", oldIndex=" + this.commandIndex
                                 + ", oldTerm=" + this.commandTerm
                                 + ", oldCommandClassName=" + this.commandClassName
-                                + ", newIndex=" + commandIndex
-                                + ", newTerm=" + commandTerm
-                                + ", command=" + command.toString()
                                 + ']');
             }
 
