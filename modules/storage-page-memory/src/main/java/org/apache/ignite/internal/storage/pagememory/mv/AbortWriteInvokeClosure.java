@@ -113,6 +113,8 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
     @Override
     public void onUpdate() {
         if (toRemove != null) {
+            // We don't zero out removed write intent's WI links because we already unlinked it everywhere except for WI list itself,
+            // so no one can read its WI links, and we are going to remove it from WI list under the WI list lock.
             toRemove.operations().removeFromWriteIntentsList(storage, this::abortWriteInfo);
         }
     }
