@@ -890,7 +890,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 snapshotMetricSource
         );
 
-        waitTillMetricHasValue(snapshotMetricSource, "TotalIncomingSnapshots", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshots", "0");
         waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
 
         copier.start();

@@ -225,7 +225,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private Metric retrieveOutgoingSnapshotMetric() {
         return stream(snapshotsMetricsSource.holder().metrics().spliterator(), false)
-                .filter(metric -> "TotalOutgoingSnapshots".equals(metric.name()))
+                .filter(metric -> "OutgoingSnapshots".equals(metric.name()))
                 .findAny()
                 .get();
     }

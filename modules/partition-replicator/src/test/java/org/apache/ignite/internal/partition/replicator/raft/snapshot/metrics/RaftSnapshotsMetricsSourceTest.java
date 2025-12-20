@@ -50,10 +50,10 @@ class RaftSnapshotsMetricsSourceTest {
                 "IncomingSnapshotsLoadingMeta",
                 "IncomingSnapshotsLoadingTxMeta",
                 "IncomingSnapshotsPreparingIndexForBuild",
-                "TotalIncomingSnapshots",
+                "IncomingSnapshots",
                 "IncomingSnapshotsLoadingMvData",
                 "IncomingSnapshotsPreparingStorages",
-                "TotalOutgoingSnapshots",
+                "OutgoingSnapshots",
                 "IncomingSnapshotsWaitingCatalog"
         );
 
