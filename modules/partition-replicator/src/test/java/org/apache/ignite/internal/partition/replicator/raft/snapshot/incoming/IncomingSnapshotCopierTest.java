@@ -97,6 +97,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -116,7 +117,6 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -145,6 +145,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** For {@link IncomingSnapshotCopier} testing. */
 @ExtendWith(MockitoExtension.class)
 public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "node";
@@ -395,7 +396,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
         var storage = new PartitionSnapshotStorage(
-                new TablePartitionKey(TABLE_ID, PARTITION_ID),
+                new ZonePartitionKey(ZONE_ID, PARTITION_ID),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(incomingTxStateStorage.getPartitionStorage(PARTITION_ID)),
@@ -461,11 +462,13 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         int tableId = 2;
 
+        int zoneId = 20;
+
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
             List<EnlistedPartitionGroup> enlistedPartitions = List.of(
-                    new EnlistedPartitionGroup(new TablePartitionId(tableId, PARTITION_ID), Set.of(tableId))
+                    new EnlistedPartitionGroup(new ZonePartitionId(zoneId, PARTITION_ID), Set.of(tableId))
             );
             storage.putForRebalance(txIds.get(i), new TxMeta(txState, enlistedPartitions, CLOCK.now()));
         }

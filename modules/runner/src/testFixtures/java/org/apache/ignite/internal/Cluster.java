@@ -620,7 +620,13 @@ public class Cluster {
                 .orElse(null);
     }
 
-    private static @Nullable RaftGroupService raftGroupService(IgniteImpl igniteImpl, ReplicationGroupId groupId) {
+    /**
+     * Finds a Raft group service for the given group ID on the given node.
+     *
+     * @param igniteImpl Ignite instance.
+     * @param groupId Replication group ID.
+     */
+    public static @Nullable RaftGroupService raftGroupService(IgniteImpl igniteImpl, ReplicationGroupId groupId) {
         JraftServerImpl server = (JraftServerImpl) igniteImpl.raftManager().server();
 
         return server.localNodes().stream()
@@ -838,7 +844,7 @@ public class Cluster {
      * @param nodeIndex Destination node index.
      * @param groupId ID of the replication group.
      */
-    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) {
         String proposedPrimaryName = node(nodeIndex).name();
 
         if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {

@@ -40,7 +40,7 @@ public class DataPagePayload {
      * @param payloadSize Payload size in bytes.
      * @param nextLink Next link.
      */
-    DataPagePayload(int off, int payloadSize, long nextLink) {
+    public DataPagePayload(int off, int payloadSize, long nextLink) {
         this.off = off;
         this.payloadSize = payloadSize;
         this.nextLink = nextLink;

@@ -1,6 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
@@ -13,17 +14,11 @@ object OdbcDeb : BuildType({
         %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.changes => odbc-deb
     """.trimIndent()
 
+    params {
+        param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+    }
+
     steps {
-        script {
-            name = "Install Conan"
-            enabled = false
-            scriptContent = """
-                pip install wheel || exit 0
-                pip install -v "conan>=1.56.0,<2.0.0" --force-reinstall  || exit 1
-                
-                ln -s /opt/buildagent/.local/bin/conan conan
-            """.trimIndent()
-        }
         script {
             name = "Check env"
             scriptContent = """
@@ -32,26 +27,21 @@ object OdbcDeb : BuildType({
                 
                 odbcinst -j || exit 0
                 cat /etc/odbcinst.ini || exit 0
-                
-                conan --version
-                conan profile list
-                conan profile show default || exit 0
-                
-                conan info --path . || exit 0
             """.trimIndent()
         }
         customGradle {
-            name = "Build Deb"
-            tasks = ":packaging-odbc:buildDeb -i -Pplatforms.enable"
+            name = "Build ODBC DEB (Under Rocky Linux 8 container)"
+            tasks = ":packaging-odbc:buildDeb"
             workingDir = "%VCSROOT__IGNITE3%"
+            gradleParams = "-i -Pplatforms.enable"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            dockerPull = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
         }
     }
 
-    /**
-     *  Temporary lock ODBC jobs on old-type agents
-     *  until execution of the :platforms:cmakeBuildOdbc target is fixed on DIND agents
-     */
     requirements {
-        doesNotExist("env.DIND_ENABLED")
+        equals("env.DIND_ENABLED", "true")
     }
 })

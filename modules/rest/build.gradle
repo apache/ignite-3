@@ -60,6 +60,7 @@ dependencies {
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
+    compileOnly libs.jsr305 // Fix unknown enum constant warning
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.micronaut.inject.annotation.processor

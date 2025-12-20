@@ -24,8 +24,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -103,7 +103,7 @@ public class TupleMarshallerFixlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(schema);
+        marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         vals = new Object[schema.valueColumns().size()];
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent.STATISTIC_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,8 +34,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -81,13 +86,16 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
     final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
 
     /* Contain dropped tables, can`t update statistic for such a case. */
-    Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    final Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
     private final StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> statSupplier;
 
-    static final long INITIAL_DELAY = 15_000;
-    static final long REFRESH_PERIOD = 15_000;
+    private final ConfigurationValue<Integer> staleRowsCheckIntervalSeconds;
+
+    private final ConfigurationListener<Integer> updateRefreshIntervalListener = this::updateConfig;
+
+    private volatile ScheduledFuture<?> scheduledFuture;
 
     /** Constructor. */
     public SqlStatisticManagerImpl(
@@ -95,13 +103,15 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
             CatalogService catalogService,
             LowWatermark lowWatermark,
             ScheduledExecutorService scheduler,
-            StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> statSupplier
+            StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> statSupplier,
+            ConfigurationValue<Integer> staleRowsCheckIntervalSeconds
     ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
         this.lowWatermark = lowWatermark;
         this.scheduler = scheduler;
         this.statSupplier = statSupplier;
+        this.staleRowsCheckIntervalSeconds = staleRowsCheckIntervalSeconds;
     }
 
     /**
@@ -133,14 +143,52 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
             }
         }
 
-        scheduler.scheduleAtFixedRate(this::update, INITIAL_DELAY, REFRESH_PERIOD, TimeUnit.MILLISECONDS);
+        staleRowsCheckIntervalSeconds.listen(updateRefreshIntervalListener);
+        int seconds = staleRowsCheckIntervalSeconds.value();
+
+        schedule(0, seconds);
     }
 
-    private void update() {
-        if (!latestUpdateFut.get().isDone()) {
+    private CompletableFuture<?> updateConfig(ConfigurationNotificationEvent<Integer> ctx) {
+        Integer intervalSeconds = ctx.newValue();
+        assert intervalSeconds != null;
+
+        if (!Objects.equals(intervalSeconds, ctx.oldValue())) {
+            schedule(intervalSeconds, intervalSeconds);
+        }
+
+        return nullCompletedFuture();
+    }
+
+    private void schedule(int initialDelaySeconds, int intervalSeconds) {
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
+        scheduledFuture = scheduler.scheduleAtFixedRate(() -> update(false), initialDelaySeconds, intervalSeconds, TimeUnit.SECONDS);
+    }
+
+    private void update(boolean force) {
+        if (!force && !latestUpdateFut.get().isDone()) {
             return;
         }
 
+        CompletableFuture<Void> currentUpdateResult;
+        try {
+            currentUpdateResult = doUpdate();
+        } catch (Throwable e) {
+            currentUpdateResult = failedFuture(e);
+        }
+        currentUpdateResult.whenComplete((r, t) -> {
+            if (t != null) {
+                LOG.warn("Failed to update statistics", t);
+            }
+        });
+
+        CompletableFuture<Void> updateResult = currentUpdateResult;
+        latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
+    }
+
+    private CompletableFuture<Void> doUpdate() {
         Collection<InternalTable> tables = new ArrayList<>(tableSizeMap.size());
 
         for (Map.Entry<Integer, ActualSize> ent : tableSizeMap.entrySet()) {
@@ -159,35 +207,27 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
             }
         }
 
-        CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tables)
-                .handle((infos, err) -> {
-                    for (Int2ObjectMap.Entry<PartitionModificationInfo> ent : infos.int2ObjectEntrySet()) {
-                        int tableId = ent.getIntKey();
-                        PartitionModificationInfo info = ent.getValue();
+        return statSupplier.estimatedSizeWithLastUpdate(tables).thenApply(infos -> {
+            for (Int2ObjectMap.Entry<PartitionModificationInfo> ent : infos.int2ObjectEntrySet()) {
+                int tableId = ent.getIntKey();
+                PartitionModificationInfo info = ent.getValue();
 
-                        if (err != null) {
-                            LOG.debug("Failed to update table statistics for [tableId={}].", err, tableId);
-                        } else {
-                            ActualSize updatedSize = new ActualSize(Math.max(info.getEstimatedSize(), DEFAULT_TABLE_SIZE),
-                                    info.lastModificationCounter());
-                            ActualSize currentSize = tableSizeMap.get(tableId);
-                            // the table can be concurrently dropped and we shouldn't put new value in this case.
-                            tableSizeMap.compute(tableId, (k, v) -> {
-                                return v != null && v.modificationCounter() > info.lastModificationCounter()
-                                        ? v
-                                        : updatedSize; // Save initial or replace stale state.
-                            });
-
-                            if (updatedSize.modificationCounter() >= currentSize.modificationCounter()) {
-                                fireEvent(STATISTIC_CHANGED, new StatisticEventParameters(tableId));
-                            }
-                        }
-                    }
-
-                    return null;
+                ActualSize updatedSize = new ActualSize(Math.max(info.getEstimatedSize(), DEFAULT_TABLE_SIZE),
+                        info.lastModificationCounter());
+                ActualSize currentSize = tableSizeMap.get(tableId);
+                // the table can be concurrently dropped and we shouldn't put new value in this case.
+                tableSizeMap.compute(tableId, (k, v) -> {
+                    return v != null && v.modificationCounter() > info.lastModificationCounter()
+                            ? v
+                            : updatedSize; // Save initial or replace stale state.
                 });
 
-        latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
+                if (updatedSize.modificationCounter() >= currentSize.modificationCounter()) {
+                    fireEvent(STATISTIC_CHANGED, new StatisticEventParameters(tableId));
+                }
+            }
+            return null;
+        });
     }
 
     @Override
@@ -195,6 +235,11 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
         lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
         catalogService.removeListener(CatalogEvent.TABLE_CREATE, createTableEventListener);
+        staleRowsCheckIntervalSeconds.stopListen(updateRefreshIntervalListener);
+
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
     }
 
     private void onTableDrop(DropTableEventParameters parameters) {
@@ -219,8 +264,8 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
 
     /** Size with modification counter. */
     static class ActualSize {
-        long modificationCounter;
-        long size;
+        final long modificationCounter;
+        final long size;
 
         ActualSize(long size, long modificationCounter) {
             this.modificationCounter = modificationCounter;
@@ -286,6 +331,6 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
     /** Forcibly updates statistics for all known tables, ignoring throttling. */
     @TestOnly
     public void forceUpdateAll() {
-        update();
+        update(true);
     }
 }

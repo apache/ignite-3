@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -64,6 +63,7 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -114,7 +114,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             InternalClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
@@ -133,8 +132,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
-                schemaSyncService,
-                nodeProperties
+                schemaSyncService
         );
 
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
@@ -318,6 +316,11 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     public void removeTableReplicaProcessor(int tableId) {
         replicaProcessors.remove(tableId);
+    }
+
+    public @Nullable ReplicaTableSegment segmentFor(int tableId) {
+        ReplicaTableProcessor processor = replicaProcessors.get(tableId);
+        return processor == null ? null : new ReplicaTableSegment(processor.txRwOperationTracker(), processor.safeTime());
     }
 
     /**

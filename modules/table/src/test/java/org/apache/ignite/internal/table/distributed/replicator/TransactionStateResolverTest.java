@@ -46,7 +46,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -120,7 +120,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
     void testResolveTxStateFromCoordinatorWithNullResponse() {
         UUID txId = UUID.randomUUID();
         UUID coordinatorId = COORDINATOR_NODE.id();
-        TablePartitionId commitPartitionId = new TablePartitionId(1, 0);
+        ZonePartitionId commitPartitionId = new ZonePartitionId(1, 0);
         HybridTimestamp timestamp = clock.now();
 
         TxStateMeta pendingMeta = new TxStateMeta(TxState.PENDING, coordinatorId, commitPartitionId, null, null, null);
@@ -162,7 +162,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
     void testResolveTxStateFromRestartedCoordinator() {
         UUID txId = UUID.randomUUID();
         UUID coordinatorId = COORDINATOR_NODE.id();
-        TablePartitionId commitPartitionId = new TablePartitionId(1, 0);
+        ZonePartitionId commitPartitionId = new ZonePartitionId(1, 0);
         HybridTimestamp timestamp = clock.now();
 
         TxStateMeta pendingMeta = new TxStateMeta(TxState.PENDING, coordinatorId, commitPartitionId, null, null, null);
@@ -200,7 +200,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
     void testResolveTxStateFromCoordinatorWithValidResponse() {
         UUID txId = UUID.randomUUID();
         UUID coordinatorId = COORDINATOR_NODE.id();
-        TablePartitionId commitPartitionId = new TablePartitionId(1, 0);
+        ZonePartitionId commitPartitionId = new ZonePartitionId(1, 0);
         HybridTimestamp timestamp = clock.now();
 
         TxStateMeta pendingMeta = new TxStateMeta(TxState.PENDING, coordinatorId, commitPartitionId, null, null, null);

@@ -48,7 +48,7 @@ public sealed class FakeServerGroup : IDisposable
     }
 
     public static FakeServerGroup Create(int count) =>
-        new(Enumerable.Range(0, count).Select(_ => new FakeServer()).ToList());
+        new(Enumerable.Range(0, count).Select(idx => new FakeServer(nodeName: "fake-server-" + idx)).ToList());
 
     public static FakeServerGroup Create(int count, Func<int, FakeServer> factory) =>
         new(Enumerable.Range(0, count).Select(factory).ToList());

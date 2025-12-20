@@ -48,7 +48,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -81,7 +80,7 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -267,9 +266,9 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         listener.onConfigurationCommitted(raftGroupConfiguration, 2L, 3L);
 
-        PartitionListener partitionListener = partitionListener(TABLE_ID);
+        TablePartitionProcessor tablePartitionProcessor = partitionListener(TABLE_ID);
 
-        listener.addTableProcessor(TABLE_ID, partitionListener);
+        listener.addTableProcessor(TABLE_ID, tablePartitionProcessor);
 
         verify(mvPartitionStorage).lastApplied(2L, 3L);
         verify(mvPartitionStorage).committedGroupConfiguration(any());
@@ -411,7 +410,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-        PartitionListener tableProcessor = partitionListener(TABLE_ID);
+        TablePartitionProcessor tableProcessor = partitionListener(TABLE_ID);
 
         listener.addTableProcessor(TABLE_ID, tableProcessor);
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -553,14 +552,14 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         return commandClosure;
     }
 
-    private PartitionListener partitionListener(int tableId) {
+    private TablePartitionProcessor partitionListener(int tableId) {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
 
-        return new PartitionListener(
+        return new TablePartitionProcessor(
                 txManager,
                 new SnapshotAwarePartitionDataStorage(
                         tableId,
@@ -569,9 +568,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                         ZONE_PARTITION_KEY
                 ),
                 mock(StorageUpdateHandler.class),
-                txStatePartitionStorage,
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L),
                 mock(CatalogService.class),
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),
@@ -580,7 +577,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
     }

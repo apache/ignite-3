@@ -48,8 +48,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowAccessor;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -166,11 +166,11 @@ public class AccumulatorsFactory<RowT> {
         prototypes = Commons.transform(aggCalls, call -> new WrapperPrototype(accumulators, call));
     }
 
-    public List<AccumulatorWrapper<RowT>> get(ExecutionContext<RowT> context) {
+    public List<AccumulatorWrapper<RowT>> get(SqlEvaluationContext<RowT> context) {
         return Commons.transform(prototypes, prototype -> prototype.apply(context));
     }
 
-    private final class WrapperPrototype implements Function<ExecutionContext<RowT>, AccumulatorWrapper<RowT>> {
+    private final class WrapperPrototype implements Function<SqlEvaluationContext<RowT>, AccumulatorWrapper<RowT>> {
         private Supplier<Accumulator> accFactory;
 
         private final Accumulators accumulators;
@@ -188,7 +188,7 @@ public class AccumulatorsFactory<RowT> {
 
         /** {@inheritDoc} */
         @Override
-        public AccumulatorWrapper<RowT> apply(ExecutionContext<RowT> context) {
+        public AccumulatorWrapper<RowT> apply(SqlEvaluationContext<RowT> context) {
             Accumulator accumulator = accumulator(context);
 
             return new AccumulatorWrapperImpl<>(context, accumulator, call, inAdapter, outAdapter);
@@ -275,20 +275,20 @@ public class AccumulatorsFactory<RowT> {
 
         private final boolean ignoreNulls;
 
-        private final RowHandler<RowT> handler;
+        private final RowAccessor<RowT> handler;
 
         private final boolean distinct;
 
         private final boolean grouping;
 
         AccumulatorWrapperImpl(
-                ExecutionContext<RowT> ctx,
+                SqlEvaluationContext<RowT> ctx,
                 Accumulator accumulator,
                 AggregateCall call,
                 Function<Object[], Object[]> inAdapter,
                 Function<Object, Object> outAdapter
         ) {
-            this.handler = ctx.rowHandler();
+            this.handler = ctx.rowAccessor();
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
@@ -330,7 +330,7 @@ public class AccumulatorsFactory<RowT> {
             }
 
             if (IgniteUtils.assertionsEnabled() && argList == SINGLE_ARG_LIST) {
-                int cnt = handler.columnCount(row);
+                int cnt = handler.columnsCount(row);
                 assert cnt <= 1;
             }
 

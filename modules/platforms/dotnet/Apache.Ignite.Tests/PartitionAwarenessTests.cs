@@ -27,6 +27,7 @@ using Ignite.Table;
 using Ignite.Transactions;
 using Internal.Proto;
 using Internal.Transactions;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -447,7 +448,9 @@ public class PartitionAwarenessTests
         node.ClearOps();
         node2?.ClearOps();
 
-        ITransaction? tx = withTx ? new LazyTransaction(default, 0) : null;
+        ITransaction? tx = withTx
+            ? new LazyTransaction(default, 0, TestUtils.GetConsoleLoggerFactory(LogLevel.None).CreateLogger<LazyTransaction>())
+            : null;
 
         await action(tx);
 

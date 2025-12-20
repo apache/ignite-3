@@ -23,7 +23,6 @@ set(SOURCES
     basic_authenticator_test.cpp
     column_order_test.cpp
     compute_test.cpp
-    gtest_logger.h
     ignite_client_test.cpp
     ignite_runner_suite.h
     key_value_binary_view_test.cpp

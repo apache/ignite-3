@@ -749,16 +749,18 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
-                        int colCount = del ? s.keyColumns().length : s.columns().length;
+                        ClientColumn[] columns = del ? s.keyColumns() : s.columns();
 
                         noValueSet.clear();
-                        var builder = new BinaryTupleBuilder(colCount);
+                        var builder = new BinaryTupleBuilder(columns.length);
                         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
-                        keyMarsh.writeObject(e.getKey(), writer);
-
-                        if (!del) {
-                            valMarsh.writeObject(e.getValue(), writer);
+                        for (var column : columns) {
+                            if (column.key()) {
+                                keyMarsh.writeField(e.getKey(), writer, column.keyIndex());
+                            } else {
+                                valMarsh.writeField(e.getValue(), writer, column.valIndex());
+                            }
                         }
 
                         w.out().packBinaryTuple(builder, noValueSet);

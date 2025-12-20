@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.BitSet;
-import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.ClientChannel;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,12 +48,19 @@ public class FeatureCompatibilityTest extends BaseIgniteAbstractTest {
 
     private void startServer(@Nullable BitSet features) {
         ignite = new FakeIgnite("server-1", new TestHybridClock(System::currentTimeMillis));
-        testServer = new TestServer(0, ignite, reqId -> false, null, "server-1", UUID.randomUUID(), null, null, true, features);
+
+        testServer = TestServer.builder()
+                .ignite(ignite)
+                .nodeName("server-1")
+                .features(features)
+                .shouldDropConnection(reqId -> false)
+                .build();
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }
 
-    private void stopServer() throws Exception {
+    @AfterEach
+    public void stopServer() throws Exception {
         closeAll(client, testServer);
     }
 
@@ -61,15 +68,11 @@ public class FeatureCompatibilityTest extends BaseIgniteAbstractTest {
     public void testDirectMappingEnabled() throws Exception {
         startServer(null);
 
-        try {
-            ReliableChannel ch = ((TcpIgniteClient) client).channel();
+        ReliableChannel ch = ((TcpIgniteClient) client).channel();
 
-            ClientChannel ch0 = ch.getChannelAsync(null).join();
+        ClientChannel ch0 = ch.getChannelAsync(null).join();
 
-            assertTrue(ch0.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS, TX_PIGGYBACK));
-        } finally {
-            stopServer();
-        }
+        assertTrue(ch0.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS, TX_PIGGYBACK));
     }
 
     @Test
@@ -78,16 +81,12 @@ public class FeatureCompatibilityTest extends BaseIgniteAbstractTest {
         features.set(TX_DIRECT_MAPPING.featureId());
         startServer(features);
 
-        try {
-            ReliableChannel ch = ((TcpIgniteClient) client).channel();
+        ReliableChannel ch = ((TcpIgniteClient) client).channel();
 
-            ClientChannel ch0 = ch.getChannelAsync(null).join();
+        ClientChannel ch0 = ch.getChannelAsync(null).join();
 
-            assertFalse(ch0.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING));
-            assertFalse(ch0.protocolContext().isFeatureSupported(TX_DELAYED_ACKS));
-            assertFalse(ch0.protocolContext().isFeatureSupported(TX_PIGGYBACK));
-        } finally {
-            stopServer();
-        }
+        assertFalse(ch0.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING));
+        assertFalse(ch0.protocolContext().isFeatureSupported(TX_DELAYED_ACKS));
+        assertFalse(ch0.protocolContext().isFeatureSupported(TX_PIGGYBACK));
     }
 }
