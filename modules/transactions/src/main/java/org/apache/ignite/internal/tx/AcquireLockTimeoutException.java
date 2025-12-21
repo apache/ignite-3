@@ -19,13 +19,22 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
+/**
+ * This exception is thrown when a lock cannot be acquired in a timeout boundaries.
+ */
 public class AcquireLockTimeoutException extends LockException {
+    /**
+     * Constructor.
+     *
+     * @param waiter Waiter for lock acquisition.
+     * @param exceededTimeout Exceeded timeout value in milliseconds.
+     */
     public AcquireLockTimeoutException(Waiter waiter, long exceededTimeout) {
         super(
                 ACQUIRE_LOCK_TIMEOUT_ERR,
                 "Failed to acquire a lock due to timeout [txId=" + waiter.txId()
                         + ", waiter=" + waiter
-                        + ", timeout=" + exceededTimeout
+                        + ", timeoutMs=" + exceededTimeout
                         + ']'
         );
     }

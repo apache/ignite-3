@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -899,7 +898,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(new PossibleDeadlockOnLockAcquireException(
                                 waiter.txId,
-                                tmp.txId, intendedLockMode,
+                                tmp.txId,
+                                intendedLockMode,
                                 currentlyAcquiredLockMode
                         ));
 

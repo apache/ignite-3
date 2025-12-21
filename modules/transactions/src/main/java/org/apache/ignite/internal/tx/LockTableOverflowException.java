@@ -21,7 +21,16 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
 
-public class LockTableOverflowException extends LockException{
+/**
+ * This exception is thrown when the lock map size exceeded and new lock cannot be acquired and placed there.
+ */
+public class LockTableOverflowException extends LockException {
+    /**
+     * Constructor.
+     *
+     * @param failedTx Transaction that couldn't acquire a lock.
+     * @param lockMapSizeLimit Current lock map size limit that was exceeded.
+     */
     public LockTableOverflowException(UUID failedTx, int lockMapSizeLimit) {
         super(
                 ACQUIRE_LOCK_ERR,
