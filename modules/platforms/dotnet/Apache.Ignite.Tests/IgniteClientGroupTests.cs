@@ -119,7 +119,7 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestToString()
     {
-        var group = CreateGroup(5);
+        using var group = CreateGroup(5);
 
         await group.GetIgniteAsync();
         await group.GetIgniteAsync();
@@ -130,7 +130,7 @@ public class IgniteClientGroupTests
     [Test]
     public void TestConfigurationCantBeChanged()
     {
-        IgniteClientGroup group = CreateGroup(3);
+        using IgniteClientGroup group = CreateGroup(3);
 
         var configuration = group.Configuration;
         configuration.Size = 100;
@@ -142,6 +142,7 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestClientsShareObservableTimestamp()
     {
+        _server.ObservableTimestamp = 123456789;
         using IgniteClientGroup group = CreateGroup(size: 2);
 
         var client1 = (IgniteClientInternal)await group.GetIgniteAsync();
@@ -149,6 +150,9 @@ public class IgniteClientGroupTests
 
         Assert.AreNotSame(client1, client2);
         Assert.AreSame(client1.Socket.Configuration.ObservableTimestamp, client2.Socket.Configuration.ObservableTimestamp);
+
+        Assert.AreEqual(123456789, client1.Socket.ObservableTimestamp);
+        Assert.AreEqual(123456789, client2.Socket.ObservableTimestamp);
     }
 
     private IgniteClientGroup CreateGroup(int size = 1) =>
