@@ -1291,7 +1291,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             long revision,
             String targetNodeName
     ) {
-        DisasterRecoveryRequest updatedCoordinator = request.updateCoordinator(localNode().name());
+        DisasterRecoveryRequest updatedCoordinator = request.updateCoordinator(targetNodeName);
 
         byte[] serializedRequest = VersionedSerialization.toBytes(updatedCoordinator, DisasterRecoveryRequestSerializer.INSTANCE);
 
