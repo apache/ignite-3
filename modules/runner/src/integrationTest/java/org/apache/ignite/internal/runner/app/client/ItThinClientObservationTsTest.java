@@ -17,8 +17,15 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Duration;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClient.Builder;
+import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -64,5 +71,20 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
 
         assertEquals("client value", directClientValue, directClientValue);
         assertEquals("client value", directSrvValue, directSrvValue);
+    }
+
+    @Test
+    public void testObservableTsUpdatesOnHeartbeat() {
+        Builder clientBuilder = IgniteClient.builder()
+                .addresses(getClientAddresses().toArray(new String[0]))
+                .heartbeatInterval(100);
+
+        try (IgniteClient client = clientBuilder.build()) {
+            HybridTimestampTracker tsTracker = ((TcpIgniteClient) client).channel().observableTimestamp();
+
+            long initialTs = tsTracker.getLong();
+
+            await().atMost(Duration.ofSeconds(5)).until(() -> tsTracker.getLong() > initialTs);
+        }
     }
 }
