@@ -32,15 +32,19 @@ public static class IgniteClient
     /// <param name="configuration">Configuration.</param>
     /// <returns>Started client.</returns>
     public static async Task<IIgniteClient> StartAsync(IgniteClientConfiguration configuration) =>
-        await StartInternalAsync(configuration, DnsResolver.Instance).ConfigureAwait(false);
+        await StartInternalAsync(configuration, DnsResolver.Instance, new HybridTimestampTracker()).ConfigureAwait(false);
 
     /// <summary>
     /// Starts the client.
     /// </summary>
     /// <param name="configuration">Configuration.</param>
     /// <param name="dnsResolver">DNS resolver.</param>
+    /// <param name="hybridTs">Hybrid timestamp.</param>
     /// <returns>Started client.</returns>
-    internal static async Task<IIgniteClient> StartInternalAsync(IgniteClientConfiguration configuration, IDnsResolver dnsResolver)
+    internal static async Task<IIgniteClient> StartInternalAsync(
+        IgniteClientConfiguration configuration,
+        IDnsResolver dnsResolver,
+        HybridTimestampTracker hybridTs)
     {
         IgniteArgumentCheck.NotNull(configuration);
 
@@ -49,7 +53,7 @@ public static class IgniteClient
             new(configuration), // Defensive copy.
             apiTaskSource.Task,
             dnsResolver,
-            new HybridTimestampTracker());
+            hybridTs);
 
         var socket = await ClientFailoverSocket.ConnectAsync(internalConfig).ConfigureAwait(false);
         var client = new IgniteClientInternal(socket);
