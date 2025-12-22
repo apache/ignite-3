@@ -60,6 +60,20 @@ IJobExecution<int> jobExecution = await client.Compute.SubmitAsync(
 int wordCount = await jobExecution.GetResultAsync();
 ```
 
+## DI Integration
+
+Use `IgniteServicesCollectionExtensions.AddIgniteClientGroup` to register Ignite client in the dependency injection container:
+
+```cs
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddIgniteClientGroup(new IgniteClientGroupConfiguration
+{
+    Size = 1, // Client pool size, 1 is enough for most scenarios.
+    ClientConfiguration = new IgniteClientConfiguration("localhost:10942")
+});    
+```
+
 # API Walkthrough
 
 ## Configuration
