@@ -39,7 +39,7 @@ object PlatformPythonTestsLinux : BuildType({
                 eval "${'$'}(pyenv init --path)" || echo 'first'
                 eval "${'$'}(pyenv init --no-rehash -)" || echo 'second'
                 
-                pyenv install %PYTHON_VERSION% || exit 0
+                pyenv install %PYTHON_VERSION% || echo 'third'
                 pyenv shell %PYTHON_VERSION% || exit 1
 
                 pyenv exec python -m venv .venv_tox || exit 2
