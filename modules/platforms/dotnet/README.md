@@ -62,7 +62,7 @@ int wordCount = await jobExecution.GetResultAsync();
 
 ## DI Integration
 
-Use `IgniteServicesCollectionExtensions.AddIgniteClientGroup` to register Ignite client in the dependency injection container:
+Use `IgniteServiceCollectionExtensions.AddIgniteClientGroup` to register Ignite client in the dependency injection container:
 
 ```cs
 var builder = WebApplication.CreateBuilder(args);
