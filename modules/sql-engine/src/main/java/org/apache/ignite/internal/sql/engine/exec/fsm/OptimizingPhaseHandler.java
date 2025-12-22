@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /** Validates parsed AST acquired on the previous phase and submit optimization task to {@link PrepareService}. */
 class OptimizingPhaseHandler implements ExecutionPhaseHandler {
@@ -49,7 +50,13 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
         validateDynamicParameters(result.dynamicParamsCount(), query.params, true);
         ensureStatementMatchesTx(result.queryType(), query.txContext);
 
-        HybridTimestamp operationTime = query.executor.deriveOperationTime(query.txContext);
+        QueryTransactionWrapper txWrapper = query.txContext.explicitTx();
+
+        if (txWrapper == null) {
+            txWrapper = query.usedTransaction;
+        }
+
+        HybridTimestamp operationTime = query.executor.deriveOperationTime(txWrapper);
 
         String schemaName = query.properties.defaultSchema();
         ZoneId timeZoneId = query.properties.timeZoneId();
@@ -66,6 +73,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                 .txUsedListener(tx -> query.usedTransaction = tx)
                 .errorHandler(query::setError)
                 .userName(userName)
+                .usedTx(query.usedTransaction)
                 .build();
 
         query.operationContext = operationContext;

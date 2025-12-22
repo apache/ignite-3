@@ -1393,7 +1393,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
-                SHUTDOWN_TIMEOUT
+                SHUTDOWN_TIMEOUT,
+                (ignore0, ignore1) -> nullCompletedFuture()
         );
 
         taskExecutor.start();

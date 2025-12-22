@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
@@ -78,6 +79,10 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             if (query.currentPhase() == ExecutionPhase.CURSOR_PUBLICATION) {
                 // Should initialize a new cursor.
                 query.moveTo(ExecutionPhase.CURSOR_INITIALIZATION);
+            } else if (th instanceof SqlPlanOutdatedException) {
+                assert query.currentPhase() == ExecutionPhase.CURSOR_INITIALIZATION : query.currentPhase();
+
+                query.moveTo(ExecutionPhase.OPTIMIZING);
             }
 
             if (nodeLeft(th)) {
@@ -95,7 +100,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || planOutdated(th);
         }
 
         return false;
@@ -114,7 +119,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             return false;
         }
 
-        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
+        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || planOutdated(th);
     }
 
     private static boolean nodeLeft(Throwable th) {
@@ -131,5 +136,9 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     private static boolean groupOverloaded(Throwable th) {
         return ExceptionUtils.extractCodeFrom(th) == Replicator.GROUP_OVERLOADED_ERR;
+    }
+
+    private static boolean planOutdated(Throwable th)  {
+        return th instanceof SqlPlanOutdatedException;
     }
 }

@@ -52,6 +52,7 @@ public final class SqlOperationContext {
     private final @Nullable Consumer<Throwable> errorListener;
     private final @Nullable String userName;
     private final @Nullable Long topologyVersion;
+    private final @Nullable QueryTransactionWrapper usedTx;
 
     /**
      * Private constructor, used by a builder.
@@ -67,7 +68,8 @@ public final class SqlOperationContext {
             @Nullable Consumer<QueryTransactionWrapper> txUsedListener,
             @Nullable Consumer<Throwable> errorListener,
             @Nullable String userName,
-            @Nullable Long topologyVersion
+            @Nullable Long topologyVersion,
+            @Nullable QueryTransactionWrapper usedTx
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -80,6 +82,7 @@ public final class SqlOperationContext {
         this.errorListener = errorListener;
         this.userName = userName;
         this.topologyVersion = topologyVersion;
+        this.usedTx = usedTx;
     }
 
     public static Builder builder() {
@@ -142,6 +145,10 @@ public final class SqlOperationContext {
         return topologyVersion;
     }
 
+    public @Nullable QueryTransactionWrapper usedTx() {
+        return usedTx;
+    }
+
     /**
      * Notifies context that transaction was used for query execution.
      */
@@ -199,6 +206,7 @@ public final class SqlOperationContext {
         private @Nullable String defaultSchemaName;
         private @Nullable String userName;
         private @Nullable Long topologyVersion;
+        private @Nullable QueryTransactionWrapper usedTx;
 
         public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
@@ -255,6 +263,11 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder usedTx(@Nullable QueryTransactionWrapper usedTx) {
+            this.usedTx = usedTx;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -268,7 +281,8 @@ public final class SqlOperationContext {
                     txUsedListener,
                     errorListener,
                     userName,
-                    topologyVersion
+                    topologyVersion,
+                    usedTx
             );
         }
     }

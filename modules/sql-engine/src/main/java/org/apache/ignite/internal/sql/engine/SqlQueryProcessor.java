@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -84,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
@@ -102,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticUpdateManager
 import org.apache.ignite.internal.sql.engine.statistic.StatisticAggregatorImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -370,6 +374,23 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
         // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
 
+        BiFunction<MultiStepPlan, QueryTransactionWrapper, CompletableFuture<Void>> validator = (plan, tx) -> {
+            if (!tx.implicit()) {
+                return nullCompletedFuture();
+            }
+
+            HybridTimestamp ts = tx.unwrap().schemaTimestamp();
+
+            return schemaSyncService.waitForMetadataCompleteness(ts)
+                    .thenRun(() -> {
+                        int requiredCatalog = catalogManager.activeCatalogVersion(ts.longValue());
+
+                        if (requiredCatalog != plan.catalogVersion()) {
+                            throw new SqlPlanOutdatedException();
+                        }
+                    });
+        };
+
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
@@ -389,7 +410,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 new ExpressionFactoryImpl(
                         Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
                 ),
-                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT,
+                validator
         ));
 
         queryExecutor = registerService(new QueryExecutor(

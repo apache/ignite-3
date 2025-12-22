@@ -30,6 +30,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -68,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
@@ -78,12 +81,14 @@ import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -91,6 +96,7 @@ import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -187,6 +193,18 @@ public class TestNode implements LifecycleAware {
             }
         }
 
+        BiFunction<MultiStepPlan, QueryTransactionWrapper, CompletableFuture<Void>> validator = (plan, tx) -> {
+            HybridTimestamp ts = tx.unwrap().schemaTimestamp();
+
+            int requiredCatalog = catalogService.activeCatalogVersion(ts.longValue());
+
+            if (requiredCatalog != plan.catalogVersion()) {
+                return CompletableFuture.failedFuture(new SqlPlanOutdatedException());
+            }
+
+            return CompletableFutures.nullCompletedFuture();
+        };
+
         ExecutionService executionService = registerService(ExecutionServiceImpl.create(
                 topologyService,
                 messageService,
@@ -206,7 +224,8 @@ public class TestNode implements LifecycleAware {
                 new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
-                5_000
+                5_000,
+                validator
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
@@ -287,6 +306,10 @@ public class TestNode implements LifecycleAware {
 
     ClockService clockService() {
         return clockService;
+    }
+
+    public PrepareService prepareService() {
+        return prepareService;
     }
 
     /**
@@ -396,11 +419,10 @@ public class TestNode implements LifecycleAware {
     public AsyncSqlCursor<InternalSqlRow> executeQuery(
             SqlProperties properties, QueryTransactionContext txContext, String query, Object... params
     ) {
-        return await(queryExecutor.executeQuery(
+        return await(executeQueryAsync(
                 properties,
                 txContext,
                 query,
-                null,
                 params
         ));
     }
@@ -412,6 +434,19 @@ public class TestNode implements LifecycleAware {
 
     public AsyncSqlCursor<InternalSqlRow> executeQuery(SqlProperties properties, String query, Object... params) {
         return executeQuery(properties, ImplicitTxContext.create(), query, params);
+    }
+
+    /** Executes the given query. */
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeQueryAsync(
+            SqlProperties properties, QueryTransactionContext txContext, String query, Object... params
+    ) {
+        return queryExecutor.executeQuery(
+                properties,
+                txContext,
+                query,
+                null,
+                params
+        );
     }
 
     public List<QueryInfo> runningQueries() {

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimes
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -100,7 +101,9 @@ public final class NoOpTransaction implements InternalTransaction {
         this.implicit = implicit;
         this.readOnly = readOnly;
 
-        this.id = readOnly ?  randomUUID() : TransactionIds.transactionId(hybridTimestamp, enlistmentNode.name().hashCode());
+        this.id = TransactionIds.transactionId(readOnly
+                ? new HybridClockImpl().current()
+                : hybridTimestamp, enlistmentNode.name().hashCode());
     }
 
     /** Node at which this transaction was start. */

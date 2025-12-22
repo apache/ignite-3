@@ -531,9 +531,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         executor.execute(runnable);
     }
 
-    HybridTimestamp deriveOperationTime(QueryTransactionContext txContext) {
-        QueryTransactionWrapper txWrapper = txContext.explicitTx();
-
+    HybridTimestamp deriveOperationTime(@Nullable QueryTransactionWrapper txWrapper) {
         if (txWrapper == null) {
             return clockService.now();
         }
