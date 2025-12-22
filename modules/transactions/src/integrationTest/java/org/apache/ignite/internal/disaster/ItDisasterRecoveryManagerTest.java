@@ -64,7 +64,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
@@ -72,7 +71,6 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -289,14 +287,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 "SELECT * FROM %s",
                 tableName
         ));
-    }
-
-    private static int tableId(IgniteImpl node) {
-        return tableId(node, TABLE_NAME);
-    }
-
-    private static int tableId(IgniteImpl node, String tableName) {
-        return ((Wrapper) node.tables().table(tableName)).unwrap(TableImpl.class).tableId();
     }
 
     private static int zoneId(CatalogManager catalogManager, String zoneName) {

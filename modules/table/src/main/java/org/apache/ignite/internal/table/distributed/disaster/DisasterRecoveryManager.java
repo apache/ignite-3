@@ -667,43 +667,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         });
     }
 
-    /**
-     * Returns estimated number of rows for each table having a partition in the specified zones.
-     *
-     * @param catalogVersion Catalog version.
-     * @param node Node we get table partition states from.
-     * @param zones Set of zone partitions.
-     * @return Future with the mapping.
-     */
-    private CompletableFuture<LocalTablePartitionStateResponse> tableStateForZoneOnNode(
-            int catalogVersion,
-            String node,
-            Set<ZonePartitionId> zones
-    ) {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Sending LocalTablePartitionStateRequest to node [nodeName={}, zones={}]", node, zones);
-        }
-
-        Set<ZonePartitionIdMessage> zoneMessage = zones.stream()
-                .map(zonePartitionId -> toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
-                .collect(toSet());
-        LocalTablePartitionStateRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateRequest()
-                .zonePartitionIds(zoneMessage)
-                .catalogVersion(catalogVersion)
-                .build();
-
-        return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
-                .thenApply(networkMessage -> {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Got response from node [nodeName={}, networkMessage={}]", node, networkMessage);
-                    }
-
-                    assert networkMessage instanceof LocalTablePartitionStateResponse : networkMessage;
-
-                    return (LocalTablePartitionStateResponse) networkMessage;
-                });
-    }
-
     private static void checkPartitionsRange(Set<Integer> partitionIds, Collection<CatalogZoneDescriptor> zones) {
         if (partitionIds.isEmpty()) {
             return;
