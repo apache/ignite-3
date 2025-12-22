@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Internal;
 using NUnit.Framework;
 
 /// <summary>
@@ -136,6 +137,18 @@ public class IgniteClientGroupTests
 
         Assert.AreEqual(3, group.Configuration.Size);
         Assert.AreNotSame(configuration, group.Configuration);
+    }
+
+    [Test]
+    public async Task TestClientsShareObservableTimestamp()
+    {
+        using IgniteClientGroup group = CreateGroup(size: 2);
+
+        var client1 = (IgniteClientInternal)await group.GetIgniteAsync();
+        var client2 = (IgniteClientInternal)await group.GetIgniteAsync();
+
+        Assert.AreNotSame(client1, client2);
+        Assert.AreSame(client1.Socket.Configuration.ObservableTimestamp, client2.Socket.Configuration.ObservableTimestamp);
     }
 
     private IgniteClientGroup CreateGroup(int size = 1) =>
