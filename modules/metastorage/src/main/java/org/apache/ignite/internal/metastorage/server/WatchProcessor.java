@@ -259,7 +259,7 @@ public class WatchProcessor implements ManuallyCloseable {
         assert time != null;
 
         Set<Long> revisionsSet = updatedEntries.stream().map(Entry::revision).collect(Collectors.toUnmodifiableSet());
-        assert revisionsSet.size() == 1 : "Update entries are associated with different revisions, revisions=" + revisionsSet;
+        assert revisionsSet.size() <= 1 : "Update entries are associated with different revisions, revisions=" + revisionsSet;
 
         List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
                 .filter(WatchProcessor::isNotIdempotentCacheCommand)
