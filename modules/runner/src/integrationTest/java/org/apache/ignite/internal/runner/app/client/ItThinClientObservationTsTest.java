@@ -24,7 +24,6 @@ import java.time.Duration;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
