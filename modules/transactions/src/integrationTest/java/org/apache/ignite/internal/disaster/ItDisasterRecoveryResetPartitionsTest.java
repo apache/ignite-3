@@ -78,15 +78,15 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
 
         assertThat(resetFuture, willCompleteSuccessfully());
 
-        assertTrue(waitForCondition(() -> !hasAssignmentsForNode(DEFAULT_ZONE_NAME, TABLE_NAME, nodeToStop), 10000));
+        assertTrue(waitForCondition(() -> !hasAssignmentsForNode(DEFAULT_ZONE_NAME, nodeToStop), 10000));
 
         assertDoesNotThrow(() -> executeSql(selectSql));
     }
 
-    private boolean hasAssignmentsForNode(String zoneName, String tableName, String nodeName) {
+    private boolean hasAssignmentsForNode(String zoneName, String nodeName) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
-        ByteArray keyPrefix = prefix(zoneName, tableName, ignite);
+        ByteArray keyPrefix = prefix(zoneName, ignite);
 
         Publisher<Entry> publisher = ignite.metaStorageManager().prefix(keyPrefix);
 
@@ -100,7 +100,7 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
                 .anyMatch(assignment -> nodeName.equals(assignment.consistentId()));
     }
 
-    private static ByteArray prefix(String zoneName, String tableName, IgniteImpl ignite) {
+    private static ByteArray prefix(String zoneName, IgniteImpl ignite) {
         int zoneId = getZoneId(ignite.catalogManager(), zoneName, ignite.clock().nowLong());
 
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + zoneId);
