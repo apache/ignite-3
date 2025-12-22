@@ -43,11 +43,14 @@ class OpenApiCompatibilityTest {
     }
 
     // Deprecated (removed) methods since.
-    private static final TreeMap<IgniteProductVersion, List<String>> DEPRECATED_PATHS;
+    private static final TreeMap<IgniteProductVersion, List<String>> REMOVED_PATHS;
 
     static {
-        DEPRECATED_PATHS = new TreeMap<>();
-        DEPRECATED_PATHS.put(IgniteProductVersion.fromString("3.2.0"), List.of(
+        REMOVED_PATHS = new TreeMap<>();
+
+        // Non-colocated mode is not supported anymore.
+        // There is a new api that is based on zones.
+        REMOVED_PATHS.put(IgniteProductVersion.fromString("3.2.0"), List.of(
                 "/management/v1/recovery/partitions/restartWithCleanup",
                 "/management/v1/recovery/partitions/reset",
                 "/management/v1/recovery/state/global",
@@ -59,7 +62,7 @@ class OpenApiCompatibilityTest {
     @ParameterizedTest
     @MethodSource("versions")
     void compareCurrentSpecWith(String version) {
-        Set<String> removedPaths = DEPRECATED_PATHS
+        Set<String> removedPaths = REMOVED_PATHS
                 .tailMap(IgniteProductVersion.fromString(version))
                 .values()
                 .stream()
