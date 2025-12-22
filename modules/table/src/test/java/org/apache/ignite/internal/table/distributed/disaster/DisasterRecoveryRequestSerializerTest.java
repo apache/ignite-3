@@ -82,7 +82,6 @@ class DisasterRecoveryRequestSerializerTest {
         var originalRequest = new ManualGroupRestartRequest(
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 2000,
-                3000,
                 Set.of(11, 21, 31),
                 Set.of("a", "b"),
                 HybridTimestamp.MAX_VALUE.longValue(),
@@ -94,7 +93,6 @@ class DisasterRecoveryRequestSerializerTest {
 
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.tableId(), is(3000));
         assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
         assertThat(restoredRequest.nodeNames(), is(Set.of("a", "b")));
         assertThat(restoredRequest.assignmentsTimestamp(), is(HybridTimestamp.MAX_VALUE.longValue()));
@@ -107,7 +105,6 @@ class DisasterRecoveryRequestSerializerTest {
 
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.tableId(), is(3000));
         assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
         assertThat(restoredRequest.nodeNames(), is(Set.of("a", "b")));
         assertThat(restoredRequest.assignmentsTimestamp(), is(HybridTimestamp.MAX_VALUE.longValue()));
@@ -120,7 +117,6 @@ class DisasterRecoveryRequestSerializerTest {
 
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.tableId(), is(3000));
         assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
         assertThat(restoredRequest.nodeNames(), is(Set.of("a", "b")));
         assertThat(restoredRequest.assignmentsTimestamp(), is(HybridTimestamp.MAX_VALUE.longValue()));
@@ -132,7 +128,6 @@ class DisasterRecoveryRequestSerializerTest {
         var originalRequest = new ManualGroupRestartRequest(
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 2000,
-                3000,
                 Set.of(11, 21, 31),
                 Set.of("a", "b"),
                 HybridTimestamp.MAX_VALUE.longValue(),

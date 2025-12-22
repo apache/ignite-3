@@ -56,8 +56,6 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private final int zoneId;
 
-    private final int tableId;
-
     private final Set<Integer> partitionIds;
 
     private final Set<String> nodeNames;
@@ -69,7 +67,6 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
     ManualGroupRestartRequest(
             UUID operationId,
             int zoneId,
-            int tableId,
             Set<Integer> partitionIds,
             Set<String> nodeNames,
             long assignmentsTimestamp,
@@ -77,7 +74,6 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
     ) {
         this.operationId = operationId;
         this.zoneId = zoneId;
-        this.tableId = tableId;
         this.partitionIds = Set.copyOf(partitionIds);
         this.nodeNames = Set.copyOf(nodeNames);
         this.assignmentsTimestamp = assignmentsTimestamp;
@@ -97,10 +93,6 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
     @Override
     public DisasterRecoveryRequestType type() {
         return MULTI_NODE;
-    }
-
-    public int tableId() {
-        return tableId;
     }
 
     public Set<Integer> partitionIds() {

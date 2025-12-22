@@ -463,10 +463,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 return processNewRequest(new ManualGroupRestartRequest(
                         UUID.randomUUID(),
                         zone.id(),
-                        // We pass here -1 as table id because it is not used for zone-based partitions.
-                        // We expect that the field will be removed once colocation track is finished.
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522
-                        -1,
                         partitionIds,
                         nodeNames,
                         catalog.time(),
@@ -507,10 +503,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 return processNewRequest(new ManualGroupRestartRequest(
                         UUID.randomUUID(),
                         zone.id(),
-                        // We pass here -1 as table id because it is not used for zone-based partitions.
-                        // We expect that the field will be removed once colocation track is finished.
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522
-                        -1,
                         partitionIds,
                         nodeNames,
                         catalog.time(),

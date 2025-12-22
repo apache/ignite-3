@@ -30,8 +30,10 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link ManualGroupRestartRequest} instances.
  */
-// TODO check and update
 class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGroupRestartRequest> {
+    // We use this constant due compatibility reasons.
+    private static final int UNDEFINED_TABLE_ID = -1;
+
     /** Serializer instance. */
     static final ManualGroupRestartRequestSerializer INSTANCE = new ManualGroupRestartRequestSerializer();
 
@@ -44,7 +46,8 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
     protected void writeExternalData(ManualGroupRestartRequest request, IgniteDataOutput out) throws IOException {
         out.writeUuid(request.operationId());
         out.writeVarInt(request.zoneId());
-        out.writeVarInt(request.tableId());
+        // Write this field due compatibility reasons.
+        out.writeVarInt(UNDEFINED_TABLE_ID);
         writeVarIntSet(request.partitionIds(), out);
         writeStringSet(request.nodeNames(), out);
         hybridTimestamp(request.assignmentsTimestamp()).writeTo(out);
@@ -55,6 +58,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
     protected ManualGroupRestartRequest readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         UUID operationId = in.readUuid();
         int zoneId = in.readVarIntAsInt();
+        // Need to read this ignored value due compatibility reasons.
         int tableId = in.readVarIntAsInt();
         Set<Integer> partitionIds = readVarIntSet(in);
         Set<String> nodeNames = readStringSet(in);
@@ -69,7 +73,6 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         return new ManualGroupRestartRequest(
                 operationId,
                 zoneId,
-                tableId,
                 partitionIds,
                 nodeNames,
                 assignmentsTimestamp.longValue(),
