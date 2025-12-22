@@ -73,7 +73,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the start of an incoming snapshot installation.
-     * Increments the {@code TotalIncomingSnapshots} metric.
      */
     public void onSnapshotInstallationStart() {
         incomingSnapshotsCounter.incrementAndGet();
@@ -81,7 +80,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of an incoming snapshot installation.
-     * Decrements the {@code TotalIncomingSnapshots} metric.
      */
     public void onSnapshotInstallationEnd() {
         incomingSnapshotsCounter.decrementAndGet();
@@ -89,7 +87,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the beginning of the "load snapshot metadata" phase during incoming snapshot installation.
-     * Increments the {@code IncomingSnapshotsLoadingMeta} metric.
      */
     public void onLoadSnapshotMetaPhaseStart() {
         snapshotsLoadingMetaCounter.incrementAndGet();
@@ -97,7 +94,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of the "load snapshot metadata" phase during incoming snapshot installation.
-     * Decrements the {@code IncomingSnapshotsLoadingMeta} metric.
      */
     public void onLoadSnapshotMetaPhaseEnd() {
         snapshotsLoadingMetaCounter.decrementAndGet();
@@ -106,7 +102,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
     /**
      * Marks the beginning of the phase where the node waits for catalog to be ready/apply updates
      * for the incoming snapshot installation.
-     * Increments the {@code IncomingSnapshotsWaitingCatalog} metric.
      */
     public void onWaitingCatalogPhaseStart() {
         snapshotsWaitingCatalogCounter.incrementAndGet();
@@ -114,7 +109,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of the "waiting for catalog" phase during incoming snapshot installation.
-     * Decrements the {@code IncomingSnapshotsWaitingCatalog} metric.
      */
     public void onWaitingCatalogPhaseEnd() {
         snapshotsWaitingCatalogCounter.decrementAndGet();
@@ -122,7 +116,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the beginning of the storage preparation phase for incoming snapshot installation.
-     * Increments the {@code IncomingSnapshotsPreparingStorages} metric.
      */
     public void onPreparingStoragePhaseStart() {
         snapshotsPreparingStoragesCounter.incrementAndGet();
@@ -130,7 +123,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of the storage preparation phase for incoming snapshot installation.
-     * Decrements the {@code IncomingSnapshotsPreparingStorages} metric.
      */
     public void onPreparingStoragePhaseEnd() {
         snapshotsPreparingStoragesCounter.decrementAndGet();
@@ -138,7 +130,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the beginning of the phase where MV (multi-version) data is loaded.
-     * Increments the {@code IncomingSnapshotsLoadingMvData} metric.
      */
     public void onLoadMvDataPhaseStart() {
         snapshotsLoadingMvDataCounter.incrementAndGet();
@@ -146,7 +137,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of the phase where MV (multi-version) data is loaded.
-     * Decrements the {@code IncomingSnapshotsLoadingMvData} metric.
      */
     public void onLoadMvDataPhaseEnd() {
         snapshotsLoadingMvDataCounter.decrementAndGet();
@@ -154,7 +144,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the beginning of the phase where transaction metadata is loaded from the snapshot.
-     * Increments the {@code IncomingSnapshotsLoadingTxMeta} metric.
      */
     public void onLoadTxMetasPhaseStart() {
         snapshotsLoadingTxMetaCounter.incrementAndGet();
@@ -162,7 +151,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of the phase where transaction metadata is loaded from the snapshot.
-     * Decrements the {@code IncomingSnapshotsLoadingTxMeta} metric.
      */
     public void onLoadTxMetasPhaseEnd() {
         snapshotsLoadingTxMetaCounter.decrementAndGet();
@@ -170,7 +158,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the beginning of preparing indexes for build as part of incoming snapshot installation.
-     * Increments the {@code IncomingSnapshotsPreparingIndexForBuild} metric.
      */
     public void onSetRowIdToBuildPhaseStart() {
         snapshotsPreparingIndexForBuildCounter.incrementAndGet();
@@ -178,7 +165,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of preparing indexes for build as part of incoming snapshot installation.
-     * Decrements the {@code IncomingSnapshotsPreparingIndexForBuild} metric.
      */
     public void onSetRowIdToBuildPhaseEnd() {
         snapshotsPreparingIndexForBuildCounter.decrementAndGet();
@@ -186,7 +172,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the start of an outgoing snapshot creation/streaming.
-     * Increments the {@code TotalOutgoingSnapshots} metric.
      */
     public void onOutgoingSnapshotStart() {
         outgoingSnapshotsCounter.incrementAndGet();
@@ -194,7 +179,6 @@ public class RaftSnapshotsMetricsSource extends AbstractMetricSource<Holder> {
 
     /**
      * Marks the end of an outgoing snapshot creation/streaming.
-     * Decrements the {@code TotalOutgoingSnapshots} metric.
      */
     public void onOutgoingSnapshotEnd() {
         outgoingSnapshotsCounter.decrementAndGet();
