@@ -59,7 +59,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         UUID operationId = in.readUuid();
         int zoneId = in.readVarIntAsInt();
         // Need to read this ignored value due compatibility reasons.
-        int tableId = in.readVarIntAsInt();
+        in.readVarIntAsInt();
         Set<Integer> partitionIds = readVarIntSet(in);
         Set<String> nodeNames = readStringSet(in);
         HybridTimestamp assignmentsTimestamp = HybridTimestamp.readFrom(in);
