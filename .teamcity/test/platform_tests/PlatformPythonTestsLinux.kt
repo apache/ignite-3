@@ -19,6 +19,8 @@ object PlatformPythonTestsLinux : BuildType({
         text("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\python""", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         param("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
+        param("TOX_ENV", "py310")
+        param("PYTHON_VERSION", "3.10")
     }
 
     steps {
@@ -34,11 +36,20 @@ object PlatformPythonTestsLinux : BuildType({
                 set -o errexit; set -o pipefail; set -o errtrace; set -o functrace
                 set -x
                 
-                
                 eval "${'$'}(pyenv init --path)" || echo 'first'
                 eval "${'$'}(pyenv init --no-rehash -)" || echo 'second'
                 
-                tox -e py310 || exit 0
+                pyenv install %PYTHON_VERSION%
+                pyenv shell %PYTHON_VERSION% || exit 1
+
+                pyenv exec python -m venv .venv_tox || exit 2
+                . .venv_tox/bin/activate || exit 3
+                
+                pyenv exec python -m pip install --upgrade pip || exit 4
+                pyenv exec python -m pip install --upgrade tox || exit 5
+                pyenv rehash || exit 6
+
+                pyenv exec tox -e %TOX_ENV% || exit 7
             """.trimIndent()
         }
     }
