@@ -83,7 +83,7 @@ namespace Apache.Ignite.Internal
         private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
 
         /** Observable timestamp. */
-        private long _observableTimestamp;
+        private HybridTimestampTracker _observableTimestamp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
@@ -104,6 +104,8 @@ namespace Apache.Ignite.Internal
             ClientId = Guid.NewGuid();
             ClientIdString = ClientId.ToString();
             Configuration = configuration;
+
+            _observableTimestamp = new HybridTimestampTracker(); // TODO: from configuration.
         }
 
         /// <summary>
@@ -119,7 +121,7 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the observable timestamp.
         /// </summary>
-        public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
+        public long ObservableTimestamp => _observableTimestamp.Value;
 
         /// <summary>
         /// Gets the client ID.
@@ -370,20 +372,10 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
         {
-            // Atomically update the observable timestamp to max(newTs, curTs).
-            while (true)
+            var prevVal = _observableTimestamp.Update(timestamp);
+            if (prevVal < timestamp)
             {
-                var current = Interlocked.Read(ref _observableTimestamp);
-                if (current >= timestamp)
-                {
-                    return;
-                }
-
-                if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
-                {
-                    _logger.LogObservableTsUpdatedTrace(prev: current, current: timestamp);
-                    return;
-                }
+                _logger.LogObservableTsUpdatedTrace(prev: prevVal, current: timestamp);
             }
         }
 
