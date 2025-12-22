@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
-import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.Nullable;
@@ -162,13 +160,20 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                                 senderGroupId
                         )
                         .handle((response, e) -> {
-                            if (e == null && response.txStateMeta() != null) {
-                                TransactionMetaMessage transactionMetaMessage = Objects.requireNonNull(response.txStateMeta(),
-                                        "Transaction state meta must not be null after check.");
-
-                                return completedFuture(transactionMetaMessage.asTransactionMeta());
+                            if (e == null) {
+                                if (response.txStateMeta() == null) {
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-21910 should be fixed correctly by
+                                    // TODO WI resolution primary replica path.
+                                    // This may be possible if tx cleanup command was already committed in partition's replication group,
+                                    // and tx state was vacuumized on coordinator. This transaction already had a final state,
+                                    // but tx cleanup was not applied on replica yet due to replication lag. To prevent switching of
+                                    // write intent on replica side (because we don't know the final state), we respond with PENDING state.
+                                    return completedFuture((TransactionMeta) TxStateMeta.builder(PENDING).build());
+                                } else {
+                                    return completedFuture(response.txStateMeta().asTransactionMeta());
+                                }
                             } else {
-                                if (e != null && e.getCause() instanceof RecipientLeftException) {
+                                if (e.getCause() instanceof RecipientLeftException) {
                                     markAbandoned(txId);
                                 }
 

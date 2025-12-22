@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -303,12 +302,20 @@ public class TransactionStateResolver {
         } else {
             txMessageSender.resolveTxStateFromCoordinator(coordinator, txId, timestamp, senderCurrentConsistencyToken, senderGroupId)
                     .whenComplete((response, e) -> {
-                        if (e == null && response.txStateMeta() != null) {
-                            TransactionMetaMessage transactionMetaMessage = Objects.requireNonNull(response.txStateMeta(),
-                                    "Transaction state meta must not be null after check.");
-                            txMetaFuture.complete(transactionMetaMessage.asTransactionMeta());
+                        if (e == null) {
+                            if (response.txStateMeta() == null) {
+                                // TODO https://issues.apache.org/jira/browse/IGNITE-21910 should be fixed correctly by
+                                // TODO WI resolution primary replica path.
+                                // This may be possible if tx cleanup command was already committed in partition's replication group,
+                                // and tx state was vacuumized on coordinator. This transaction already had a final state,
+                                // but tx cleanup was not applied on replica yet due to replication lag. To prevent switching of
+                                // write intent on replica side (because we don't know the final state), we respond with PENDING state.
+                                txMetaFuture.complete(TxStateMeta.builder(PENDING).build());
+                            } else {
+                                txMetaFuture.complete(response.txStateMeta().asTransactionMeta());
+                            }
                         } else {
-                            if (e != null && e.getCause() instanceof RecipientLeftException) {
+                            if (e.getCause() instanceof RecipientLeftException) {
                                 markAbandoned(txId);
                             }
 
