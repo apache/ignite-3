@@ -66,7 +66,7 @@ public class DdlBatchingSuggester implements Consumer<SqlQueryType> {
     }
 
     @TestOnly
-    int trackedQueriesCount() {
+    public int trackedQueriesCount() {
         return counter.get();
     }
 }

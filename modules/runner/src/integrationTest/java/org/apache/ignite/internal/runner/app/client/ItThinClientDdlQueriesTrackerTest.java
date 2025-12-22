@@ -26,10 +26,13 @@ import static org.hamcrest.Matchers.sameInstance;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
+import org.apache.ignite.client.handler.DdlBatchingSuggester;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -68,13 +71,13 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         addColumn(client1, 0);
         addColumn(client1, 1);
 
-        assertThat(handler1.ddlQueriesInRow(), is(2));
-        assertThat(handler2.ddlQueriesInRow(), is(0));
+        assertThat(ddlQueriesInRow(handler1), is(2));
+        assertThat(ddlQueriesInRow(handler2), is(0));
 
         addColumn(client2, 2);
 
-        assertThat(handler1.ddlQueriesInRow(), is(2));
-        assertThat(handler2.ddlQueriesInRow(), is(1));
+        assertThat(ddlQueriesInRow(handler1), is(2));
+        assertThat(ddlQueriesInRow(handler2), is(1));
     }
 
     @Test
@@ -88,7 +91,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
             ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
             addColumn(client(), 0);
-            assertThat(handler.ddlQueriesInRow(), is(1));
+            assertThat(ddlQueriesInRow(handler), is(1));
         }
 
         { // Disable suggestion
@@ -100,7 +103,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
 
             addColumn(client, 1);
             addColumn(client, 2);
-            assertThat(handler.ddlQueriesInRow(), is(-1));
+            assertThat(ddlQueriesInRow(handler), is(-1));
         }
 
         { // Enable suggestion
@@ -111,14 +114,8 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
 
             addColumn(client, 3);
             addColumn(client, 4);
-            assertThat(handler.ddlQueriesInRow(), is(2));
+            assertThat(ddlQueriesInRow(handler), is(2));
         }
-    }
-
-    private static void addColumn(IgniteClient client, int columnNumber) {
-        String ddlQuery = IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN col{} int;", columnNumber);
-
-        client.sql().execute(null, ddlQuery).close();
     }
 
     private IgniteClient startClient() {
@@ -129,5 +126,21 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         closeables.add(client);
 
         return client;
+    }
+
+    private static void addColumn(IgniteClient client, int columnNumber) {
+        String ddlQuery = IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN col{} int;", columnNumber);
+
+        client.sql().execute(null, ddlQuery).close();
+    }
+
+    private static int ddlQueriesInRow(ClientInboundMessageHandler handler) {
+        Consumer<SqlQueryType> queryTypeListener = handler.queryTypeListener();
+
+        if (queryTypeListener instanceof DdlBatchingSuggester) {
+            return ((DdlBatchingSuggester) queryTypeListener).trackedQueriesCount();
+        }
+
+        return -1;
     }
 }

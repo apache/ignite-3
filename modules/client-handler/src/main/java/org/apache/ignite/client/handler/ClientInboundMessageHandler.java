@@ -1281,14 +1281,9 @@ public class ClientInboundMessageHandler
         return cancelHandles.size();
     }
 
-    /** Returns the number of sequential DDL queries or {@code -1} if DDL tracking is disabled. */
     @TestOnly
-    public int ddlQueriesInRow() {
-        if (queryTypeListener instanceof DdlBatchingSuggester) {
-            return ((DdlBatchingSuggester) queryTypeListener).trackedQueriesCount();
-        }
-
-        return -1;
+    public Consumer<SqlQueryType> queryTypeListener() {
+        return queryTypeListener;
     }
 
     private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
