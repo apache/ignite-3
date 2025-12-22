@@ -118,7 +118,7 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
         assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
 
         if (existingWriteIntent instanceof WiLinkableRowVersion) {
-            // Re-read the links under WI list lock to be sure they are up-to-date (this is a form of the double-checked lccking idiom).
+            // Re-read the links under WI list lock to be sure they are up-to-date (this is a form of the double-checked locking idiom).
             return persistentStorage.readWriteIntentLinks(existingWriteIntent.link());
         }
 

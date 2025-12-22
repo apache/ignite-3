@@ -35,7 +35,7 @@ class WriteIntentListSupport {
         long wiListHeadLink = storage.lockWriteIntentListHead();
 
         try {
-            // Re-read the links under WI list lock to be sure they are up-to-date (this is a form of the double-checked lccking idiom).
+            // Re-read the links under WI list lock to be sure they are up-to-date (this is a form of the double-checked locking idiom).
             WriteIntentLinks links = storage.readWriteIntentLinks(linkToRowVersionToRemove);
 
             if (links.nextWriteIntentLink() != NULL_LINK) {
