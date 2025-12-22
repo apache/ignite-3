@@ -92,7 +92,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         }
 
         { // Disable suggestion
-            await(config.suggestions().ddlBatching().change(c -> c.changeEnabled(false)));
+            await(config.suggestions().sequentialDdlExecution().change(c -> c.changeEnabled(false)));
 
             // The handler "test reference" is updated after a new connection is established.
             IgniteClient client = startClient();
@@ -104,7 +104,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         }
 
         { // Enable suggestion
-            await(config.suggestions().ddlBatching().change(c -> c.changeEnabled(true)));
+            await(config.suggestions().sequentialDdlExecution().change(c -> c.changeEnabled(true)));
 
             IgniteClient client = startClient();
             ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();

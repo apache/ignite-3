@@ -25,5 +25,5 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 public class SuggestionsConfigurationSchema {
     /** DDL batching suggestion configuration. */
     @ConfigValue
-    public SuggestionsDdlBatchingConfigurationSchema ddlBatching;
+    public SequentialDdlExecutionConfigurationSchema sequentialDdlExecution;
 }

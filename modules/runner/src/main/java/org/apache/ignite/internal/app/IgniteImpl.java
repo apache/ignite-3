@@ -1312,7 +1312,7 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 nodeProperties,
                 threadPoolsManager.partitionOperationsExecutor(),
-                () -> suggestionsConfiguration.ddlBatching().enabled().value()
+                () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);

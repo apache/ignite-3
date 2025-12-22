@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.annotation.Value;
 
 /** Configuration related to DDL batching suggestion. */
 @Config
-public class SuggestionsDdlBatchingConfigurationSchema {
+public class SequentialDdlExecutionConfigurationSchema {
     /** Enable/disable suggestion about DDL batching. */
     @Value(hasDefault = true)
     public final boolean enabled = true;

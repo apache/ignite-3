@@ -209,8 +209,8 @@ public class ClientInboundMessageHandler
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
 
-    /** Tracks the number of consecutive DDL queries executed and prints suggestion to use batching. */
-    private final Consumer<SqlQueryType> ddlBatchingSuggester;
+    /** Tracks the number of sequential DDL queries executed and prints suggestion to use batching. */
+    private final Consumer<SqlQueryType> queryTypeListener;
 
     /** Configuration. */
     private final ClientConnectorView configuration;
@@ -294,7 +294,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
-     * @param ddlBatchingSuggestionEnabled Boolean supplier indicates whether the suggestion related DDL batching is enabled.
+     * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -316,7 +316,7 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
-            Supplier<Boolean> ddlBatchingSuggestionEnabled
+            Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -372,9 +372,7 @@ public class ClientInboundMessageHandler
 
         this.computeConnectionFunc = computeConnectionFunc;
 
-        this.ddlBatchingSuggester = ddlBatchingSuggestionEnabled.get()
-                ? new DdlBatchingSuggester()
-                : ignore -> {};
+        this.queryTypeListener = queryTypeListener;
     }
 
     @Override
@@ -981,7 +979,7 @@ public class ClientInboundMessageHandler
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
                         igniteTables, clockService, notificationSender(requestId), resolveCurrentUsername(),
-                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT), ddlBatchingSuggester
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT), queryTypeListener
                 );
 
             case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
@@ -1283,11 +1281,11 @@ public class ClientInboundMessageHandler
         return cancelHandles.size();
     }
 
-    /** Returns the number of consecutive DDL queries or {@code -1} if DDL tracking is disabled. */
+    /** Returns the number of sequential DDL queries or {@code -1} if DDL tracking is disabled. */
     @TestOnly
     public int ddlQueriesInRow() {
-        if (ddlBatchingSuggester instanceof DdlBatchingSuggester) {
-            return ((DdlBatchingSuggester) ddlBatchingSuggester).trackedQueriesCount();
+        if (queryTypeListener instanceof DdlBatchingSuggester) {
+            return ((DdlBatchingSuggester) queryTypeListener).trackedQueriesCount();
         }
 
         return -1;

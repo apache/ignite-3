@@ -462,7 +462,9 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 Map.of(),
                 computeExecutors::remove,
                 handshakeEventLoopSwitcher,
-                ddlBatchingSuggestionEnabled
+                ddlBatchingSuggestionEnabled.get()
+                        ? new DdlBatchingSuggester()
+                        : ignore -> {}
         );
     }
 

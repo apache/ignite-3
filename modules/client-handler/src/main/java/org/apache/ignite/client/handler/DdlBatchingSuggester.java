@@ -25,7 +25,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Tracks the number of consecutive DDL queries executed and prints
+ * Tracks the number of sequential DDL queries executed and prints
  * the recommendation to use batch processing of DDL queries.
  */
 public class DdlBatchingSuggester implements Consumer<SqlQueryType> {
@@ -59,10 +59,9 @@ public class DdlBatchingSuggester implements Consumer<SqlQueryType> {
         }
 
         if (counter.incrementAndGet() == THRESHOLD) {
-            printer.accept("The system detected that a batch of DDL commands was executed one by one. "
-                    + "For better performance, it is recommended to combine DDL commands into a single "
-                    + "SQL script. To disable this suggestion, change the cluster configuration property "
-                    + "'ignite.suggestions.ddlBatching.enabled' to 'false'.");
+            printer.accept("Multiple DDL statements were executed individually. For improved performance, "
+                    + "consider grouping DDL statements into a single SQL script. To disable this suggestion, "
+                    + "set the cluster property 'ignite.suggestions.sequentialDdlExecution.enabled' to 'false'.");
         }
     }
 
