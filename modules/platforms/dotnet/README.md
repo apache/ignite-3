@@ -74,6 +74,17 @@ builder.Services.AddIgniteClientGroup(new IgniteClientGroupConfiguration
 });    
 ```
 
+Inject `IgniteClientGroup` where needed:
+
+```cs
+app.MapGet("/tables", async ([FromServices] IgniteClientGroup igniteGrp) =>
+{
+    IIgnite ignite = await igniteGrp.GetIgniteAsync();
+
+    return await ignite.Tables.GetTablesAsync();
+});
+```
+
 # API Walkthrough
 
 ## Configuration
