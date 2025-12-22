@@ -104,9 +104,9 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeResponse;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
@@ -925,12 +925,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             }
 
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
-        } else if (message instanceof LocalTablePartitionStateRequest) {
+        } else if (message instanceof LocalPartitionsEstimatedSizeRequest) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Received local table partition states request [request={}]", message);
             }
 
-            handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
+            handleLocalTableStateRequest((LocalPartitionsEstimatedSizeRequest) message, sender, correlationId);
         } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
         }
@@ -977,7 +977,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private void handleLocalTableStateRequest(
-            LocalTablePartitionStateRequest request,
+            LocalPartitionsEstimatedSizeRequest request,
             InternalClusterNode sender,
             @Nullable Long correlationId
     ) {
@@ -990,12 +990,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .collect(toSet());
 
         catalogManager.catalogReadyFuture(catalogVersion).thenRunAsync(() -> {
-            Set<LocalTablePartitionStateMessage> statesList = new HashSet<>();
+            Set<LocalPartitionsEstimatedSizeMessage> statesList = new HashSet<>();
 
             raftManager.forEach((raftNodeId, raftGroupService) -> {
                 if (raftNodeId.groupId() instanceof ZonePartitionId) {
 
-                    LocalTablePartitionStateMessage message = handleSizeRequestForTablesInZone(
+                    LocalPartitionsEstimatedSizeMessage message = handleSizeRequestForTablesInZone(
                             requestedPartitions,
                             (ZonePartitionId) raftNodeId.groupId()
                     );
@@ -1006,7 +1006,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 }
             });
 
-            LocalTablePartitionStateResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateResponse()
+            LocalPartitionsEstimatedSizeResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionsEstimatedSizeResponse()
                     .states(statesList)
                     .build();
 
@@ -1068,7 +1068,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }, threadPool);
     }
 
-    private @Nullable LocalTablePartitionStateMessage handleSizeRequestForTablesInZone(
+    private @Nullable LocalPartitionsEstimatedSizeMessage handleSizeRequestForTablesInZone(
             Set<ZonePartitionId> requestedPartitions,
             ZonePartitionId zonePartitionId
     ) {
@@ -1076,7 +1076,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             return null;
         }
 
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateMessage()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionsEstimatedSizeMessage()
                 .tablePartitionIdToEstimatedRowsMap(estimatedSizeMap(zonePartitionId))
                 .build();
     }
