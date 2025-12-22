@@ -14,6 +14,7 @@ object RunSanityCheck : BuildType({
     dependencies {
         snapshot(AssembleTestClasses) {}
         snapshot(CodeStyle) {}
+        snapshot(CodeStyleJava17) {}
         snapshot(Javadoc) {}
         snapshot(MentionTicket) {}
         snapshot(PMD) {}

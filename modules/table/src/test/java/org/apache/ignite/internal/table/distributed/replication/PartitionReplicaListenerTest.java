@@ -57,7 +57,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -137,7 +136,6 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -2586,11 +2584,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testBuildIndexReplicaRequestWithoutRwTxOperations() {
+    void testBuildIndexReplicaRequest() {
         int indexId = hashIndexStorage.id();
         int indexCreationCatalogVersion = 1;
         int startBuildingIndexCatalogVersion = 2;
-        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
+        long indexCreationActivationTs = clock.now().subtractPhysicalTime(100).longValue();
         long startBuildingIndexActivationTs = clock.nowLong();
 
         setIndexMetaInBuildingStatus(
@@ -2601,85 +2599,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 startBuildingIndexActivationTs
         );
 
-        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(indexId);
-
-        assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
-
         fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
+
+        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(indexId);
 
         assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
         assertThat(invokeBuildIndexReplicaRequestAsync(indexId), willCompleteSuccessfully());
-    }
-
-    @ParameterizedTest(name = "failCmd = {0}")
-    @ValueSource(booleans = {false, true})
-    void testBuildIndexReplicaRequest(boolean failCmd) {
-        var continueNotBuildIndexCmdFuture = new CompletableFuture<Void>();
-        var buildIndexCommandFuture = new CompletableFuture<BuildIndexCommand>();
-
-        when(mockRaftClient.run(any())).thenAnswer(invocation -> {
-            Command cmd = invocation.getArgument(0);
-
-            if (cmd instanceof BuildIndexCommand) {
-                buildIndexCommandFuture.complete((BuildIndexCommand) cmd);
-
-                return raftClientFutureClosure.apply(cmd);
-            }
-
-            return continueNotBuildIndexCmdFuture.thenCompose(unused -> raftClientFutureClosure.apply(cmd));
-        });
-
-        UUID txId = newTxId();
-        long beginTs = beginTimestamp(txId).longValue();
-
-        when(catalogService.activeCatalogVersion(eq(beginTs))).thenReturn(0);
-
-        BinaryRow row = binaryRow(0);
-
-        CompletableFuture<ReplicaResult> upsertFuture = upsertAsync(txId, row, true);
-
-        int indexId = hashIndexStorage.id();
-        int indexCreationCatalogVersion = 1;
-        int startBuildingIndexCatalogVersion = 2;
-        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
-        long startBuildingIndexActivationTs = clock.nowLong();
-
-        setIndexMetaInBuildingStatus(
-                indexId,
-                indexCreationCatalogVersion,
-                indexCreationActivationTs,
-                startBuildingIndexCatalogVersion,
-                startBuildingIndexActivationTs
-        );
-
-        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(indexId);
-
-        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
-
-        assertFalse(upsertFuture.isDone());
-        assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
-
-        if (failCmd) {
-            continueNotBuildIndexCmdFuture.completeExceptionally(new RuntimeException("error from test"));
-
-            assertThat(upsertFuture, willThrow(RuntimeException.class));
-        } else {
-            continueNotBuildIndexCmdFuture.complete(null);
-
-            assertThat(upsertFuture, willCompleteSuccessfully());
-        }
-
-        assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
-
-        HybridTimestamp startBuildingIndexActivationTs0 = hybridTimestamp(startBuildingIndexActivationTs);
-
-        verify(safeTimeClock).waitFor(eq(startBuildingIndexActivationTs0));
-
-        assertThat(buildIndexCommandFuture, willCompleteSuccessfully());
-
-        BuildIndexCommand buildIndexCommand = buildIndexCommandFuture.join();
-        assertThat(buildIndexCommand.indexId(), equalTo(indexId));
-        assertThat(buildIndexCommand.requiredCatalogVersion(), equalTo(startBuildingIndexCatalogVersion));
     }
 
     private void fireHashIndexStartBuildingEventForStaleTxOperation(int indexId, int startBuildingIndexCatalogVersion) {

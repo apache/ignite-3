@@ -1101,6 +1101,8 @@ namespace Apache.Ignite.Internal
                     Environment.Exit(0);
                 }
             }
+
+            _listener.OnDisconnect(ex);
         }
 
         private readonly record struct PendingRequest(

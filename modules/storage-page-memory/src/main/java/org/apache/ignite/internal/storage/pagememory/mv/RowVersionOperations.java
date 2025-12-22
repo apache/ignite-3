@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 /**
  * Operations that can be performed on a row version. Used to abstract different behaviors for different row version types.
@@ -36,20 +35,6 @@ interface RowVersionOperations {
             AbstractPageMemoryMvPartitionStorage storage,
             Supplier<String> operationInfoSupplier
     );
-
-    /**
-     * Returns the link to the next write intent's row version if the current row version contains this information,
-     * or the fallback link if it doesn't.
-     *
-     * @param fallbackLink Link to return if the current row version doesn't support the write intent list links.
-     */
-    long nextWriteIntentLink(long fallbackLink);
-
-    /**
-     * Returns the link to the previous write intent's row version if the current row version contains this information,
-     * or {@link PageIdUtils#NULL_LINK} if it doesn't.
-     */
-    long prevWriteIntentLink();
 
     /**
      * Returns a page handler that can convert this write intent to its committed version in-place.

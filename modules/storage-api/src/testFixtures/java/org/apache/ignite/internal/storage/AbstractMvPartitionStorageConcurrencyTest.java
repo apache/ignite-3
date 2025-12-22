@@ -111,33 +111,54 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @Test
     void testMixedAddCommitAborts() {
         runRace(
-                this::makeManyCommittedTransactions,
-                this::makeManyCommittedTransactions,
-                this::makeManyAbortedTransactions,
-                this::makeManyAbortedTransactions
+                this::makeManySimpleCommittedTransactions,
+                this::makeManySimpleCommittedTransactions,
+                this::makeManySimpleAbortedTransactions,
+                this::makeManySimpleAbortedTransactions
         );
     }
 
-    private void makeManyCommittedTransactions() {
-        makeManyTransactions(true);
+    @Test
+    void testMixedAddCommitAbortsWithWriteIntentReplacement() {
+        runRace(
+                this::makeManyCommittedTransactionsWithWriteIntentReplacement,
+                this::makeManyCommittedTransactionsWithWriteIntentReplacement,
+                this::makeManyAbortedTransactionsWithWriteIntentReplacement,
+                this::makeManyAbortedTransactionsWithWriteIntentReplacement
+        );
     }
 
-    private void makeManyAbortedTransactions() {
-        makeManyTransactions(false);
+    private void makeManySimpleCommittedTransactions() {
+        makeManyTransactions(true, false);
     }
 
-    private void makeManyTransactions(boolean commit) {
+    private void makeManySimpleAbortedTransactions() {
+        makeManyTransactions(false, false);
+    }
+
+    private void makeManyCommittedTransactionsWithWriteIntentReplacement() {
+        makeManyTransactions(true, true);
+    }
+
+    private void makeManyAbortedTransactionsWithWriteIntentReplacement() {
+        makeManyTransactions(false, true);
+    }
+
+    private void makeManyTransactions(boolean commit, boolean doWriteIntentReplacement) {
         for (int i = 0; i < 1000; i++) {
-            addTwoWritesAndFinish(commit);
+            addFewWritesAndFinish(commit, doWriteIntentReplacement);
         }
     }
 
-    private void addTwoWritesAndFinish(boolean commit) {
+    private void addFewWritesAndFinish(boolean commit, boolean doWriteIntentReplacement) {
         RowId rowId = new RowId(PARTITION_ID);
         RowId rowId2 = new RowId(PARTITION_ID);
         UUID txId = newTransactionId();
 
         addWrite(rowId, TABLE_ROW, txId);
+        if (doWriteIntentReplacement) {
+            addWrite(rowId, TABLE_ROW, txId);
+        }
         addWrite(rowId2, TABLE_ROW, txId);
 
         if (commit) {
@@ -148,6 +169,24 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         } else {
             abortWrite(rowId, txId);
             abortWrite(rowId2, txId);
+        }
+    }
+
+    @Test
+    void testWriteIntentReplacements() {
+        runRace(
+                this::makeManyWriteIntentReplacements,
+                this::makeManyWriteIntentReplacements
+        );
+    }
+
+    private void makeManyWriteIntentReplacements() {
+        for (int i = 0; i < 1000; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+            UUID txId = newTransactionId();
+
+            addWrite(rowId, TABLE_ROW, txId);
+            addWrite(rowId, TABLE_ROW, txId);
         }
     }
 

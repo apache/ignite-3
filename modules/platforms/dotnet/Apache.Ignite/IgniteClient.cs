@@ -15,36 +15,45 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+namespace Apache.Ignite;
+
+using System.Threading.Tasks;
+using Internal;
+using Internal.Common;
+
+/// <summary>
+/// Ignite client builder.
+/// </summary>
+public static class IgniteClient
 {
-    using System.Threading.Tasks;
-    using Internal;
-    using Internal.Common;
+    /// <summary>
+    /// Starts the client.
+    /// </summary>
+    /// <param name="configuration">Configuration.</param>
+    /// <returns>Started client.</returns>
+    public static async Task<IIgniteClient> StartAsync(IgniteClientConfiguration configuration) =>
+        await StartInternalAsync(configuration, DnsResolver.Instance).ConfigureAwait(false);
 
     /// <summary>
-    /// Ignite client builder.
+    /// Starts the client.
     /// </summary>
-    public static class IgniteClient
+    /// <param name="configuration">Configuration.</param>
+    /// <param name="dnsResolver">DNS resolver.</param>
+    /// <returns>Started client.</returns>
+    internal static async Task<IIgniteClient> StartInternalAsync(IgniteClientConfiguration configuration, IDnsResolver dnsResolver)
     {
-        /// <summary>
-        /// Starts the client.
-        /// </summary>
-        /// <param name="configuration">Configuration.</param>
-        /// <returns>Started client.</returns>
-        public static async Task<IIgniteClient> StartAsync(IgniteClientConfiguration configuration)
-        {
-            IgniteArgumentCheck.NotNull(configuration);
+        IgniteArgumentCheck.NotNull(configuration);
 
-            var apiTaskSource = new TaskCompletionSource<IgniteApiAccessor>();
-            var internalConfig = new IgniteClientConfigurationInternal(
-                new(configuration), // Defensive copy.
-                apiTaskSource.Task);
+        var apiTaskSource = new TaskCompletionSource<IgniteApiAccessor>();
+        var internalConfig = new IgniteClientConfigurationInternal(
+            new(configuration), // Defensive copy.
+            apiTaskSource.Task,
+            dnsResolver);
 
-            var socket = await ClientFailoverSocket.ConnectAsync(internalConfig).ConfigureAwait(false);
-            var client = new IgniteClientInternal(socket);
+        var socket = await ClientFailoverSocket.ConnectAsync(internalConfig).ConfigureAwait(false);
+        var client = new IgniteClientInternal(socket);
 
-            apiTaskSource.SetResult(new IgniteApiAccessor(client));
-            return client;
-        }
+        apiTaskSource.SetResult(new IgniteApiAccessor(client));
+        return client;
     }
 }

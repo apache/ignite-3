@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,13 +71,12 @@ public class NodeUtils {
      * @param groupId Group id.
      * @param preferablePrimary Primary replica preferable node name.
      * @return New primary replica name.
-     * @throws InterruptedException If failed.
      */
     public static String transferPrimary(
             Collection<IgniteImpl> nodes,
             ReplicationGroupId groupId,
             String preferablePrimary
-    ) throws InterruptedException {
+    ) {
         return transferPrimary(nodes, groupId, s -> s.equals(preferablePrimary));
     }
 
@@ -86,13 +87,12 @@ public class NodeUtils {
      * @param groupId Group id.
      * @param preferablePrimaryFilter Primary replica preferable nodes filter, accepts the node consistent id.
      * @return New primary replica name.
-     * @throws InterruptedException If failed.
      */
     public static String transferPrimary(
             Collection<IgniteImpl> nodes,
             ReplicationGroupId groupId,
             @Nullable Predicate<String> preferablePrimaryFilter
-    ) throws InterruptedException {
+    ) {
         LOG.info("Moving the primary replica [groupId={}].", groupId);
 
         IgniteImpl node = nodes.stream().findAny().orElseThrow();
@@ -119,27 +119,30 @@ public class NodeUtils {
         ReplicaMeta[] newPrimaryReplica = new ReplicaMeta[1];
         boolean[] stopLeaseNeeded = { true };
 
-        boolean success = waitForCondition(() -> {
-            if (stopLeaseNeeded[0]) {
-                preferablePrimary[0] = candidates[candidateIdx.getAndIncrement() % candidates.length];
+        boolean success = Awaitility.waitAtMost(Duration.ofSeconds(30)).until(
+                () -> {
+                    if (stopLeaseNeeded[0]) {
+                        preferablePrimary[0] = candidates[candidateIdx.getAndIncrement() % candidates.length];
 
-                LOG.info("Moving the primary replica [groupId={}, currentLeaseholder={}, preferablePrimary={}].",
-                        groupId, leaseholderNode.name(), preferablePrimary[0]);
+                        LOG.info("Moving the primary replica [groupId={}, currentLeaseholder={}, preferablePrimary={}].",
+                                groupId, leaseholderNode.name(), preferablePrimary[0]);
 
-                stopLeaseProlongation(nodes, leaseholderNode, groupId, preferablePrimary[0]);
-            }
+                        stopLeaseProlongation(nodes, leaseholderNode, groupId, preferablePrimary[0]);
+                    }
 
-            ReplicaMeta previousPrimary = newPrimaryReplica[0] == null ? currentLeaseholder : newPrimaryReplica[0];
+                    ReplicaMeta previousPrimary = newPrimaryReplica[0] == null ? currentLeaseholder : newPrimaryReplica[0];
 
-            newPrimaryReplica[0] = leaseholder(node, groupId);
+                    newPrimaryReplica[0] = leaseholder(node, groupId);
 
-            // If the lease is changed to not suitable one, then stopLeaseProlongation will be retried, otherwise the cycle will be stopped.
-            stopLeaseNeeded[0] =
-                    !previousPrimary.getStartTime().equals(newPrimaryReplica[0].getStartTime())                // if lease changed
+                    // If the lease is changed to not suitable one, then stopLeaseProlongation will be retried, otherwise the cycle will
+                    // be stopped.
+                    stopLeaseNeeded[0] = !previousPrimary.getStartTime().equals(newPrimaryReplica[0].getStartTime())   // if lease changed
                             || !previousPrimary.getExpirationTime().equals(newPrimaryReplica[0].getExpirationTime());  // if lease prolonged
 
-            return Arrays.stream(candidates).anyMatch(x -> x.equals(newPrimaryReplica[0].getLeaseholder()));
-        }, 30_000);
+                    return Arrays.stream(candidates).anyMatch(x -> x.equals(newPrimaryReplica[0].getLeaseholder()));
+                },
+                is(true)
+        );
 
         if (success) {
             LOG.info("Primary replica moved successfully from [{}] to [{}].", currentLeaseholder.getLeaseholder(), preferablePrimary[0]);
