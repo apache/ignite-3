@@ -459,7 +459,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         CountDownLatch readIndexLatch = new CountDownLatch(1);
         AtomicInteger currentValue = new AtomicInteger(-1);
         String errorMsg = testInfo.getDisplayName();
-        StateMachine fsm = new StateMachineAdapter() {
+        StateMachine fsm = new StateMachineAdapter("test") {
 
             @Override
             public void onApply(Iterator iter) {

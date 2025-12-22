@@ -17,7 +17,7 @@
 
 [versions]
 assertj = "3.27.6"
-asm = "9.9"
+asm = "9.9.1"
 bouncycastle = "1.82"
 compileTesting = "0.23.0"
 commons-collections4 = "4.5.0"
@@ -27,7 +27,7 @@ fmpp = "0.9.16"
 jackson = "2.19.2"
 jakarta = "2.0.0"
 jansi = "2.4.2"
-netty = "4.2.7.Final"
+netty = "4.2.9.Final"
 javapoet = "1.13.0"
 javax = "1.3.2"
 jetbrainsAnnotations = "26.0.2-1"
@@ -37,7 +37,7 @@ junit5 = "5.14.1"
 junit5-platform = "1.14.1"
 junitPioneer = "2.3.0"
 jsr305 = "3.0.2"
-okhttp = "5.3.0"
+okhttp = "5.3.2"
 gson = "2.13.2"
 gsonFire = "1.9.0"
 threetenbp = "1.7.2"
@@ -53,7 +53,6 @@ log4j = "2.25.2"
 spoon = "10.4.3-beta-21"
 swagger = "2.2.41"
 swaggerParser = "2.1.36"
-swaggerLegacy = "1.6.16"
 typesafe = "1.4.5"
 hamcrest = "3.0"
 hamcrestOptional = "2.0.0"
@@ -61,7 +60,7 @@ hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
 scalecube = "2.6.15"
 calcite = "1.40.0"
-value = "2.11.7"
+value = "2.12.0"
 janino = "3.1.12"
 jsonpath = "2.10.0"
 javassist = "3.30.2-GA"
@@ -114,7 +113,7 @@ cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
 # NOTE: do not update nebula to 12.x.x+, because newer versions are not compatible with Java 11.
 nebula = "com.netflix.nebula.ospackage:11.11.2"
 docker = "com.palantir.docker:0.36.0"
-dockerRemoteApi = "com.bmuschko.docker-remote-api:9.4.0"
+dockerRemoteApi = "com.bmuschko.docker-remote-api:10.0.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
@@ -216,7 +215,6 @@ threetenbp = { module = "org.threeten:threetenbp", version.ref = "threetenbp" }
 
 swaggerv3-annotations = { module = "io.swagger.core.v3:swagger-annotations", version.ref = "swagger" }
 swagger-parser = { module = "io.swagger.parser.v3:swagger-parser", version.ref = "swaggerParser" }
-swagger-legacy-annotations = { module = "io.swagger:swagger-annotations", version.ref = "swaggerLegacy" }
 
 mock-server-netty = { module = "org.mock-server:mockserver-netty", version.ref = "mockServer" }
 mock-server-junit = { module = "org.mock-server:mockserver-junit-jupiter", version.ref = "mockServer" }

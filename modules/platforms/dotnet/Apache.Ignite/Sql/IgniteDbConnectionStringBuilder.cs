@@ -43,7 +43,8 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
         nameof(ReconnectInterval),
         nameof(SslEnabled),
         nameof(Username),
-        nameof(Password)
+        nameof(Password),
+        nameof(ReResolveAddressesInterval)
     };
 
     /// <summary>
@@ -89,7 +90,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     /// <summary>
-    /// Gets or sets the socket timeout. See <see cref="IgniteClientConfiguration.OperationTimeout"/> for more details.
+    /// Gets or sets the operation timeout. See <see cref="IgniteClientConfiguration.OperationTimeout"/> for more details.
     /// </summary>
     public TimeSpan OperationTimeout
     {
@@ -148,6 +149,17 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
         set => this[nameof(Password)] = value;
     }
 
+    /// <summary>
+    /// Gets or sets the re-resolve interval. See <see cref="IgniteClientConfiguration.ReResolveAddressesInterval"/> for more details.
+    /// </summary>
+    public TimeSpan ReResolveAddressesInterval
+    {
+        get => GetString(nameof(ReResolveAddressesInterval)) is { } s
+            ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
+            : IgniteClientConfiguration.DefaultReResolveAddressesInterval;
+        set => this[nameof(ReResolveAddressesInterval)] = value.ToString();
+    }
+
     /// <inheritdoc />
     [AllowNull]
     public override object this[string keyword]
@@ -181,7 +193,8 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
             {
                 Username = Username ?? string.Empty,
                 Password = Password ?? string.Empty
-            }
+            },
+            ReResolveAddressesInterval = ReResolveAddressesInterval
         };
     }
 

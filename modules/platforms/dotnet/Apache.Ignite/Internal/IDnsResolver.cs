@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+namespace Apache.Ignite.Internal;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
+using System.Net;
+using System.Threading.Tasks;
 
-/** Common utilities for jobs in compatibility tests. */
-class JobsCommon {
-    static IgniteImpl unwrapIgniteImpl(Ignite ignite) {
-        return Wrappers.unwrap(ignite, IgniteImpl.class);
-    }
+/// <summary>
+/// DNS resolver.
+/// </summary>
+internal interface IDnsResolver
+{
+    /// <summary>
+    /// Resolves the specified host name into an array of IP addresses.
+    /// </summary>
+    /// <param name="hostName">Host name.</param>
+    /// <returns>Address list.</returns>
+    Task<IPAddress[]> GetHostAddressesAsync(string hostName);
 }

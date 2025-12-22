@@ -36,7 +36,7 @@ public class OperationLockException extends LockException {
     public OperationLockException(RequestType requestOperationType, LockException cause) {
         super(
                 cause.code(),
-                format("Lock acquiring failed during request handling [requestOperationType={}].", requestOperationType),
+                format("Failed to acquire a lock during request handling [requestOperationType={}].", requestOperationType),
                 cause
         );
     }

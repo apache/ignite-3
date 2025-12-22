@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.rest.api.deployment;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * DTO of unit status.
@@ -32,20 +34,20 @@ public class UnitStatus {
     /**
      * Unit identifier.
      */
-    @Schema(description = "Unit identifier.",
-            requiredMode = RequiredMode.REQUIRED)
+    @Schema(description = "Unit identifier.", requiredMode = REQUIRED)
     private final String id;
 
     /**
      * Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    @Schema(description = "Map from unit version to unit deployment status.",
-            requiredMode = RequiredMode.REQUIRED)
+    @Schema(description = "Map from unit version to unit deployment status.", requiredMode = REQUIRED)
     private final List<UnitVersionStatus> versionToStatus;
 
     @JsonCreator
-    public UnitStatus(@JsonProperty("id") String id,
-            @JsonProperty("versionToStatus") List<UnitVersionStatus> versionToStatus) {
+    public UnitStatus(
+            @JsonProperty("id") String id,
+            @JsonProperty("versionToStatus") List<UnitVersionStatus> versionToStatus
+    ) {
         this.id = id;
         this.versionToStatus = versionToStatus;
     }
@@ -68,5 +70,27 @@ public class UnitStatus {
     @JsonGetter("versionToStatus")
     public List<UnitVersionStatus> versionToStatus() {
         return versionToStatus;
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (!(o instanceof UnitStatus)) {
+            return false;
+        }
+
+        UnitStatus that = (UnitStatus) o;
+        return id.equals(that.id) && versionToStatus.equals(that.versionToStatus);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + versionToStatus.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

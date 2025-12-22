@@ -30,7 +30,7 @@ Project
             projection: [PS_SUPPKEY]
             est: (rows=600000000)
           Filter
-              predicate: >(CAST(PS_AVAILQTY):DECIMAL(32767, 3) NOT NULL, EXPR$0)
+              predicate: >(CAST(PS_AVAILQTY):DECIMAL(32, 3) NOT NULL, EXPR$0)
               est: (rows=600000000)
             CorrelatedNestedLoopJoin
                 predicate: true

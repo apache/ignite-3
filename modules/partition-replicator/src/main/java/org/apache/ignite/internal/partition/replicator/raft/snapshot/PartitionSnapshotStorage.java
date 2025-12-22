@@ -147,7 +147,7 @@ public class PartitionSnapshotStorage {
         this.logStorage = logStorage;
     }
 
-    public PartitionKey partitionKey() {
+    public ZonePartitionKey partitionKey() {
         return partitionKey;
     }
 
@@ -279,6 +279,8 @@ public class PartitionSnapshotStorage {
     }
 
     private void completeSnapshotOperation(UUID snapshotId) {
+        LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
         synchronized (snapshotOperationLock) {
             CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 

@@ -161,13 +161,13 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             try {
                 processWriteCommand(clo);
             } catch (Throwable t) {
-                LOG.error(
-                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                        t,
-                        clo.index(), clo.index(), clo.command()
-                );
-
                 clo.result(t);
+
+                LOG.error(
+                        "Failed to process write command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.term(), clo.command()
+                );
 
                 throw t;
             }
@@ -232,10 +232,18 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 if (result.wasApplied()) {
                     // Adjust safe time before completing update to reduce waiting.
                     if (safeTimestamp != null) {
-                        updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                        try {
+                            safeTimeTracker.update(safeTimestamp, commandIndex, commandTerm, command);
+                        } catch (TrackerClosedException ignored) {
+                            // Ignored.
+                        }
                     }
 
-                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+                    try {
+                        storageIndexTracker.update(commandIndex, null);
+                    } catch (TrackerClosedException ignored) {
+                        // Ignored.
+                    }
                 }
 
                 lastAppliedIndex = max(lastAppliedIndex, commandIndex);
@@ -347,7 +355,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = max(this.lastAppliedIndex, lastAppliedIndex);
             this.lastAppliedTerm = max(this.lastAppliedTerm, lastAppliedTerm);
 
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, lastAppliedIndex);
+            try {
+                storageIndexTracker.update(lastAppliedIndex, null);
+            } catch (TrackerClosedException ignored) {
+                // Ignored.
+            }
         }
     }
 
@@ -475,17 +487,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     public void removeTableProcessor(int tableId) {
         synchronized (tableProcessorsStateLock) {
             tableProcessors.remove(tableId);
-        }
-    }
-
-    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T, Void> tracker,
-            T newValue
-    ) {
-        try {
-            tracker.update(newValue, null);
-        } catch (TrackerClosedException ignored) {
-            // No-op.
         }
     }
 

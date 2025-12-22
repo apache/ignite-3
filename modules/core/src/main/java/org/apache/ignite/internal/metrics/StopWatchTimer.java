@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.TimeUnit;
 
@@ -24,33 +24,33 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Not thread safe.</p>
  */
-class Duration {
+public class StopWatchTimer {
     private long startNanos;
 
     private long endNanos;
 
-    /** Callback before the operation starts. */
-    void onStart() {
+    /** Starts timer. */
+    public void start() {
         startNanos = System.nanoTime();
     }
 
-    /** Callback after the end of the operation. */
-    void onEnd() {
+    /** Ends timer. */
+    public void end() {
         endNanos = System.nanoTime();
     }
 
     /** Returns the start time of the operation in nanos. */
-    long startNanos() {
+    public long startNanos() {
         return startNanos;
     }
 
     /** Returns the end time of the operation in nanos. */
-    long endNanos() {
+    public long endNanos() {
         return startNanos;
     }
 
     /** Returns the duration in the specified time unit. */
-    long duration(TimeUnit timeUnit) {
+    public long duration(TimeUnit timeUnit) {
         return timeUnit.convert(endNanos - startNanos, TimeUnit.NANOSECONDS);
     }
 }

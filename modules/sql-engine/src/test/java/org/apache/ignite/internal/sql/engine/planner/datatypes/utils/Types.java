@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -75,7 +74,6 @@ public final class Types {
     public static final NativeType DECIMAL_9_7 = NativeTypes.decimalOf(9, 7);
 
     public static final NativeType DECIMAL_10_0 = NativeTypes.decimalOf(10, 0);
-    public static final NativeType DECIMAL_10_1 = NativeTypes.decimalOf(10, 1);
     public static final NativeType DECIMAL_10_3 = NativeTypes.decimalOf(10, 3);
     public static final NativeType DECIMAL_10_4 = NativeTypes.decimalOf(10, 4);
     public static final NativeType DECIMAL_10_6 = NativeTypes.decimalOf(10, 6);
@@ -137,8 +135,6 @@ public final class Types {
     public static final NativeType DECIMAL_18_16 = NativeTypes.decimalOf(18, 16);
 
     public static final NativeType DECIMAL_19_0 = NativeTypes.decimalOf(19, 0);
-    public static final NativeType DECIMAL_19_1 = NativeTypes.decimalOf(19, 1);
-    public static final NativeType DECIMAL_19_3 = NativeTypes.decimalOf(19, 3);
     public static final NativeType DECIMAL_19_6 = NativeTypes.decimalOf(19, 6);
     public static final NativeType DECIMAL_19_16 = NativeTypes.decimalOf(19, 16);
 
@@ -181,11 +177,9 @@ public final class Types {
 
     public static final NativeType DECIMAL_35_16 = NativeTypes.decimalOf(35, 16);
 
-    public static final NativeType DECIMAL_MAX_18 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 18);
+    public static final NativeType DECIMAL_38_0 = NativeTypes.decimalOf(38, 0);
 
-    public static final NativeType DECIMAL_MAX_2 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 2);
-
-    public static final NativeType DECIMAL_MAX_0 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 0);
+    public static final NativeType DECIMAL_40_18 = NativeTypes.decimalOf(40, 18);
 
     public static final NativeType TIME_0 = NativeTypes.time(0);
     public static final NativeType TIME_3 = NativeTypes.time(3);

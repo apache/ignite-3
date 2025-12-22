@@ -108,5 +108,6 @@ public class RaftConfigurationSchema {
 
     // TODO: Uncomment when the new log storage is released, see https://issues.apache.org/jira/browse/IGNITE-26300.
     // @ConfigValue
+    // @ValidLogStorageConfiguration
     // public LogStorageConfigurationSchema logStorage;
 }

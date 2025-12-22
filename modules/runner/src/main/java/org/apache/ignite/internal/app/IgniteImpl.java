@@ -598,7 +598,7 @@ public class IgniteImpl implements Ignite {
 
         FailureProcessorConfiguration failureProcessorConfiguration = nodeConfigRegistry.getConfiguration(
                 FailureProcessorExtensionConfiguration.KEY).failureHandler();
-        failureManager = new FailureManager(node::shutdown, failureProcessorConfiguration);
+        failureManager = new FailureManager(name, node::shutdown, failureProcessorConfiguration);
 
         SystemLocalConfiguration systemConfiguration = nodeConfigRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
 
@@ -1200,6 +1200,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 lowWatermark,
                 txManager,
+                partitionReplicaLifecycleManager,
                 metricManager
         );
 

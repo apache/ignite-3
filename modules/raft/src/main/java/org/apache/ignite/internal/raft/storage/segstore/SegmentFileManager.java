@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.lang.Math.toIntExact;
+import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.UNSPECIFIED_MAX_LOG_ENTRY_SIZE;
+import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.computeDefaultMaxLogEntrySizeBytes;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.RESET_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
+import org.apache.ignite.internal.raft.configuration.LogStorageView;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -118,9 +121,6 @@ class SegmentFileManager implements ManuallyCloseable {
 
     private final Path segmentFilesDir;
 
-    /** Configured size of a segment file. */
-    private final long fileSize;
-
     /** Number of stripes used by the index memtable. Should be equal to the number of stripes in the Raft server's Disruptor. */
     private final int stripes;
 
@@ -132,6 +132,12 @@ class SegmentFileManager implements ManuallyCloseable {
     private final RaftLogCheckpointer checkpointer;
 
     private final IndexFileManager indexFileManager;
+
+    /** Configured size of a segment file. */
+    private final int segmentFileSize;
+
+    /** Configured maximum log entry size. */
+    private final int maxLogEntrySize;
 
     /** Lock used to block threads while a rollover is in progress. */
     private final Object rolloverLock = new Object();
@@ -159,20 +165,26 @@ class SegmentFileManager implements ManuallyCloseable {
 
         Files.createDirectories(segmentFilesDir);
 
-        this.fileSize = toIntExact(storageConfiguration.segmentFileSizeBytes().value());
         this.stripes = stripes;
 
+        LogStorageView logStorageView = storageConfiguration.value();
+
+        segmentFileSize = toIntExact(logStorageView.segmentFileSizeBytes());
+
+        maxLogEntrySize = maxLogEntrySize(logStorageView);
+
         indexFileManager = new IndexFileManager(baseDir);
+
         checkpointer = new RaftLogCheckpointer(
                 nodeName,
                 indexFileManager,
                 failureProcessor,
-                storageConfiguration.maxCheckpointQueueSize().value()
+                logStorageView.maxCheckpointQueueSize()
         );
     }
 
     void start() throws IOException {
-        LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, fileSize);
+        LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, segmentFileSize);
 
         indexFileManager.cleanupTmpFiles();
 
@@ -236,7 +248,7 @@ class SegmentFileManager implements ManuallyCloseable {
     private SegmentFileWithMemtable allocateNewSegmentFile(int fileOrdinal) throws IOException {
         Path path = segmentFilesDir.resolve(segmentFileName(fileOrdinal, 0));
 
-        SegmentFile segmentFile = SegmentFile.createNew(path, fileSize);
+        SegmentFile segmentFile = SegmentFile.createNew(path, segmentFileSize);
 
         writeHeader(segmentFile);
 
@@ -286,10 +298,10 @@ class SegmentFileManager implements ManuallyCloseable {
     void appendEntry(long groupId, LogEntry entry, LogEntryEncoder encoder) throws IOException {
         int segmentEntrySize = SegmentPayload.size(entry, encoder);
 
-        if (segmentEntrySize > maxPossibleEntrySize()) {
+        if (segmentEntrySize > maxLogEntrySize) {
             throw new IllegalArgumentException(String.format(
                     "Segment entry is too big (%d bytes), maximum allowed segment entry size: %d bytes.",
-                    segmentEntrySize, maxPossibleEntrySize()
+                    segmentEntrySize, maxLogEntrySize
             ));
         }
 
@@ -533,10 +545,6 @@ class SegmentFileManager implements ManuallyCloseable {
         }
     }
 
-    private long maxPossibleEntrySize() {
-        return fileSize - HEADER_RECORD.length;
-    }
-
     private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
         SegmentFilePointer segmentFilePointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
 
@@ -564,5 +572,15 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         return Integer.parseInt(matcher.group("ordinal"));
+    }
+
+    private static int maxLogEntrySize(LogStorageView storageConfiguration) {
+        int valueFromConfig = storageConfiguration.maxLogEntrySizeBytes();
+
+        if (valueFromConfig != UNSPECIFIED_MAX_LOG_ENTRY_SIZE) {
+            return valueFromConfig;
+        }
+
+        return computeDefaultMaxLogEntrySizeBytes(storageConfiguration.segmentFileSizeBytes());
     }
 }
