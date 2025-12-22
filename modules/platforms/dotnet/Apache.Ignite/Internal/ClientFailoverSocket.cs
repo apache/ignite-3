@@ -105,7 +105,7 @@ namespace Apache.Ignite.Internal
             ClientIdString = ClientId.ToString();
             Configuration = configuration;
 
-            _observableTimestamp = new HybridTimestampTracker(); // TODO: from configuration.
+            _observableTimestamp = configuration.ObservableTimestamp;
         }
 
         /// <summary>

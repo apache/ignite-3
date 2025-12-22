@@ -48,7 +48,8 @@ public static class IgniteClient
         var internalConfig = new IgniteClientConfigurationInternal(
             new(configuration), // Defensive copy.
             apiTaskSource.Task,
-            dnsResolver);
+            dnsResolver,
+            new HybridTimestampTracker());
 
         var socket = await ClientFailoverSocket.ConnectAsync(internalConfig).ConfigureAwait(false);
         var client = new IgniteClientInternal(socket);
