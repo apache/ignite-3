@@ -45,18 +45,36 @@ class SegmentFile implements ManuallyCloseable {
      */
     private static final int CLOSED_POS_MARKER = -1;
 
+    private static final MappedByteBufferSyncer SYNCER = MappedByteBufferSyncer.createSyncer();
+
     private final MappedByteBuffer buffer;
 
+    /** Flag indicating if an fsync call should follow every write to the buffer. */
+    private final boolean isSync;
+
+    /** Position of the first non-reserved byte in the buffer. */
     private final AtomicInteger bufferPosition = new AtomicInteger();
 
+    /** Number of concurrent writers to the buffer. */
     private final AtomicInteger numWriters = new AtomicInteger();
 
-    private SegmentFile(RandomAccessFile file) throws IOException {
+    /** Position in the buffer <b>up to which</b> some data has been written. */
+    private volatile int lastWritePosition;
+
+    /** Position in the buffer <b>up to which</b> all written bytes have been synced. */
+    private volatile int syncPosition;
+
+    /** Lock used to atomically execute fsync. */
+    private final Object syncLock = new Object();
+
+    private SegmentFile(RandomAccessFile file, boolean isSync) throws IOException {
         //noinspection ChannelOpenedButNotSafelyClosed
         buffer = file.getChannel().map(MapMode.READ_WRITE, 0, file.length());
+
+        this.isSync = isSync;
     }
 
-    static SegmentFile createNew(Path path, long fileSize) throws IOException {
+    static SegmentFile createNew(Path path, long fileSize, boolean isSync) throws IOException {
         if (fileSize < 0) {
             throw new IllegalArgumentException("File size is negative: " + fileSize);
         }
@@ -70,17 +88,17 @@ class SegmentFile implements ManuallyCloseable {
         try (var file = new RandomAccessFile(path.toFile(), "rw")) {
             file.setLength(fileSize);
 
-            return new SegmentFile(file);
+            return new SegmentFile(file, isSync);
         }
     }
 
-    static SegmentFile openExisting(Path path) throws IOException {
+    static SegmentFile openExisting(Path path, boolean isSync) throws IOException {
         if (!Files.exists(path)) {
             throw new IllegalArgumentException("File does not exist: " + path);
         }
 
         try (var file = new RandomAccessFile(path.toFile(), "rw")) {
-            return new SegmentFile(file);
+            return new SegmentFile(file, isSync);
         }
     }
 
@@ -91,8 +109,11 @@ class SegmentFile implements ManuallyCloseable {
     class WriteBuffer implements AutoCloseable {
         private final ByteBuffer slice;
 
+        private final int pos;
+
         WriteBuffer(ByteBuffer slice) {
             this.slice = slice;
+            this.pos = slice.position();
         }
 
         ByteBuffer buffer() {
@@ -101,6 +122,17 @@ class SegmentFile implements ManuallyCloseable {
 
         @Override
         public void close() {
+            if (isSync) {
+                // Wait for all previous writes to complete.
+                while (lastWritePosition != pos) {
+                    Thread.onSpinWait();
+                }
+
+                lastWritePosition = slice.limit();
+
+                sync(slice.limit());
+            }
+
             numWriters.decrementAndGet();
         }
     }
@@ -133,6 +165,10 @@ class SegmentFile implements ManuallyCloseable {
 
         if (bytesToWrite != null && pos + bytesToWrite.length <= buffer.limit()) {
             slice(pos, bytesToWrite.length).put(bytesToWrite);
+
+            lastWritePosition = pos + bytesToWrite.length;
+        } else {
+            lastWritePosition = pos;
         }
     }
 
@@ -163,8 +199,35 @@ class SegmentFile implements ManuallyCloseable {
         }
     }
 
+    int lastWritePosition() {
+        return lastWritePosition;
+    }
+
+    int syncPosition() {
+        return syncPosition;
+    }
+
     void sync() {
-        buffer.force();
+        sync(lastWritePosition);
+    }
+
+    private void sync(int upToPosition) {
+        if (syncPosition >= upToPosition) {
+            return;
+        }
+
+        synchronized (syncLock) {
+            int syncPosition = this.syncPosition;
+
+            if (syncPosition >= upToPosition) {
+                return;
+            }
+
+            //noinspection AccessToStaticFieldLockedOnInstance
+            SYNCER.force(buffer, syncPosition, upToPosition - syncPosition);
+
+            this.syncPosition = upToPosition;
+        }
     }
 
     private @Nullable ByteBuffer reserveBytes(int size) {
