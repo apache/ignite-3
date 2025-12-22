@@ -34,7 +34,7 @@ import org.apache.ignite.rest.client.model.RestartZonePartitionsRequest;
 public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, String> {
     private final ApiClientFactory clientFactory;
 
-    /** Timeout used for disaster recovery operations. */
+    /** Same timeout as used by disaster recovery manager. */
     private static final int TIMEOUT_MILLIS = 30_000;
 
     public RestartPartitionsCall(ApiClientFactory clientFactory) {

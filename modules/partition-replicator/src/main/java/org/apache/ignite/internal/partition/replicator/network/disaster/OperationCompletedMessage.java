@@ -29,6 +29,6 @@ public interface OperationCompletedMessage extends NetworkMessage {
     /** ID of the completed operation. */
     UUID operationId();
 
-    /** Exception message if the operation failed, {@code null} otherwise. */
+    /** Exception message if the operation failed. {@code null} if operation completed successfully. */
     @Nullable String exceptionMessage();
 }

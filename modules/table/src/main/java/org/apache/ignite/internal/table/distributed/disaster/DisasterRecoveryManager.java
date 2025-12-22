@@ -1369,14 +1369,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                             MultiNodeDisasterRecoveryRequest multiNodeRequest = (MultiNodeDisasterRecoveryRequest) request;
 
-                            messagingService.send(
-                                    multiNodeRequest.coordinator(),
-                                    ChannelType.DEFAULT,
-                                    PARTITION_REPLICATION_MESSAGES_FACTORY.operationCompletedMessage()
-                                            .operationId(request.operationId())
-                                            .exceptionMessage(ex == null ? null : ex.getMessage())
-                                            .build()
-                            );
+                            if (multiNodeRequest.coordinator() != null) {
+                                messagingService.send(
+                                        multiNodeRequest.coordinator(),
+                                        ChannelType.DEFAULT,
+                                        PARTITION_REPLICATION_MESSAGES_FACTORY.operationCompletedMessage()
+                                                .operationId(request.operationId())
+                                                .exceptionMessage(ex == null ? null : ex.getMessage())
+                                                .build()
+                                );
+                            }
 
                             if (ex != null) {
                                 if (!hasCause(
