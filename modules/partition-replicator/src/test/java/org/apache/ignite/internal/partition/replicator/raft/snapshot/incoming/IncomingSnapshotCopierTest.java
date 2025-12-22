@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
@@ -143,7 +144,6 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -960,7 +960,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         Metric metric = retrieveOutgoingSnapshotMetric(snapshotsMetricsSource, metricName);
 
-        Awaitility.await().until(metric::getValueAsString, is(expectedValue));
+        await().until(metric::getValueAsString, is(expectedValue));
     }
 
     private MessagingService messagingServiceForMetrics(

@@ -593,6 +593,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      *         successful.
      */
     private CompletableFuture<Void> completeRebalance(SnapshotContext snapshotContext, @Nullable Throwable throwable) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-27428
         snapshotStats.onSnapshotInstallationEnd();
         snapshotsMetricsSource.onSnapshotInstallationEnd();
 
