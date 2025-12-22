@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import java.util.function.Supplier;
@@ -39,17 +38,6 @@ class PlainRowVersionOperations implements RowVersionOperations {
             Supplier<String> operationInfoSupplier
     ) {
         // No-op as plain row versions are not included in the write intents list.
-    }
-
-    @Override
-    public long nextWriteIntentLink(long fallbackLink) {
-        // Current row version is a plain one, so it doesn't have WI links, so we return the fallback link.
-        return fallbackLink;
-    }
-
-    @Override
-    public long prevWriteIntentLink() {
-        return NULL_LINK;
     }
 
     @Override
