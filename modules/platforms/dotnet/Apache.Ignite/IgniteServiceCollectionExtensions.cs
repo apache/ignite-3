@@ -149,8 +149,19 @@ public static class IgniteServiceCollectionExtensions
                 if (cfg.ClientConfiguration.LoggerFactory == NullLoggerFactory.Instance)
                 {
                     // Use DI logger factory if none was provided.
-                    cfg.ClientConfiguration.LoggerFactory =
-                        serviceProvider.GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
+                    var diFactory = serviceProvider.GetService<ILoggerFactory>();
+
+                    if (diFactory != null && diFactory is not NullLoggerFactory)
+                    {
+                        // Create a new config to avoid modifying the one provided by the user.
+                        cfg = cfg with
+                        {
+                            ClientConfiguration = cfg.ClientConfiguration with
+                            {
+                                LoggerFactory = diFactory
+                            }
+                        };
+                    }
                 }
 
                 return new IgniteClientGroup(cfg);
