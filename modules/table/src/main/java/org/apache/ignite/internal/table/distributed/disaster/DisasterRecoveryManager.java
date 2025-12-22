@@ -343,7 +343,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             }
 
             if (!partitionsToReset.isEmpty()) {
-                return resetPartitions(zoneDescriptor.name(), Map.of(zoneId, partitionsToReset), false, revision, true).thenApply(
+                return resetPartitions(zoneDescriptor.name(), Map.of(zoneId, partitionsToReset), false, revision).thenApply(
                         r -> false);
             } else {
                 return falseCompletedFuture();
@@ -365,7 +365,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return inBusyLock(busyLock, () -> {
             int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
-            return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1, true);
+            return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1);
         });
     }
 
@@ -390,7 +390,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return inBusyLock(busyLock, () -> {
             int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
-            return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision, true);
+            return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision);
         });
     }
 
@@ -404,16 +404,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds Map of per zone or table partitions' sets to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
-     * @param colocationEnabled Whether the update is a zone request (enabled colocation) or a table request (colocation disabled).
      * @return Future that completes when partitions are reset.
      */
-    // TODO remove colocationEnabled param, partitionIds?
     private CompletableFuture<Void> resetPartitions(
             String zoneName,
             Map<Integer, Set<Integer>> partitionIds,
             boolean manualUpdate,
-            long triggerRevision,
-            boolean colocationEnabled
+            long triggerRevision
     ) {
         return inBusyLock(busyLock, () -> {
             try {
@@ -429,8 +426,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                 catalog.version(),
                                 zone.id(),
                                 partitionIds,
-                                manualUpdate,
-                                colocationEnabled
+                                manualUpdate
                         ),
                         triggerRevision
                 );

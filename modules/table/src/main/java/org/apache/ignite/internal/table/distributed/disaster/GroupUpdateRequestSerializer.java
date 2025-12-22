@@ -31,7 +31,6 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link GroupUpdateRequest} instances.
  */
-// TODO check and update
 class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateRequest> {
     /** Serializer instance. */
     static final GroupUpdateRequestSerializer INSTANCE = new GroupUpdateRequestSerializer();
@@ -48,7 +47,8 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
         out.writeVarInt(request.zoneId());
         writeVarIntMap(request.partitionIds(), out);
         out.writeBoolean(request.manualUpdate());
-        out.writeBoolean(request.colocationEnabled());
+        // Write this boolean flag (colocation enabled, which is always true) due to compatibility reasons.
+        out.writeBoolean(true);
     }
 
     @Override
@@ -58,13 +58,13 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
         int zoneId = in.readVarIntAsInt();
         Map<Integer, Set<Integer>> partitionIds = readVarIntMap(in);
         boolean manualUpdate = in.readBoolean();
-        boolean usesZonePartitionIds;
-        if (protoVer >= 2) {
-            usesZonePartitionIds = in.readBoolean();
-        } else {
-            usesZonePartitionIds = false;
+        boolean usesZonePartitionIds = protoVer >= 2 && in.readBoolean();
+        // Non-colocated version is not supported anymore.
+        if (!usesZonePartitionIds) {
+            throw new IllegalArgumentException("Non-colocated GroupUpdateRequest is not supported [ver=" + protoVer + ']');
         }
+
         return GroupUpdateRequest
-                .create(operationId, catalogVersion, zoneId, partitionIds, manualUpdate, usesZonePartitionIds);
+                .create(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
     }
 }

@@ -34,23 +34,14 @@ import org.apache.ignite.internal.tostring.S;
  * the original group, in the case of the automatic reset.
  */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
-
     private final UUID operationId;
 
-    /**
-     * Catalog version at the moment of operation creation. Must match catalog version at the moment of operation execution.
-     */
+    /** Catalog version at the moment of operation creation. Must match catalog version at the moment of operation execution. */
     private final int catalogVersion;
 
     private final int zoneId;
 
-    // TODO remove
-    private final boolean colocationEnabled;
-
-    /**
-     * Map of (tableId -> setOfPartitions) to reset if colocation is disabled
-     * or map of (zoneId -> setOfPartitions) to reset if colocation is enabled.
-     */
+    /** Map of (zoneId -> setOfPartitions) to reset if colocation is enabled. */
     private final Map<Integer, Set<Integer>> partitionIds;
 
     private final boolean manualUpdate;
@@ -60,15 +51,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             int catalogVersion,
             int zoneId,
             Map<Integer, Set<Integer>> partitionIds,
-            boolean manualUpdate,
-            boolean colocationEnabled
+            boolean manualUpdate
     ) {
         this.operationId = operationId;
         this.catalogVersion = catalogVersion;
         this.zoneId = zoneId;
         this.partitionIds = Map.copyOf(partitionIds);
         this.manualUpdate = manualUpdate;
-        this.colocationEnabled = colocationEnabled;
     }
 
     @Override
@@ -98,23 +87,14 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         return manualUpdate;
     }
 
-    /**
-     * Returns {@code true} if this request is a zone request with enabled colocation and {@code false} if this is a table request with
-     * colocation disabled.
-     */
-    boolean colocationEnabled() {
-        return colocationEnabled;
-    }
-
     public static GroupUpdateRequest create(
             UUID operationId,
             int catalogVersion,
             int zoneId,
             Map<Integer, Set<Integer>> partitionIds,
-            boolean manualUpdate,
-            boolean colocationEnabled
+            boolean manualUpdate
     ) {
-        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate, colocationEnabled);
+        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
     }
 
     @Override

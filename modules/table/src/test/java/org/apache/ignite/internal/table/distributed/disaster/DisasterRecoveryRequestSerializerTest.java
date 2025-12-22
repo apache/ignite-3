@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Base64;
 import java.util.Map;
@@ -38,51 +39,30 @@ class DisasterRecoveryRequestSerializerTest {
 
     @Test
     void serializationAndDeserializationOfGroupUpdateRequest() {
-        var originalRequest = GroupUpdateRequest.create(
-                new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
-                1000,
-                2000,
-                Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
-                true,
-                false
-        );
-
-        byte[] bytes = VersionedSerialization.toBytes(originalRequest, serializer);
-        GroupUpdateRequest restoredRequest = (GroupUpdateRequest) VersionedSerialization.fromBytes(bytes, serializer);
-
-        assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
-        assertThat(restoredRequest.catalogVersion(), is(1000));
-        assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
-        assertThat(restoredRequest.manualUpdate(), is(true));
-        assertThat(restoredRequest.colocationEnabled(), is(false));
-
         var colocatedZoneRequest = GroupUpdateRequest.create(
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 1000,
                 2000,
                 Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
-                true,
                 true
         );
 
         byte[] bytesZone = VersionedSerialization.toBytes(colocatedZoneRequest, serializer);
         GroupUpdateRequest restoredZoneRequest = (GroupUpdateRequest) VersionedSerialization.fromBytes(bytesZone, serializer);
 
-        assertThat(restoredZoneRequest.colocationEnabled(), is(true));
+        assertThat(restoredZoneRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
+        assertThat(restoredZoneRequest.catalogVersion(), is(1000));
+        assertThat(restoredZoneRequest.zoneId(), is(2000));
+        assertThat(restoredZoneRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
+        assertThat(restoredZoneRequest.manualUpdate(), is(true));
     }
 
     @Test
-    void v1OfGroupUpdateRequestCanBeDeserialized() {
+    void v1OfGroupUpdateRequestIsNotSupported() {
+        // Non-colocated version of GroupUpdateRequest is not supported anymore.
         byte[] bytes = Base64.getDecoder().decode(GROUP_UPDATE_REQUEST_V1_BASE64);
-        GroupUpdateRequest restoredRequest = (GroupUpdateRequest) VersionedSerialization.fromBytes(bytes, serializer);
 
-        assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
-        assertThat(restoredRequest.catalogVersion(), is(1000));
-        assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
-        assertThat(restoredRequest.manualUpdate(), is(true));
-        assertThat(restoredRequest.colocationEnabled(), is(false));
+        assertThrows(IllegalArgumentException.class, () -> VersionedSerialization.fromBytes(bytes, serializer));
     }
 
     @Test
@@ -95,7 +75,6 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.zoneId(), is(2000));
         assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
         assertThat(restoredRequest.manualUpdate(), is(true));
-        assertThat(restoredRequest.colocationEnabled(), is(true));
     }
 
     @Test
@@ -171,7 +150,6 @@ class DisasterRecoveryRequestSerializerTest {
                 1000,
                 2000,
                 Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
-                true,
                 true
         );
 
