@@ -66,13 +66,13 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
 
     @Override
     protected RowVersion insertFirstRowVersion() {
-        WiLinkableRowVersion newVersion = insertRowVersion(NULL_LINK);
+        WiLinkableRowVersion newVersion = insertWiLinkableRowVersion(NULL_LINK);
 
         long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
         long newWiListHeadLink = wiListHeadLink;
 
         try {
-            updateWiListLinks(newVersion.link(), new WriteIntentLinks(wiListHeadLink, NULL_LINK));
+            updateWiListLinks(newVersion.link(), new WriteIntentLinks(NULL_LINK, wiListHeadLink));
 
             newWiListHeadLink = newVersion.link();
         } finally {
@@ -83,22 +83,28 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
     }
 
     @Override
-    protected RowVersion insertAnotherRowVersion(VersionChain oldRow, @Nullable RowVersion existingWriteIntent) {
-        boolean replacingExistingWriteIntent = oldRow.isUncommitted();
+    protected RowVersion insertAnotherRowVersion(VersionChain chain, @Nullable RowVersion existingWriteIntent) {
+        boolean replacingExistingWriteIntent = chain.isUncommitted();
         assert replacingExistingWriteIntent == (existingWriteIntent != null);
 
-        WiLinkableRowVersion newVersion = insertRowVersion(oldRow.newestCommittedLink());
+        WiLinkableRowVersion newVersion = insertWiLinkableRowVersion(chain.newestCommittedLink());
 
         long wiListHeadLink = persistentStorage.lockWriteIntentListHead();
         long newWiListHeadLink = wiListHeadLink;
 
         try {
-            WriteIntentLinks newWiLinks = newWiLinksForReplacement(existingWriteIntent, replacingExistingWriteIntent, wiListHeadLink);
+            WriteIntentLinks newWiLinks = newWiLinksForReplacement(existingWriteIntent, wiListHeadLink);
 
             updateWiListLinks(newVersion.link(), newWiLinks);
 
-            if (!replacingExistingWriteIntent) {
-                // Add our new version to the head of the WI list.
+            // We do not zero out links in the replaced write intent as no one will be able to use them to traverse WI list
+            // (as we hold the WI list lock).
+
+            if (newWiLinks.prevWriteIntentLink() == NULL_LINK) {
+                // Add our new version to the head of the WI list, because one of the following is true:
+                // 1. we are not replacing an existing write intent
+                // 2. we are replacing an existing write intent that is not linkable (so it's not included in the WI list)
+                // 3. we are replacing an existing write intent that is linkable, but it's pointed to by the WI list head.
                 newWiListHeadLink = newVersion.link();
             }
         } finally {
@@ -108,27 +114,18 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
         return newVersion;
     }
 
-    private static WriteIntentLinks newWiLinksForReplacement(
-            @Nullable RowVersion existingWriteIntent,
-            boolean replacingExistingWriteIntent,
-            long wiListHeadLink
-    ) {
-        assert replacingExistingWriteIntent == (existingWriteIntent != null);
+    private WriteIntentLinks newWiLinksForReplacement(@Nullable RowVersion existingWriteIntent, long wiListHeadLink) {
+        assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
 
-        long newNextWiLink;
-        long newPrevWiLink;
-        if (replacingExistingWriteIntent) {
-            newNextWiLink = existingWriteIntent.operations().nextWriteIntentLink(wiListHeadLink);
-            newPrevWiLink = existingWriteIntent.operations().prevWriteIntentLink();
-        } else {
-            newNextWiLink = wiListHeadLink;
-            newPrevWiLink = NULL_LINK;
+        if (existingWriteIntent instanceof WiLinkableRowVersion) {
+            // Re-read the links under WI list lock to be sure they are up-to-date (this is a form of the double-checked locking idiom).
+            return persistentStorage.readWriteIntentLinks(existingWriteIntent.link());
         }
 
-        return new WriteIntentLinks(newNextWiLink, newPrevWiLink);
+        return new WriteIntentLinks(NULL_LINK, wiListHeadLink);
     }
 
-    private WiLinkableRowVersion insertRowVersion(long nextLink) {
+    private WiLinkableRowVersion insertWiLinkableRowVersion(long nextLink) {
         var rowVersion = new WiLinkableRowVersion(rowId, storage.partitionId, nextLink, NULL_LINK, NULL_LINK, row);
 
         storage.insertRowVersion(rowVersion);
@@ -137,6 +134,8 @@ class AddWriteLinkingWiInvokeClosure extends AddWriteInvokeClosure {
     }
 
     private void updateWiListLinks(long newRowVersionLink, WriteIntentLinks newWiLinks) {
+        assert persistentStorage.writeIntentHeadIsLockedByCurrentThread();
+
         try {
             freeList.updateDataRow(newRowVersionLink, UpdateWiLinksHandler.INSTANCE, newWiLinks);
         } catch (IgniteInternalCheckedException e) {

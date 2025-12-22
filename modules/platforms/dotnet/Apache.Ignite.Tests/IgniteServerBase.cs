@@ -42,12 +42,12 @@ public abstract class IgniteServerBase : IDisposable
 
     private volatile bool _dropNewConnections;
 
-    protected IgniteServerBase(int port = 0)
+    protected IgniteServerBase(IPAddress? address = null, int port = 0)
     {
         _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         _listener.NoDelay = true;
 
-        _listener.Bind(new IPEndPoint(IPAddress.Any, port));
+        _listener.Bind(new IPEndPoint(address ?? IPAddress.Any, port));
         _listener.Listen();
 
         Name = TestContext.CurrentContext.Test.Name;

@@ -36,6 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -64,6 +66,8 @@ import org.rocksdb.WriteBatch;
  * Tx state storage implementation based on RocksDB.
  */
 public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(TxStateRocksDbPartitionStorage.class);
+
     /** Prefix length for the payload. Consists of tableId/zoneId (4 bytes) and partitionId (2 bytes), both in Big Endian. */
     public static final int PREFIX_SIZE_BYTES = ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
 
@@ -420,6 +424,8 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
+        LOG.info("Starting rebalance for transaction state storage [zoneId={}, partitionId={}]", zoneId, partitionId);
+
         transitionFromRunningStateTo(StorageState.REBALANCE);
 
         busyLock.block();

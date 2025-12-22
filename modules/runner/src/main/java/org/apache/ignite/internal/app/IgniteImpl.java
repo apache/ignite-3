@@ -1202,6 +1202,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 lowWatermark,
                 txManager,
+                partitionReplicaLifecycleManager,
                 metricManager
         );
 

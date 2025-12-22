@@ -51,16 +51,6 @@ class WiLinkableRowVersionOperations implements RowVersionOperations {
     }
 
     @Override
-    public long nextWriteIntentLink(long fallbackLink) {
-        return rowVersion.nextWriteIntentLink();
-    }
-
-    @Override
-    public long prevWriteIntentLink() {
-        return rowVersion.prevWriteIntentLink();
-    }
-
-    @Override
     public PageHandler<HybridTimestamp, Object> converterToCommittedVersion() {
         return ConvertToCommittedVersion.INSTANCE;
     }

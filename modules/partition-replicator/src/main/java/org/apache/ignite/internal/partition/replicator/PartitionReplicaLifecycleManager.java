@@ -2007,11 +2007,18 @@ public class PartitionReplicaLifecycleManager extends
      * Returns resources for the given zone partition.
      */
     public ZonePartitionResources zonePartitionResources(ZonePartitionId zonePartitionId) {
-        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
+        ZonePartitionResources resources = zonePartitionResourcesOrNull(zonePartitionId);
 
         assert resources != null : String.format("Missing resources for zone partition [zonePartitionId=%s]", zonePartitionId);
 
         return resources;
+    }
+
+    /**
+     * Returns resources for the given zone partition or {@code null} if not available (because the replica is stopped/destroyed).
+     */
+    public @Nullable ZonePartitionResources zonePartitionResourcesOrNull(ZonePartitionId zonePartitionId) {
+        return zoneResourcesManager.getZonePartitionResources(zonePartitionId);
     }
 
     /**

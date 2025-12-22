@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZip
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -150,6 +151,25 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         assertThat(deploy(id, version, false, bigFile), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
+    }
+
+    @Test
+    public void versions() {
+        // Pass multiple files to test discarding in the error handler in the controller.
+        assertThrowsProblem(
+                () -> deploy(UNIT_ID, "1.1.1.1-foo_", false, smallFile, smallFile, smallFile, smallFile, smallFile),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Invalid version format of provided version: 1.1.1.1-foo_")
+        );
+
+        String version = "1.1.1.1-foo";
+
+        assertThat(deploy(UNIT_ID, version, false, smallFile), hasStatus(OK));
+
+        awaitDeployedStatus(UNIT_ID, version);
+
+        assertThat(list(UNIT_ID), contains(new UnitStatus(UNIT_ID, List.of(new UnitVersionStatus(version, DEPLOYED)))));
+
+        assertThat(undeploy(UNIT_ID, version), hasStatus(OK));
     }
 
     @Test

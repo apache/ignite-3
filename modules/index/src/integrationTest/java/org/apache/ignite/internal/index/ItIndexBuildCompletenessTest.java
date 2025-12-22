@@ -43,7 +43,6 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
@@ -82,11 +81,10 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27349")
     void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompleteness() {
         createTestTable(cluster, 1, 1);
 
-        List<Transaction> transactions = IntStream.range(0, 2)
+        List<Transaction> transactions = IntStream.range(0, 100)
                 .mapToObj(n -> cluster.node(0).transactions().begin())
                 .collect(toUnmodifiableList());
 
@@ -100,7 +98,7 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
         for (int i = 0; i < transactions.size(); i++) {
             Transaction tx = transactions.get(i);
             try {
-                kvView.put(tx, i, 11);
+                kvView.put(tx, i, 42);
                 tx.commit();
             } catch (RuntimeException e) {
                 if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {

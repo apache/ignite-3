@@ -102,6 +102,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
@@ -421,11 +422,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
-                indexMetaStorage,
-                indexBuildingProcessor.tracker(),
-                safeTime,
-                raftCommandApplicator);
+        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator);
     }
 
     @Override
@@ -3451,6 +3448,16 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         busyLock.block();
 
         indexBuildingProcessor.onShutdown();
+    }
+
+    @Override
+    public TableTxRwOperationTracker txRwOperationTracker() {
+        return indexBuildingProcessor.tracker();
+    }
+
+    @Override
+    public PendingComparableValuesTracker<HybridTimestamp, Void> safeTime() {
+        return safeTime;
     }
 
     private int partId() {

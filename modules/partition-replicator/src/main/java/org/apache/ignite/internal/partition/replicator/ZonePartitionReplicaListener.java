@@ -65,6 +65,7 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -322,6 +323,11 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     public void removeTableReplicaProcessor(int tableId) {
         replicaProcessors.remove(tableId);
+    }
+
+    public @Nullable ReplicaTableSegment segmentFor(int tableId) {
+        ReplicaTableProcessor processor = replicaProcessors.get(tableId);
+        return processor == null ? null : new ReplicaTableSegment(processor.txRwOperationTracker(), processor.safeTime());
     }
 
     /**

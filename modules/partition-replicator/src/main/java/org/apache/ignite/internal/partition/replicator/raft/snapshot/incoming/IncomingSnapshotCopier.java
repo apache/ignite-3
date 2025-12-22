@@ -73,6 +73,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageA
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -134,6 +135,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     @Nullable
     private volatile CompletableFuture<Void> joinFuture;
 
+    private final IncomingSnapshotStats snapshotStats = new IncomingSnapshotStats();
+
     /**
      * Constructor.
      *
@@ -158,7 +161,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void start() {
-        LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
+        snapshotStats.onSnapshotInstallationStart();
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Rebalance is started [snapshotId={}, {}]", snapshotUri.snapshotId, createPartitionInfo());
+        }
 
         InternalClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
@@ -218,11 +225,35 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private CompletableFuture<?> waitForMetadataWithTimeout(PartitionSnapshotMeta snapshotMeta) {
+        snapshotStats.onWaitingCatalogPhaseStart();
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Waiting for catalog version [snapshotId={}, {}, catalogVersion={}]",
+                    snapshotUri.snapshotId,
+                    createPartitionInfo(),
+                    snapshotMeta.requiredCatalogVersion()
+            );
+        }
+
         CompletableFuture<?> metadataReadyFuture = partitionSnapshotStorage.catalogService()
                 .catalogReadyFuture(snapshotMeta.requiredCatalogVersion());
         CompletableFuture<?> readinessTimeoutFuture = completeOnMetadataReadinessTimeout();
 
-        return anyOf(metadataReadyFuture, readinessTimeoutFuture);
+        return anyOf(metadataReadyFuture, readinessTimeoutFuture)
+                .whenComplete((ignored, throwable) -> {
+                    snapshotStats.onWaitingCatalogPhaseEnd();
+
+                    if (LOG.isInfoEnabled()) {
+                        LOG.info(
+                                "Finished waiting for the catalog readiness [snapshotId={}, {}, waitingTime={}ms, result={}]",
+                                snapshotUri.snapshotId,
+                                createPartitionInfo(),
+                                snapshotStats.totalWaitingCatalogPhaseDuration(),
+                                metadataIsSufficientlyComplete(snapshotMeta) ? "success" : "timeout"
+                        );
+                    }
+                });
     }
 
     private CompletableFuture<?> completeOnMetadataReadinessTimeout() {
@@ -268,7 +299,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         busyLock.block();
 
-        LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Rebalance is canceled [snapshotId={}, {}]", snapshotUri.snapshotId, createPartitionInfo());
+        }
 
         // Cancel all futures that might be upstream wrt joinFuture.
         List<CompletableFuture<?>> futuresToCancel = Stream.of(snapshotMetaFuture, rebalanceFuture)
@@ -317,6 +350,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return nullCompletedFuture();
         }
 
+        snapshotStats.onLoadSnapshotPhaseStart();
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Start loading snapshot meta [snapshotId={}, {}]", snapshotUri.snapshotId, createPartitionInfo());
+        }
+
         try {
             return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
@@ -325,7 +364,17 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             ).thenApply(response -> {
                 PartitionSnapshotMeta snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
-                LOG.info("Copier has loaded the snapshot meta for the partition [{}, meta={}]", createPartitionInfo(), snapshotMeta);
+                snapshotStats.onLoadSnapshotPhaseEnd();
+
+                if (LOG.isInfoEnabled()) {
+                    LOG.info(
+                            "Snapshot meta has been loaded [snapshotId={}, {}, meta={}, loadingTime={}ms]",
+                            snapshotUri.snapshotId,
+                            createPartitionInfo(),
+                            snapshotMeta,
+                            snapshotStats.totalLoadSnapshotPhaseDuration()
+                    );
+                }
 
                 return snapshotMeta;
             });
@@ -364,6 +413,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return nullCompletedFuture();
         }
 
+        snapshotStats.onLoadMvDataPhaseStart();
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Start loading multi-versioned data [snapshotId={}, {}]",
+                    snapshotUri.snapshotId,
+                    createPartitionInfo()
+            );
+        }
+
         try {
             return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
@@ -390,20 +449,34 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     }
                 }
 
+                snapshotStats.onMvBatchProcessing(snapshotMvDataResponse.rows().size());
+
                 if (snapshotMvDataResponse.finish()) {
-                    LOG.info(
-                            "Copier has finished loading multi-versioned data [{}, rows={}]",
-                            createPartitionInfo(),
-                            snapshotMvDataResponse.rows().size()
-                    );
+                    snapshotStats.onLoadMvDataPhaseEnd();
+
+                    if (LOG.isInfoEnabled()) {
+                        LOG.info(
+                                "Multi-versioned data has been loaded [snapshotId={}, {}, totalRows={}, totalBatches={},"
+                                        + " mvDataLoadingTime={}ms]",
+                                snapshotUri.snapshotId,
+                                createPartitionInfo(),
+                                snapshotMvDataResponse.rows().size(),
+                                snapshotStats.totalMvDataRows(),
+                                snapshotStats.totalMvDataBatches(),
+                                snapshotStats.loadMvDataPhaseDuration()
+                        );
+                    }
 
                     return nullCompletedFuture();
                 } else {
-                    LOG.info(
-                            "Copier has loaded a portion of multi-versioned data [{}, rows={}]",
-                            createPartitionInfo(),
-                            snapshotMvDataResponse.rows().size()
-                    );
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(
+                                "A portion of multi-versioned data has been loaded [snapshotId={}, {}, rows={}]",
+                                snapshotUri.snapshotId,
+                                createPartitionInfo(),
+                                snapshotMvDataResponse.rows().size()
+                        );
+                    }
 
                     // Let's upload the rest.
                     return loadSnapshotMvData(snapshotContext, snapshotSender);
@@ -420,6 +493,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private CompletableFuture<Void> loadSnapshotTxData(InternalClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
+        }
+
+        snapshotStats.onLoadTxMetasPhaseStart();
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Start loading transaction meta data [snapshotId={}, {}]",
+                    snapshotUri.snapshotId,
+                    createPartitionInfo()
+            );
         }
 
         try {
@@ -450,20 +533,34 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     }
                 }
 
+                snapshotStats.onTxMetasBatchProcessing(snapshotTxDataResponse.txMeta().size());
+
                 if (snapshotTxDataResponse.finish()) {
-                    LOG.info(
-                            "Copier has finished loading transaction meta [{}, metas={}]",
-                            createPartitionInfo(),
-                            snapshotTxDataResponse.txMeta().size()
-                    );
+                    snapshotStats.onLoadTxMetasPhaseEnd();
+
+                    if (LOG.isInfoEnabled()) {
+                        LOG.info(
+                                "Transaction meta has been loaded [snapshotId={}, {}, totalMetas={}, totalBatches={},"
+                                        + " metaLoadingTime={}ms]",
+                                snapshotUri.snapshotId,
+                                createPartitionInfo(),
+                                snapshotTxDataResponse.txMeta().size(),
+                                snapshotStats.totalTxMetas(),
+                                snapshotStats.totalTxMetasBatches(),
+                                snapshotStats.loadTxMetasPhaseDuration()
+                        );
+                    }
 
                     return nullCompletedFuture();
                 } else {
-                    LOG.info(
-                            "Copier has loaded a portion of transaction meta [{}, metas={}]",
-                            createPartitionInfo(),
-                            snapshotTxDataResponse.txMeta().size()
-                    );
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(
+                                "A portion of transaction meta has been loaded [snapshotId={}, {}, metas={}]",
+                                snapshotUri.snapshotId,
+                                createPartitionInfo(),
+                                snapshotTxDataResponse.txMeta().size()
+                        );
+                    }
 
                     // Let's upload the rest.
                     return loadSnapshotTxData(snapshotSender);
@@ -481,6 +578,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      *         successful.
      */
     private CompletableFuture<Void> completeRebalance(SnapshotContext snapshotContext, @Nullable Throwable throwable) {
+        snapshotStats.onSnapshotInstallationEnd();
+
         if (!busyLock.enterBusy()) {
             if (isOk()) {
                 setError(RaftError.ECANCELED, "Copier is cancelled");
@@ -508,7 +607,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             }
 
             if (LOG.isInfoEnabled()) {
-                LOG.info("Copier completes the rebalancing of the partition: [{}, meta={}]", createPartitionInfo(), snapshotContext.meta);
+                LOG.info(
+                        "Rebalance is done [{}, meta={}, rebalanceTime={}ms]",
+                        createPartitionInfo(),
+                        snapshotContext.meta,
+                        snapshotStats.totalSnapshotInstallationDuration()
+                );
             }
 
             MvPartitionMeta snapshotMeta = mvPartitionMeta(snapshotContext);
@@ -577,7 +681,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private String createPartitionInfo() {
-        return partitionSnapshotStorage.partitionKey().toString();
+        ZonePartitionKey partitionKey = partitionSnapshotStorage.partitionKey();
+
+        return "zoneId=" + partitionKey.zoneId() + ", partitionId=" + partitionKey.partitionId();
     }
 
     private void writeVersion(SnapshotContext snapshotContext, ResponseEntry entry, int entryIndex) {
@@ -623,8 +729,19 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return;
         }
 
+        snapshotStats.onSetRowIdToBuildPhaseStart();
+
         try {
             Map<Integer, UUID> nextRowUuidToBuildByIndexId = snapshotContext.meta.nextRowIdToBuildByIndexId();
+
+            if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "Setting next row ID for index building [snapshotId={}, {}, indexIdToRowId={}]",
+                        snapshotUri.snapshotId,
+                        createPartitionInfo(),
+                        nextRowUuidToBuildByIndexId
+                );
+            }
 
             if (nullOrEmpty(nextRowUuidToBuildByIndexId)) {
                 return;
@@ -653,6 +770,17 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     partitionAccess.setNextRowIdToBuildIndex(e.getValue());
                 }
             }
+
+            snapshotStats.onSetRowIdToBuildPhaseEnd();
+
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Finished setting next row ID for index building [snapshotId={}, {}, totalTime={}ms]",
+                        snapshotUri.snapshotId,
+                        createPartitionInfo(),
+                        snapshotStats.totalSetRowIdToBuildPhaseDuration()
+                );
+            }
+
         } finally {
             busyLock.leaveBusy();
         }
@@ -688,11 +816,33 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return nullCompletedFuture();
         }
 
+        snapshotStats.onPreparingStoragePhaseStart();
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Preparing storages for snapshot installation [snapshotId={}, {}]",
+                    snapshotUri.snapshotId,
+                    createPartitionInfo()
+            );
+        }
+
         try {
             return allOf(
                     aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
                     partitionSnapshotStorage.txState().startRebalance()
-            ).thenComposeAsync(unused -> startRebalanceForReplicationLogStorages(snapshotContext), executor);
+            ).thenComposeAsync(unused -> startRebalanceForReplicationLogStorages(snapshotContext), executor)
+                    .whenComplete((ignore, throwable) -> {
+                        snapshotStats.onPreparingStoragePhaseEnd();
+
+                        if (LOG.isInfoEnabled()) {
+                            LOG.info(
+                                    "Storages are prepared to load data [snapshotId={}, {}, preparationTime={}ms]",
+                                    snapshotUri.snapshotId,
+                                    createPartitionInfo(),
+                                    snapshotStats.totalPreparingStoragePhaseDuration()
+                            );
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }
@@ -763,6 +913,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private void startRebalanceForReplicationLogStorage(ReplicationLogStorageKey key) throws IgniteInternalException {
         try {
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Start rebalance for the replication log storage [snapshotId={}, {}]", snapshotUri.snapshotId, key);
+            }
+
             LogStorageAccess logStorage = partitionSnapshotStorage.logStorage();
 
             logStorage.destroy(key.replicationGroupId(), key.isVolatile());

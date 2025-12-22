@@ -41,7 +41,7 @@ class IncomingSnapshotReader extends SnapshotReader {
     }
 
     @Override
-    public SnapshotMeta load() {
+    public @Nullable SnapshotMeta load() {
         return snapshotMeta;
     }
 

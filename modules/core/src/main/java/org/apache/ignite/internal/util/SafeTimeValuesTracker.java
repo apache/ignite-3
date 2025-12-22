@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.Map;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,8 +33,20 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
         super(initialValue);
     }
 
-    @Override
-    public void update(HybridTimestamp newValue, @Nullable Void futureResult) {
+    // Holds successful application context.
+    private long commandIndex;
+    private long commandTerm;
+    private String commandClassName;
+
+    /**
+     * Update safe timestamp.
+     *
+     * @param safeTs The value.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     * @param command The command.
+     */
+    public void update(HybridTimestamp safeTs, long commandIndex, long commandTerm, Object command) {
         if (!enterBusy()) {
             throw new TrackerClosedException();
         }
@@ -39,15 +54,23 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
         try {
             Map.Entry<HybridTimestamp, @Nullable Void> current = this.current;
 
-            IgniteBiTuple<HybridTimestamp, @Nullable Void> newEntry = new IgniteBiTuple<>(newValue, futureResult);
+            IgniteBiTuple<HybridTimestamp, @Nullable Void> newEntry = new IgniteBiTuple<>(safeTs, null);
 
             // Entries from the same batch receive equal safe timestamps.
             if (comparator.compare(newEntry, current) < 0) {
-                throw new AssertionError("Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
+                throw new IgniteInternalException(INTERNAL_ERR,
+                        "Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1()
+                                + ", oldIndex=" + this.commandIndex
+                                + ", oldTerm=" + this.commandTerm
+                                + ", oldCommandClassName=" + this.commandClassName
+                                + ']');
             }
 
             CURRENT.set(this, newEntry);
-            completeWaitersOnUpdate(newValue, futureResult);
+
+            this.commandIndex = commandIndex;
+            this.commandTerm = commandTerm;
+            this.commandClassName = command.getClass().getName();
         } finally {
             leaveBusy();
         }

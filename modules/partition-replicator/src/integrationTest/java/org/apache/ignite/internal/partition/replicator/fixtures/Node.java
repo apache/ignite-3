@@ -849,6 +849,7 @@ public class Node {
                 failureManager,
                 lowWatermark,
                 txManager,
+                partitionReplicaLifecycleManager,
                 metricManager
         );
 
