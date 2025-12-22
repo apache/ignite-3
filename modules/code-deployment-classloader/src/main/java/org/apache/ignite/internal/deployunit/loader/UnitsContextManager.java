@@ -101,7 +101,7 @@ public class UnitsContextManager {
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
                 .thenApply(loader -> new UnitsClassLoaderContext(loader, this::releaseClassLoader));
 
-        CompletableFuture<UnitsClassLoaderContext> contextFut = loaderFut
+        CompletableFuture<UnitsClassLoaderContext> contextFut = mapClassLoaderExceptions(loaderFut, id)
                 .whenComplete((context, error) -> {
                     if (error != null) {
                         LOG.error("Failed to acquire class loader for units: " + units, error);
@@ -118,7 +118,7 @@ public class UnitsContextManager {
             return null;
         });
 
-        return mapClassLoaderExceptions(contextFut, id);
+        return contextFut;
     }
 
     /**
