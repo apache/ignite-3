@@ -281,7 +281,7 @@ internal static class ResultSelector
         var method = new DynamicMethod(
             name: $"KvPairFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            parameterTypes: [typeof(ResultSetMetadata), typeof(BinaryTupleReader).MakeByRefType(), typeof(object)],
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 
