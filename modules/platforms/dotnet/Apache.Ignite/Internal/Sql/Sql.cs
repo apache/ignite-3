@@ -33,6 +33,7 @@ namespace Apache.Ignite.Internal.Sql
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Table;
     using Table.Serialization;
     using Transactions;
 
@@ -86,7 +87,13 @@ namespace Apache.Ignite.Internal.Sql
             // TODO: Cache or avoid allocation?
             RowReaderFactory<T> rowReaderFactory = cols =>
             {
-                return (IReadOnlyList<IColumnMetadata> list, ref BinaryTupleReader reader) => { return default(T)!; };
+                return (IReadOnlyList<IColumnMetadata> list, ref BinaryTupleReader reader) =>
+                {
+                    var mapperCols = list.Cast<IMapperColumn>().ToList();
+
+                    var mapperReader = new RowReader(ref reader, mapperCols);
+                    return mapper.Read(ref mapperReader, new MapperSchema(mapperCols));
+                };
             };
 
             return await ExecuteAsyncInternal(
