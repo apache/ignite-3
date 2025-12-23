@@ -79,9 +79,7 @@ namespace Apache.Ignite.Internal.Compute
             {
                 JobTarget.SingleNodeTarget singleNode => SubmitAsync([singleNode.Data], jobDescriptor, arg, cancellationToken),
                 JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg, cancellationToken),
-
-                // TODO: Should mapper come from target?
-                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg, null, cancellationToken),
+                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg, cancellationToken),
 
                 _ => throw new ArgumentException("Unsupported job target: " + target)
             };
@@ -610,7 +608,6 @@ namespace Apache.Ignite.Internal.Compute
             JobTarget.ColocatedTarget<TKey> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
             TArg arg,
-            IMapper<TKey>? mapper,
             CancellationToken cancellationToken)
             where TKey : notnull
         {
@@ -628,10 +625,10 @@ namespace Apache.Ignite.Internal.Compute
                     .ConfigureAwait(false);
             }
 
-            if (mapper != null)
+            if (target.Mapper != null)
             {
                 // TODO: Avoid allocation.
-                Func<Table, IRecordSerializerHandler<TKey>> handlerFunc = _ => new MapperSerializerHandler<TKey>(mapper);
+                Func<Table, IRecordSerializerHandler<TKey>> handlerFunc = _ => new MapperSerializerHandler<TKey>(target.Mapper);
 
                 return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                         target.TableName,
