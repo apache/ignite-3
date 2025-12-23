@@ -16,6 +16,8 @@
  */
 
 #include "tcp_client_channel.h"
+
+#include <algorithm>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>

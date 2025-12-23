@@ -745,6 +745,7 @@ public class Node {
                 schemaManager,
                 dataStorageMgr,
                 outgoingSnapshotsManager,
+                metricManager,
                 clusterService.messagingService(),
                 replicaSvc
         );

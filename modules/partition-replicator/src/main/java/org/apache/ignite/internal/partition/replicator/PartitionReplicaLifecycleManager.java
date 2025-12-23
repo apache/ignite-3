@@ -126,6 +126,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
@@ -268,6 +269,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
+    private final MetricManager metricManager;
+
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final TransactionStateResolver transactionStateResolver;
@@ -302,6 +305,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param schemaManager Schema manager.
      * @param dataStorageManager Data storage manager.
      * @param outgoingSnapshotsManager Outgoing snapshots manager.
+     * @param metricManager Metric manager.
      * @param messagingService Messaging service.
      * @param replicaService Replica service.
      */
@@ -326,6 +330,7 @@ public class PartitionReplicaLifecycleManager extends
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
+            MetricManager metricManager,
             MessagingService messagingService,
             ReplicaService replicaService
     ) {
@@ -358,6 +363,7 @@ public class PartitionReplicaLifecycleManager extends
                         partitionOperationsExecutor,
                         replicaMgr
                 ),
+                metricManager,
                 messagingService,
                 replicaService
         );
@@ -384,6 +390,7 @@ public class PartitionReplicaLifecycleManager extends
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             ZoneResourcesManager zoneResourcesManager,
+            MetricManager metricManager,
             MessagingService messagingService,
             ReplicaService replicaService
     ) {
@@ -405,6 +412,7 @@ public class PartitionReplicaLifecycleManager extends
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
+        this.metricManager = metricManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -462,6 +470,9 @@ public class PartitionReplicaLifecycleManager extends
         rebalanceRetryDelayConfiguration.init();
 
         executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
+
+        metricManager.registerSource(zoneResourcesManager.snapshotsMetricsSource());
+        metricManager.enable(zoneResourcesManager.snapshotsMetricsSource());
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -1691,6 +1702,8 @@ public class PartitionReplicaLifecycleManager extends
         }
 
         try {
+            metricManager.unregisterSource(zoneResourcesManager.snapshotsMetricsSource());
+
             IgniteUtils.closeAllManually(zoneResourcesManager);
         } catch (Exception e) {
             return failedFuture(e);

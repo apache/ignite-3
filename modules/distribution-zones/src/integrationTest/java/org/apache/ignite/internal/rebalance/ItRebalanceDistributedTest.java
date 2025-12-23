@@ -1557,6 +1557,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     dataStorageMgr,
                     outgoingSnapshotManager,
+                    metricManager,
                     clusterService.messagingService(),
                     replicaSvc
             );

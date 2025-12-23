@@ -82,6 +82,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -285,6 +286,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 zoneResourcesManager,
+                new NoOpMetricManager(),
                 clusterService.messagingService(),
                 mock(ReplicaService.class)
         );
