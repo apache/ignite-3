@@ -49,6 +49,9 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly ILogger _logger;
 
+        /** Observable timestamp. */
+        private readonly HybridTimestampTracker _observableTimestamp;
+
         /** Cluster node unique name to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsByName = new();
 
@@ -81,9 +84,6 @@ namespace Apache.Ignite.Internal
 
         /** Local index for round-robin balancing within this FailoverSocket. */
         private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
-
-        /** Observable timestamp. */
-        private HybridTimestampTracker _observableTimestamp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
