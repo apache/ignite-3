@@ -17,6 +17,9 @@
 
 package org.apache.ignite.example.table;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -40,73 +43,80 @@ public class KeyValueViewExample {
         //
         //--------------------------------------------------------------------------------------
 
+        try (
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
+        ) {
+            stmt.executeUpdate(
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
+            );
+        }
+
+        //--------------------------------------------------------------------------------------
+        //
+        // Creating a client to connect to the cluster.
+        //
+        //--------------------------------------------------------------------------------------
+
+        System.out.println("\nConnecting to server...");
+
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            try {
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating a key-value view for the 'accounts' table.
+            //
+            //--------------------------------------------------------------------------------------
 
-                client.sql().executeScript(
-                        "CREATE TABLE accounts ("
-                                + "accountNumber INT PRIMARY KEY,"
-                                + "firstName     VARCHAR,"
-                                + "lastName      VARCHAR,"
-                                + "balance       DOUBLE)"
-                );
+            KeyValueView<Tuple, Tuple> kvView = client.tables().table("accounts").keyValueView();
 
-                //--------------------------------------------------------------------------------------
-                //
-                // Creating a client to connect to the cluster.
-                //
-                //--------------------------------------------------------------------------------------
+            //--------------------------------------------------------------------------------------
+            //
+            // Performing the 'put' operation.
+            //
+            //--------------------------------------------------------------------------------------
 
-                System.out.println("\nConnecting to server...");
+            System.out.println("\nInserting a key-value pair into the 'accounts' table...");
 
-                //--------------------------------------------------------------------------------------
-                //
-                // Creating a key-value view for the 'accounts' table.
-                //
-                //--------------------------------------------------------------------------------------
+            Tuple key = Tuple.create()
+                    .set("accountNumber", 123456);
 
-                KeyValueView<Tuple, Tuple> kvView = client.tables().table("accounts").keyValueView();
+            Tuple value = Tuple.create()
+                    .set("firstName", "Val")
+                    .set("lastName", "Kulichenko")
+                    .set("balance", 100.00d);
 
-                //--------------------------------------------------------------------------------------
-                //
-                // Performing the 'put' operation.
-                //
-                //--------------------------------------------------------------------------------------
+            kvView.put(null, key, value);
 
-                System.out.println("\nInserting a key-value pair into the 'accounts' table...");
+            //--------------------------------------------------------------------------------------
+            //
+            // Performing the 'get' operation.
+            //
+            //--------------------------------------------------------------------------------------
 
-                Tuple key = Tuple.create()
-                        .set("accountNumber", 123456);
+            System.out.println("\nRetrieving a value using KeyValueView API...");
 
-                Tuple value = Tuple.create()
-                        .set("firstName", "Val")
-                        .set("lastName", "Kulichenko")
-                        .set("balance", 100.00d);
+            value = kvView.get(null, key);
 
-                kvView.put(null, key, value);
+            System.out.println(
+                    "\nRetrieved value:\n"
+                            + "    Account Number: " + key.intValue("accountNumber") + '\n'
+                            + "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n'
+                            + "    Balance: $" + value.doubleValue("balance"));
+        } finally {
+            System.out.println("\nDropping the table...");
 
-                //--------------------------------------------------------------------------------------
-                //
-                // Performing the 'get' operation.
-                //
-                //--------------------------------------------------------------------------------------
-
-                System.out.println("\nRetrieving a value using KeyValueView API...");
-
-                value = kvView.get(null, key);
-
-                System.out.println(
-                        "\nRetrieved value:\n"
-                                + "    Account Number: " + key.intValue("accountNumber") + '\n'
-                                + "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n'
-                                + "    Balance: $" + value.doubleValue("balance"));
-            } finally {
-                System.out.println("\nDropping the table...");
-
-                client.sql().executeScript("DROP TABLE accounts");
+            try (
+                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE accounts");
             }
         }
     }

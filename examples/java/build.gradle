@@ -22,6 +22,31 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-examples'
 
+// Create deployment unit JAR from compiled classes (no file movement needed)
+// This JAR includes all Job classes and resources needed for deployment
+tasks.register('deploymentUnitJar', Jar) {
+    dependsOn classes, processResources
+    group = 'build'
+    archiveBaseName = 'deploymentunit-example'
+    archiveVersion = '1.0.0'
+
+    // Include all compiled Job classes and related deployment code
+    from(sourceSets.main.output.classesDirs) {
+        include 'org/apache/ignite/example/**/*Job.class'
+        include 'org/apache/ignite/example/**/*Job$*.class'
+        include 'org/apache/ignite/example/streaming/Account.class'
+        include 'org/apache/ignite/example/table/Person.class'
+    }
+
+    // Include resources needed by deployment unit from source
+    from(sourceSets.main.resources.srcDirs) {
+        include 'org/apache/ignite/example/code/deployment/resources/**'
+    }
+}
+
+// Make build task depend on deploymentUnitJar
+build.dependsOn deploymentUnitJar
+
 dependencies {
     implementation project(':ignite-runner')
     implementation project(':ignite-client')
@@ -31,6 +56,7 @@ dependencies {
     implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jackson.databind
+    implementation libs.awaitility
 
     testImplementation project(':ignite-core')
 

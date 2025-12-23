@@ -17,9 +17,12 @@
 
 package org.apache.ignite.example.util;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.awaitility.Awaitility.await;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -28,104 +31,87 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
-import java.util.jar.Manifest;
 
 /**
- * Utility class for building and deploying Ignite compute units.
+ * Utility class for deploying Ignite compute units.
+ * <p>
+ * Note: The deployment unit JAR is now built at compile time via the deploymentUnitJar Gradle task,
+ * not at runtime. This eliminates the need for runtime JAR building.
+ * </p>
  */
 public class DeployComputeUnit {
 
     private static final String BASE_URL = "http://localhost:10300";
     private static final HttpClient HTTP = HttpClient.newHttpClient();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final int DEPLOYMENT_TIMEOUT_SECONDS = 30;
+
 
     /**
-     * Builds a JAR file by packaging all compiled classes present in the given directory.
-     *
-     * @param classesDir Directory containing compiled .class files.
-     * @param jarPath Target JAR file path to create.
-     * @throws IOException If building the JAR fails.
-     */
-    public static void buildJar(Path classesDir, Path jarPath) throws IOException {
-        if (!Files.exists(classesDir)) {
-            throw new IllegalArgumentException("Compiled classes not found: " + classesDir);
-        }
-
-        Files.createDirectories(jarPath.getParent());
-
-        try (OutputStream fos = Files.newOutputStream(jarPath);
-                JarOutputStream jar = new JarOutputStream(fos, createManifest())) {
-
-            Files.walk(classesDir).filter(Files::isRegularFile).forEach(path -> {
-                String entry = classesDir.relativize(path).toString().replace("\\", "/");
-                try (InputStream is = Files.newInputStream(path)) {
-                    jar.putNextEntry(new JarEntry(entry));
-                    is.transferTo(jar);
-                    jar.closeEntry();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
-
-        System.out.println("JAR built: " + jarPath);
-    }
-
-    /**
-     * Creates a simple manifest declaring manifest version.
-     *
-     * @return Manifest object.
-     */
-    private static Manifest createManifest() {
-        Manifest m = new Manifest();
-        m.getMainAttributes().putValue("Manifest-Version", "1.0");
-        return m;
-    }
-
-    /**
-     * Deploys a unit only if it is not already deployed.
+     * Checks if a deployment unit already exists on the cluster with DEPLOYED status.
      *
      * @param unitId Deployment unit ID.
      * @param version Deployment version.
-     * @param jar Path to the JAR file.
-     * @throws Exception If deployment fails.
-     */
-    public static void deployUnitIfNeeded(String unitId, String version, Path jar) throws Exception {
-        if (deploymentExists(unitId, version)) {
-            System.out.println("Deployment unit already active. Skipping deployment.");
-            return;
-        }
-        deployUnit(unitId, version, jar);
-        System.out.println("Deployment completed.");
-    }
-
-    /**
-     * Checks if a deployment unit already exists on the cluster.
-     *
-     * @param unitId Deployment unit ID.
-     * @param version Deployment version.
-     * @return True if active deployment exists.
+     * @return True if deployment exists with DEPLOYED status.
      * @throws Exception If request fails.
      */
-    public static boolean deploymentExists(String unitId, String version) throws Exception {
+    private static boolean isDeployed(String unitId, String version) throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(new URI(BASE_URL + "/management/v1/deployment/cluster/units/" + unitId))
-                .GET().build();
+                .GET()
+                .build();
+
+        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+
+        if (resp.statusCode() != 200) {
+            return false;
+        }
+
+        // Parse JSON response to check status
+        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
+        JsonNode versionToStatus = root.path("versionToStatus");
+
+        if (versionToStatus.isArray()) {
+            for (JsonNode versionStatus : versionToStatus) {
+                String versionValue = versionStatus.path("version").asText();
+                String status = versionStatus.path("status").asText();
+
+                if (version.equals(versionValue) && "DEPLOYED".equals(status)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks if a deployment unit exists (in any state).
+     *
+     * @param unitId Deployment unit ID.
+     * @param version Deployment version.
+     * @return True if deployment exists.
+     * @throws Exception If request fails.
+     */
+    private static boolean deploymentExists(String unitId, String version) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(new URI(BASE_URL + "/management/v1/deployment/cluster/units/" + unitId))
+                .GET()
+                .build();
 
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
         return resp.statusCode() == 200 && resp.body().contains("\"version\":\"" + version + "\"");
     }
 
     /**
-     * Deploys a unit to the Ignite cluster.
+     * Deploys a unit to the Ignite cluster and waits for it to reach DEPLOYED status.
      *
      * @param unitId Deployment unit ID.
      * @param version Deployment version.
      * @param jar Path to the JAR file to upload.
      * @throws Exception If deployment fails.
      */
-    public static void deployUnit(String unitId, String version, Path jar) throws Exception {
+    private static void deployUnit(String unitId, String version, Path jar) throws Exception {
         String boundary = "igniteBoundary";
 
         byte[] jarBytes = Files.readAllBytes(jar);
@@ -154,15 +140,19 @@ public class DeployComputeUnit {
 
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
 
-        Thread.sleep(500);
-
         if (resp.statusCode() != 200 && resp.statusCode() != 409) {
             throw new RuntimeException("Deployment failed: " + resp.statusCode() + "\n" + resp.body());
         }
+
+        // Wait for deployment to reach DEPLOYED status using polling
+        await()
+                .atMost(DEPLOYMENT_TIMEOUT_SECONDS, SECONDS)
+                .pollInterval(200, MILLISECONDS)
+                .until(() -> isDeployed(unitId, version));
     }
 
     /**
-     * Undeploys the given deployment unit from the cluster.
+     * Undeploys the given deployment unit from the cluster and waits for it to be removed.
      *
      * @param unitId Deployment unit ID.
      * @param version Deployment version.
@@ -180,15 +170,13 @@ public class DeployComputeUnit {
             throw new RuntimeException("Undeploy failed: " + resp.statusCode() + "\n" + resp.body());
         }
 
-        for (int i = 0; i < 10; i++) {
-            if (!deploymentExists(unitId, version)) {
-                System.out.println("Unit successfully undeployed.");
-                return;
-            }
-            Thread.sleep(300);
-        }
+        // Wait for deployment to be removed using polling
+        await()
+                .atMost(DEPLOYMENT_TIMEOUT_SECONDS, SECONDS)
+                .pollInterval(200, MILLISECONDS)
+                .until(() -> !deploymentExists(unitId, version));
 
-        throw new RuntimeException("Undeploy timeout — unit still present.");
+        System.out.println("Unit successfully undeployed.");
     }
 
     /**
@@ -239,12 +227,11 @@ public class DeployComputeUnit {
     }
 
     /**
-     * Checks if a deployment unit exists. If it does not exist, deploys the unit and prints relevant messages. If the deployment unit
-     * already exists, it skips the deployment and prints a message indicating that.
+     * Checks if a deployment unit exists with DEPLOYED status. If it does not exist or is not deployed,
+     * deploys the unit and waits for it to reach DEPLOYED status.
      *
-     * <p>The method first checks if a deployment unit with the specified name and version already exists.
-     * If it exists, it skips the deployment process. If it doesn't exist, the method initiates the deployment of the unit using the
-     * provided JAR file path, and prints messages about the deployment status.</p>
+     * <p>The method uses polling to check the deployment status periodically until it reaches DEPLOYED state.
+     * If the unit is already deployed, it skips the deployment process.</p>
      *
      * @param deploymentUnitName The name of the deployment unit to check and deploy.
      * @param deploymentUnitVersion The version of the deployment unit to check and deploy.
@@ -252,12 +239,12 @@ public class DeployComputeUnit {
      * @throws Exception If an error occurs during the deployment process, such as a failure to deploy the unit.
      */
     public static void deployIfNotExist(String deploymentUnitName, String deploymentUnitVersion, Path jarPath) throws Exception {
-        if (deploymentExists(deploymentUnitName, deploymentUnitVersion)) {
-            System.out.println("Deployment unit already exists. Skip deploy.");
+        if (isDeployed(deploymentUnitName, deploymentUnitVersion)) {
+            System.out.println("Deployment unit already deployed. Skip deploy.");
         } else {
-            System.out.println("Deployment unit not found. Deploying...");
+            System.out.println("Deployment unit not found or not in DEPLOYED state. Deploying...");
             deployUnit(deploymentUnitName, deploymentUnitVersion, jarPath);
-            System.out.println("Deployment completed " + deploymentUnitName + ".");
+            System.out.println("Deployment completed: " + deploymentUnitName + " version " + deploymentUnitVersion + " is DEPLOYED.");
         }
     }
 }
