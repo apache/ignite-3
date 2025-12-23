@@ -82,7 +82,8 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("placement-driver").enabled(true),
             new MetricSource().name("resource.vacuum").enabled(true),
             new MetricSource().name("clock.service").enabled(true),
-            new MetricSource().name("index.builder").enabled(true)
+            new MetricSource().name("index.builder").enabled(true),
+            new MetricSource().name("raft.snapshots").enabled(true)
     };
 
     /** Correct ignite jdbc url. */

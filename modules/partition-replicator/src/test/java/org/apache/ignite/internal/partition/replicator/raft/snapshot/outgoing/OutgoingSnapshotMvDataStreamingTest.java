@@ -50,6 +50,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -122,12 +123,15 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
 
+        UUID snapshotId = UUID.randomUUID();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 partitionsByTableId,
                 mock(PartitionTxStateAccess.class),
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
 
         snapshot.acquireMvLock();
@@ -157,12 +161,15 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     ) {
         when(txStateAccess.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
+        UUID snapshotId = UUID.randomUUID();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 Int2ObjectMaps.emptyMap(),
                 txStateAccess,
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
 
         snapshot.acquireMvLock();
