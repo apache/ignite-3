@@ -646,7 +646,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
             [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Unreachable with IMapper.")]
-            [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "Unreachable with IMapper")]
+            [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "Unreachable with IMapper.")]
             static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
             {
                 if (!RuntimeFeature.IsDynamicCodeSupported)
