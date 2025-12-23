@@ -186,6 +186,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -3456,7 +3457,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     )
             )).whenComplete((unused, e) -> {
                 if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
-                    LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
+                    LOG.warn("Failed to complete transaction cleanup command {}", e,
+                            TransactionLogUtils.formatTxInfo(txId, txManager));
                 }
             });
         });
@@ -3493,7 +3495,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
                     }
 
-                    return canReadFromWriteIntent(txId, transactionMeta, timestamp);
+                    return canReadFromWriteIntent(txId, txManager, transactionMeta, timestamp);
                 });
     }
 

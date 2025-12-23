@@ -102,6 +102,7 @@ import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalExcept
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -225,7 +226,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
 
-    private final TransactionExpirationRegistry transactionExpirationRegistry = new TransactionExpirationRegistry();
+    private final TransactionExpirationRegistry transactionExpirationRegistry;
 
     private volatile @Nullable ScheduledFuture<?> transactionExpirationJobFuture;
 
@@ -378,7 +379,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         txMessageSender = new TxMessageSender(messagingService, replicaService, clockService);
 
-        var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
+        var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender,
+                topologyService, txStateVolatileStorage);
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
@@ -386,8 +388,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 clockService,
                 writeIntentSwitchProcessor,
                 resourcesRegistry,
-                writeIntentSwitchPool
+                writeIntentSwitchPool,
+                txStateVolatileStorage
         );
+
+        transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
 
         txCleanupRequestSender =
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
@@ -482,7 +487,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             if (isStopping) {
                 transaction.fail(new TransactionException(Common.NODE_STOPPING_ERR,
-                        "Failed to finish the transaction because a node is stopping: [txId=" + txId + ']'));
+                        format("Failed to finish the transaction because a node is stopping: [{}]",
+                                TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage))));
             }
         }
 
@@ -639,7 +645,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
-        LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commitIntent, txId, enlistedGroups, commitPartition);
+        LOG.debug("Finish [commit={}, {}, groups={}, commitPartId={}].", commitIntent,
+                TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage), enlistedGroups, commitPartition);
 
         assert enlistedGroups != null;
 
@@ -713,13 +720,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         });
     }
 
-    private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
+    private CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
         if ((stateMeta.txState() == COMMITTED) == commit) {
             return nullCompletedFuture();
         }
 
         return failedFuture(new MismatchingTransactionOutcomeInternalException(
-                "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
+                format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                        TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage), stateMeta.txState()),
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
     }
@@ -839,7 +847,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         }
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
-                            LOG.debug("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
+                            LOG.debug("Failed to finish Tx. The operation will be retried [{}].", ex,
+                                    TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage));
 
                             return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
@@ -851,7 +860,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     txFinishFuture
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
-                            LOG.warn("Failed to finish Tx [txId={}].", ex, txId);
+                            LOG.warn("Failed to finish Tx [{}].", ex,
+                                    TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage));
 
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
@@ -873,8 +883,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={} commit={}, txId={}, groups={}",
-                commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit, txId, enlistedPartitions);
+        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={} commit={}, {}, groups={}",
+                commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit,
+                TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage), enlistedPartitions);
 
         return txMessageSender.finish(
                         primaryConsistentId,
@@ -905,17 +916,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 });
     }
 
-    private static void validateTxFinishedAsExpected(boolean commit, UUID txId, TransactionResult txResult) {
+    private void validateTxFinishedAsExpected(boolean commit, UUID txId, TransactionResult txResult) {
         if (commit != (txResult.transactionState() == COMMITTED)) {
-            LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
-                    txId,
+            LOG.error("Failed to finish a transaction that is already finished [{}, expectedState={}, actualState={}].",
+                    TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage),
                     commit ? COMMITTED : ABORTED,
                     txResult.transactionState()
             );
 
             throw new MismatchingTransactionOutcomeInternalException(
-                    "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
-                            + "].",
+                    format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                            TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage), txResult.transactionState()),
                     txResult
             );
         }
@@ -986,7 +997,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     cb.accept(err);
                 } catch (Throwable t) {
                     // We can't do anything with the exception, only log it.
-                    LOG.error("Failed to process delayed ack [tx={}]", t, this);
+                    LOG.error("Failed to process delayed ack [{}]", t, TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage));
                 }
             }
         };
