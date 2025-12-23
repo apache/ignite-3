@@ -15,15 +15,26 @@
 # limitations under the License.
 #
 
-project(ignite-fake-server)
+cmake_minimum_required(VERSION 3.18)
 
-set(TARGET ${PROJECT_NAME})
+project(ignite_subdirectory)
 
-set(SOURCES
-    main.cpp
-    fake_server.cpp
-    tcp_client_channel.cpp
-    connection_test.cpp
-)
+set(IGNITE_DIR ../../../)
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client)
+add_subdirectory(${IGNITE_DIR} build)
+
+if(ENABLE_CLIENT)
+    if(NOT TARGET ignite::client)
+        message(FATAL_ERROR "ignite::client target is not found!")
+    endif()
+    add_executable(test_client ${CMAKE_CURRENT_LIST_DIR}/../test_client.cpp)
+    target_link_libraries(test_client ignite::client)
+endif()
+
+if(ENABLE_ODBC)
+    if(NOT TARGET ignite::odbc)
+        message(FATAL_ERROR "ignite::odbc target is not found!")
+    endif()
+    add_executable(test_odbc ${CMAKE_CURRENT_LIST_DIR}/../test_odbc.cpp)
+    target_link_libraries(test_odbc ignite::odbc)
+endif()

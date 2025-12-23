@@ -42,11 +42,15 @@ option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 
+set(IGNITE_INSTALL_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/install" CACHE STRING "Install directory for Ignite")
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+
+set(IGNITE_CMAKE_TOP_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 include(dependencies)
 if(${INSTALL_IGNITE_FILES})
@@ -190,4 +194,35 @@ if (CLANG_FORMAT_BIN)
         COMMAND ${CLANG_FORMAT_BIN} -i ${ALL_SOURCE_FILES})
 else()
     message(STATUS "Failed to find clang-format. So there is no 'format' target now.")
+endif()
+
+if (${INSTALL_IGNITE_FILES})
+    if (${ENABLE_CLIENT})
+        list(APPEND IGNITE_AVAILABLE_COMPONENTS client)
+    endif()
+    if (${ENABLE_ODBC})
+        list(APPEND IGNITE_AVAILABLE_COMPONENTS odbc)
+    endif()
+
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file(
+            ${IGNITE_CMAKE_TOP_DIR}/cmake/ignite-config.cmake.in
+            ${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake
+            INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}
+            PATH_VARS IGNITE_INCLUDEDIR
+    )
+
+    add_subdirectory(pkgconfig)
+
+    set(IGNITE_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake)
+
+    write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY ExactVersion)
+
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake
+        DESTINATION ${IGNITE_INSTALL_CMAKEDIR}
+    )
 endif()
