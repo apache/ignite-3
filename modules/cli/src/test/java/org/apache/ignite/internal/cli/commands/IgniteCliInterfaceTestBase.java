@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
+
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,6 +34,21 @@ import org.junit.jupiter.api.BeforeAll;
 @WireMockTest
 public class IgniteCliInterfaceTestBase extends CliCommandTestBase {
     protected static String mockUrl;
+
+    protected static void returnOkForPostWithJson(String partitionsRestartEndpoint, String expectedSentContent) {
+        returnOkForPostWithJson(partitionsRestartEndpoint, expectedSentContent, false);
+    }
+
+    protected static void returnOkForPostWithJson(
+            String partitionsRestartEndpoint,
+            String expectedSentContent,
+            boolean ignoreExtraElements
+    ) {
+        stubFor(post(partitionsRestartEndpoint)
+                .withRequestBody(equalToJson(expectedSentContent, false, ignoreExtraElements))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
+    }
 
     @Override
     protected Class<?> getCommandClass() {

@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.cli.call.node.status;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
-import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalToIgnoringCase;
 import static org.hamcrest.Matchers.is;
@@ -30,6 +28,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -42,6 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+@MicronautTest(rebuildContext = true)
 @WireMockTest
 class NodeStatusCallTest {
 
@@ -86,7 +86,6 @@ class NodeStatusCallTest {
     private void nodeState(org.apache.ignite.rest.client.model.State state) {
         try {
             stubFor(get("/management/v1/node/state")
-                    .withHeader("Content-Type", equalTo(APPLICATION_JSON))
                     .willReturn(ok(objectMapper.writeValueAsString(new NodeState().name(nodeName).state(state)))));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);

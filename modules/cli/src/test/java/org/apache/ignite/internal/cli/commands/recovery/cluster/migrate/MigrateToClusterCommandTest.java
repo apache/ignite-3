@@ -17,13 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.cluster.migrate;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
-import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
 
 import java.util.List;
 import java.util.UUID;
@@ -82,9 +78,6 @@ class MigrateToClusterCommandTest extends IgniteCliInterfaceTestBase {
                 .clusterName("clusterName")
                 .clusterId(UUID.fromString("e0655494-eb02-4757-89db-ae562a170280"));
 
-        stubFor(post("/management/v1/recovery/cluster/migrate")
-                .withRequestBody(equalToJson(migrateRequest.toJson()))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/migrate", migrateRequest.toJson());
     }
 }

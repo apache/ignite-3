@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.cli.commands.cluster;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.copyResourceToTempFile;
-import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.typesafe.config.ConfigFactory;
@@ -118,10 +115,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
                 + "\"clusterName\":\"cluster\"}";
 
-        stubFor(post("/management/v1/cluster/init")
-                .withRequestBody(equalToJson(expectedSentContent, true, true))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -140,10 +134,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "\"cmgNodes\":[],"
                 + "\"clusterName\":\"cluster\"}";
 
-        stubFor(post("/management/v1/cluster/init")
-                .withRequestBody(equalToJson(expectedSentContent, true, true))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -175,10 +166,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "  \"clusterConfiguration\": \"" + escapedJson(clusterConfiguration) + "\""
                 + "}";
 
-        stubFor(post("/management/v1/cluster/init")
-                .withRequestBody(equalToJson(expectedSentContent, true, true))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -218,10 +206,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
                 + "\"clusterName\":\"cluster\"}";
 
-        stubFor(post("/management/v1/cluster/init")
-                .withRequestBody(equalToJson(expectedSentContent, true, true))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -301,10 +286,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "  \"clusterConfiguration\": \"" + escapedJson(expectedClusterConfiguration) + "\""
                 + "}";
 
-        stubFor(post("/management/v1/cluster/init")
-                .withRequestBody(equalToJson(expectedSentContent, true, true))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,

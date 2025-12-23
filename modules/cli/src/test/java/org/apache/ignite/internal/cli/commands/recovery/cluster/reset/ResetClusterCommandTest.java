@@ -17,36 +17,29 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.cluster.reset;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.ok;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_METASTORAGE_REPLICATION_OPTION;
-import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link ResetClusterCommand}. */
 public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
+    @Override
+    protected Class<?> getCommandClass() {
+        return ResetClusterCommand.class;
+    }
+
     @Test
     @DisplayName("Reset cluster with CMG nodes specified")
     void resetWithCmgNodesSpecified() {
         String nodeNames = "node1,node2";
 
-        String expectedSentContent = "{"
-                + "    \"cmgNodeNames\": [\"node1\", \"node2\"],"
-                + "}";
+        String expectedSentContent = "{\"cmgNodeNames\": [\"node1\", \"node2\"]}";
 
-        stubFor(post("/management/v1/recovery/cluster/reset")
-                .withRequestBody(equalToJson(expectedSentContent))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/reset", expectedSentContent);
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_CMG_NODES_OPTION, nodeNames
@@ -61,14 +54,9 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
     void resetWithReplicationFactorSpecified() {
         String replicationFactor = "5";
 
-        String expectedSentContent = "{"
-                + "     \"metastorageReplicationFactor\" : 5"
-                + "}";
+        String expectedSentContent = "{\"metastorageReplicationFactor\" : 5}";
 
-        stubFor(post("/management/v1/recovery/cluster/reset")
-                .withRequestBody(equalToJson(expectedSentContent))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/reset", expectedSentContent);
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_METASTORAGE_REPLICATION_OPTION, replicationFactor
@@ -86,13 +74,10 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
 
         String expectedSentContent = "{"
                 + "    \"cmgNodeNames\": [\"node1\", \"node2\"],"
-                + "     \"metastorageReplicationFactor\" : 5"
+                + "    \"metastorageReplicationFactor\" : 5"
                 + "}";
 
-        stubFor(post("/management/v1/recovery/cluster/reset")
-                .withRequestBody(equalToJson(expectedSentContent))
-                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
-                .willReturn(ok()));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/reset", expectedSentContent);
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_CMG_NODES_OPTION, nodeNames,
@@ -109,12 +94,5 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
         execute(CLUSTER_URL_OPTION, mockUrl);
 
         assertErrOutputContains("Missing required argument(s): ");
-    }
-
-    @Override
-    protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "cluster", "reset"}, args);
-
-        super.execute(fullArgs);
     }
 }
