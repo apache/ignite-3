@@ -6,7 +6,8 @@
         <Nullable>enable</Nullable>
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>Apache.Ignite.Tests.Common.snk</AssemblyOriginatorKeyFile>
-        <IsTrimmable>true</IsTrimmable>        
+        <IsTrimmable>true</IsTrimmable>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
