@@ -79,7 +79,9 @@ namespace Apache.Ignite.Internal.Compute
             {
                 JobTarget.SingleNodeTarget singleNode => SubmitAsync([singleNode.Data], jobDescriptor, arg, cancellationToken),
                 JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg, cancellationToken),
-                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg, cancellationToken),
+
+                // TODO: Should mapper come from target?
+                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg, null, cancellationToken),
 
                 _ => throw new ArgumentException("Unsupported job target: " + target)
             };
@@ -608,6 +610,7 @@ namespace Apache.Ignite.Internal.Compute
             JobTarget.ColocatedTarget<TKey> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
             TArg arg,
+            IMapper<TKey>? mapper,
             CancellationToken cancellationToken)
             where TKey : notnull
         {
@@ -625,10 +628,25 @@ namespace Apache.Ignite.Internal.Compute
                     .ConfigureAwait(false);
             }
 
+            if (mapper != null)
+            {
+                // TODO: Avoid allocation.
+                Func<Table, IRecordSerializerHandler<TKey>> handlerFunc = _ => new MapperSerializerHandler<TKey>(mapper);
+
+                return await ExecuteColocatedAsync<TArg, TResult, TKey>(
+                        target.TableName,
+                        target.Data,
+                        handlerFunc,
+                        jobDescriptor,
+                        arg,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                     target.TableName,
                     target.Data,
-                    static table => GetSerializerHandler(table, null),
+                    static table => GetSerializerHandler(table),
                     jobDescriptor,
                     arg,
                     cancellationToken)
@@ -636,13 +654,8 @@ namespace Apache.Ignite.Internal.Compute
 
             [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "IGNITE-27278")]
             [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "IGNITE-27278")]
-            static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table, IMapper<TKey>? mapper)
+            static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
             {
-                if (mapper != null)
-                {
-                    return new MapperSerializerHandler<TKey>(mapper);
-                }
-
                 if (!RuntimeFeature.IsDynamicCodeSupported)
                 {
                     // TODO IGNITE-27278: Remove suppression and require mapper in trimmed mode.
