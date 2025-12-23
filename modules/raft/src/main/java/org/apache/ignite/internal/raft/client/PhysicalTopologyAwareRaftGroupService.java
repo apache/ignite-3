@@ -37,6 +37,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -60,9 +62,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The RAFT group service is based on the cluster physical topology. This service has ability to subscribe of a RAFT group leader update.
  */
-public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
+public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroupService {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TopologyAwareRaftGroupService.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PhysicalTopologyAwareRaftGroupService.class);
 
     /** Raft message factory. */
     private static final RaftMessagesFactory MESSAGES_FACTORY = Loza.FACTORY;
@@ -92,56 +94,71 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
      * @param clusterService Cluster service.
      * @param executor Executor to invoke RPC requests and notify listeners.
      * @param raftConfiguration RAFT configuration.
-     * @param raftClient RPC RAFT client.
      * @param eventsClientListener Events client listener.
      */
     private PhysicalTopologyAwareRaftGroupService(
+            ReplicationGroupId groupId,
             FailureManager failureManager,
             ClusterService clusterService,
-            Executor executor,
+            ScheduledExecutorService executor,
             RaftConfiguration raftConfiguration,
-            RaftGroupService raftClient,
+            PeersAndLearners configuration,
+            Marshaller cmdMarshaller,
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder,
             RaftGroupEventsClientListener eventsClientListener
     ) {
         this.failureManager = failureManager;
         this.clusterService = clusterService;
         this.executor = executor;
         this.raftConfiguration = raftConfiguration;
-        this.raftClient = raftClient;
+        this.raftClient = RaftGroupServiceImpl.start(
+                groupId,
+                clusterService,
+                MESSAGES_FACTORY,
+                raftConfiguration,
+                configuration,
+                executor,
+                cmdMarshaller,
+                stoppingExceptionFactory,
+                throttlingContextHolder
+        );
 
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
 
         eventsClientListener.addLeaderElectionListener(raftClient.groupId(), generalLeaderElectionListener);
 
-        clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+        TopologyService topologyService = clusterService.topologyService();
+
+        topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
             public void onAppeared(InternalClusterNode member) {
                 CompletableFuture<Boolean> fut = changeNodeSubscriptionIfNeed(member, true);
 
-                requestLeaderManually(clusterService, executor, raftClient, fut);
+                requestLeaderManually(topologyService, executor, raftClient, fut);
             }
         });
 
         ArrayList<CompletableFuture<?>> futures = new ArrayList<>();
 
-        for (InternalClusterNode member : clusterService.topologyService().allMembers()) {
+        for (InternalClusterNode member : topologyService.allMembers()) {
             futures.add(changeNodeSubscriptionIfNeed(member, true));
         }
 
-        requestLeaderManually(clusterService, executor, raftClient, CompletableFutures.allOf(futures));
+        requestLeaderManually(topologyService, executor, raftClient, CompletableFutures.allOf(futures));
     }
 
     /**
      * Requests the leader information for the RAFT group.
-     * TODO: IGNITE-27256 Remove the method after implementing a notification after subscription.
      *
-     * @param clusterService Cluster service to retrieve topology information.
+     * @param topologyService Topology service.
      * @param executor Executor to run asynchronous tasks.
      * @param raftClient RAFT client to interact with the RAFT group.
      * @param subscriptionsFut Future representing the completion of subscription updates.
      */
+    // TODO: IGNITE-27256 Remove the method after implementing a notification after subscription.
     private void requestLeaderManually(
-            ClusterService clusterService,
+            TopologyService topologyService,
             Executor executor,
             RaftGroupService raftClient,
             CompletableFuture<?> subscriptionsFut
@@ -151,9 +168,10 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
                         (leaderWithTerm, throwable) -> {
                             if (throwable != null) {
                                 LOG.warn("Could not refresh and get leader with term [grp={}].", groupId(), throwable);
+                                return;
                             }
 
-                            InternalClusterNode leaderHost = clusterService.topologyService()
+                            InternalClusterNode leaderHost = topologyService
                                     .getByConsistentId(leaderWithTerm.leader().consistentId());
 
                             if (leaderHost != null) {
@@ -194,7 +212,6 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
      *
      * @param groupId The ID of the RAFT group.
      * @param cluster Cluster service for communication.
-     * @param factory Factory for creating RAFT messages.
      * @param raftConfiguration Configuration for the RAFT group.
      * @param configuration Peers and learners configuration.
      * @param executor Executor for asynchronous tasks.
@@ -208,7 +225,6 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
     public static PhysicalTopologyAwareRaftGroupService start(
             ReplicationGroupId groupId,
             ClusterService cluster,
-            RaftMessagesFactory factory,
             RaftConfiguration raftConfiguration,
             PeersAndLearners configuration,
             ScheduledExecutorService executor,
@@ -219,21 +235,15 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
             FailureManager failureManager
     ) {
         return new PhysicalTopologyAwareRaftGroupService(
+                groupId,
                 failureManager,
                 cluster,
                 executor,
                 raftConfiguration,
-                RaftGroupServiceImpl.start(
-                        groupId,
-                        cluster,
-                        factory,
-                        raftConfiguration,
-                        configuration,
-                        executor,
-                        cmdMarshaller,
-                        stoppingExceptionFactory,
-                        throttlingContextHolder
-                ),
+                configuration,
+                cmdMarshaller,
+                stoppingExceptionFactory,
+                throttlingContextHolder,
                 eventsClientListener
         );
     }
@@ -313,6 +323,11 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
                 || t instanceof IOException
                 || t instanceof PeerUnavailableException
                 || t instanceof RecipientLeftException;
+    }
+
+    @Override
+    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return raftClient.run(cmd, timeoutMillis);
     }
 
     @Override
@@ -417,15 +432,7 @@ public class PhysicalTopologyAwareRaftGroupService implements RaftGroupService {
         raftClient.updateConfiguration(configuration);
     }
 
-    @Override
-    public <R> CompletableFuture<R> run(Command cmd) {
-        return raftClient.run(cmd);
-    }
 
-    @Override
-    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
-        return raftClient.run(cmd, timeoutMillis);
-    }
 
     /**
      * Leader election handler.
