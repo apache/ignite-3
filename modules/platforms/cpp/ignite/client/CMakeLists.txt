@@ -89,11 +89,13 @@ set(PUBLIC_HEADERS
 )
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
-target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${TARGET}-obj PUBLIC ${IGNITE_CMAKE_TOP_DIR})
 
 add_library(${TARGET} SHARED ${SOURCES})
+set_target_properties(${TARGET} PROPERTIES EXPORT_NAME client)
 
 add_library(${TARGET}-static STATIC ${SOURCES})
+set_target_properties(${TARGET}-static PROPERTIES EXPORT_NAME client-static)
 
 set(LIBRARIES
     ignite-common
@@ -113,16 +115,35 @@ foreach(_target_lib IN LISTS _target_libs)
         set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
     endif()
 
-    target_link_libraries(${_target_lib} ${LIBRARIES})
+    target_link_libraries(${_target_lib}
+            PRIVATE ignite-tuple ignite-network ignite-protocol uni-algo::uni-algo
+            INTERFACE ignite-common)
 endforeach()
 unset(_target_libs)
 
 
+add_library(ignite::client ALIAS ${TARGET})
+add_library(ignite::client-static ALIAS ${TARGET}-static)
+
 if (${INSTALL_IGNITE_FILES})
-    install(TARGETS ${TARGET}
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
+    get_target_property(IGNITE_CLIENT_INCLUDES ${TARGET} INCLUDE_DIRECTORIES)
+    install(TARGETS ${TARGET} ignite-common mbedtls mbedx509 mbedcrypto everest p256m
+            EXPORT ignite-client-targets
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+
+    export(EXPORT ignite-client-targets
+            NAMESPACE ignite::
+            FILE "${CMAKE_BINARY_DIR}/cmake/ignite-client-targets.cmake"
+    )
+
+    install(EXPORT ignite-client-targets
+            NAMESPACE ignite::
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+            FILE "ignite-client-targets.cmake"
     )
 
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
