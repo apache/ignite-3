@@ -70,7 +70,6 @@ public interface IPartitionManager
     /// <param name="mapper">Mapper for the key.</param>
     /// <returns>Partition that contains the specified key.</returns>
     /// <typeparam name="TK">Key type.</typeparam>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
         where TK : notnull;
 }
