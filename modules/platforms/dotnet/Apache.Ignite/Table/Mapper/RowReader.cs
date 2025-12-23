@@ -18,9 +18,9 @@
 namespace Apache.Ignite.Table.Mapper;
 
 using System;
+using System.Collections.Generic;
 using Internal.Common;
 using Internal.Proto.BinaryTuple;
-using Internal.Table;
 using NodaTime;
 using Sql;
 
@@ -31,7 +31,7 @@ public ref struct RowReader
 {
     private readonly BinaryTupleReader _reader;
 
-    private readonly Column[] _columns;
+    private readonly IReadOnlyList<IMapperColumn> _columns;
 
     private int _position = -1;
 
@@ -40,17 +40,17 @@ public ref struct RowReader
     /// </summary>
     /// <param name="reader">Reader.</param>
     /// <param name="columns">Columns.</param>
-    internal RowReader(ref BinaryTupleReader reader, Column[] columns)
+    internal RowReader(ref BinaryTupleReader reader, IReadOnlyList<IMapperColumn> columns)
     {
         _reader = reader;
         _columns = columns;
     }
 
-    private readonly Column Column
+    private readonly IMapperColumn Column
     {
         get
         {
-            if (_position >= _columns.Length)
+            if (_position >= _columns.Count)
             {
                 throw new IgniteClientException(
                     ErrorGroups.Client.Configuration,
