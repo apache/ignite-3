@@ -41,7 +41,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final int zoneId;
 
-    /** Map of (zoneId -> setOfPartitions) to reset if colocation is enabled. */
+    /** Map of (zoneId -> setOfPartitions) to reset. */
     private final Map<Integer, Set<Integer>> partitionIds;
 
     private final boolean manualUpdate;
