@@ -500,7 +500,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
-        dsm = createDataStorageManager();
+        var metricManager = new NoOpMetricManager();
+
+        dsm = createDataStorageManager(metricManager);
 
         AlwaysSyncedSchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
@@ -543,7 +545,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 txManager,
                 sm,
                 dsm,
-                outgoingSnapshotManager
+                outgoingSnapshotManager,
+                metricManager
         ));
 
         tableManager = new TableManager(
@@ -583,7 +586,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new SystemPropertiesNodeProperties(),
                 minTimeCollectorService,
                 systemDistributedConfiguration,
-                new NoOpMetricManager(),
+                metricManager,
                 TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
         ) {
 
@@ -648,7 +651,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         );
     }
 
-    private DataStorageManager createDataStorageManager() {
+    private DataStorageManager createDataStorageManager(MetricManager metricManager) {
         ConfigurationRegistry mockedRegistry = mock(ConfigurationRegistry.class);
 
         when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
@@ -658,7 +661,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
-                        mock(MetricManager.class),
+                        metricManager,
                         mockedRegistry,
                         workDir,
                         null,

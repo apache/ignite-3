@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
@@ -30,8 +31,10 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,16 +77,22 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
@@ -92,6 +101,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSn
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
@@ -387,6 +397,15 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             TxStateStorage incomingTxStateStorage,
             MessagingService messagingService
     ) {
+        return createPartitionSnapshotStorage(incomingTableStorage, incomingTxStateStorage, messagingService, catalogService);
+    }
+
+    private PartitionSnapshotStorage createPartitionSnapshotStorage(
+            MvTableStorage incomingTableStorage,
+            TxStateStorage incomingTxStateStorage,
+            MessagingService messagingService,
+            CatalogService catalogService
+    ) {
         TopologyService topologyService = mock(TopologyService.class);
 
         when(topologyService.getByConsistentId(NODE_NAME)).thenReturn(clusterNode);
@@ -404,7 +423,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 mock(FailureProcessor.class),
                 executorService,
                 0,
-                new LogStorageAccessImpl(replicaManager)
+                new LogStorageAccessImpl(replicaManager),
+                new RaftSnapshotsMetricsSource()
         );
 
         storage.addMvPartition(TABLE_ID, spy(new PartitionMvStorageAccessImpl(
@@ -740,7 +760,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 partitionSnapshotStorage,
                 SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME)),
                 mock(Executor.class),
-                0
+                0,
+                new RaftSnapshotsMetricsSource()
         );
 
         Thread anotherThread = new Thread(copier::cancel);
@@ -817,6 +838,90 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         assertThatTargetStoragesAreEmpty(incomingMvTableStorage, incomingTxStateStorage);
     }
 
+    @Test
+    void metricsCalculateCorrectly() throws InterruptedException {
+        incomingMvTableStorage.createMvPartition(PARTITION_ID);
+        incomingTxStateStorage.getOrCreatePartitionStorage(PARTITION_ID);
+
+        PartitionSnapshotMeta meta = mock(PartitionSnapshotMeta.class);
+
+        when(meta.requiredCatalogVersion()).thenReturn(1);
+
+        SnapshotMetaResponse metaResponse = mock(SnapshotMetaResponse.class);
+
+        when(metaResponse.meta()).thenReturn(meta);
+
+        CompletableFuture<NetworkMessage> loadSnapshotMetaFuture = new CompletableFuture<>();
+
+        CompletableFuture<NetworkMessage> loadMvDataFuture = new CompletableFuture<>();
+
+        CompletableFuture<NetworkMessage> loadTxMetaFuture = new CompletableFuture<>();
+
+        SnapshotMvDataResponse mvDataResponse = mock(SnapshotMvDataResponse.class);
+        when(mvDataResponse.finish()).thenReturn(true);
+
+        SnapshotTxDataResponse txMetaResponse = mock(SnapshotTxDataResponse.class);
+        when(txMetaResponse.finish()).thenReturn(true);
+
+        MessagingService messagingService = messagingServiceForMetrics(loadSnapshotMetaFuture, loadMvDataFuture, loadTxMetaFuture);
+
+        CompletableFuture<Void> catalogReadyFuture = new CompletableFuture<>();
+
+        CatalogService catalogService = mock(CatalogService.class);
+
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(catalogReadyFuture);
+
+        PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
+                incomingMvTableStorage,
+                incomingTxStateStorage,
+                messagingService,
+                catalogService
+        );
+
+        var snapshotMetricSource = new RaftSnapshotsMetricsSource();
+
+        snapshotMetricSource.enable();
+
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
+                partitionSnapshotStorage,
+                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME)),
+                executorService,
+                1000,
+                snapshotMetricSource
+        );
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshots", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
+
+        copier.start();
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshots", "1");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "1");
+
+        loadSnapshotMetaFuture.complete(metaResponse);
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMeta", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsWaitingCatalog", "1");
+
+        catalogReadyFuture.complete(null);
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsWaitingCatalog", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMvData", "1");
+
+        loadMvDataFuture.complete(mvDataResponse);
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingMvData", "0");
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingTxMeta", "1");
+
+        loadTxMetaFuture.complete(txMetaResponse);
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshotsLoadingTxMeta", "0");
+
+        copier.join();
+
+        waitTillMetricHasValue(snapshotMetricSource, "IncomingSnapshots", "0");
+    }
+
     private static void assertThatTargetStoragesAreEmpty(
             MvTableStorage incomingMvTableStorage,
             TxStateStorage incomingTxStateStorage
@@ -839,5 +944,47 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static UUID generateTxId() {
         return TransactionIds.transactionId(CLOCK.now(), 1);
+    }
+
+    private static Metric retrieveOutgoingSnapshotMetric(RaftSnapshotsMetricsSource snapshotsMetricsSource, String metricName) {
+        return stream(snapshotsMetricsSource.holder().metrics().spliterator(), false)
+                .filter(metric -> metricName.equals(metric.name()))
+                .findAny()
+                .get();
+    }
+
+    private static void waitTillMetricHasValue(
+            RaftSnapshotsMetricsSource snapshotsMetricsSource,
+            String metricName,
+            String expectedValue
+    ) {
+        Metric metric = retrieveOutgoingSnapshotMetric(snapshotsMetricsSource, metricName);
+
+        await().until(metric::getValueAsString, is(expectedValue));
+    }
+
+    private MessagingService messagingServiceForMetrics(
+            CompletableFuture<NetworkMessage> loadSnapshotMetaFuture,
+            CompletableFuture<NetworkMessage> loadMvDataFuture,
+            CompletableFuture<NetworkMessage> loadTxMetaFuture
+    ) {
+        MessagingService messagingService = mock(MessagingService.class);
+
+        GetLowWatermarkResponse getLowWatermarkResponse = mock(GetLowWatermarkResponse.class);
+        when(getLowWatermarkResponse.lowWatermark()).thenReturn(HybridTimestamp.NULL_HYBRID_TIMESTAMP);
+
+        when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong()))
+                .thenReturn(loadSnapshotMetaFuture);
+
+        when(messagingService.invoke(eq(clusterNode), any(SnapshotMvDataRequest.class), anyLong()))
+                .thenReturn(loadMvDataFuture);
+
+        when(messagingService.invoke(eq(clusterNode), any(SnapshotTxDataRequest.class), anyLong()))
+                .thenReturn(loadTxMetaFuture);
+
+        when(messagingService.invoke(eq(clusterNode), any(GetLowWatermarkRequest.class), anyLong()))
+                .thenReturn(completedFuture(getLowWatermarkResponse));
+
+        return messagingService;
     }
 }
