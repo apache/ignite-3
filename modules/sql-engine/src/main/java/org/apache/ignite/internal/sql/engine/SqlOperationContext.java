@@ -52,7 +52,7 @@ public final class SqlOperationContext {
     private final @Nullable Consumer<Throwable> errorListener;
     private final @Nullable String userName;
     private final @Nullable Long topologyVersion;
-    private final @Nullable QueryTransactionWrapper usedTx;
+    private volatile @Nullable QueryTransactionWrapper usedTx;
 
     /**
      * Private constructor, used by a builder.
@@ -147,6 +147,10 @@ public final class SqlOperationContext {
 
     public @Nullable QueryTransactionWrapper usedTx() {
         return usedTx;
+    }
+
+    public void usedTx(@Nullable QueryTransactionWrapper usedTx) {
+        this.usedTx = usedTx;
     }
 
     /**

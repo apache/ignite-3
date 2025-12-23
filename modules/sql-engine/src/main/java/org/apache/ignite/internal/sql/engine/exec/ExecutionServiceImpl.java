@@ -342,10 +342,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
         boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
 
-        // TODO use itnernal caching for implicit tx inside txContext instead of 'usedTx'.
-        QueryTransactionWrapper txWrapper = operationContext.usedTx() == null
+        QueryTransactionWrapper txOnRetry = operationContext.usedTx();
+        operationContext.usedTx(null);
+
+        QueryTransactionWrapper txWrapper = txOnRetry == null
                 ? txContext.getOrStartSqlManaged(readOnly, false)
-                : operationContext.usedTx();
+                : txOnRetry;
 
         InternalTransaction tx = txWrapper.unwrap();
 

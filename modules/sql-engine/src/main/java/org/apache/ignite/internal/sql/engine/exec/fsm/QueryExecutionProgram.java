@@ -26,6 +26,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
@@ -76,13 +77,26 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
     static boolean errorHandler(Query query, Throwable th) {
         if (canRecover(query, th)) {
             query.error.set(null);
+
+            if (planOutdated(th)) {
+                assert query.currentPhase() == ExecutionPhase.CURSOR_INITIALIZATION : query.currentPhase();
+
+                SqlOperationContext context = query.operationContext;
+                QueryTransactionWrapper txWrapper = query.usedTransaction;
+
+                assert context != null;
+                assert txWrapper != null;
+
+                context.usedTx(txWrapper);
+
+                query.moveTo(ExecutionPhase.OPTIMIZING);
+
+                return true;
+            }
+
             if (query.currentPhase() == ExecutionPhase.CURSOR_PUBLICATION) {
                 // Should initialize a new cursor.
                 query.moveTo(ExecutionPhase.CURSOR_INITIALIZATION);
-            } else if (th instanceof SqlPlanOutdatedException) {
-                assert query.currentPhase() == ExecutionPhase.CURSOR_INITIALIZATION : query.currentPhase();
-
-                query.moveTo(ExecutionPhase.OPTIMIZING);
             }
 
             if (nodeLeft(th)) {
@@ -100,7 +114,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || planOutdated(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || tableSchemaChanged(th);
         }
 
         return false;
@@ -119,7 +133,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             return false;
         }
 
-        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || planOutdated(th);
+        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || planOutdated(th) || tableSchemaChanged(th);
     }
 
     private static boolean nodeLeft(Throwable th) {
@@ -140,5 +154,9 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     private static boolean planOutdated(Throwable th)  {
         return th instanceof SqlPlanOutdatedException;
+    }
+
+    private static boolean tableSchemaChanged(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Transactions.TX_INCOMPATIBLE_SCHEMA_ERR;
     }
 }
