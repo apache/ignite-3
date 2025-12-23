@@ -76,6 +76,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -1522,6 +1523,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
+        assertInsertedValuesOnSpecificNodes(table.name(), dataNodes, partId, 0);
+
         Assignments link2Assignments = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name()),
@@ -1540,8 +1543,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         stopNodesInParallel(3, 4, 5, 6);
 
+        int firstPhaseReset = getNodeForFirstPhaseReset(partId, 0, 1, 2);
+
         Assignments link2FirstPhaseReset = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name())
+                Assignment.forPeer(node(firstPhaseReset).name())
         ), timestamp);
 
         assertStableAssignments(node0, partId, link2FirstPhaseReset, 60_000);
@@ -1609,6 +1614,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
+        assertInsertedValuesOnSpecificNodes(table.name(), dataNodes, partId, 0);
+
         Assignments blockedRebalance = Assignments.of(timestamp,
                 Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name()),
@@ -1620,6 +1627,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{3, 4, 5, 6}));
         stopNodesInParallel(3, 4, 5, 6);
 
+        int firstPhaseReset = getNodeForFirstPhaseReset(partId, 0, 1, 2);
+
+        logger().info("Max node replicated assignments [ids={}].", firstPhaseReset);
+
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
@@ -1628,7 +1639,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // First phase of reset. The second phase stable switch is blocked.
         Assignments link2Assignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name())
+                Assignment.forPeer(node(firstPhaseReset).name())
         ), timestamp);
 
         assertStableAssignments(node0, partId, link2Assignments, 30_000);
@@ -1659,6 +1670,20 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, link3Assignments, 30_000);
 
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
+    }
+
+    private int getNodeForFirstPhaseReset(int partId, Integer ...nodes) {
+        return Stream.of(nodes)
+                .max((index1, index2) -> {
+                    int cmp = Long.compare(getRaftLogIndex(index1, partId).getIndex(),
+                            getRaftLogIndex(index2, partId).getIndex());
+                    if (cmp != 0) {
+                        return cmp;
+                    }
+                    // Among equal raft log indexes, prefer smaller node index
+                    return Integer.compare(index2, index1);
+                })
+                .get();
     }
 
     @Test
