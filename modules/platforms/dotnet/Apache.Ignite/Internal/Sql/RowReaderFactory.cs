@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Sql;
 /// Row reader factory.
 /// </summary>
 /// <param name="metadata">Metadata.</param>
-/// <param name="arg">Argument.</param>
 /// <typeparam name="T">Result type.</typeparam>
 /// <returns>Resulting row.</returns>
-internal delegate RowReader<T> RowReaderFactory<out T>(ResultSetMetadata metadata, object? arg);
+internal delegate RowReader<T> RowReaderFactory<out T>(ResultSetMetadata metadata);

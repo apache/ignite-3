@@ -42,9 +42,9 @@ namespace Apache.Ignite.Internal.Sql
     internal sealed class Sql : ISql
     {
         private static readonly RowReader<IIgniteTuple> TupleReader =
-            static (ResultSetMetadata metadata, ref BinaryTupleReader reader) => ReadTuple(metadata.Columns, ref reader);
+            static (ResultSetMetadata metadata, ref BinaryTupleReader reader, object? _) => ReadTuple(metadata.Columns, ref reader);
 
-        private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static (_, _) => TupleReader;
+        private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
 
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
@@ -65,7 +65,7 @@ namespace Apache.Ignite.Internal.Sql
                 transaction,
                 statement,
                 TupleReaderFactory,
-                rowReaderFactoryArg: null,
+                rowReaderArg: null,
                 args,
                 cancellationToken)
                 .ConfigureAwait(false);
@@ -77,8 +77,8 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(
                     transaction,
                     statement,
-                    static (meta, _) => GetReaderFactory<T>(meta),
-                    rowReaderFactoryArg: null,
+                    static meta => GetReaderFactory<T>(meta),
+                    rowReaderArg: null,
                     args,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -91,26 +91,23 @@ namespace Apache.Ignite.Internal.Sql
             CancellationToken cancellationToken,
             params object?[]? args)
         {
-            // TODO: avoid allocation
-            RowReaderFactory<T> rowReaderFactory = static (meta, arg) =>
-            {
-                return (ResultSetMetadata meta, ref BinaryTupleReader reader) =>
+            return await ExecuteAsyncInternal(
+                    transaction,
+                    statement,
+                    RowReaderFactory,
+                    rowReaderArg: mapper,
+                    args,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            static RowReader<T> RowReaderFactory(ResultSetMetadata resultSetMetadata) =>
+                static (ResultSetMetadata meta, ref BinaryTupleReader reader, object? arg) =>
                 {
                     var mapperReader = new RowReader(ref reader, meta);
                     var mapper = (IMapper<T>)arg!;
 
                     return mapper.Read(ref mapperReader, meta);
                 };
-            };
-
-            return await ExecuteAsyncInternal(
-                    transaction,
-                    statement,
-                    rowReaderFactory,
-                    rowReaderFactoryArg: mapper,
-                    args,
-                    cancellationToken)
-                .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -120,8 +117,8 @@ namespace Apache.Ignite.Internal.Sql
             var resultSet = await ExecuteAsyncInternal<object>(
                 transaction,
                 statement,
-                static (_, _) => null!,
-                rowReaderFactoryArg: null,
+                static _ => null!,
+                rowReaderArg: null,
                 args,
                 cancellationToken).ConfigureAwait(false);
 
@@ -259,7 +256,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="statement">Statement to execute.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
-        /// <param name="rowReaderFactoryArg">Row reader factory arg.</param>
+        /// <param name="rowReaderArg">Row reader arg.</param>
         /// <param name="args">Arguments for the statement.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <typeparam name="T">Row type.</typeparam>
@@ -268,7 +265,7 @@ namespace Apache.Ignite.Internal.Sql
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
-            object? rowReaderFactoryArg,
+            object? rowReaderArg,
             ICollection<object?>? args,
             CancellationToken cancellationToken)
         {
@@ -288,7 +285,7 @@ namespace Apache.Ignite.Internal.Sql
                     ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
-                return new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderFactoryArg, cancellationToken);
+                return new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken);
             }
             catch (SqlException e)
             {

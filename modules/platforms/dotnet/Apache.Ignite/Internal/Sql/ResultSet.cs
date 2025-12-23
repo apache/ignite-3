@@ -48,6 +48,8 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly RowReader<T>? _rowReader;
 
+        private readonly object? _rowReaderArg;
+
         private readonly CancellationToken _cancellationToken;
 
         private bool _resourceClosed;
@@ -62,13 +64,13 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="socket">Socket.</param>
         /// <param name="buf">Buffer to read initial data from.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
-        /// <param name="rowReaderFactoryArg">Row reader factory argument.</param>
+        /// <param name="rowReaderArg">Row reader argument.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public ResultSet(
             ClientSocket socket,
             PooledBuffer buf,
             RowReaderFactory<T> rowReaderFactory,
-            object? rowReaderFactoryArg,
+            object? rowReaderArg,
             CancellationToken cancellationToken)
         {
             _socket = socket;
@@ -85,7 +87,8 @@ namespace Apache.Ignite.Internal.Sql
             AffectedRows = reader.ReadInt64();
 
             _metadata = HasRowSet ? ReadMeta(ref reader) : null;
-            _rowReader = _metadata != null ? rowReaderFactory(_metadata, rowReaderFactoryArg) : null;
+            _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
+            _rowReaderArg = rowReaderArg;
 
             if (HasRowSet)
             {
@@ -329,7 +332,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             var tupleReader = new BinaryTupleReader(reader.ReadBinary(), _metadata!.Columns.Count);
 
-            return _rowReader!(_metadata, ref tupleReader);
+            return _rowReader!(_metadata, ref tupleReader, _rowReaderArg);
         }
 
         private async IAsyncEnumerable<T> EnumerateRows()

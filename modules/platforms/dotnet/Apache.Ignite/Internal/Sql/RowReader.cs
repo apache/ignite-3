@@ -24,6 +24,7 @@ using Proto.BinaryTuple;
 /// </summary>
 /// <param name="metadata">Metadata.</param>
 /// <param name="tupleReader">Tuple reader.</param>
+/// <param name="arg">Argument.</param>
 /// <typeparam name="T">Result type.</typeparam>
 /// <returns>Resulting row.</returns>
-internal delegate T RowReader<out T>(ResultSetMetadata metadata, ref BinaryTupleReader tupleReader);
+internal delegate T RowReader<out T>(ResultSetMetadata metadata, ref BinaryTupleReader tupleReader, object? arg);
