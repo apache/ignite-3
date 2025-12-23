@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Sql;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Common.Table;
 using Ignite.Sql;
@@ -92,7 +93,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     public async Task TestSelectAllColumns([Values(true, false)] bool withMapper)
     {
         var resultSet = withMapper
-            ? await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1", new PocoAllColumnsSqlNullableMapper())
+            ? await Client.Sql.ExecuteAsync(null, new PocoAllColumnsSqlNullableMapper(), "select * from TBL_ALL_COLUMNS_SQL order by 1", CancellationToken.None)
             : await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1");
 
         var rows = await resultSet.ToListAsync();
