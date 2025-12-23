@@ -91,6 +91,8 @@ namespace Apache.Ignite.Internal.Sql
             CancellationToken cancellationToken,
             params object?[]? args)
         {
+            IgniteArgumentCheck.NotNull(mapper);
+
             return await ExecuteAsyncInternal(
                     transaction,
                     statement,
