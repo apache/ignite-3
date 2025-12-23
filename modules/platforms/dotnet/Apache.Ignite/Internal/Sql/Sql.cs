@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal.Sql
     using Common;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Ignite.Transactions;
     using Linq;
     using Proto;
@@ -73,6 +74,29 @@ namespace Apache.Ignite.Internal.Sql
                     args,
                     cancellationToken)
                 .ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async Task<IResultSet<T>> ExecuteAsync<T>(
+            ITransaction? transaction,
+            SqlStatement statement,
+            IMapper<T> mapper,
+            CancellationToken cancellationToken,
+            params object?[]? args)
+        {
+            // TODO: Cache or avoid allocation?
+            RowReaderFactory<T> rowReaderFactory = cols =>
+            {
+                return (IReadOnlyList<IColumnMetadata> list, ref BinaryTupleReader reader) => { return default(T)!; };
+            };
+
+            return await ExecuteAsyncInternal(
+                    transaction,
+                    statement,
+                    rowReaderFactory,
+                    args,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         /// <inheritdoc/>
         public async Task<IgniteDbDataReader> ExecuteReaderAsync(

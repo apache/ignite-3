@@ -24,6 +24,7 @@ namespace Apache.Ignite.Sql
     using System.Threading.Tasks;
     using Internal.Table.Serialization;
     using Table;
+    using Table.Mapper;
     using Transactions;
 
     /// <summary>
@@ -76,6 +77,23 @@ namespace Apache.Ignite.Sql
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args);
+
+        /// <summary>
+        /// Executes a single SQL statement and returns rows deserialized into the specified user type <typeparamref name="T"/>.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="mapper">Mapper for the result type.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <typeparam name="T">Row type.</typeparam>
+        /// <returns>SQL result set.</returns>
+        Task<IResultSet<T>> ExecuteAsync<T>(
+            ITransaction? transaction,
+            SqlStatement statement,
+            IMapper<T> mapper,
+            CancellationToken cancellationToken,
+            params object?[]? args);
 
         /// <summary>
         /// Executes a single SQL statement and returns a <see cref="DbDataReader"/> to consume them in an efficient, forward-only way.
