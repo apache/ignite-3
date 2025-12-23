@@ -76,8 +76,9 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
 
-            Metadata = HasRowSet ? ReadMeta(ref reader) : null;
-            _rowReader = Metadata != null ? rowReaderFactory(Metadata.Columns) : null;
+            ResultSetMetadata? meta = HasRowSet ? ReadMeta(ref reader) : null;
+            Metadata = meta;
+            _rowReader = meta != null ? rowReaderFactory(Metadata.Columns) : null;
 
             if (HasRowSet)
             {

@@ -43,7 +43,7 @@ namespace Apache.Ignite.Internal.Sql
     internal sealed class Sql : ISql
     {
         private static readonly RowReader<IIgniteTuple> TupleReader =
-            static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => ReadTuple(cols, ref reader);
+            static (ResultSetMetadata metadata, ref BinaryTupleReader reader) => ReadTuple(metadata.Columns, ref reader);
 
         private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
 
@@ -71,7 +71,7 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(
                     transaction,
                     statement,
-                    static cols => GetReaderFactory<T>(cols),
+                    static meta => GetReaderFactory<T>(meta),
                     args,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -85,11 +85,11 @@ namespace Apache.Ignite.Internal.Sql
             params object?[]? args)
         {
             // TODO: Cache or avoid allocation?
-            RowReaderFactory<T> rowReaderFactory = cols =>
+            RowReaderFactory<T> rowReaderFactory = _ =>
             {
-                return (IReadOnlyList<IColumnMetadata> list, ref BinaryTupleReader reader) =>
+                return (ResultSetMetadata meta, ref BinaryTupleReader reader) =>
                 {
-                    var mapperCols = list.Cast<IMapperColumn>().ToList();
+                    var mapperCols = meta.Columns.Cast<IMapperColumn>().ToList();
 
                     var mapperReader = new RowReader(ref reader, mapperCols);
                     return mapper.Read(ref mapperReader, new MapperSchema(mapperCols));
@@ -338,8 +338,8 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
-        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
-            ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
+        private static RowReader<T> GetReaderFactory<T>(ResultSetMetadata metadata) =>
+            ResultSelector.Get<T>(metadata.Columns, selectorExpression: null, ResultSelectorOptions.None);
 
         private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object?>> args)
         {
