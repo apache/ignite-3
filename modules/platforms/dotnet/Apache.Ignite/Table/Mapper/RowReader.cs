@@ -39,11 +39,11 @@ public ref struct RowReader
     /// Initializes a new instance of the <see cref="RowReader"/> struct.
     /// </summary>
     /// <param name="reader">Reader.</param>
-    /// <param name="columns">Columns.</param>
-    internal RowReader(ref BinaryTupleReader reader, IReadOnlyList<IMapperColumn> columns)
+    /// <param name="schema">Schema.</param>
+    internal RowReader(ref BinaryTupleReader reader, IMapperSchema schema)
     {
         _reader = reader;
-        _columns = columns;
+        _columns = schema.Columns;
     }
 
     private readonly IMapperColumn Column

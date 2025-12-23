@@ -291,7 +291,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             var size = reader.ReadInt32();
 
-            var columns = new List<IColumnMetadata>(size);
+            var columns = new ColumnMetadata[size];
 
             for (int i = 0; i < size; i++)
             {
@@ -313,7 +313,7 @@ namespace Apache.Ignite.Internal.Sql
                         TableName: reader.TryReadInt(out idx) ? columns[idx].Origin!.TableName : reader.ReadString())
                     : null;
 
-                columns.Add(new ColumnMetadata(name, type, precision, scale, nullable, origin));
+                columns[i] = new ColumnMetadata(name, type, precision, scale, nullable, origin);
             }
 
             return new ResultSetMetadata(columns);

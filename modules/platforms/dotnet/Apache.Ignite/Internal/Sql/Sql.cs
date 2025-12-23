@@ -33,7 +33,6 @@ namespace Apache.Ignite.Internal.Sql
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
-    using Table;
     using Table.Serialization;
     using Transactions;
 
@@ -89,10 +88,8 @@ namespace Apache.Ignite.Internal.Sql
             {
                 return (ResultSetMetadata meta, ref BinaryTupleReader reader) =>
                 {
-                    var mapperCols = meta.Columns.Cast<IMapperColumn>().ToList();
-
-                    var mapperReader = new RowReader(ref reader, mapperCols);
-                    return mapper.Read(ref mapperReader, new MapperSchema(mapperCols));
+                    var mapperReader = new RowReader(ref reader, meta);
+                    return mapper.Read(ref mapperReader, meta);
                 };
             };
 
