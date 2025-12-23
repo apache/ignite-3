@@ -44,6 +44,8 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly bool _hasMorePages;
 
+        private readonly ResultSetMetadata? _metadata;
+
         private readonly RowReader<T>? _rowReader;
 
         private readonly CancellationToken _cancellationToken;
@@ -76,9 +78,8 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
 
-            ResultSetMetadata? meta = HasRowSet ? ReadMeta(ref reader) : null;
-            Metadata = meta;
-            _rowReader = meta != null ? rowReaderFactory(Metadata.Columns) : null;
+            _metadata = HasRowSet ? ReadMeta(ref reader) : null;
+            _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
 
             if (HasRowSet)
             {
@@ -103,7 +104,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public IResultSetMetadata? Metadata { get; }
+        public IResultSetMetadata? Metadata => _metadata;
 
         /// <inheritdoc/>
         public bool HasRowSet { get; }
@@ -157,7 +158,6 @@ namespace Apache.Ignite.Internal.Sql
             ValidateAndSetIteratorState();
 
             // First page is included in the initial response.
-            var cols = Metadata!.Columns;
             var hasMore = _hasMorePages;
             TResult? res = default;
 
@@ -184,7 +184,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    var row = ReadRow(cols, ref reader);
+                    var row = ReadRow(ref reader);
                     accumulator(res, row);
                 }
 
@@ -319,17 +319,16 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MsgPackReader reader)
+        private T ReadRow(ref MsgPackReader reader)
         {
-            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), cols.Count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), _metadata!.Columns.Count);
 
-            return _rowReader!(cols, ref tupleReader);
+            return _rowReader!(_metadata, ref tupleReader);
         }
 
         private async IAsyncEnumerable<T> EnumerateRows()
         {
             var hasMore = _hasMorePages;
-            var cols = Metadata!.Columns;
             var offset = 0;
 
             // First page.
@@ -368,7 +367,7 @@ namespace Apache.Ignite.Internal.Sql
                     // Can't use ref struct reader from above inside iterator block (CS4013).
                     // Use a new reader for every row (stack allocated).
                     var rowReader = buf.GetReader(offset);
-                    var row = ReadRow(cols, ref rowReader);
+                    var row = ReadRow(ref rowReader);
 
                     offset += rowReader.Consumed;
                     yield return row;
