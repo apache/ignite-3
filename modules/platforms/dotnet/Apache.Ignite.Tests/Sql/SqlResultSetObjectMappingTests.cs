@@ -89,9 +89,12 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestSelectAllColumns()
+    public async Task TestSelectAllColumns([Values(true, false)] bool withMapper)
     {
-        var resultSet = await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1");
+        var resultSet = withMapper
+            ? await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1", new PocoAllColumnsSqlNullableMapper())
+            : await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1");
+
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(Count + 1, rows.Count);

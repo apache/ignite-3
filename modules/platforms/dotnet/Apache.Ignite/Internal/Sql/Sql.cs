@@ -86,8 +86,8 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction,
-            SqlStatement statement,
             IMapper<T> mapper,
+            SqlStatement statement,
             CancellationToken cancellationToken,
             params object?[]? args)
         {

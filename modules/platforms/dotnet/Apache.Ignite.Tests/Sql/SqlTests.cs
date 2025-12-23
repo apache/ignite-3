@@ -804,7 +804,7 @@ namespace Apache.Ignite.Tests.Sql
             {
                 "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
                 "sql-mapped" => Client.Sql.ExecuteAsync<int>(transaction: null, manyRowsQuery, cts.Token),
-                "sql-mapped2" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, new IntMapper(), cts.Token),
+                "sql-mapped2" => Client.Sql.ExecuteAsync(transaction: null, new IntMapper(), manyRowsQuery, cts.Token),
                 "script" => Client.Sql.ExecuteScriptAsync($"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery})", cts.Token),
                 "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
                 "batch" => Client.Sql.ExecuteBatchAsync(null, $"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery}) + ?", [[1]], cts.Token),
