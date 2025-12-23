@@ -38,7 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
-    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
 
     @Mock
     private InternalTransaction tx1;

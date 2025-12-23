@@ -42,6 +42,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -347,8 +348,8 @@ public class TxCleanupRequestSender {
                         TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) networkMessage;
                         if (writeIntentSwitchFailureShouldBeLogged(errorResponse.throwable())) {
                             LOG.warn(
-                                    "First cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
-                                    errorResponse.throwable(), txId
+                                    "First cleanup attempt failed (the transaction outcome is not affected) [{}]",
+                                    errorResponse.throwable(), TransactionLogUtils.formatTxInfo(txId, txStateVolatileStorage)
                             );
                         }
 

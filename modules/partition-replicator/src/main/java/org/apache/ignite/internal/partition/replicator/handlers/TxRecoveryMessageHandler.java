@@ -25,6 +25,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -38,16 +40,19 @@ public class TxRecoveryMessageHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final ZonePartitionId replicationGroupId;
     private final TxRecoveryEngine txRecoveryEngine;
+    private final TxManager txManager;
 
     /** Constructor. */
     public TxRecoveryMessageHandler(
             TxStatePartitionStorage txStatePartitionStorage,
             ZonePartitionId replicationGroupId,
-            TxRecoveryEngine txRecoveryEngine
+            TxRecoveryEngine txRecoveryEngine,
+            TxManager txManager
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.replicationGroupId = replicationGroupId;
         this.txRecoveryEngine = txRecoveryEngine;
+        this.txManager = txManager;
     }
 
     /**
@@ -67,7 +72,7 @@ public class TxRecoveryMessageHandler {
             return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
         }
 
-        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
+        LOG.info("Orphan transaction has to be aborted [{}, meta={}].", TransactionLogUtils.formatTxInfo(txId, txManager), txMeta);
 
         return txRecoveryEngine.triggerTxRecovery(txId, senderId);
     }
