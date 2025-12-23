@@ -25,6 +25,7 @@ namespace Apache.Ignite.Tests.Sql
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Common.Table;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -792,7 +793,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "script", "reader", "batch")] string mode)
+        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "sql-mapped2", "script", "reader", "batch")] string mode)
         {
             // Cross join will produce 10^N rows, which takes a while to execute.
             var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(8)})";
@@ -803,6 +804,7 @@ namespace Apache.Ignite.Tests.Sql
             {
                 "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
                 "sql-mapped" => Client.Sql.ExecuteAsync<int>(transaction: null, manyRowsQuery, cts.Token),
+                "sql-mapped2" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, new IntMapper(), cts.Token),
                 "script" => Client.Sql.ExecuteScriptAsync($"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery})", cts.Token),
                 "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
                 "batch" => Client.Sql.ExecuteBatchAsync(null, $"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery}) + ?", [[1]], cts.Token),
