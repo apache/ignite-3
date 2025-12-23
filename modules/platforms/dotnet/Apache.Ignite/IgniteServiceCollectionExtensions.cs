@@ -18,6 +18,8 @@ namespace Apache.Ignite;
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Extension methods for setting up Apache Ignite services
@@ -140,7 +142,30 @@ public static class IgniteServiceCollectionExtensions
         services.TryAdd(new ServiceDescriptor(
             typeof(IgniteClientGroup),
             key,
-            (sp, innerKey) => new IgniteClientGroup(configure(sp, innerKey)),
+            (serviceProvider, innerKey) =>
+            {
+                IgniteClientGroupConfiguration cfg = configure(serviceProvider, innerKey);
+
+                if (cfg.ClientConfiguration.LoggerFactory == NullLoggerFactory.Instance)
+                {
+                    // Use DI logger factory if none was provided.
+                    var diFactory = serviceProvider.GetService<ILoggerFactory>();
+
+                    if (diFactory != null && diFactory is not NullLoggerFactory)
+                    {
+                        // Create a new config to avoid modifying the one provided by the user.
+                        cfg = cfg with
+                        {
+                            ClientConfiguration = cfg.ClientConfiguration with
+                            {
+                                LoggerFactory = diFactory
+                            }
+                        };
+                    }
+                }
+
+                return new IgniteClientGroup(cfg);
+            },
             clientGroupLifetime));
 
         return services;

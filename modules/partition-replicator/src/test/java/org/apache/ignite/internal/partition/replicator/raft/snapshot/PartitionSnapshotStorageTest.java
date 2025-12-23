@@ -33,6 +33,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -60,7 +61,8 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
             mock(CatalogService.class),
             mock(FailureProcessor.class),
             mock(Executor.class),
-            mock(LogStorageAccess.class)
+            mock(LogStorageAccess.class),
+            new RaftSnapshotsMetricsSource()
     );
 
     @Test

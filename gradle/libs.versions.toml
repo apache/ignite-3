@@ -89,7 +89,7 @@ tree-sitter-hocon = "master-a"
 otel = "1.55.0"
 spring-boot = "3.5.7"
 spring-data = "3.5.5"
-testcontainers = "1.21.3"
+testcontainers = "2.0.0"
 gradleToolingApi = "8.6"
 protobuf = "4.33.1"
 cytodynamics = "0.2.0"
@@ -302,7 +302,7 @@ spring-boot-test = { module = "org.springframework.boot:spring-boot-test", versi
 spring-data-jdbc = { module = "org.springframework.data:spring-data-jdbc", version.ref = "spring-data"}
 
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers"}
-testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers"}
+testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 
 commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commons-collections4" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
