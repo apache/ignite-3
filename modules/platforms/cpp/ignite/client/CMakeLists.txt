@@ -127,7 +127,7 @@ add_library(ignite::client-static ALIAS ${TARGET}-static)
 
 if (${INSTALL_IGNITE_FILES})
     get_target_property(IGNITE_CLIENT_INCLUDES ${TARGET} INCLUDE_DIRECTORIES)
-    install(TARGETS ${TARGET} ignite-common mbedtls mbedx509 mbedcrypto everest p256m
+    install(TARGETS ${TARGET} ignite-common tfpsacrypto
             EXPORT ignite-client-targets
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
