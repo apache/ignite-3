@@ -66,11 +66,11 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.MultiStepPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
@@ -199,7 +199,7 @@ public class TestNode implements LifecycleAware {
             int requiredCatalog = catalogService.activeCatalogVersion(ts.longValue());
 
             if (requiredCatalog != plan.catalogVersion()) {
-                return CompletableFuture.failedFuture(new SqlPlanOutdatedException());
+                return CompletableFuture.failedFuture(new MultiStepPlanOutdatedException());
             }
 
             return CompletableFutures.nullCompletedFuture();

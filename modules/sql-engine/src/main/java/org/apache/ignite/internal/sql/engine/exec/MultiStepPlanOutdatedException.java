@@ -20,10 +20,10 @@ package org.apache.ignite.internal.sql.engine.exec;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Exception is thrown when sql-engine detects that plan is outdated after preparing.
+ * Exception occurs when sql-engine detects that the execution plan is outdated after preparation.
  *
- * <p>This is an internal exception used to signal the SQL engine to repeat the planning step.
+ * <p>It is used to signal the sql-engine to retry the optimization step using the started transaction timestamp.
  */
-public class SqlPlanOutdatedException extends IgniteInternalException {
+public class MultiStepPlanOutdatedException extends IgniteInternalException {
     private static final long serialVersionUID = 1L;
 }

@@ -70,9 +70,9 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImp
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.MultiStepPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -386,7 +386,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                         int requiredCatalog = catalogManager.activeCatalogVersion(ts.longValue());
 
                         if (requiredCatalog != plan.catalogVersion()) {
-                            throw new SqlPlanOutdatedException();
+                            throw new MultiStepPlanOutdatedException();
                         }
                     });
         };

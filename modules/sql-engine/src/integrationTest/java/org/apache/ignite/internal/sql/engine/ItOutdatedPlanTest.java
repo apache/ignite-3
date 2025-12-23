@@ -21,11 +21,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,8 +43,13 @@ public class ItOutdatedPlanTest extends BaseSqlIntegrationTest {
         return "ignite.sql.execution.threadCount: 64";
     }
 
+    @AfterEach
+    void dropTables() {
+        dropAllTables();
+    }
+
     @Test
-    void testConcurrentDdlWritesMultistep() {
+    void multiStepDmlWithConcurrentDdl() throws InterruptedException {
         IgniteSql sql = CLUSTER.aliveNode().sql();
 
         sql("CREATE TABLE t(id INT PRIMARY KEY)");
@@ -53,16 +59,45 @@ public class ItOutdatedPlanTest extends BaseSqlIntegrationTest {
         for (int i = 0; i < iterations; i++) {
             log.info("iteration #" + i);
 
-            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(
-                    null, IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN val{} VARCHAR DEFAULT 'abc{}'", i, i));
+            String ddlQuery = i % 2 == 0
+                    ? "ALTER TABLE t ADD COLUMN val VARCHAR DEFAULT 'abc'"
+                    : "ALTER TABLE t DROP COLUMN val";
 
-            CompletableFuture<AsyncResultSet<SqlRow>> fut = sql.executeAsync(
-                    null, "INSERT INTO t (ID) SELECT x * 100 / 2 FROM SYSTEM_RANGE(0, 10)");
+            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
 
-            await(await(fut).closeAsync());
+            Thread.sleep(i * ThreadLocalRandom.current().nextInt(10));
+
+            sql.execute(null, "INSERT INTO t (ID) SELECT x * 100 / 2 FROM SYSTEM_RANGE(0, 10)").close();
+
             await(await(ddlFut).closeAsync());
 
+            assertEquals(0, txManager().pending());
+
             sql("DELETE FROM t");
+        }
+    }
+
+    @Test
+    void fastDmlWithConcurrentDdl() throws InterruptedException {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+
+        sql("CREATE TABLE t(id INT PRIMARY KEY)");
+
+        int iterations = 20;
+
+        for (int i = 0; i < iterations; i++) {
+            log.info("iteration #" + i);
+
+            String ddlQuery = i % 2 == 0
+                    ? "ALTER TABLE t ADD COLUMN val VARCHAR DEFAULT 'abc'"
+                    : "ALTER TABLE t DROP COLUMN val";
+
+            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
+            Thread.sleep(ThreadLocalRandom.current().nextInt(15) * 10);
+
+            sql.execute(null, "INSERT INTO t (id) VALUES ?", i).close();
+
+            await(await(ddlFut).closeAsync());
 
             assertEquals(0, txManager().pending());
         }
