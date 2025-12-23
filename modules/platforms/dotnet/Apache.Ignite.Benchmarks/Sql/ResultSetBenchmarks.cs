@@ -44,7 +44,6 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// |    PrimitiveMappingToListAsync | 121.2 us | 2.41 us | 4.10 us |  0.54 |    0.02 |      - |     48 KB |.
     /// </summary>
     [MemoryDiagnoser]
-    [SimpleJob(RuntimeMoniker.Net60)]
     public class ResultSetBenchmarks
     {
         private FakeServer? _server;
