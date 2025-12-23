@@ -30,7 +30,6 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Compute;
     using Ignite.Network;
     using Ignite.Table;
-    using Ignite.Table.Mapper;
     using Marshalling;
     using Network;
     using Proto;
@@ -625,15 +624,12 @@ namespace Apache.Ignite.Internal.Compute
                     .ConfigureAwait(false);
             }
 
-            if (target.Mapper != null)
+            if (target.SerializerHandlerFunc != null)
             {
-                // TODO: Avoid allocation.
-                Func<Table, IRecordSerializerHandler<TKey>> handlerFunc = _ => new MapperSerializerHandler<TKey>(target.Mapper);
-
-                return await ExecuteColocatedAsync<TArg, TResult, TKey>(
+                return await ExecuteColocatedAsync(
                         target.TableName,
                         target.Data,
-                        handlerFunc,
+                        target.SerializerHandlerFunc,
                         jobDescriptor,
                         arg,
                         cancellationToken)

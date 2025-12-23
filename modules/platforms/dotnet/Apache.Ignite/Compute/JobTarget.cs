@@ -17,8 +17,11 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
 using System.Collections.Generic;
 using Internal.Common;
+using Internal.Table;
+using Internal.Table.Serialization;
 using Network;
 using Table;
 using Table.Mapper;
@@ -126,5 +129,23 @@ public static class JobTarget
     /// <param name="Mapper">Optional mapper for the key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
     internal sealed record ColocatedTarget<TKey>(QualifiedName TableName, TKey Data, IMapper<TKey>? Mapper) : IJobTarget<TKey>
-        where TKey : notnull;
+        where TKey : notnull
+    {
+        /// <summary>
+        /// Gets the cached serializer handler function.
+        /// </summary>
+        internal Func<Table, IRecordSerializerHandler<TKey>>? SerializerHandlerFunc { get; } = GetSerializerHandlerFunc(Mapper);
+
+        private static Func<Table, IRecordSerializerHandler<TKey>>? GetSerializerHandlerFunc(IMapper<TKey>? mapper)
+        {
+            if (mapper == null)
+            {
+                return null;
+            }
+
+            var handler = new MapperSerializerHandler<TKey>(mapper);
+
+            return _ => handler;
+        }
+    }
 }
