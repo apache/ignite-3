@@ -190,7 +190,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(null);
         addAndCommit(TABLE_ROW2);
 
-        addWrite(ROW_ID, TABLE_ROW3, txId);
+        addWrite(ROW_ID, binaryRow(KEY, new TestValue(40, "baz")), txId);
 
         BinaryRowAndRowId polled1 = pollForVacuum(HybridTimestamp.MAX_VALUE);
         assertThat(polled1, is(notNullValue()));

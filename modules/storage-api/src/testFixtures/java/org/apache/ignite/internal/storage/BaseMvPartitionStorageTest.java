@@ -44,8 +44,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
-    protected static final BinaryRow TABLE_ROW3 = binaryRow(KEY, new TestValue(40, "baz"));
-
     protected MvPartitionStorage storage;
 
     @AfterEach
