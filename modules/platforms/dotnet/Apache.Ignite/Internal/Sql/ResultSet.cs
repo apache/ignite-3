@@ -62,8 +62,14 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="socket">Socket.</param>
         /// <param name="buf">Buffer to read initial data from.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
+        /// <param name="rowReaderFactoryArg">Row reader factory argument.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public ResultSet(ClientSocket socket, PooledBuffer buf, RowReaderFactory<T> rowReaderFactory, CancellationToken cancellationToken)
+        public ResultSet(
+            ClientSocket socket,
+            PooledBuffer buf,
+            RowReaderFactory<T> rowReaderFactory,
+            object? rowReaderFactoryArg,
+            CancellationToken cancellationToken)
         {
             _socket = socket;
             _cancellationToken = cancellationToken;
@@ -79,7 +85,7 @@ namespace Apache.Ignite.Internal.Sql
             AffectedRows = reader.ReadInt64();
 
             _metadata = HasRowSet ? ReadMeta(ref reader) : null;
-            _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
+            _rowReader = _metadata != null ? rowReaderFactory(_metadata, rowReaderFactoryArg) : null;
 
             if (HasRowSet)
             {
