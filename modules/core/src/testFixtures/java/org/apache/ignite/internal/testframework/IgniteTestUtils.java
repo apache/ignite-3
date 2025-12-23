@@ -428,7 +428,7 @@ public final class IgniteTestUtils {
      * @param t   Throwable to check.
      * @param cls Cause classes to check.
      * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
-     * @return reference to the cause error if found, otherwise returns {@code null}.27
+     * @return reference to the cause error if found, otherwise returns {@code null}.
      */
     public static <T extends Throwable> @Nullable T cause(
             Throwable t,
