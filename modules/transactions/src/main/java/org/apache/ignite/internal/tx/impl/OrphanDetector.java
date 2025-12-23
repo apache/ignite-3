@@ -42,6 +42,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.event.LockEvent;
@@ -218,7 +219,8 @@ public class OrphanDetector {
                             .build());
                 }).exceptionally(throwable -> {
                     if (throwable != null) {
-                        LOG.warn("A recovery message for the transaction was handled with the error [tx={}].", throwable, txId);
+                        LOG.warn("A recovery message for the transaction was handled with the error [{}].",
+                                throwable, TransactionLogUtils.formatTxInfo(txId, txLocalStateStorage));
                     }
 
                     return null;
