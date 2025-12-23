@@ -17,19 +17,15 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockserver.integration.ClientAndServer;
-import org.mockserver.junit.jupiter.MockServerExtension;
 
 /**
  * Base class for testing CLI interface.
  */
-@ExtendWith(MockServerExtension.class)
+@WireMockTest
 public class IgniteCliInterfaceTestBase extends CliCommandTestBase {
-    protected static ClientAndServer clientAndServer;
-
     protected static String mockUrl;
 
     @Override
@@ -38,13 +34,7 @@ public class IgniteCliInterfaceTestBase extends CliCommandTestBase {
     }
 
     @BeforeAll
-    static void initMockServer(ClientAndServer clientAndServer) {
-        IgniteCliInterfaceTestBase.clientAndServer = clientAndServer;
-        mockUrl = "http://localhost:" + clientAndServer.getPort();
-    }
-
-    @BeforeEach
-    void resetMockServer() {
-        clientAndServer.reset();
+    static void initMockServer(WireMockRuntimeInfo wmRuntimeInfo) {
+        mockUrl = wmRuntimeInfo.getHttpBaseUrl();
     }
 }

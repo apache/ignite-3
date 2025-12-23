@@ -17,23 +17,24 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
-import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-import static org.mockserver.model.JsonBody.json;
+import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockserver.model.MediaType;
 
 /** Unit tests for {@link RestartPartitionsCommand}. */
 public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
@@ -52,17 +53,13 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         String expectedSentContent;
 
         expectedSentContent = "{"
-                + "     \"zoneName\" : \"zone_NAME\","
+                + "     \"zoneName\" : \"zone_NAME\""
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
@@ -78,14 +75,10 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     void restartSpecifiedPartitions() {
         String expectedSentContent = "{\"partitionIds\" : [1,2]}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
@@ -102,14 +95,10 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     void restartSpecifiedNodes() {
         String expectedSentContent = "{\"nodeNames\" : [\"node_NAME\",\"node_NAME_2\"]}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
@@ -130,14 +119,10 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 + "     \"zoneName\" : \"zone_NAME\""
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
@@ -154,14 +139,10 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     void restartSpecifiedPartitionsWithCleanup() {
         String expectedSentContent = "{\"partitionIds\" : [1,2]}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",

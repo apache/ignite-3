@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.cluster.reset;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_METASTORAGE_REPLICATION_OPTION;
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-import static org.mockserver.model.JsonBody.json;
+import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockserver.model.MediaType;
 
 /** Unit tests for {@link ResetClusterCommand}. */
 public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
@@ -41,14 +43,10 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
                 + "    \"cmgNodeNames\": [\"node1\", \"node2\"],"
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/reset")
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/cluster/reset")
+                .withRequestBody(equalToJson(expectedSentContent))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_CMG_NODES_OPTION, nodeNames
@@ -67,14 +65,10 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
                 + "     \"metastorageReplicationFactor\" : 5"
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/reset")
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/cluster/reset")
+                .withRequestBody(equalToJson(expectedSentContent))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_METASTORAGE_REPLICATION_OPTION, replicationFactor
@@ -95,14 +89,10 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
                 + "     \"metastorageReplicationFactor\" : 5"
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/reset")
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/recovery/cluster/reset")
+                .withRequestBody(equalToJson(expectedSentContent))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_CMG_NODES_OPTION, nodeNames,
