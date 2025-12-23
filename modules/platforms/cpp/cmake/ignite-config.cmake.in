@@ -65,6 +65,6 @@ if(ignite_client_FOUND)
 endif()
 
 if(ignite_odbc_FOUND)
-    set(ignite_client_INCLUDE_DIR "${ignite_INCLUDE_DIR}")
-    set(ignite_client_LIBRARIES ignite::odbc)
+    set(ignite_odbc_INCLUDE_DIR "${ignite_INCLUDE_DIR}")
+    set(ignite_odbc_LIBRARIES ignite::odbc)
 endif()
