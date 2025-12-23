@@ -36,21 +36,29 @@ internal sealed class HybridTimestampTracker
     /// </summary>
     /// <param name="newVal">New value.</param>
     /// <returns>Previous value.</returns>
-    public long Update(long newVal)
+    public long GetAndUpdate(long newVal)
     {
         // Atomically update the observable timestamp to max(newTs, curTs).
+        long current = Interlocked.Read(ref _val);
+
         while (true)
         {
-            var current = Interlocked.Read(ref _val);
             if (current >= newVal)
             {
+                // Already up to date or ahead.
                 return current;
             }
 
-            if (Interlocked.CompareExchange(ref _val, newVal, current) == current)
+            long previous = Interlocked.CompareExchange(ref _val, newVal, current);
+
+            if (previous == current)
             {
+                // Update succeeded.
                 return current;
             }
+
+            // Update failed, another thread changed the value.
+            current = previous;
         }
     }
 }

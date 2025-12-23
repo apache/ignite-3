@@ -372,7 +372,7 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
         {
-            var prevVal = _observableTimestamp.Update(timestamp);
+            var prevVal = _observableTimestamp.GetAndUpdate(timestamp);
             if (prevVal < timestamp)
             {
                 _logger.LogObservableTsUpdatedTrace(prev: prevVal, current: timestamp);
