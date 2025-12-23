@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Compute;
     using Ignite.Network;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Marshalling;
     using Network;
     using Proto;
@@ -627,7 +628,7 @@ namespace Apache.Ignite.Internal.Compute
             return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                     target.TableName,
                     target.Data,
-                    static table => GetSerializerHandler(table),
+                    static table => GetSerializerHandler(table, null),
                     jobDescriptor,
                     arg,
                     cancellationToken)
@@ -635,8 +636,13 @@ namespace Apache.Ignite.Internal.Compute
 
             [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "IGNITE-27278")]
             [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "IGNITE-27278")]
-            static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
+            static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table, IMapper<TKey>? mapper)
             {
+                if (mapper != null)
+                {
+                    return new MapperSerializerHandler<TKey>(mapper);
+                }
+
                 if (!RuntimeFeature.IsDynamicCodeSupported)
                 {
                     // TODO IGNITE-27278: Remove suppression and require mapper in trimmed mode.
