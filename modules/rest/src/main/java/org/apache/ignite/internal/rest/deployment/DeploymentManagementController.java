@@ -22,7 +22,7 @@ import static org.apache.ignite.deployment.version.Version.parseVersion;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
-import io.micronaut.http.multipart.FileUpload;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -51,7 +51,7 @@ import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -101,10 +101,21 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             version = parseVersion(unitVersion);
             tempStorage = tempStorageProvider.tempStorage(unitId, version);
         } catch (Exception e) {
-            // In case of any exception during initialization of temp storage we need to discard the uploaded file.
-            // In case of normal operation the Netty resource will be properly released
-            // by the CompletedFileUpload#getInputStream call in the CompletedFileUploadSubscriber.
-            return Mono.from(unitContent).doOnNext(FileUpload::discard).toFuture()
+            // In case of any exception during initialization of temp storage we need to discard uploaded files. For some reason (probably
+            // a bug in micronaut discarding the CompletedFileUpload can lead to buffer leaks. Let's close the underlying buffer directly
+            // by getting the input stream and closing it.
+            // In case of normal operation the Netty resource will be properly released by the CompletedFileUpload#getInputStream call in
+            // the CompletedFileUploadSubscriber.
+            return Flux.from(unitContent)
+                    .doOnNext(completedFileUpload -> {
+                        try {
+                            completedFileUpload.getInputStream().close();
+                        } catch (IOException ignored) {
+                            // Ignore exceptions thrown from close
+                        }
+                    })
+                    .collectList()
+                    .toFuture()
                     .thenCompose(unused -> failedFuture(e));
         }
 

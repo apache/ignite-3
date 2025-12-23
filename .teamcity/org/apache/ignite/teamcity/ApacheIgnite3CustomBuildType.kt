@@ -22,6 +22,15 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
                 root(AbsoluteId("GitHubApacheIgnite3"), "+:. => %VCSROOT__IGNITE3%")
             }
         }
+        
+        /** 
+         * Set JAVA_HOME to JDK 17
+         */
+        fun ignite3Java17() = apply {
+            buildType.params {
+                hiddenText("env.JAVA_HOME", "%env.JDK_ORA_17%")
+            }
+        }
 
         /**
          * Send build status to Apache Ignite 3 GitHub repository

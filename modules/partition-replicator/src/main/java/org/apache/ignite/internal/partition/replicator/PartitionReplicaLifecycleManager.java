@@ -127,6 +127,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
@@ -159,6 +160,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -264,6 +266,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
+    private final MetricManager metricManager;
+
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
@@ -294,6 +298,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param schemaManager Schema manager.
      * @param dataStorageManager Data storage manager.
      * @param outgoingSnapshotsManager Outgoing snapshots manager.
+     * @param metricManager Metric manager.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -315,7 +320,8 @@ public class PartitionReplicaLifecycleManager extends
             TxManager txManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            OutgoingSnapshotsManager outgoingSnapshotsManager
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            MetricManager metricManager
     ) {
         this(
                 catalogService,
@@ -345,7 +351,8 @@ public class PartitionReplicaLifecycleManager extends
                         failureProcessor,
                         partitionOperationsExecutor,
                         replicaMgr
-                )
+                ),
+                metricManager
         );
     }
 
@@ -369,7 +376,8 @@ public class PartitionReplicaLifecycleManager extends
             TxManager txManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            ZoneResourcesManager zoneResourcesManager
+            ZoneResourcesManager zoneResourcesManager,
+            MetricManager metricManager
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -389,6 +397,7 @@ public class PartitionReplicaLifecycleManager extends
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
+        this.metricManager = metricManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -429,6 +438,9 @@ public class PartitionReplicaLifecycleManager extends
         rebalanceRetryDelayConfiguration.init();
 
         executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
+
+        metricManager.registerSource(zoneResourcesManager.snapshotsMetricsSource());
+        metricManager.enable(zoneResourcesManager.snapshotsMetricsSource());
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -550,7 +562,6 @@ public class PartitionReplicaLifecycleManager extends
             int zoneId = zoneDescriptor.id();
 
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
-                    .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, zoneDescriptor.consistencyMode(), assignments))
                     .thenCompose(
                             stableAssignments -> createZoneReplicationNodes(
                                     zoneId,
@@ -995,7 +1006,8 @@ public class PartitionReplicaLifecycleManager extends
 
     /**
      * Check if the zone already has assignments in the meta storage locally. So, it means, that it is a recovery process and we should use
-     * the meta storage local assignments instead of calculation of the new ones.
+     * the meta storage local assignments instead of calculation of the new ones. If assignments do not exist, calculates new assignments
+     * and attempts to write them to metastore.
      */
     private CompletableFuture<List<Assignments>> getOrCreateAssignments(
             CatalogZoneDescriptor zoneDescriptor,
@@ -1036,7 +1048,9 @@ public class PartitionReplicaLifecycleManager extends
                                     causalityToken
                             );
                         }
-                    });
+                    }).thenCompose(assignments ->
+                            writeZoneAssignmentsToMetastore(zoneDescriptor.id(), zoneDescriptor.consistencyMode(), assignments)
+                    );
         }
     }
 
@@ -1213,19 +1227,20 @@ public class PartitionReplicaLifecycleManager extends
             Set<Assignment> pendingAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
+            CompletableFuture<Replica> replicaFuture = replicaMgr.replica(zonePartitionId);
+
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
 
-            if (!isLocalInStable && !isLeaseholder) {
+            if (!(isLocalInStable || isLeaseholder)) {
                 return nullCompletedFuture();
             }
 
-            assert replicaMgr.isReplicaStarted(zonePartitionId)
-                    : "The local node is outside of the replication group [groupId=" + zonePartitionId
-                    + ", stable=" + stableAssignments
-                    + ", isLeaseholder=" + isLeaseholder + "].";
+            if (replicaFuture == null) {
+                return failedFuture(new ReplicaUnavailableException(zonePartitionId, localNode()));
+            }
 
             // Update raft client peers and learners according to the actual assignments.
-            return replicaMgr.replica(zonePartitionId)
+            return replicaFuture
                     .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(union(stableAssignments, pendingAssignments))));
         }));
     }
@@ -1653,6 +1668,8 @@ public class PartitionReplicaLifecycleManager extends
         }
 
         try {
+            metricManager.unregisterSource(zoneResourcesManager.snapshotsMetricsSource());
+
             IgniteUtils.closeAllManually(zoneResourcesManager);
         } catch (Exception e) {
             return failedFuture(e);
@@ -1853,13 +1870,6 @@ public class PartitionReplicaLifecycleManager extends
             assert stableAssignments != null : "zonePartitionId=" + zonePartitionId + ", revision=" + revision;
 
             return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
-                Assignment localAssignment = localAssignment(stableAssignments);
-
-                if (localAssignment == null) {
-                    // (0) in case if node not in the assignments
-                    return nullCompletedFuture();
-                }
-
                 CatalogZoneDescriptor zoneDescriptor = zoneDescriptorAt(zonePartitionId.zoneId(), assignmentsTimestamp);
 
                 return createZonePartitionReplicationNode(
@@ -1976,11 +1986,18 @@ public class PartitionReplicaLifecycleManager extends
      * Returns resources for the given zone partition.
      */
     public ZonePartitionResources zonePartitionResources(ZonePartitionId zonePartitionId) {
-        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
+        ZonePartitionResources resources = zonePartitionResourcesOrNull(zonePartitionId);
 
         assert resources != null : String.format("Missing resources for zone partition [zonePartitionId=%s]", zonePartitionId);
 
         return resources;
+    }
+
+    /**
+     * Returns resources for the given zone partition or {@code null} if not available (because the replica is stopped/destroyed).
+     */
+    public @Nullable ZonePartitionResources zonePartitionResourcesOrNull(ZonePartitionId zonePartitionId) {
+        return zoneResourcesManager.getZonePartitionResources(zonePartitionId);
     }
 
     /**

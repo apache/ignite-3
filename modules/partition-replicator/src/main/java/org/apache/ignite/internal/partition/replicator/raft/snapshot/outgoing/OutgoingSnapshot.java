@@ -55,6 +55,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -143,6 +144,10 @@ public class OutgoingSnapshot {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean closedGuard = new AtomicBoolean();
 
+    private final OutgoingSnapshotStats snapshotStats;
+
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+
     /**
      * Creates a new instance.
      */
@@ -151,13 +156,16 @@ public class OutgoingSnapshot {
             PartitionKey partitionKey,
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
-            CatalogService catalogService
+            CatalogService catalogService,
+            RaftSnapshotsMetricsSource snapshotMetricsSource
     ) {
         this.id = id;
         this.partitionKey = partitionKey;
         this.partitionsByTableId = partitionsByTableId;
         this.txState = txState;
         this.catalogService = catalogService;
+        this.snapshotStats = new OutgoingSnapshotStats(id, partitionKey);
+        this.snapshotsMetricsSource = snapshotMetricsSource;
     }
 
     /**
@@ -183,6 +191,9 @@ public class OutgoingSnapshot {
         acquireMvLock();
 
         try {
+            snapshotStats.onSnapshotStart();
+            snapshotsMetricsSource.onOutgoingSnapshotStart();
+
             int catalogVersion = catalogService.latestCatalogVersion();
 
             List<PartitionMvStorageAccess> partitionStorages = freezePartitionStorages();
@@ -217,6 +228,8 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
+            snapshotStats.setSnapshotMeta(txState.lastAppliedIndex(), txState.lastAppliedTerm(), config, catalogVersion);
+
             return snapshotMetaAt(
                     txState.lastAppliedIndex(),
                     txState.lastAppliedTerm(),
@@ -229,6 +242,13 @@ public class OutgoingSnapshot {
             RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
 
             assert config != null : "Configuration should never be null when installing a snapshot";
+
+            snapshotStats.setSnapshotMeta(
+                    partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
+                    partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
+                    config,
+                    catalogVersion
+            );
 
             return snapshotMetaAt(
                     partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
@@ -320,6 +340,8 @@ public class OutgoingSnapshot {
         long totalBatchSize = 0;
         List<ResponseEntry> batch = new ArrayList<>();
 
+        snapshotStats.onStartMvDataBatchProcessing();
+
         while (true) {
             acquireMvLock();
 
@@ -331,6 +353,8 @@ public class OutgoingSnapshot {
                 // As out-of-order rows are added under the same lock that we hold, and we always send OOO data first,
                 // exhausting the partition means that no MV data to send is left, we are finished with it.
                 if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
+                    snapshotStats.onEndMvDataBatchProcessing();
+
                     return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMvDataResponse()
                             .rows(batch)
                             .finish(finishedMvData())
@@ -359,7 +383,12 @@ public class OutgoingSnapshot {
             }
 
             rowEntries.add(rowEntry);
-            totalBytesAfter += rowSizeInBytes(rowEntry.rowVersions());
+
+            long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+            snapshotStats.onProcessOutOfOrderRow(rowEntry.rowVersions().size(), rowSize);
+
+            totalBytesAfter += rowSize;
         }
 
         return totalBytesAfter;
@@ -403,7 +432,11 @@ public class OutgoingSnapshot {
 
                 batch.add(rowEntry);
 
-                totalBatchSize += rowSizeInBytes(rowEntry.rowVersions());
+                long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+                totalBatchSize += rowSize;
+
+                snapshotStats.onProcessRegularRow(rowEntry.rowVersions().size(), rowSize);
             }
         }
 
@@ -633,6 +666,11 @@ public class OutgoingSnapshot {
         }
 
         busyLock.block();
+
+        snapshotStats.onSnapshotEnd();
+        snapshotsMetricsSource.onOutgoingSnapshotEnd();
+
+        snapshotStats.logSnapshotStats();
 
         if (!finishedTxData) {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;

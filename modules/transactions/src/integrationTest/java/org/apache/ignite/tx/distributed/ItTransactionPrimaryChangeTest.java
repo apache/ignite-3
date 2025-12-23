@@ -104,7 +104,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     }
 
     @Test
-    public void testFullTxConsistency() throws InterruptedException {
+    public void testFullTxConsistency() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         int partId = 0;
