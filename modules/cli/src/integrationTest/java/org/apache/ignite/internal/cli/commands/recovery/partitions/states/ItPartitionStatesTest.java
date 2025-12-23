@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -167,7 +166,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION
         );
 
-        assertErrOutputContains("Some distribution zones are missing: [UNKNOWN_ZONE]");
+        assertErrOutputContains("Distribution zones were not found [zoneNames=[UNKNOWN_ZONE]]");
 
         assertOutputIsEmpty();
     }
@@ -302,18 +301,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         if (!zoneNames.isEmpty()) {
             assertOutputContainsAll(zoneNames);
-
-            if (!colocationEnabled()) {
-                Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
-
-                assertOutputContainsAllIgnoringCase(tableNames);
-            }
-        }
-
-        Set<String> anotherZones = CollectionUtils.difference(ZONES, zoneNames);
-
-        if (!anotherZones.isEmpty() && !colocationEnabled()) {
-            assertOutputDoesNotContain(anotherZones);
         }
 
         if (!zoneNames.isEmpty() && nodeNames.isEmpty()) {

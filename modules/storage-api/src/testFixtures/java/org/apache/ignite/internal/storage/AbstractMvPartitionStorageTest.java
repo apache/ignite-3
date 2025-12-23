@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.storage.AbortResultMatcher.equalsToAbortResult;
 import static org.apache.ignite.internal.storage.AddWriteCommittedResultMatcher.equalsToAddWriteCommittedResult;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.storage.AddWriteResultMatcher.equalsToA
 import static org.apache.ignite.internal.storage.CommitResultMatcher.equalsToCommitResult;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -52,9 +54,15 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -70,8 +78,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     private final TestValue value = new TestValue(20, "bar");
     protected final BinaryRow binaryRow = binaryRow(key, value);
     private final TestValue value2 = new TestValue(21, "bar2");
-    private final BinaryRow binaryRow2 = binaryRow(key, value2);
-    private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
+    protected final BinaryRow binaryRow2 = binaryRow(key, value2);
+    protected final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
     /**
      * Tests that reads from empty storage return empty results.
@@ -328,6 +336,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    void testRepeatedAddWriteAndAbortWriteForSameKey() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        abortWrite(ROW_ID, txId);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        abortWrite(ROW_ID, txId);
+
+        assertNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
     void testAbortWriteForNotExistingVersionChain() {
         HybridTimestamp beforeAbortTimestamp = clock.now();
 
@@ -473,6 +492,56 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNull(read(rowId, commitTimestamp.subtractPhysicalTime(1)));
         assertThat(read(rowId, commitTimestamp), isRow(binaryRow));
         assertThat(read(rowId, commitTimestamp.addPhysicalTime(1)), isRow(binaryRow));
+    }
+
+    @Test
+    void testRepeatedAddWriteAndCommitWriteForSameKey() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testTripleAddWriteFollowedByCommitWrite() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        addWrite(ROW_ID, TABLE_ROW, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testQuadrupleAddWriteFollowedByCommitWrite() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testReplaceWithAddWriteInNotTheMostRecentWrite() {
+        UUID txId2 = newTransactionId();
+        RowId rowId2 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(rowId2, TABLE_ROW, txId2);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+        commitWrite(rowId2, clock.now(), txId2);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+        assertNotNull(read(rowId2, clock.now()));
     }
 
     @Test
@@ -1101,7 +1170,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertNull(res.transactionId());
-        assertNull(res.commitTableOrZoneId());
+        assertNull(res.commitZoneId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow));
 
@@ -1110,7 +1179,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertEquals(txId2, res.transactionId());
-        assertEquals(COMMIT_TABLE_ID, res.commitTableOrZoneId());
+        assertEquals(COMMIT_ZONE_ID, res.commitZoneId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow2));
     }
@@ -1544,8 +1613,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
 
-        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_TABLE_ID, PARTITION_ID);
-        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_ZONE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_ZONE_ID, PARTITION_ID);
 
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow2, txId);
@@ -1587,7 +1656,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void testClosestRowReconstruction() {
         RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
 
-        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_ZONE_ID, PARTITION_ID);
 
         addWrite(rowId, binaryRow, txId);
 
@@ -1635,7 +1704,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertTrue(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(not(ReadResult.UNDEFINED_COMMIT_PARTITION_ID)));
-                assertThat(result.commitTableOrZoneId(), is(notNullValue()));
+                assertThat(result.commitZoneId(), is(notNullValue()));
                 assertThat(result.transactionId(), is(notNullValue()));
                 assertThat(result.commitTimestamp(), is(nullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -1659,7 +1728,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertFalse(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(ReadResult.UNDEFINED_COMMIT_PARTITION_ID));
-                assertThat(result.commitTableOrZoneId(), is(nullValue()));
+                assertThat(result.commitZoneId(), is(nullValue()));
                 assertThat(result.transactionId(), is(nullValue()));
                 assertThat(result.commitTimestamp(), is(notNullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -2013,6 +2082,61 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertThat(storage.estimatedSize(), is(1L));
     }
 
+    @Test
+    void testPeekEmptyStorage() {
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 1), empty());
+    }
+
+    @Test
+    void testPeek() {
+        var commitTimestamp = new HybridTimestamp(10, 0);
+
+        addWriteCommitted(ROW_ID, binaryRow, commitTimestamp);
+        addWriteCommitted(ROW_ID, binaryRow, commitTimestamp.addPhysicalTime(10));
+        addWriteCommitted(ROW_ID, binaryRow, commitTimestamp.addPhysicalTime(20));
+
+        Matcher<GcEntry> expGcEntry0 = eqGcEntry(new TestGcEntry(ROW_ID, commitTimestamp.addPhysicalTime(10)));
+        Matcher<GcEntry> expGcEntry1 = eqGcEntry(new TestGcEntry(ROW_ID, commitTimestamp.addPhysicalTime(20)));
+
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 0), empty());
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 1), contains(expGcEntry0));
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 2), contains(expGcEntry0, expGcEntry1));
+        assertThat(storage.peek(HybridTimestamp.MAX_VALUE, 3), contains(expGcEntry0, expGcEntry1));
+
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 0), empty());
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 1), empty());
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 2), empty());
+        assertThat(storage.peek(HybridTimestamp.MIN_VALUE, 3), empty());
+
+        assertThat(storage.peek(commitTimestamp, 0), empty());
+        assertThat(storage.peek(commitTimestamp, 1), empty());
+        assertThat(storage.peek(commitTimestamp, 2), empty());
+        assertThat(storage.peek(commitTimestamp, 3), empty());
+
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 0), empty());
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 1), contains(expGcEntry0));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 2), contains(expGcEntry0));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(10), 3), contains(expGcEntry0));
+
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 0), empty());
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 1), contains(expGcEntry0));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 2), contains(expGcEntry0, expGcEntry1));
+        assertThat(storage.peek(commitTimestamp.addPhysicalTime(20), 3), contains(expGcEntry0, expGcEntry1));
+    }
+
+    @Test
+    protected void writeIntentsCursorIsEmptyEvenWhenHavingWriteIntents() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), is(empty()));
+        }
+    }
+
+    protected static <T> List<T> drain(Cursor<T> cursor) {
+        return cursor.stream().collect(toUnmodifiableList());
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
@@ -2032,6 +2156,20 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         return new RowId(value.partitionId(), msb, lsb);
     }
 
+    protected static Matcher<GcEntry> eqGcEntry(GcEntry gcEntry) {
+        return new TypeSafeMatcher<>() {
+            @Override
+            protected boolean matchesSafely(GcEntry item) {
+                return gcEntry.getRowId().equals(item.getRowId()) && gcEntry.getTimestamp().equals(item.getTimestamp());
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendValue(gcEntry);
+            }
+        };
+    }
+
     private enum ScanTimestampProvider {
         NOW {
             @Override
@@ -2047,5 +2185,34 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         };
 
         abstract HybridTimestamp scanTimestamp(HybridClock clock);
+    }
+
+    /** Implementation for tests. */
+    protected static class TestGcEntry implements GcEntry {
+        @IgniteToStringInclude
+        private final RowId rowId;
+
+        @IgniteToStringInclude
+        private final HybridTimestamp timestamp;
+
+        protected TestGcEntry(RowId rowId, HybridTimestamp timestamp) {
+            this.rowId = rowId;
+            this.timestamp = timestamp;
+        }
+
+        @Override
+        public RowId getRowId() {
+            return rowId;
+        }
+
+        @Override
+        public HybridTimestamp getTimestamp() {
+            return timestamp;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 }

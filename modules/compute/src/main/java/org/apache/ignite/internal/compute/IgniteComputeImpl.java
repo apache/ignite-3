@@ -63,7 +63,6 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
@@ -75,8 +74,6 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
@@ -115,8 +112,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private final HybridClock clock;
 
-    private final NodeProperties nodeProperties;
-
     private final HybridTimestampTracker observableTimestampTracker;
 
     /**
@@ -129,7 +124,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             IgniteTablesInternal tables,
             ComputeComponent computeComponent,
             HybridClock clock,
-            NodeProperties nodeProperties,
             HybridTimestampTracker observableTimestampTracker
     ) {
         this.nodeName = nodeName;
@@ -138,7 +132,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
-        this.nodeProperties = nodeProperties;
         this.observableTimestampTracker = observableTimestampTracker;
 
         tables.setStreamerReceiverRunner(this);
@@ -195,7 +188,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                                 placementDriver,
                                                 topologyService,
                                                 clock,
-                                                nodeProperties,
                                                 table,
                                                 key,
                                                 mapper
@@ -249,7 +241,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         } else if (target instanceof TableJobTarget) {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             return requiredTable(tableJobTarget.tableName())
-                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync()
+                    .thenCompose(table -> table.partitionDistribution().primaryReplicasAsync()
                             .thenCompose(replicas -> toBroadcastExecution(replicas.entrySet().stream()
                                     .map(entry -> new IgniteBiTuple<>(entry.getKey(), findNodeByConsistentId(entry.getValue())))
                                     .filter(entry -> entry.getValue() != null)
@@ -257,7 +249,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                             entry.getValue(),
                                             entry.getKey(),
                                             table.zoneId(),
-                                            table.tableId(),
                                             descriptor,
                                             tableJobTarget.tableName().toCanonicalForm(),
                                             taskId,
@@ -321,7 +312,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             InternalClusterNode node,
             Partition partition,
             int zoneId,
-            int tableId,
             JobDescriptor<T, R> descriptor,
             String tableName,
             UUID taskId,
@@ -336,8 +326,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .build();
 
         PartitionNextWorkerSelector nextWorkerSelector = new PartitionNextWorkerSelector(
-                placementDriver, topologyService, clock, nodeProperties,
-                zoneId, tableId, partition
+                placementDriver, topologyService, clock,
+                zoneId, partition
         );
         return submitForBroadcast(node, descriptor, options, nextWorkerSelector, taskId, tableName, argHolder, cancellationToken);
     }
@@ -499,7 +489,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
-                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, nodeProperties, table, key),
+                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
                         executionContext,
                         cancellationToken
                 ));
@@ -528,8 +518,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new PartitionNextWorkerSelector(
-                                placementDriver, topologyService, clock, nodeProperties,
-                                table.zoneId(), table.tableId(), partition),
+                                placementDriver, topologyService, clock,
+                                table.zoneId(), partition),
                         new ExecutionContext(options, units, jobClassName, metadataBuilder, arg),
                         cancellationToken
                 ));
@@ -558,9 +548,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<InternalClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
-        PartitionGroupId replicationGroupId = nodeProperties.colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partitionIndex)
-                : new TablePartitionId(table.tableId(), partitionIndex);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partitionIndex);
 
         return placementDriver.awaitPrimaryReplica(replicationGroupId, clock.now(), 30, TimeUnit.SECONDS)
                 .thenApply(replicaMeta -> {

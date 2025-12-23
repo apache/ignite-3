@@ -282,6 +282,9 @@ public class ErrorGroups {
 
         /** Resource not found. */
         public static final int RESOURCE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Client operation timeout. */
+        public static final int OPERATION_TIMEOUT_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** SQL error group. */
@@ -453,6 +456,9 @@ public class ErrorGroups {
 
         /** Operation failed because the transaction is already finished with timeout. */
         public static final int TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode((short) 16);
+
+        /** Operation failed due to replication delayed ack failure. */
+        public static final int TX_DELAYED_ACK_ERR = TX_ERR_GROUP.registerErrorCode((short) 17);
     }
 
     /** Replicator error group. */
@@ -741,6 +747,9 @@ public class ErrorGroups {
 
         /** Error when node names are not in valid set. */
         public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Error when forwarding disaster recovery request to another node failed. */
+        public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Embedded API error group. */

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -28,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -36,6 +36,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,8 +67,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -80,7 +79,9 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -92,6 +93,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -232,7 +234,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
         PendingTxPartitionEnlistment enlistment = tx1.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -516,7 +518,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -541,11 +543,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")),
-                "Failed to acquire a lock due to a possible deadlock"
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"))
         );
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
@@ -593,7 +592,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false, LONG_RUNNING_TX_TIMEOUT_MILLIS);
 
-        ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -615,16 +614,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, scannedRows.size());
 
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")),
-                "Failed to acquire a lock due to a possible deadlock");
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")),
-                "Failed to acquire a lock due to a possible deadlock");
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"))
+        );
+
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"))
+        );
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -675,7 +671,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+                ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
                 PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
                 InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -699,7 +695,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                                 Tuple.create().set("valInt", intValue).set("valStr", "Str_" + intValue));
                     } catch (TransactionException e) {
                         // May happen, this is a race after all.
-                        assertThat(e.getMessage(), containsString("Failed to acquire a lock"));
+                        Throwable rootCause = unwrapRootCause(e);
+                        assertInstanceOf(LockException.class, rootCause);
+                        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
                     }
                 };
 
@@ -758,9 +756,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            ReplicationGroupId partitionId = colocationEnabled()
-                    ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
-                    : new TablePartitionId(internalTable.tableId(), PART_ID);
+            ZonePartitionId partitionId = new ZonePartitionId(internalTable.zoneId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
@@ -841,7 +837,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, node0, sortedIndexId, IndexScanCriteria.unbounded(), operationContext);
             } else {
-                ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+                ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
                 PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
                 InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -878,10 +874,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 .orElseThrow();
     }
 
-    private ReplicationGroupId replicationGroup(int partId) {
-        return colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+    private ZonePartitionId replicationGroup(int partId) {
+        return new ZonePartitionId(table.zoneId(), partId);
     }
 
     /**
@@ -1065,9 +1059,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        ReplicationGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
@@ -1084,5 +1076,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         tx.assignCommitPartition(replicationGroupId);
 
         return tx;
+    }
+
+    private static void assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(Executable operation) {
+        TransactionException transactionException = (TransactionException) IgniteTestUtils.assertThrowsWithCode(
+                TransactionException.class,
+                Transactions.ACQUIRE_LOCK_ERR,
+                operation,
+                "Failed to acquire a lock during request handling"
+        );
+
+        Throwable rootCause = unwrapRootCause(transactionException);
+        assertInstanceOf(PossibleDeadlockOnLockAcquireException.class, rootCause);
+        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock due to a possible deadlock"));
     }
 }

@@ -94,13 +94,9 @@ The metrics for Ignite Java Virtual Machine resource use.
 |=======================================================================
 | Metric name | Description
 
-| ActiveLeasesCount | The number of currently active leases.
-| CurrentPendingAssignmentsSize | The current size of pending assignments over all partitions.
-| CurrentStableAssignmentsSize | The current size of stable assignments over all partitions.
-| LeasesCreated | The total number of created leases.
-| LeasesProlonged | The total number of prolonged leases.
-| LeasesPublished | The total number of published leases.
-| LeasesWithoutCandidates | The total number of leases without candidates currently existing.
+| AcceptedLeases | The number of active leases. Equals the number of replication groups for which a primary replica has been elected.
+| LeaseNegotiations | The number of leases currently in negotiation. Represents the number of replication groups for which the primary replica has not yet been selected.
+| ReplicationGroups | The total number of replication groups. Each group first appears in `LeaseNegotiations`. After the primary is elected, its entry moves to `AcceptedLeases` and is removed from `LeaseNegotiations`.
 |=======================================================================
 
 == raft
@@ -215,6 +211,21 @@ Table metrics.
 | Writes | The total number of write operations for this table.
 |=======================================================================
 
+== index.builder
+
+Index builder metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| TotalIndexesBuilding | Total number of indexes that node builds at the moment.
+| IndexesReadingStorage | Number of indexes that are currently reading data from storage.
+| IndexesWaitingForTransactions | Number of indexes that are currently waiting for transactions to complete.
+| TransactionsWaitingFor | Number of transactions that indexes are currently waiting for.
+| IndexesWaitingForReplica | Number of indexes that are currently waiting for replica response.
+|=======================================================================
+
 == thread.pools.{thread-pool-executor-name}
 
 [width="100%",cols="20%,80%",opts="header"]
@@ -284,4 +295,22 @@ Transaction metrics.
 
 | LocalUnrebalancedPartitionsCount | The number of partitions that should be moved to this node.
 | TotalUnrebalancedPartitionsCount | The total number of partitions that should be moved to a new owner.
+|=======================================================================
+
+== raft.snapshots
+
+Metrics related to Raft snapshots of partition replicas.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| IncomingSnapshots | The number of incoming Raft snapshots in progress.
+| IncomingSnapshotsLoadingMeta | The number of incoming Raft snapshots loading metadata.
+| IncomingSnapshotsWaitingCatalog | The number of incoming Raft snapshots waiting for catalog.
+| IncomingSnapshotsPreparingStorages | The number of incoming Raft snapshots preparing storages.
+| IncomingSnapshotsPreparingIndexForBuild | The number of incoming Raft snapshots preparing indexes for build.
+| IncomingSnapshotsLoadingMvData | The number of incoming Raft snapshots loading multi-versioned data.
+| IncomingSnapshotsLoadingTxMeta | The number of incoming Raft snapshots loading transaction metadata.
+| OutgoingSnapshots | The number of outgoing Raft snapshots in progress.
 |=======================================================================

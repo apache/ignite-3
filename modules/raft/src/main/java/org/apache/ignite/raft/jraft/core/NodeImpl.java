@@ -39,7 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -291,8 +291,6 @@ public class NodeImpl implements Node, RaftServerService {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
 
-        private @Nullable HybridTimestamp safeTs = null;
-
         @Override
         public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
@@ -302,23 +300,6 @@ public class NodeImpl implements Node, RaftServerService {
                 }
                 event.shutdownLatch.countDown();
                 return;
-            }
-
-            // Patch the command.
-            if (event.done instanceof SafeTimeAwareCommandClosure) {
-                SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.done;
-                WriteCommand command = clo.command();
-                HybridTimestamp timestamp = command.initiatorTime();
-
-                if (timestamp != null) {
-                    if (safeTs == null) {
-                        safeTs = clock.update(timestamp);
-                    } else if (timestamp.compareTo(safeTs) > 0) {
-                        safeTs = clock.update(timestamp);
-                    }
-
-                    clo.safeTimestamp(safeTs);
-                }
             }
 
             this.tasks.add(event);
@@ -333,7 +314,6 @@ public class NodeImpl implements Node, RaftServerService {
                 task.reset();
             }
             this.tasks.clear();
-            this.safeTs = null;
         }
     }
 
@@ -1715,9 +1695,13 @@ public class NodeImpl implements Node, RaftServerService {
                 });
                 return;
             }
+
+            @Nullable HybridTimestamp safeTs = null;
+
             final List<LogEntry> entries = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 final LogEntryAndClosure task = tasks.get(i);
+
                 if (task.expectedTerm != -1 && task.expectedTerm != this.currTerm) {
                     LOG.debug("Node {} can't apply task whose expectedTerm={} doesn't match currTerm={}.", getNodeId(),
                         task.expectedTerm, this.currTerm);
@@ -1735,6 +1719,10 @@ public class NodeImpl implements Node, RaftServerService {
                     task.reset();
                     continue;
                 }
+
+                // To prevent safe timestamp values from becoming stale, we must assign them under a valid leader lock.
+                safeTs = tryAssignSafeTimestamp(task, safeTs);
+
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
                 task.entry.setType(EnumOutter.EntryType.ENTRY_TYPE_DATA);
@@ -1748,6 +1736,26 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    private @Nullable HybridTimestamp tryAssignSafeTimestamp(LogEntryAndClosure task, @Nullable HybridTimestamp safeTs) {
+        if (task.done instanceof SafeTimeAwareCommandClosure) {
+            SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) task.done;
+            WriteCommand command = clo.command();
+            HybridTimestamp timestamp = command.initiatorTime();
+
+            if (timestamp != null) {
+                if (safeTs == null) {
+                    safeTs = clock.update(timestamp);
+                } else if (timestamp.compareTo(safeTs) > 0) {
+                    safeTs = clock.update(timestamp);
+                }
+
+                clo.safeTimestamp(safeTs);
+            }
+        }
+
+        return safeTs;
     }
 
     /**
@@ -1800,16 +1808,28 @@ public class NodeImpl implements Node, RaftServerService {
      * ReadIndex response closure
      */
     public static class QuorumConfirmedHeartbeatResponseClosure<T extends Message> extends RpcResponseClosureAdapter<AppendEntriesResponse>{
+        /** Accepts the success flag and response message. */
         final Function<Boolean, T> responseBuilder;
-        final Consumer<T> responseConsumer;
+
+        /** Accepts the success flag and builds the response message. */
+        final BiConsumer<Boolean, T> responseConsumer;
+
         final int quorum;
         final int failPeersThreshold;
         int ackSuccess;
         int ackFailures;
         boolean isDone;
 
+        /**
+         * Contructor.
+         *
+         * @param responseConsumer Accepts the success flag and response message.
+         * @param responseBuilder Accepts the success flag and builds the response message.
+         * @param quorum The quorum size.
+         * @param peersCount The total number of peers.
+        */
         QuorumConfirmedHeartbeatResponseClosure(
-                final Consumer<T> responseConsumer,
+                final BiConsumer<Boolean, T> responseConsumer,
                 final Function<Boolean, T> responseBuilder,
                 final int quorum,
                 final int peersCount
@@ -1839,12 +1859,12 @@ public class NodeImpl implements Node, RaftServerService {
             // Include leader self vote yes.
             if (this.ackSuccess + 1 >= this.quorum) {
                 T response = responseBuilder.apply(true);
-                responseConsumer.accept(response);
+                responseConsumer.accept(true, response);
                 this.isDone = true;
             }
             else if (this.ackFailures >= this.failPeersThreshold) {
                 T response = responseBuilder.apply(false);
-                responseConsumer.accept(response);
+                responseConsumer.accept(false, response);
                 this.isDone = true;
             }
         }
@@ -1958,9 +1978,13 @@ public class NodeImpl implements Node, RaftServerService {
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
                 final QuorumConfirmedHeartbeatResponseClosure<GetLeaderResponse> heartbeatDone =
                         new QuorumConfirmedHeartbeatResponseClosure<>(
-                            response -> {
-                                closure.setResponse(response);
-                                closure.run(Status.OK());
+                            (success, response) -> {
+                                if (success) {
+                                    closure.setResponse(response);
+                                    closure.run(Status.OK());
+                                } else {
+                                    closure.run(new Status(RaftError.EAGAIN, "Failed to confirm leadership from quorum."));
+                                }
                             },
                             success -> respBuilder.build(),
                             quorum,
@@ -2054,7 +2078,7 @@ public class NodeImpl implements Node, RaftServerService {
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
                 final QuorumConfirmedHeartbeatResponseClosure<ReadIndexResponse> heartbeatDone =
                     new QuorumConfirmedHeartbeatResponseClosure<>(
-                            response -> {
+                            (success, response) -> {
                                 closure.setResponse(response);
                                 closure.run(Status.OK());
                             },
@@ -4354,5 +4378,9 @@ public class NodeImpl implements Node, RaftServerService {
     @TestOnly
     public FSMCaller fsmCaller() {
         return fsmCaller;
+    }
+
+    public RaftMetaStorage metaStorage() {
+        return metaStorage;
     }
 }

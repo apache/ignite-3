@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
@@ -95,6 +96,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     @Nullable
     private Consumer<Boolean> afterInvokeInterceptor;
 
+    @Nullable
+    private Consumer<Long> onRevisionAppliedInterceptor;
+
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
         return create(TEST_NODE_NAME);
@@ -156,10 +160,14 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             HybridClock clock,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
+        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
+
+        when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
+
         return new StandaloneMetaStorageManager(
                 mockClusterService(),
                 mockClusterGroupManager(),
-                mock(LogicalTopologyService.class),
+                logicalTopologyService,
                 mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
@@ -237,6 +245,19 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     public void setAfterInvokeInterceptor(@Nullable Consumer<Boolean> afterInvokeInterceptor) {
         this.afterInvokeInterceptor = afterInvokeInterceptor;
+    }
+
+    public void setOnRevisionAppliedInterceptor(@Nullable Consumer<Long> onRevisionAppliedInterceptor) {
+        this.onRevisionAppliedInterceptor = onRevisionAppliedInterceptor;
+    }
+
+    @Override
+    protected void onRevisionApplied(long revision) {
+        super.onRevisionApplied(revision);
+
+        if (onRevisionAppliedInterceptor != null) {
+            onRevisionAppliedInterceptor.accept(revision);
+        }
     }
 
     @Override

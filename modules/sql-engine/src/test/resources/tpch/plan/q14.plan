@@ -33,7 +33,7 @@ Project
                   index: L_SD
                   type: SORTED
                   predicate: SEARCH(L_SHIPDATE, Sarg[[1995-09-01..1995-10-01)])
-                  searchBounds: [RangeBounds [lowerBound=1995-09-01, upperBound=1995-10-01, lowerInclude=true, upperInclude=false]]
+                  searchBounds: [<1995-09-01>..<1995-10-01>)
                   fieldNames: [L_PARTKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_SHIPDATE]
                   collation: [L_SHIPDATE ASC]
                   est: (rows=1500304)

@@ -15,10 +15,23 @@
  * limitations under the License.
  */
 
-def createVersionFile = tasks.register('createVersionFile') {
-    onlyIf {
-        project.hasProperty("lastCommitHash")
+def getCommitHash(File workingDir) {
+    try {
+        def process = 'git rev-parse HEAD'.execute(null, workingDir)
+        int exitValue = process.waitFor()
+        if (exitValue == 0) {
+            return process.text.trim()
+        }
+    } catch (Exception e) {
+        // Git command not found or failed
     }
+    return "unknown"
+}
+
+def createVersionFile = tasks.register('createVersionFile') {
+    def commitHash = project.hasProperty("lastCommitHash")
+            ? project.property("lastCommitHash")
+            : getCommitHash(project.rootDir)
 
     def versionFileName = "ignite.version.full"
     def versionFile = file("$buildDir/$versionFileName")
@@ -28,9 +41,7 @@ def createVersionFile = tasks.register('createVersionFile') {
     }
 
     doLast {
-        def versionProp = project.property("lastCommitHash")
-
-        versionFile << project.version + "-sha1:" + versionProp
+        versionFile << project.version + "-sha1:" + commitHash
     }
 
     outputs.file versionFile

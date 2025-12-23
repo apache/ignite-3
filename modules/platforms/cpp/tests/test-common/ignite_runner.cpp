@@ -23,6 +23,7 @@
 
 #include "ignite/common/detail/config.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <sstream>
 #include <stdexcept>

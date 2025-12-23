@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +43,7 @@ public class ValidationUtils {
     public static void validateColumnType(MarshallerColumn col, Class<?> cls) {
         if (!isColumnCompatible(col.type(), cls)) {
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
-            throw new ClassCastException("Column's type mismatch ["
+            throw new MarshallerException("Column's type mismatch ["
                     + "column=" + col.name()
                     + ", expectedType=" + col.type()
                     + ", actualType=" + cls + ']');

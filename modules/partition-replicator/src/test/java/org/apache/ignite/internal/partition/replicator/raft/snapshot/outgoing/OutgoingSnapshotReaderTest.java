@@ -32,10 +32,12 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -77,14 +79,20 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
             return null;
         }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
 
+        var partitionKey = new ZonePartitionKey(0, 0);
+
+        var snapshotMetricsSource = new RaftSnapshotsMetricsSource();
+
         var snapshotStorage = new PartitionSnapshotStorage(
-                new ZonePartitionKey(0, 0),
+                partitionKey,
                 mock(TopologyService.class),
                 outgoingSnapshotsManager,
                 txStateAccess,
                 catalogService,
                 mock(FailureProcessor.class),
-                mock(Executor.class)
+                mock(Executor.class),
+                mock(LogStorageAccess.class),
+                snapshotMetricsSource
         );
 
         snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess1);
@@ -98,7 +106,9 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
         lenient().when(partitionAccess1.lastAppliedTerm()).thenReturn(2L);
         lenient().when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
 
-        try (var reader = new OutgoingSnapshotReader(UUID.randomUUID(), snapshotStorage)) {
+        UUID snapshotId = UUID.randomUUID();
+
+        try (var reader = new OutgoingSnapshotReader(snapshotId, snapshotStorage, snapshotMetricsSource)) {
             SnapshotMeta meta = reader.load();
             assertEquals(10L, meta.lastIncludedIndex());
             assertEquals(1L, meta.lastIncludedTerm());

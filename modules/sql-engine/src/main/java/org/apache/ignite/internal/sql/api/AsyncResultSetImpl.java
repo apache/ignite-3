@@ -25,6 +25,8 @@ import java.time.LocalTime;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -75,6 +77,11 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** Returns partition awareness metadata from an underlying cursor. */
     public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
         return cursor.partitionAwarenessMetadata();
+    }
+
+    /** Returns query cursor. */
+    public AsyncSqlCursor<InternalSqlRow> cursor() {
+        return cursor;
     }
 
     /** {@inheritDoc} */
@@ -165,7 +172,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         }
     }
 
-    private static class SqlRowImpl implements SqlRow {
+    private static class SqlRowImpl implements SqlRow, BinaryTupleContainer {
         private final InternalSqlRow row;
 
         private final ResultSetMetadata meta;
@@ -413,6 +420,11 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public ResultSetMetadata metadata() {
             return meta;
+        }
+
+        @Override
+        public BinaryTupleReader binaryTuple() {
+            return row.asBinaryTuple();
         }
 
         /** {@inheritDoc} */

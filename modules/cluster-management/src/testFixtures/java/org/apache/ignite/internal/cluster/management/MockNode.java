@@ -45,7 +45,6 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -95,6 +94,35 @@ public class MockNode {
             StorageConfiguration storageProfilesConfiguration,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
+        this(
+                testInfo,
+                addr,
+                nodeFinder,
+                workDir,
+                raftConfiguration,
+                systemLocalConfiguration,
+                nodeAttributes,
+                () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()),
+                storageProfilesConfiguration,
+                onConfigurationCommittedListener
+        );
+    }
+
+    /**
+     * Fake node constructor.
+     */
+    public MockNode(
+            TestInfo testInfo,
+            NetworkAddress addr,
+            NodeFinder nodeFinder,
+            Path workDir,
+            RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
+            NodeAttributesConfiguration nodeAttributes,
+            NodeAttributesProvider attributesProvider,
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
+    ) {
         String nodeName = testNodeName(testInfo, addr.port());
 
         this.workDir = workDir.resolve(nodeName);
@@ -133,11 +161,9 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
-        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
-
         var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
 
-        collector.register(() -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled)));
+        collector.register(attributesProvider);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -146,8 +172,7 @@ public class MockNode {
                 new ClusterInitializer(
                         clusterService,
                         hocon -> hocon,
-                        new TestConfigurationValidator(),
-                        () -> colocationEnabled
+                        new TestConfigurationValidator()
                 ),
                 raftManager,
                 clusterStateStorage,
@@ -157,7 +182,6 @@ public class MockNode {
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
-                () -> colocationEnabled,
                 onConfigurationCommittedListener
         );
 

@@ -27,6 +27,7 @@ import java.sql.Array;
 import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.JDBCType;
 import java.sql.NClob;
@@ -38,10 +39,15 @@ import java.sql.ResultSetMetaData;
 import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLType;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.EnumSet;
@@ -49,19 +55,20 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Jdbc prepared statement implementation.
+ * Jdbc prepared statement.
  */
 public class JdbcPreparedStatement extends JdbcStatement implements PreparedStatement {
 
@@ -87,25 +94,37 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             JDBCType.OTHER // UUID.
     );
 
-    /** SQL query. */
+    private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED =
+            "SQL-specific types are not supported.";
+
+    private static final String STREAMS_ARE_NOT_SUPPORTED =
+            "Streams are not supported.";
+
+    private static final String CONVERSION_TO_TARGET_SQL_TYPE_IS_NOT_SUPPORTED =
+            "Conversion to target sql type is not supported.";
+
+    private static final String PARAMETER_METADATA_IS_NOT_SUPPORTED =
+            "Parameter metadata is not supported.";
+
+    private static final String RESULT_SET_METADATA_IS_NOT_SUPPORTED =
+            "ResultSet metadata for prepared statement is not supported.";
+
     private final String sql;
 
-    /** Query arguments. */
-    private List<Object> currentArgs;
+    private List<Object> currentArguments = List.of();
 
     /** Batched query arguments. */
-    private List<Object[]> batchedArgs;
+    private @Nullable BatchedArguments batchedArgs;
 
-    /**
-     * Creates new prepared statement.
-     *
-     * @param conn           Connection.
-     * @param sql            SQL query.
-     * @param resHoldability Result set holdability.
-     * @param schema         Schema name.
-     */
-    JdbcPreparedStatement(JdbcConnection conn, String sql, int resHoldability, String schema) {
-        super(conn, resHoldability, schema);
+    JdbcPreparedStatement(
+            Connection connection,
+            IgniteSql igniteSql,
+            String schema,
+            int resHoldability,
+            String sql,
+            int queryTimeoutSeconds
+    ) {
+        super(connection, igniteSql, schema, resHoldability, queryTimeoutSeconds);
 
         this.sql = sql;
     }
@@ -113,7 +132,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery() throws SQLException {
-        executeWithArguments(JdbcStatementType.SELECT_STATEMENT_TYPE, false);
+        execute0(QUERY, sql, currentArguments.toArray());
 
         ResultSet rs = getResultSet();
 
@@ -136,35 +155,31 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public int[] executeBatch() throws SQLException {
         ensureNotClosed();
 
-        closeResults();
-
         if (CollectionUtils.nullOrEmpty(batchedArgs)) {
             return INT_EMPTY_ARRAY;
         }
 
-        long correlationToken = nextToken();
+        JdbcConnection conn = connection.unwrap(JdbcConnection.class);
+        Transaction tx = conn.startTransactionIfNoAutoCommit();
 
-        JdbcBatchPreparedStmntRequest req = new JdbcBatchPreparedStmntRequest(
-                conn.getSchema(), sql, batchedArgs, conn.getAutoCommit(), queryTimeoutMillis, correlationToken
-        );
+        // Cancel handle is not reusable, we should create a new one for each execution.
+        CancelHandle handle = CancelHandle.create();
+        cancelHandle = handle;
+
+        Statement igniteStmt = createIgniteStatement(sql);
+        ClientSql clientSql = (ClientSql) igniteSql;
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(conn.connectionId(), req).get();
+            long[] longUpdateCounters = clientSql.executeBatch(tx, handle.token(), igniteStmt, batchedArgs);
 
-            if (!res.success()) {
-                throw new BatchUpdateException(res.err(),
-                        IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
-                        res.getErrorCode(),
-                        res.updateCounts());
-            }
-
-            return res.updateCounts();
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Batch request failed.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Batch request canceled.", SqlStateCode.QUERY_CANCELLED);
+            return longsArrayToIntsArrayUnsafe(longUpdateCounters);
+        } catch (SqlBatchException e) {
+            throw new BatchUpdateException(e.getMessage(),
+                    IgniteQueryErrorCode.codeToSqlState(e.errorCode()),
+                    IgniteQueryErrorCode.UNKNOWN,
+                    longsArrayToIntsArrayUnsafe(e.updateCounters()));
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         } finally {
             batchedArgs = null;
         }
@@ -173,7 +188,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public int executeUpdate() throws SQLException {
-        executeWithArguments(JdbcStatementType.UPDATE_STATEMENT_TYPE, false);
+        execute0(DML_OR_DDL, sql, currentArguments.toArray());
 
         int res = getUpdateCount();
 
@@ -215,9 +230,12 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public boolean execute() throws SQLException {
-        executeWithArguments(JdbcStatementType.ANY_STATEMENT_TYPE, true);
+        execute0(ALL, sql, currentArguments.toArray());
 
-        return isQuery();
+        ResultSetWrapper rs = result;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     /** {@inheritDoc} */
@@ -230,7 +248,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException("The method 'executeUpdate(String, int)' is called on PreparedStatement "
+        throw new SQLException("The method 'execute(String, int)' is called on PreparedStatement "
                 + "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
@@ -253,13 +271,16 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void addBatch() throws SQLException {
         ensureNotClosed();
 
-        if (batchedArgs == null) {
-            batchedArgs = new ArrayList<>();
+        if (currentArguments.isEmpty()) {
+            return;
         }
 
-        batchedArgs.add(currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray());
+        if (batchedArgs == null) {
+            batchedArgs = BatchedArguments.create();
+        }
 
-        currentArgs = null;
+        batchedArgs.add(currentArguments.toArray());
+        currentArguments = List.of();
     }
 
     /** {@inheritDoc} */
@@ -280,114 +301,149 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public void setNull(int paramIdx, int sqlType) throws SQLException {
+        ensureNotClosed();
         checkType(sqlType);
 
-        setArgument(paramIdx, null);
+        setArgumentValue(paramIdx, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setNull(int paramIdx, int sqlType, String typeName) throws SQLException {
+        ensureNotClosed();
         checkType(sqlType);
 
-        setArgument(paramIdx, null);
+        setArgumentValue(paramIdx, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setBoolean(int paramIdx, boolean x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setByte(int paramIdx, byte x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setShort(int paramIdx, short x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setInt(int paramIdx, int x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setLong(int paramIdx, long x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setFloat(int paramIdx, float x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setDouble(int paramIdx, double x) throws SQLException {
-        setArgument(paramIdx, x);
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setBigDecimal(int paramIdx, BigDecimal x) throws SQLException {
-        setArgument(paramIdx, x);
+        if (x == null) {
+            setNull(paramIdx, Types.DECIMAL);
+        } else {
+            ensureNotClosed();
+            setArgumentValue(paramIdx, x);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setString(int paramIdx, String x) throws SQLException {
-        setArgument(paramIdx, x);
+        if (x == null) {
+            setNull(paramIdx, Types.VARCHAR);
+        } else {
+            ensureNotClosed();
+            setArgumentValue(paramIdx, x);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setBytes(int paramIdx, byte[] x) throws SQLException {
-        setArgument(paramIdx, x);
+        if (x == null) {
+            setNull(paramIdx, Types.VARBINARY);
+        } else {
+            ensureNotClosed();
+            setArgumentValue(paramIdx, x);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setDate(int paramIdx, Date x) throws SQLException {
-        setArgument(paramIdx, x);
+        if (x == null) {
+            setNull(paramIdx, Types.DATE);
+        } else {
+            setLocalDate(paramIdx, x.toLocalDate());
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setDate(int paramIdx, Date x, Calendar cal) throws SQLException {
-        setArgument(paramIdx, x);
+        setDate(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setTime(int paramIdx, Time x) throws SQLException {
-        setArgument(paramIdx, x);
+        if (x == null) {
+            setNull(paramIdx, Types.TIME);
+        } else {
+            setLocalTime(paramIdx, x.toLocalTime());
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setTime(int paramIdx, Time x, Calendar cal) throws SQLException {
-        setArgument(paramIdx, x);
+        setTime(paramIdx, x);
     }
-
 
     /** {@inheritDoc} */
     @Override
     public void setTimestamp(int paramIdx, Timestamp x) throws SQLException {
-        setArgument(paramIdx, x);
+        if (x == null) {
+            setNull(paramIdx, Types.TIMESTAMP);
+        } else {
+            setLocalDateTime(paramIdx, x.toLocalDateTime());
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setTimestamp(int paramIdx, Timestamp x, Calendar cal) throws SQLException {
-        setArgument(paramIdx, x);
+        setTimestamp(paramIdx, x);
     }
 
     /** {@inheritDoc} */
@@ -395,7 +451,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setAsciiStream(int paramIdx, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -403,7 +459,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setAsciiStream(int paramIdx, InputStream x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -411,7 +467,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setAsciiStream(int paramIdx, InputStream x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -419,7 +475,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setUnicodeStream(int paramIdx, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -427,7 +483,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setBinaryStream(int paramIdx, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -435,7 +491,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setBinaryStream(int paramIdx, InputStream x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -443,7 +499,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setBinaryStream(int paramIdx, InputStream x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -451,22 +507,14 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void clearParameters() throws SQLException {
         ensureNotClosed();
 
-        currentArgs = null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setObject(int paramIdx, Object x, int targetSqlType) throws SQLException {
-        checkType(targetSqlType);
-
-        throw new SQLFeatureNotSupportedException("Conversion to target sql type is not supported.");
+        currentArguments = List.of();
     }
 
     /** {@inheritDoc} */
     @Override
     public void setObject(int paramIdx, Object x) throws SQLException {
         if (x == null) {
-            setNull(paramIdx, Types.OTHER);
+            setNull(paramIdx, Types.NULL);
         } else if (x instanceof Boolean) {
             setBoolean(paramIdx, (Boolean) x);
         } else if (x instanceof Byte) {
@@ -493,10 +541,18 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             setTime(paramIdx, (Time) x);
         } else if (x instanceof Timestamp) {
             setTimestamp(paramIdx, (Timestamp) x);
+        } else if (x instanceof LocalTime) {
+            setLocalTime(paramIdx, (LocalTime) x);
+        } else if (x instanceof LocalDate) {
+            setLocalDate(paramIdx, (LocalDate) x);
+        } else if (x instanceof LocalDateTime) {
+            setLocalDateTime(paramIdx, (LocalDateTime) x);
+        } else if (x instanceof Instant) {
+            setInstant(paramIdx, (Instant) x);
         } else if (x instanceof UUID) {
-            setArgument(paramIdx, x);
+            setUuid(paramIdx, (UUID) x);
         } else {
-            throw new SQLFeatureNotSupportedException("Parameter is not supported: " + x + " <" + x.getClass().getTypeName() + ">");
+            throw new SQLException("Parameter type is not supported: " + x.getClass().getName());
         }
     }
 
@@ -505,7 +561,31 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setObject(int paramIdx, Object x, int targetSqlType, int scaleOrLen) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Conversion to target sql type is not supported.");
+        throw new SQLFeatureNotSupportedException(CONVERSION_TO_TARGET_SQL_TYPE_IS_NOT_SUPPORTED);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setObject(int paramIdx, Object x, int targetSqlType) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(CONVERSION_TO_TARGET_SQL_TYPE_IS_NOT_SUPPORTED);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setObject(int paramIdx, Object x, SQLType targetSqlType) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(CONVERSION_TO_TARGET_SQL_TYPE_IS_NOT_SUPPORTED);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setObject(int paramIdx, Object x, SQLType targetSqlType, int scaleOrLength) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(CONVERSION_TO_TARGET_SQL_TYPE_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -513,7 +593,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setCharacterStream(int paramIdx, Reader x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -521,7 +601,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setCharacterStream(int paramIdx, Reader x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -529,7 +609,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setCharacterStream(int paramIdx, Reader x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -537,7 +617,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setRef(int paramIdx, Ref x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -545,7 +625,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setBlob(int paramIdx, Blob x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -553,7 +633,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setBlob(int paramIdx, InputStream inputStream) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -561,7 +641,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setBlob(int paramIdx, InputStream inputStream, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -569,7 +649,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setClob(int paramIdx, Clob x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -577,7 +657,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setClob(int paramIdx, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -585,7 +665,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setClob(int paramIdx, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -593,7 +673,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setArray(int paramIdx, Array x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -601,7 +681,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public ResultSetMetaData getMetaData() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Meta data for prepared statement is not supported.");
+        throw new SQLFeatureNotSupportedException(RESULT_SET_METADATA_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -609,7 +689,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setURL(int paramIdx, URL x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Parameter type is unsupported. [cls=" + URL.class + ']');
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -617,7 +697,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public ParameterMetaData getParameterMetaData() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Parameter metadata are not supported.");
+        throw new SQLFeatureNotSupportedException(PARAMETER_METADATA_IS_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -625,7 +705,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setRowId(int paramIdx, RowId x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -641,7 +721,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setNCharacterStream(int paramIdx, Reader val, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -649,7 +729,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setNCharacterStream(int paramIdx, Reader val) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(STREAMS_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -657,7 +737,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setNClob(int paramIdx, NClob val) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -665,7 +745,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setNClob(int paramIdx, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -673,7 +753,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setNClob(int paramIdx, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -681,7 +761,55 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setSQLXML(int paramIdx, SQLXML xmlObj) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long[] executeLargeBatch() throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("executeLargeBatch not implemented.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long executeLargeUpdate() throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented.");
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLException("The method 'executeLargeUpdate(String, int)' is called on PreparedStatement instance.",
+                SqlStateCode.UNSUPPORTED_OPERATION);
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLException("The method 'executeLargeUpdate(String)' is called on PreparedStatement instance.",
+                SqlStateCode.UNSUPPORTED_OPERATION);
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, int[] columnIndexes) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLException("The method 'executeLargeUpdate(String, int[])' is called on PreparedStatement instance.",
+                SqlStateCode.UNSUPPORTED_OPERATION);
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, String[] columnNames) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLException("The method 'executeLargeUpdate(String, String[])' is called on PreparedStatement instance.",
+                SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
     /** {@inheritDoc} */
@@ -700,78 +828,67 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         return iface != null && iface.isAssignableFrom(JdbcPreparedStatement.class);
     }
 
-    /**
-     * Sets query argument value.
-     *
-     * @param paramIdx Index.
-     * @param val Value.
-     * @throws SQLException If index is invalid.
-     */
-    private void setArgument(int paramIdx, Object val) throws SQLException {
+    private void setLocalDate(int paramIdx, LocalDate x) throws SQLException {
         ensureNotClosed();
+        setArgumentValue(paramIdx, x);
+    }
+
+    private void setLocalTime(int paramIdx, LocalTime x) throws SQLException {
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
+    }
+
+    private void setLocalDateTime(int paramIdx, LocalDateTime x) throws SQLException {
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
+    }
+
+    private void setInstant(int paramIdx, Instant x) throws SQLException {
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
+    }
+
+    private void setUuid(int paramIdx, UUID x) throws SQLException {
+        ensureNotClosed();
+        setArgumentValue(paramIdx, x);
+    }
+
+    private void setArgumentValue(int paramIdx, @Nullable Object val) throws SQLException {
+        // The caller method ensures that this statement is not closed.
 
         if (paramIdx < 1) {
             throw new SQLException("Parameter index is invalid: " + paramIdx);
         }
 
-        if (currentArgs == null) {
-            currentArgs = new ArrayList<>(paramIdx);
+        if (currentArguments.isEmpty()) {
+            currentArguments = new ArrayList<>(paramIdx);
         }
 
-        while (currentArgs.size() < paramIdx) {
-            currentArgs.add(null);
+        while (currentArguments.size() < paramIdx) {
+            currentArguments.add(null);
         }
 
-        currentArgs.set(paramIdx - 1, val);
-    }
-
-    /**
-     * Converts value of JDBC type to value of Ignite Client protocol types.
-     *
-     * <ul>
-     *     <li>java.sql.* to Java Time API</li>
-     * </ul>
-     */
-    private @Nullable Object convertJdbcTypeToInternal(@Nullable Object val) {
-        if (val instanceof java.util.Date) {
-            if (val instanceof Timestamp) {
-                Timestamp timeStamp = (Timestamp) val;
-                return timeStamp.toLocalDateTime();
-            } else if (val instanceof Date) {
-                Date date = (Date) val;
-                return date.toLocalDate();
-            } else if (val instanceof Time) {
-                Time time = (Time) val;
-                return time.toLocalTime();
-            }
-
-            return ((java.util.Date) val).toInstant();
-        }
-
-        return val;
+        currentArguments.set(paramIdx - 1, val);
     }
 
     List<Object> getArguments() {
-        return currentArgs;
-    }
-
-    /**
-     * Execute query with arguments and nullify them afterwards.
-     *
-     * @param statementType Expected statement type.
-     * @throws SQLException If failed.
-     */
-    private void executeWithArguments(JdbcStatementType statementType, boolean multiStatement) throws SQLException {
-        Object[] args = currentArgs == null ? ArrayUtils.OBJECT_EMPTY_ARRAY :
-                currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray();
-
-        execute0(statementType, sql, multiStatement, args);
+        return currentArguments;
     }
 
     private static void checkType(int sqlType) throws SQLException {
         JDBCType jdbcType = JDBCType.valueOf(sqlType);
         if (!SUPPORTED_TYPES.contains(jdbcType)) {
-            throw new SQLFeatureNotSupportedException("Type is not supported: " + sqlType);
+            throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
         }
+    }
+
+    private static int[] longsArrayToIntsArrayUnsafe(long[] longs) {
+        int[] ints = new int[longs.length];
+
+        for (int i = 0; i < longs.length; i++) {
+            ints[i] = (int) longs[i];
+        }
+
+        return ints;
     }
 }

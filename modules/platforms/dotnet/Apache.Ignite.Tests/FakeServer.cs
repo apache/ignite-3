@@ -82,14 +82,15 @@ namespace Apache.Ignite.Tests
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
             bool disableOpsTracking = false,
-            int port = 0)
-            : base(port)
+            int port = 0,
+            IPAddress? address = null)
+            : base(address, port)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
             Node = new ClusterNode(Guid.NewGuid(), nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
-            PartitionAssignment = new[] { nodeName };
-            ClusterNodes = new[] { Node };
+            PartitionAssignment = [nodeName];
+            ClusterNodes = [Node];
 
             if (!disableOpsTracking)
             {

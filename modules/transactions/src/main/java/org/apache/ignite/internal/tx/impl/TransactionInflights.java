@@ -36,7 +36,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -170,7 +170,26 @@ public class TransactionInflights {
 
         // Avoid completion under lock.
         if (tuple != null) {
-            tuple.onInflightsRemoved();
+            tuple.onInflightRemoved(tuple.err);
+        }
+    }
+
+    void removeInflight(UUID txId, Throwable cause) {
+        // Can be null if tx was aborted and inflights were removed from the collection.
+        TxContext tuple = txCtxMap.computeIfPresent(txId, (uuid, ctx) -> {
+            if (cause != null && ctx.err == null) {
+                ctx.err = cause; // Retain only first exception.
+            }
+
+            // Update inflight counter after assigning error value to avoid issues with visibility.
+            ctx.removeInflight(txId);
+
+            return ctx;
+        });
+
+        // Avoid completion under lock.
+        if (tuple != null) {
+            tuple.onInflightRemoved(tuple.err);
         }
     }
 
@@ -205,7 +224,7 @@ public class TransactionInflights {
         txCtxMap.keySet().removeAll(txIds);
     }
 
-    void cancelWaitingInflights(ReplicationGroupId groupId) {
+    void cancelWaitingInflights(ZonePartitionId groupId) {
         for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
             if (ctxEntry.getValue() instanceof ReadWriteTxContext) {
                 ReadWriteTxContext txContext = (ReadWriteTxContext) ctxEntry.getValue();
@@ -235,7 +254,7 @@ public class TransactionInflights {
         });
     }
 
-    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
+    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new ReadWriteTxContext(placementDriver, clockService, true); // No writes enlisted, can go with unlock only.
@@ -251,6 +270,7 @@ public class TransactionInflights {
 
     abstract static class TxContext {
         volatile long inflights = 0; // Updated under lock.
+        Throwable err;
 
         boolean addInflight() {
             if (isTxFinishing()) {
@@ -269,9 +289,9 @@ public class TransactionInflights {
             inflights--;
         }
 
-        abstract void onInflightsRemoved();
+        abstract void onInflightRemoved(@Nullable Throwable t);
 
-        abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups);
+        abstract void finishTx(@Nullable Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups);
 
         abstract boolean isTxFinishing();
 
@@ -293,12 +313,12 @@ public class TransactionInflights {
         }
 
         @Override
-        public void onInflightsRemoved() {
+        void onInflightRemoved(Throwable t) {
             // No-op.
         }
 
         @Override
-        public void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
+        public void finishTx(@Nullable Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups) {
             markedFinished = true;
         }
 
@@ -323,7 +343,7 @@ public class TransactionInflights {
         private final PlacementDriver placementDriver;
         private final boolean noWrites;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
-        private volatile Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups;
+        private volatile Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups;
         private final ClockService clockService;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
@@ -337,12 +357,29 @@ public class TransactionInflights {
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
-            waitReadyToFinish(commit).whenComplete((ignoredReadyToFinish, readyException) -> {
+            waitReadyToFinish(commit).whenComplete((ignored, readyException) -> {
                 try {
-                    CompletableFuture<Void> actionFut = finishAction.apply(commit && readyException == null);
+                    if (commit) {
+                        if (readyException == null) {
+                            CompletableFuture<Void> actionFut = finishAction.apply(true);
+
+                            actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
+                                    completeFinishInProgressFuture(true, null, finishException));
+                        } else {
+                            // If we got ready exception, that means some of enlisted partitions could be broken/unavailable.
+                            // Respond to caller with the commit failure immediately to reduce potential unavailability window.
+                            completeFinishInProgressFuture(true, readyException, null);
+
+                            finishAction.apply(false);
+                        }
+
+                        return;
+                    }
+
+                    CompletableFuture<Void> actionFut = finishAction.apply(false);
 
                     actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
-                            completeFinishInProgressFuture(commit, readyException, finishException));
+                            completeFinishInProgressFuture(false, readyException, finishException));
                 } catch (Throwable err) {
                     completeFinishInProgressFuture(commit, readyException, err);
                 }
@@ -386,7 +423,7 @@ public class TransactionInflights {
 
                 int cntr = 0;
 
-                for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> e : enlistedGroups.entrySet()) {
+                for (Map.Entry<ZonePartitionId, PendingTxPartitionEnlistment> e : enlistedGroups.entrySet()) {
                     futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
                             .thenApply(replicaMeta -> {
                                 long enlistmentConsistencyToken = e.getValue().consistencyToken();
@@ -407,25 +444,34 @@ public class TransactionInflights {
         }
 
         private CompletableFuture<Void> waitNoInflights() {
+            // no new inflights are possible due to locked tx for update.
             if (inflights == 0) {
-                waitRepFut.complete(null);
+                if (err != null) {
+                    waitRepFut.completeExceptionally(err);
+                } else {
+                    waitRepFut.complete(null);
+                }
             }
             return waitRepFut;
         }
 
-        void cancelWaitingInflights(ReplicationGroupId groupId, long enlistmentConsistencyToken) {
+        void cancelWaitingInflights(ZonePartitionId groupId, long enlistmentConsistencyToken) {
             waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 
         @Override
-        public void onInflightsRemoved() {
+        void onInflightRemoved(@Nullable Throwable t) {
             if (inflights == 0 && finishInProgressFuture != null) {
-                waitRepFut.complete(null);
+                if (t == null) {
+                    waitRepFut.complete(null);
+                } else {
+                    waitRepFut.completeExceptionally(t);
+                }
             }
         }
 
         @Override
-        public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
+        public void finishTx(Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
         }

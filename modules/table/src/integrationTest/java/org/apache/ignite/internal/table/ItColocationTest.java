@@ -19,9 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -83,14 +81,12 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
@@ -119,7 +115,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -230,11 +225,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    ReplicationGroupId commitPartition,
+                    ZonePartitionId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
                     boolean recovery,
-                    Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+                    Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
@@ -244,7 +239,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
-        Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
+        Map<ZonePartitionId, RaftGroupService> groupRafts = new HashMap<>();
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -269,7 +264,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(colocationEnabled() ? new ZonePartitionId(ZONE_ID, i) : new TablePartitionId(TABLE_ID, i), r);
+            groupRafts.put(new ZonePartitionId(ZONE_ID, i), r);
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
@@ -277,9 +272,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             InternalClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            ReplicationGroupIdMessage commitPartId = colocationEnabled()
-                    ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0)) :
-                    toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
+            ZonePartitionIdMessage commitPartId = toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
@@ -362,7 +355,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                new TestTxStateStorage(),
                 replicaService,
                 clockService,
                 observableTimestampTracker,
@@ -372,7 +364,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple("TEST"))
         );
     }
@@ -407,8 +398,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @CartesianTest
     public void colocationTwoColumnsInsert(
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
     ) {
         init(t0, t1);
 
@@ -432,8 +423,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @CartesianTest
     public void colocationTwoColumnsInsertAll(
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
     ) {
         int keysCount = t0 == ColumnType.BOOLEAN && t0 == t1 ? 2 : KEYS;
 
@@ -483,7 +474,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         tbl = new TableImpl(intTable, schemaRegistry, lockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
-        marshaller = new TupleMarshallerImpl(schema);
+        marshaller = new TupleMarshallerImpl(tbl::qualifiedName, schema);
     }
 
     private static LockManager lockManager() {

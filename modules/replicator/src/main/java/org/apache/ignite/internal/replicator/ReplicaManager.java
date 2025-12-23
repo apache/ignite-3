@@ -98,6 +98,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.rebalance.RaftCommandWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -127,8 +129,11 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Replica manager maintains {@link Replica} instances on an Ignite node.
@@ -139,6 +144,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
     private static final long STOP_LEASE_PROLONGATION_RETRIES_TIMEOUT_MS = 60_000;
+
+    private static final String THROTTLE_REQUEST_KEY = "Failed to process replica request";
 
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -181,7 +188,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
-    private final Executor replicaStartStopExecutor;
+    private final ScheduledExecutorService replicaLifecycleExecutor;
 
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
@@ -241,7 +248,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
-     * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
+     * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
@@ -260,7 +267,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor,
+            ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             Executor throttledLogExecutor
     ) {
@@ -280,10 +287,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-        this.replicaStartStopExecutor = replicaStartStopExecutor;
+        this.replicaLifecycleExecutor = replicaLifecycleExecutor;
 
         this.replicaStateManager = new ReplicaStateManager(
-                replicaStartStopExecutor,
+                replicaLifecycleExecutor,
                 placementDriver,
                 this,
                 failureProcessor
@@ -389,9 +396,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.warn(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     } else {
-                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.debug(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
@@ -413,7 +420,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 LOG.debug("Sending delayed response for replica request [request={}]", request);
 
                                 if (ex0 == null) {
-                                    msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
+                                    msg0 = prepareDelayedReplicaResponse(sendTimestamp, res0);
                                 } else {
                                     if (indicatesUnexpectedProblem(ex0)) {
                                         LOG.warn("Failed to process delayed response [request={}]", ex0, request);
@@ -643,7 +650,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 placementDriver,
                                 getPendingAssignmentsSupplier,
                                 failureProcessor,
-                                placementDriverMessageProcessor
+                                placementDriverMessageProcessor,
+                                busyLock,
+                                replicaLifecycleExecutor
                         );
                     }
             );
@@ -775,6 +784,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicationGroupId Table-Partition identifier.
      * @return replica if it was created or null otherwise.
      */
+    @Nullable
     public CompletableFuture<Replica> replica(ReplicationGroupId replicationGroupId) {
         return replicas.get(replicationGroupId);
     }
@@ -786,9 +796,44 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      * @param sequenceToken Sequence token.
      */
+    @VisibleForTesting
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+        Loza loza = (Loza) raftManager;
+        Status status = loza.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+
+        // Stale configuration change will not be retried.
+        if (!status.isOk() && status.getRaftError() == RaftError.ESTALE) {
+            throw new IgniteException(INTERNAL_ERR, new RaftStaleUpdateException(status.getErrorMsg()));
+        }
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node with retries.
+     *
+     * <p>Performs retries as long as the received exception is recoverable, which is any exception other than
+     * node or component stopping exceptions or raft stale exceptions caused by stale sequence token.
+     *
+     * <p>This method is safe to retry even without chaining on it as it will either perform the reset as expected when no other
+     * reconfigurations happened on the cluster or will complete with an exception because someone has already applied a configuration that
+     * is newer than the one we want to reset to.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param peersAndLearners New peers and learners.
+     * @param sequenceToken Sequence token.
+     * @see org.apache.ignite.internal.raft.rebalance.ExceptionUtils#recoverable(Throwable)
+     *
+     */
+    public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
+        RaftCommandWithRetry resetCommand = new RaftCommandWithRetry(busyLock, replicaLifecycleExecutor);
+
+        return resetCommand.execute(() -> {
+            assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
+
+            resetPeers(replicaGrpId, peersAndLearners, sequenceToken);
+
+            return nullCompletedFuture();
+        });
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
@@ -904,7 +949,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return true;
-                }, replicaStartStopExecutor);
+                }, replicaLifecycleExecutor);
     }
 
     /** {@inheritDoc} */
@@ -1059,12 +1104,27 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestamp(clockService.now())
+                    .timestamp(clockService.current())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
                     .errorReplicaResponse()
                     .throwable(ex)
+                    .build();
+        }
+    }
+
+    private NetworkMessage prepareDelayedReplicaResponse(boolean sendTimestamp, Object result) {
+        if (sendTimestamp) {
+            return REPLICA_MESSAGES_FACTORY
+                    .timestampAwareReplicaResponse()
+                    .result(result)
+                    .timestamp(clockService.current())
+                    .build();
+        } else {
+            return REPLICA_MESSAGES_FACTORY
+                    .replicaResponse()
+                    .result(result)
                     .build();
         }
     }
@@ -1293,6 +1353,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
 
         ((Loza) raftManager).destroyRaftNodeStoragesDurably(raftNodeId, groupOptions);
+    }
+
+    /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void createMetaStorage(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+        var raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+
+        ((Loza) raftManager).createMetaStorage(raftNodeId);
     }
 
     /**

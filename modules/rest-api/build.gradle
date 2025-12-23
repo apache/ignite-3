@@ -48,9 +48,10 @@ dependencies {
     testImplementation libs.micronaut.http.client
     testImplementation libs.micronaut.http.server.netty
 
+    testFixturesApi libs.micronaut.http.core // exposed by the MicronautHttpResponseMatcher
     testFixturesImplementation testFixtures(project(":ignite-core"))
-    testFixturesImplementation libs.micronaut.http.core
     testFixturesImplementation libs.micronaut.http.client
+    testFixturesCompileOnly libs.swaggerv3.annotations // Fix unknown enum constant warning
 }
 
 ext {

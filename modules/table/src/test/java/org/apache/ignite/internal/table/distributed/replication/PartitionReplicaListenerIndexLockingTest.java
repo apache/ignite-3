@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
@@ -33,7 +32,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
-import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
+import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -75,12 +73,10 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -126,7 +122,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
@@ -154,7 +149,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
     private static final LockManager LOCK_MANAGER = lockManager();
-    private static final TablePartitionId TABLE_PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
+    private static final ZonePartitionId ZONE_PARTITION_ID = new ZonePartitionId(ZONE_ID, PART_ID);
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
     private static final TestMvPartitionStorage TEST_MV_PARTITION_STORAGE = new TestMvPartitionStorage(PART_ID);
 
@@ -261,7 +256,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
-                colocationEnabled() ? new ZonePartitionId(ZONE_ID, PART_ID) : TABLE_PARTITION_ID,
+                new ZonePartitionId(ZONE_ID, PART_ID),
                 TABLE_ID,
                 () -> Map.of(
                         pkLocker.id(), pkLocker,
@@ -275,7 +270,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 ),
                 CLOCK_SERVICE,
                 safeTime,
-                new TestTxStatePartitionStorage(),
                 mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,
@@ -295,7 +289,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
@@ -364,10 +357,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE:
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
-                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .groupId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
+                        .commitPartitionId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
@@ -385,10 +378,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
-                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .groupId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
+                        .commitPartitionId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
@@ -455,10 +448,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         switch (arg.type) {
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
-                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .groupId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
+                        .commitPartitionId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
@@ -473,10 +466,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_INSERT_ALL:
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .groupId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
+                        .commitPartitionId(zonePartitionIdMessage(ZONE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
@@ -579,20 +572,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         };
     }
 
-    private static BinaryRowMessage binaryRowMessage(BinaryRow binaryRow) {
-        return TABLE_MESSAGES_FACTORY.binaryRowMessage()
-                .binaryTuple(binaryRow.tupleSlice())
-                .schemaVersion(binaryRow.schemaVersion())
-                .build();
-    }
-
     static class ReadWriteTestArg {
         private final RequestType type;
         private final LockMode expectedLockOnUniqueHash;
         private final LockMode expectedLockOnNonUniqueHash;
         private final LockMode expectedLockOnSort;
 
-        public ReadWriteTestArg(
+        ReadWriteTestArg(
                 RequestType type,
                 LockMode expectedLockOnUniqueHash,
                 LockMode expectedLockOnNonUniqueHash,

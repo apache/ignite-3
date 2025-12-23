@@ -24,15 +24,20 @@ import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.components.LogSyncer;
@@ -42,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -51,6 +57,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +70,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     private StorageConfiguration storageConfig;
 
     @InjectExecutorService
-    ExecutorService executorService;
+    private ExecutorService executorService;
 
     @WorkDirectory
     private Path workDir;
@@ -210,7 +217,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testShouldReleaseReturnsFalseWhenNoCheckpointWaiting() throws Exception {
+    void testShouldReleaseReturnsFalseWhenNoCheckpointWaiting() {
         AtomicBoolean shouldReleaseValue = new AtomicBoolean(false);
 
         storage.runConsistently(locker -> {
@@ -223,7 +230,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testNestedRunConsistentlyInheritsLocker() throws Exception {
+    void testNestedRunConsistentlyInheritsLocker() {
         AtomicBoolean outerShouldRelease = new AtomicBoolean(false);
         AtomicBoolean innerShouldRelease = new AtomicBoolean(false);
 
@@ -248,7 +255,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testShouldReleaseReturnsTrueWhenWriterIsWaiting() throws Exception {
+    void testShouldReleaseReturnsTrueWhenWriterIsWaiting() {
         AtomicBoolean shouldReleaseValue = new AtomicBoolean(false);
 
         storage.runConsistently(locker -> {
@@ -260,5 +267,270 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         });
 
         assertTrue(shouldReleaseValue.get(), "Locker shouldRelease must return true when checkpoint is scheduled now");
+    }
+
+    @Override
+    protected void writeIntentsCursorIsEmptyEvenWhenHavingWriteIntents() {
+        // No-op as in this storage implementation the write intents cursor is expected to work.
+    }
+
+    @Test
+    void writeIntentsCursorIsEmptyOnEmptyStorage() {
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThatCursorIsEmpty(cursor);
+        }
+    }
+
+    private static <T> void assertThatCursorIsEmpty(Cursor<T> cursor) {
+        assertFalse(cursor.hasNext());
+        assertThrows(NoSuchElementException.class, cursor::next);
+    }
+
+    @Test
+    void writeIntentsCursorContainsAddedWriteIntent() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertTrue(cursor.hasNext());
+            assertThat(cursor.next(), is(ROW_ID));
+
+            assertThatCursorIsEmpty(cursor);
+        }
+    }
+
+    @Test
+    void writeIntentsCursorContainsWriteIntentsAddedForDifferentRowIds() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, txId);
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorContainsAddedWriteIntentAfterItIsReplaced() {
+        addWrite(ROW_ID, binaryRow, txId);
+        addWrite(ROW_ID, binaryRow2, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), contains(ROW_ID));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorAfterCommitsOfAllWriteIntentsIsEmpty() {
+        addWrite(ROW_ID, binaryRow, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), is(empty()));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorAfterAbortsOfAllWriteIntentsIsEmpty() {
+        addWrite(ROW_ID, binaryRow, txId);
+        abortWrite(ROW_ID, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), is(empty()));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksCorrectlyAfter2ReplacementsInaRow() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, txId);
+        addWrite(ROW_ID, binaryRow2, txId);
+        addWrite(ROW_ID, binaryRow3, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        addWrite(rowId2, binaryRow, newTransactionId());
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), contains(rowId2));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInBeginningIsCommitted() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, txId);
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInMiddleIsCommitted() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+        addWrite(rowId2, binaryRow, txId);
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        commitWrite(rowId2, clock.now(), txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInEndIsCommitted() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, txId);
+
+        commitWrite(rowId3, clock.now(), txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId2));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInBeginningIsAborted() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, txId);
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        abortWrite(ROW_ID, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInMiddleIsAborted() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+        addWrite(rowId2, binaryRow, txId);
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        abortWrite(rowId2, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInEndIsAborted() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, txId);
+
+        abortWrite(rowId3, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId2));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInBeginningIsReplaced() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, txId);
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        addWrite(ROW_ID, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInMiddleIsReplaced() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+        addWrite(rowId2, binaryRow, txId);
+        addWrite(rowId3, binaryRow, newTransactionId());
+
+        addWrite(rowId2, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void writeIntentsCursorWorksWhenWriteIntentInEndIsReplaced() {
+        RowId rowId2 = new RowId(PARTITION_ID);
+        RowId rowId3 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+        addWrite(rowId2, binaryRow, newTransactionId());
+        addWrite(rowId3, binaryRow, txId);
+
+        addWrite(rowId3, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(ROW_ID, rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void multiPageWriteIntentsWorkWithWriteIntentScans() {
+        RowId rowId1 = insert(rowStoredInFragments(), newTransactionId());
+        RowId rowId2 = insert(rowStoredInFragments(), newTransactionId());
+        RowId rowId3 = insert(rowStoredInFragments(), newTransactionId());
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), containsInAnyOrder(rowId1, rowId2, rowId3));
+        }
+    }
+
+    @Test
+    void scanWriteIntentsRespectsStorageClosure() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        storage.close();
+
+        assertThrows(StorageClosedException.class, storage::scanWriteIntents);
+    }
+
+    @Test
+    void writeIntentsCursorRespectsStorageClosure() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            storage.close();
+
+            assertThrows(StorageClosedException.class, cursor::hasNext);
+            assertThrows(StorageClosedException.class, cursor::next);
+        }
     }
 }

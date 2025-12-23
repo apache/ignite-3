@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-configuration-system')
     implementation project(':ignite-api')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-low-watermark')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-schema')
@@ -55,6 +56,7 @@ dependencies {
     testImplementation project(':ignite-system-view-api')
     testImplementation project(':ignite-configuration-system')
 
+    testImplementation libs.awaitility
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
@@ -70,12 +72,14 @@ dependencies {
     testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-metrics'))
 
+    testFixturesImplementation libs.awaitility
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-metastorage'))
 

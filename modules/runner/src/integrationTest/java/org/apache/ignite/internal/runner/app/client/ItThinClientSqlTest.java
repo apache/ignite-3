@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,14 +36,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -56,10 +65,12 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -235,7 +246,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(3, columns.size());
         assertEquals("MYVALUE", columns.get(0).name());
         assertEquals("ID", columns.get(1).name());
-        assertEquals("ID + 1", columns.get(2).name());
+        assertEquals("\"ID + 1\"", columns.get(2).name());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.currentPage().forEach(rows::add);
@@ -317,7 +328,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
         assertFalse(columns.get(1).nullable());
 
-        assertEquals("ID + 1", columns.get(2).name());
+        assertEquals("\"ID + 1\"", columns.get(2).name());
         assertNull(columns.get(2).origin());
 
         var rows = new ArrayList<SqlRow>();
@@ -748,6 +759,91 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testSqlQueryModifiers() {
+        ClientSql sql = (ClientSql) client().sql();
+
+        Set<QueryModifier> selectType = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+        Set<QueryModifier> dmlType = EnumSet.of(QueryModifier.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<QueryModifier> ddlType = EnumSet.of(QueryModifier.ALLOW_APPLIED_RESULT);
+
+        Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
+        Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
+        Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
+        Statement multiStatement = client().sql().createStatement("SELECT 1; SELECT 2;");
+
+        BiConsumer<Statement, Set<QueryModifier>> check = (stmt, types) -> {
+            await(sql.executeAsyncInternal(
+                    null,
+                    null,
+                    null,
+                    types,
+                    stmt
+            ));
+        };
+
+        // Incorrect modifier for DDL.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, selectType),
+                    "Statement of type \"DDL\" is not allowed in current context"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, dmlType),
+                    "Statement of type \"DDL\" is not allowed in current context"
+            );
+        }
+
+        // Incorrect modifier for DML.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, selectType),
+                    "Statement of type \"DML\" is not allowed in current context"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, ddlType),
+                    "Statement of type \"DML\" is not allowed in current context"
+            );
+        }
+
+        // Incorrect modifier for SELECT.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, dmlType),
+                    "Statement of type \"Query\" is not allowed in current context"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, ddlType),
+                    "Statement of type \"Query\" is not allowed in current context"
+            );
+        }
+
+        // Incorrect modifier for multi-statement.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(multiStatement, QueryModifier.SINGLE_STMT_MODIFIERS),
+                    "Multiple statements are not allowed."
+            );
+        }
+
+        // No exception expected with correct query modifier.
+        check.accept(ddlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(dmlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(selectStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(multiStatement, QueryModifier.ALL);
+    }
+
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
     public void testBroadcastQueryTxInflightStateCleanup() {
         IgniteSql sql = client().sql();
@@ -767,6 +863,50 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             TxManager txManager = server.txManager();
             TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
             assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
+        }
+    }
+
+    @Test
+    void testKvAndDistributedDmlInSameTransaction() {
+        IgniteSql sql = client().sql();
+        sql.executeScript("CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        KeyValueView<Integer, Integer> view = client().tables()
+                .table("my_table")
+                .keyValueView(Integer.class, Integer.class);
+
+        // First, we need to await table creation.
+        for (int i = 0; i < 10; i++) {
+            view.put(null, i, 0);
+        }
+
+        Transaction tx = client().transactions().begin();
+
+        try {
+            // Then run few operations to make sure transaction is initialized with commitPartition.
+            for (int i = 0; i < 10; i++) {
+                view.put(tx, i, 0);
+            }
+
+            // Run first batch of distributed DML queries. PartitionAwareness meta may be not prepared yet.
+            for (int i = 0; i < 5; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "UPDATE my_table SET val = val * 10 WHERE id = ?", i)) {
+                    // NO-OP
+                }
+            }
+
+            // Hence, let's wait for PA meta to be ready.
+            Awaitility.await().until(() -> ((ClientSql) sql).partitionAwarenessCachedMetas(), is(not(empty())));
+
+            // And retry distributed DML queries one more time. Here, even though PA meta is available, we expect
+            // these statements to be executed in proxy mode and no exceptions should be thrown.
+            for (int i = 0; i < 5; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "UPDATE my_table SET val = val * 10 WHERE id = ?", i)) {
+                    // NO-OP
+                }
+            }
+        } finally {
+            tx.rollback();
         }
     }
 

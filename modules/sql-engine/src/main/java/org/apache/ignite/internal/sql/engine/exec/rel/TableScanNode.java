@@ -26,8 +26,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -62,7 +61,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      */
     public TableScanNode(
             ExecutionContext<RowT> ctx,
-            RowHandler.RowFactory<RowT> rowFactory,
+            RowFactory<RowT> rowFactory,
             ScannableTable table,
             PartitionProvider<RowT> partitionProvider,
             @Nullable Predicate<RowT> filters,

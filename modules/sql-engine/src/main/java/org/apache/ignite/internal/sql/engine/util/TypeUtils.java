@@ -32,7 +32,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -49,25 +48,21 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.sql.type.BasicSqlType;
-import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
-import org.apache.ignite.internal.sql.engine.exec.row.RowType;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -165,7 +160,9 @@ public class TypeUtils {
 
     private static class SupportedParamClassesHolder {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
-        static final Set<ColumnType> UNSUPPORTED_COLUMN_TYPES_AS_PARAMETERS = Set.of(ColumnType.PERIOD, ColumnType.DURATION);
+        static final Set<ColumnType> UNSUPPORTED_COLUMN_TYPES_AS_PARAMETERS = Set.of(
+                ColumnType.PERIOD, ColumnType.DURATION, ColumnType.STRUCT
+        );
         static final Set<Class<?>> SUPPORTED_PARAM_CLASSES;
 
         static {
@@ -557,6 +554,8 @@ public class TypeUtils {
     /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
     public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale, int length) {
         switch (columnType) {
+            case NULL:
+                return NativeTypes.NULL;
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
             case INT8:
@@ -590,7 +589,6 @@ public class TypeUtils {
             // fallthrough
             case PERIOD:
             case DURATION:
-            case NULL:
             default:
                 throw new IllegalArgumentException("No NativeType for type: " + columnType);
         }
@@ -710,58 +708,81 @@ public class TypeUtils {
         return true;
     }
 
-    /** Creates an instance of {@link RowSchema} from a list of the given {@link RelDataType}s. */
-    public static RowSchema rowSchemaFromRelTypes(List<RelDataType> types) {
-        RowSchema.Builder fieldTypes = RowSchema.builder();
+    /**
+     * Converts a relational record type to a {@link StructNativeType}.
+     *
+     * <p>This method takes a {@link RelDataType} and converts it to its native struct representation using the {@link IgniteTypeFactory}.
+     * The method validates that the resulting native type is indeed a struct type.
+     *
+     * @param recordType The relational data type to convert; must represent a record/struct type.
+     * @return The corresponding {@code StructNativeType}.
+     * @throws IllegalArgumentException If the provided type cannot be converted to a struct type or does not represent a record
+     *         type.
+     * @see IgniteTypeFactory#relDataTypeToNative(RelDataType)
+     */
+    public static StructNativeType convertStructuredType(RelDataType recordType) {
+        NativeType result = IgniteTypeFactory.relDataTypeToNative(recordType);
 
-        for (RelDataType relType : types) {
-            TypeSpec typeSpec = convertToTypeSpec(relType);
-            fieldTypes.addField(typeSpec);
+        if (result instanceof StructNativeType) {
+            return (StructNativeType) result;
         }
 
-        return fieldTypes.build();
+        throw new IllegalArgumentException("Provided type is not record type: " + recordType);
     }
 
-    private static TypeSpec convertToTypeSpec(RelDataType type) {
-        boolean simpleType = type instanceof BasicSqlType;
-        boolean nullable = type.isNullable();
+    /**
+     * Creates a {@link StructNativeType} from a list of relational data types.
+     *
+     * <p>This method constructs a struct where each field is automatically named using the pattern "F0", "F1", "F2", etc., corresponding to
+     * the position of the type in the input list. Each field's type is converted to its native equivalent, and nullability is preserved
+     * from the original relational type.
+     *
+     * <p>Example: Given types [INT, STRING, BOOLEAN], this creates a struct with fields:
+     * <ul>
+     *   <li>F0: INT (nullable as per input type)</li>
+     *   <li>F1: STRING (nullable as per input type)</li>
+     *   <li>F2: BOOLEAN (nullable as per input type)</li>
+     * </ul>
+     *
+     * @param types The list of relational data types to convert; must not be null.
+     * @return A new {@code StructNativeType} with auto-generated field names.
+     * @see IgniteTypeFactory#relDataTypeToNative(RelDataType)
+     */
+    public static StructNativeType structuredTypeFromRelTypeList(List<RelDataType> types) {
+        RowTypeBuilder builder = NativeTypes.rowBuilder();
 
-        if (SqlTypeName.ANY == type.getSqlTypeName()) {
-            // TODO Some JSON functions that return ANY as well : https://issues.apache.org/jira/browse/IGNITE-20163
-            return new BaseTypeSpec(null, nullable);
-        } else if (SqlTypeUtil.isNull(type)) {
-            return RowSchemaTypes.NULL;
-        } else if (simpleType) {
-            NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
-            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
-        } else if (type instanceof IntervalSqlType) {
-            IntervalSqlType intervalType = (IntervalSqlType) type;
-            boolean yearMonth = intervalType.getIntervalQualifier().isYearMonth();
-
-            if (yearMonth) {
-                // YEAR MONTH interval is stored as number of days in ints.
-                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.PERIOD, nullable);
-            } else {
-                // DAY interval is stored as time as long.
-                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.DURATION, nullable);
-            }
-        } else if (SqlTypeUtil.isRow(type)) {
-            List<TypeSpec> fields = new ArrayList<>();
-
-            for (RelDataTypeField field : type.getFieldList()) {
-                TypeSpec fieldTypeSpec = convertToTypeSpec(field.getType());
-                fields.add(fieldTypeSpec);
-            }
-
-            return new RowType(fields, type.isNullable());
-
-        } else if (SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type) || SqlTypeUtil.isArray(type)) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20162
-            //  Add collection types support
-            throw new IllegalArgumentException("Collection types is not supported: " + type);
-        } else {
-            throw new IllegalArgumentException("Unexpected type: " + type);
+        int idx = 0;
+        for (RelDataType type : types) {
+            builder.addField("F" + idx++, IgniteTypeFactory.relDataTypeToNative(type), type.isNullable());
         }
+
+        return builder.build();
+    }
+
+    /**
+     * Creates a new {@link StructNativeType} by selecting and reordering fields from an existing schema.
+     *
+     * <p>This method produces a struct containing only the fields specified by the mapping array, in the order they appear in the mapping.
+     * Fields are referenced by their index in the original schema. The same field can be included multiple times if its index appears
+     * multiple times in the mapping.
+     *
+     * <p>Example: Given a schema with fields [A, B, C, D] and mapping [2, 0, 2], the result will contain fields [C, A, C].
+     *
+     * @param schema The source struct schema to map from; must not be null.
+     * @param mapping The array of field indices specifying which fields to include and their order; must not be null or empty, and
+     *         all indices must be valid for the schema.
+     * @return A new {@code StructNativeType} containing the mapped fields.
+     */
+    public static StructNativeType map(StructNativeType schema, int[] mapping) {
+        assert mapping != null && mapping.length > 0;
+
+        RowTypeBuilder builder = NativeTypes.rowBuilder();
+
+        for (int i : mapping) {
+            builder.addField(schema.fields().get(i));
+        }
+
+        return builder.build();
     }
 
     /** Check limitation for character and binary types and throws exception if row does not fit into type defined.
@@ -788,8 +809,9 @@ public class TypeUtils {
     public static <RowT> RowT validateStringTypesOverflowAndTrimIfPossible(
             RelDataType rowType,
             RowHandler<RowT> rowHandler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             RowT row,
-            Supplier<RowSchema> schema
+            Supplier<StructNativeType> schema
     ) {
         boolean containValidatedType =
                 rowType.getFieldList().stream().anyMatch(t -> STRING_TYPES.contains(t.getType().getSqlTypeName()));
@@ -834,7 +856,7 @@ public class TypeUtils {
                     data = byteString.substring(0, colPrecision);
 
                     if (rowBldr == null) {
-                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                        rowBldr = buildPartialRow(rowHandler, rowFactoryFactory, schema, i, row);
                     }
                 }
             }
@@ -854,7 +876,7 @@ public class TypeUtils {
                     data = str.substring(0, colPrecision);
 
                     if (rowBldr == null) {
-                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                        rowBldr = buildPartialRow(rowHandler, rowFactoryFactory, schema, i, row);
                     }
                 }
             }
@@ -871,8 +893,14 @@ public class TypeUtils {
         }
     }
 
-    private static <RowT> RowBuilder<RowT> buildPartialRow(RowHandler<RowT> rowHandler, Supplier<RowSchema> schema, int endPos, RowT row) {
-        RowFactory<RowT> factory = rowHandler.factory(schema.get());
+    private static <RowT> RowBuilder<RowT> buildPartialRow(
+            RowHandler<RowT> rowHandler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
+            Supplier<StructNativeType> schema,
+            int endPos,
+            RowT row
+    ) {
+        RowFactory<RowT> factory = rowFactoryFactory.create(schema.get());
         RowBuilder<RowT> bldr = factory.rowBuilder();
 
         for (int i = 0; i < endPos; ++i) {

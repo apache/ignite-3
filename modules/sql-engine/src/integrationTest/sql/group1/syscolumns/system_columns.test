@@ -22,6 +22,10 @@ statement error
 ----
 insert into t0 (id, val, "__part") values (104, 'val4', 1)
 
+# statement error: Failed to validate query:
+statement error
+----
+insert into t0 (id, val, __partition_id) values (104, 'val4', 1)
 
 # Select partition system column
 query IT rowsort
@@ -31,44 +35,43 @@ select * from t0
 102	val2
 103	val3
 
-query II rowsort
-select __part, id from t0
-----
-19	101
-17	102
-11	103
-
 query I rowsort
-select __part from t0
+select __partition_id from t0
 ----
 19
 17
 11
+
+query II rowsort
+select __partition_id, id from t0
+----
+19	101
+17	102
+11	103
 
 # Select legacy partition system column
-query II rowsort
-select "__part", id from t0
+query III rowsort
+select __partition_id, __part, "__part" from t0
 ----
-19	101
-17	102
-11	103
+19	19	19
+17	17	17
+11	11	11
 
-query I rowsort
-select "__part" from t0
+query IIII rowsort
+select __partition_id, __part, "__part", id from t0
 ----
-19
-17
-11
-
-query II rowsort
-select __part, "__part" id from t0
-----
-19	19
-17	17
-11	11
+19	19	19	101
+17	17	17	102
+11	11	11	103
 
 # Partition system column in WHERE
 query IT
-select * from t0 WHERE "__part" = 17
+select * from t0 where __partition_id = 17
 ----
 102	val2
+
+query IT rowsort
+select * from t0 where __partition_id IN (11, 19)
+----
+101	val1
+103	val3

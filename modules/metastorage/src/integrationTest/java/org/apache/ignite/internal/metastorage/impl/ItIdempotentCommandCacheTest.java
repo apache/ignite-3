@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageM
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -69,6 +70,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -95,6 +98,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -114,7 +118,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Integration tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
+ * Integration tests for idempotency of {@link IdempotentCommand}.
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
@@ -149,6 +153,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private List<Node> nodes;
 
     private static class Node implements AutoCloseable {
+        private static final IgniteLogger log = Loggers.forClass(Node.class);
+
         ClusterService clusterService;
 
         Loza raftManager;
@@ -208,6 +214,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             );
 
             var logicalTopologyService = mock(LogicalTopologyService.class);
+
+            when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -305,7 +313,17 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         boolean checkValueInStorage(byte[] testKey, byte[] testValueExpected) {
             Entry e = storage.get(testKey);
 
-            return e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
+            boolean res = e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
+
+            if (!res) {
+                log.warn("Test: checkValueInStorage found no value [node=" + clusterService.nodeName()
+                        + ", empty=" + (e == null ? "null" : e.empty())
+                        + ", tombstone=" + (e == null ? "null" : e.tombstone())
+                        + ", value=" + (e == null ? "null" : Arrays.toString(e.value()))
+                        + "].");
+            }
+
+            return res;
         }
     }
 
@@ -391,6 +409,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         CompletableFuture<Boolean> fut = raftClient.run(invokeCommand);
 
         Node currentLeader = leader(raftClient);
+
+        log.info("Test: current leader is " + currentLeader.clusterService.nodeName());
 
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
@@ -491,11 +511,11 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     }
 
     private Node leader(RaftGroupService raftClient) {
-        CompletableFuture<Void> refreshLeaderFut = raftClient.refreshLeader();
+        CompletableFuture<LeaderWithTerm> refreshLeaderFut = raftClient.refreshAndGetLeaderWithTerm();
 
         assertThat(refreshLeaderFut, willCompleteSuccessfully());
 
-        String currentLeader = raftClient.leader().consistentId();
+        String currentLeader = refreshLeaderFut.join().leader().consistentId();
 
         return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
     }

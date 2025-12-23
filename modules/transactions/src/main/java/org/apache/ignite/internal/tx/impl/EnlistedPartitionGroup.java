@@ -19,8 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import java.util.Objects;
 import java.util.Set;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -28,26 +27,21 @@ import org.apache.ignite.internal.tostring.S;
  * Partition enlistment information together with partition group ID.
  */
 public class EnlistedPartitionGroup {
-    private final ReplicationGroupId groupId;
+    private final ZonePartitionId groupId;
 
     @IgniteToStringInclude
     private final Set<Integer> tableIds;
 
     /** Constructor. */
-    public EnlistedPartitionGroup(ReplicationGroupId groupId, Set<Integer> tableIds) {
+    public EnlistedPartitionGroup(ZonePartitionId groupId, Set<Integer> tableIds) {
         this.groupId = groupId;
         this.tableIds = Set.copyOf(tableIds);
-    }
-
-    /** Constructor. */
-    public EnlistedPartitionGroup(TablePartitionId groupId) {
-        this(groupId, Set.of(groupId.tableId()));
     }
 
     /**
      * Returns replication group ID of the partition.
      */
-    public ReplicationGroupId groupId() {
+    public ZonePartitionId groupId() {
         return groupId;
     }
 

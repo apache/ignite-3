@@ -62,14 +62,17 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -744,9 +747,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             // Hints are not serializable.
             clearHints(expected);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Remove this rewriter
-            //  when the issue with sub-millisecond precision is resolved.
-            RelNode replaced = new RewriteTimeTimestampLiterals().visit((IgniteRel) expected);
+            RelNode replaced = new RewriteExpressionsToComparisonFormShuttle().visit((IgniteRel) expected);
             if (replaced != expected) {
                 expected = replaced;
             }
@@ -1158,11 +1159,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Truncates TIME/TIMESTAMP literals to millis, because sub-millisecond values are lost during serilization,
-     * since calcite's runtime does not support sub-millisecond precision for these types.
+     * Rewrites all expressions so they match their deserialized form.
+     *
+     * <ul>
+     * <li>Truncates TIME/TIMESTAMP literals to millis, because sub-millisecond values are lost during serilization,
+     * since calcite's runtime does not support sub-millisecond precision for these types.</li>
+     * <li>Expands all calls to {@code SEARCH} operator) see See RelJson toJson(RexNode node).</li>
+     * <li>Flattens ANDs and ORs.</li>
+     * </ul>
      */
-    private static class RewriteTimeTimestampLiterals extends IgniteRelShuttle {
-
+    private static class RewriteExpressionsToComparisonFormShuttle extends IgniteRelShuttle {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Remove this rewriter
+        //  when the issue with sub-millisecond precision is resolved.
         final RexShuttle rexVisitor = new RexShuttle() {
             @Override
             public RexNode visitLiteral(RexLiteral literal) {
@@ -1189,6 +1197,20 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                     return Commons.rexBuilder().makeLiteral(truncated, type);
                 } else {
                     return super.visitLiteral(literal);
+                }
+            }
+
+            @Override
+            public RexNode visitCall(RexCall call) {
+                RexNode newCall = super.visitCall(call);
+                RexBuilder rexBuilder = Commons.emptyCluster().getRexBuilder();
+
+                if (newCall.isA(SqlKind.SEARCH)) {
+                    return RexUtil.expandSearch(rexBuilder, null, newCall);
+                } else if (newCall.isA(SqlKind.AND) || newCall.isA(SqlKind.OR)) {
+                    return RexUtil.flatten(rexBuilder, newCall);
+                } else {
+                    return newCall;
                 }
             }
         };

@@ -19,9 +19,8 @@ package org.apache.ignite.internal.partition.replicator.raft;
 
 import static java.util.Collections.reverse;
 import static org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper.configureProperties;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -58,7 +57,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -79,11 +77,13 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -98,6 +98,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -109,13 +110,12 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -136,7 +136,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
     private static final ZonePartitionId PARTITION_ID = new ZonePartitionId(1, 3);
 
@@ -236,7 +235,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
             @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration,
             @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
             @Mock Catalog catalog,
-            @Mock CatalogIndexDescriptor catalogIndexDescriptor
+            @Mock CatalogIndexDescriptor catalogIndexDescriptor,
+            @Mock ReplicaManager replicaManager
     ) {
         when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
         when(catalog.indexes(anyInt())).thenReturn(List.of(catalogIndexDescriptor));
@@ -311,7 +311,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 new PartitionTxStateAccessImpl(txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId())),
                 catalogService,
                 failureProcessor,
-                executor
+                executor,
+                new LogStorageAccessImpl(replicaManager),
+                new RaftSnapshotsMetricsSource()
         );
     }
 
@@ -391,13 +393,11 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
 
-        return new PartitionListener(
+        return new TablePartitionProcessor(
                 txManager,
                 storage,
                 storageUpdateHandler,
-                txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId()),
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaRegistry,
                 indexMetaStorage,
@@ -406,7 +406,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
     }
@@ -566,7 +565,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         return MESSAGE_FACTORY.updateCommandV2()
                 .tableId(tableId)
-                .commitPartitionId(toReplicationGroupIdMessage(new ReplicaMessagesFactory(), PARTITION_ID))
+                .commitPartitionId(toZonePartitionIdMessage(new ReplicaMessagesFactory(), PARTITION_ID))
                 .rowUuid(id)
                 .messageRowToUpdate(row)
                 .txId(transactionId(now, 0))

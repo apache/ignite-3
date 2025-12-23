@@ -38,7 +38,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * Raft meta storage,it's not thread-safe.
  */
 public class LocalRaftMetaStorage implements RaftMetaStorage {
-
     private static final IgniteLogger LOG = Loggers.forClass(LocalRaftMetaStorage.class);
     private static final String RAFT_META = "raft_meta";
 
@@ -95,7 +94,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         catch (final IOException e) {
-            LOG.error("Fail to load raft meta storage [node={}].", this.node.getNodeId(), e);
+            LOG.error("Fail to load raft meta storage [node={}].", e, this.node.getNodeId());
             return false;
         }
     }
@@ -119,7 +118,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         catch (final Exception e) {
-            LOG.error("Fail to save raft meta [node={}].", this.node.getNodeId(), e);
+            LOG.error("Fail to save raft meta [node={}].", e, this.node.getNodeId());
             reportIOError();
             return false;
         }
@@ -185,6 +184,13 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         this.votedFor = peerId;
         this.term = term;
         return save();
+    }
+
+    @Override
+    public void createAfterDestroy() {
+        if (!Utils.mkdir(new File(path))) {
+            LOG.error("Fail to mkdir [node={}, path={}].", this.node.getNodeId(), this.path);
+        }
     }
 
     @Override

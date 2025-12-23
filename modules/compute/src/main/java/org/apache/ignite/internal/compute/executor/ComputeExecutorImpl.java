@@ -44,13 +44,13 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.compute.executor.platform.dotnet.DotNetComputeExecutor;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -115,7 +115,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
             String jobClassName,
-            JobClassLoader classLoader,
+            UnitsClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     ) {
@@ -167,7 +167,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
             JobExecutorType executorType,
             String jobClassName,
-            JobClassLoader classLoader,
+            UnitsClassLoader classLoader,
             @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
@@ -193,7 +193,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(
             String jobClassName,
-            JobClassLoader classLoader,
+            UnitsClassLoader classLoader,
             @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
@@ -230,7 +230,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            JobClassLoader classLoader,
+            UnitsClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable I arg
     ) {

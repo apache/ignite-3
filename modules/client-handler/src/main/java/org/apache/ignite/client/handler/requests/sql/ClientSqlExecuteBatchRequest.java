@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -65,15 +64,24 @@ public class ClientSqlExecuteBatchRequest {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandleMap.put(requestId, cancelHandle);
 
-        InternalTransaction tx = readTx(in, tsTracker, resources, null, null, null);
-        ClientSqlProperties props = new ClientSqlProperties(in);
+        CompletableFuture<InternalTransaction> txFut = readTx(
+                in,
+                tsTracker,
+                resources,
+                null,
+                null,
+                null,
+                null
+        );
+
+        ClientSqlProperties props = new ClientSqlProperties(in, false);
         String statement = in.unpackString();
         BatchedArguments arguments = readArgs(in);
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         tsTracker.update(clientTs);
 
-        return nullCompletedFuture().thenComposeAsync(none -> {
+        return txFut.thenComposeAsync(tx -> {
             return IgniteSqlImpl.executeBatchCore(
                             sql,
                             tsTracker,

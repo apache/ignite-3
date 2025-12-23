@@ -37,16 +37,20 @@ processTestFixturesResources {
 }
 
 dependencies {
+    jobsImplementation libs.jetbrains.annotations
+
     jobsImplementation project(':ignite-api')
     jobsImplementation project(':ignite-core')
     jobsImplementation project(':ignite-runner')
     jobsImplementation project(':ignite-metastorage-api')
     jobsImplementation project(':ignite-metastorage')
     jobsImplementation project(':ignite-page-memory')
+    jobsImplementation project(':ignite-vault')
     jobsImplementation project(':ignite-storage-api')
     jobsImplementation project(':ignite-storage-page-memory')
     jobsImplementation project(':ignite-raft')
     jobsImplementation project(':ignite-raft-api')
+    jobsImplementation project(':ignite-table')
 
     testFixturesApi sourceSets.jobs.output
 }

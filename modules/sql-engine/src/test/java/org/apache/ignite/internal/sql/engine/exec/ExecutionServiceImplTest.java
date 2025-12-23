@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -50,6 +52,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -66,7 +69,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -76,8 +81,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -95,6 +103,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -124,6 +133,7 @@ import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
+import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
@@ -151,6 +161,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -184,6 +195,7 @@ import org.mockito.ArgumentMatchers;
  */
 @SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Tag allows to skip default cluster setup. */
     private static final String CUSTOM_CLUSTER_SETUP_TAG = "skipDefaultClusterSetup";
@@ -209,6 +221,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @InjectExecutorService
     private ScheduledExecutorService commonExecutor;
+
+    @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=5")
+    private StatisticsConfiguration statisticsConfiguration;
 
     private final Map<String, List<Object[]>> dataPerNode = Map.of(
             nodeNames.get(0), List.of(new Object[]{0, 0}, new Object[]{3, 3}, new Object[]{6, 6}),
@@ -256,8 +271,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
+        Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
+                DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
         DdlSqlToCommandConverter converter =
-                new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null));
+                new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
+                        statStalenessProperties);
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
@@ -268,7 +287,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
-        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {
+        };
 
         prepareService = new PrepareServiceImpl(
                 "test",
@@ -282,7 +302,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 new PredefinedSchemaManager(schema),
                 clockService::currentLong,
                 commonExecutor,
-                producer
+                producer,
+                statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );
         parserService = new ParserServiceImpl();
 
@@ -573,7 +594,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         // start response trigger
         CountDownLatch startResponse = new CountDownLatch(1);
 
+        AtomicLong currentTopologyVersion = new AtomicLong();
+
         nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNode, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                QueryStartRequest startRequest = (QueryStartRequest) msg;
+                Long topologyVersion = startRequest.topologyVersion();
+                if (topologyVersion == null) {
+                    throw new IllegalStateException("Topology version is missing");
+                }
+                currentTopologyVersion.set(topologyVersion);
+            }
+
             if (node.node.name().equals(nodeNames.get(0))) {
                 // On node_1, hang until an exception from another node fails the query to make sure that the root fragment does not execute
                 // before other fragments.
@@ -606,7 +638,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         CompletableFuture<BatchedResult<InternalSqlRow>> resFut = cursor.requestNextAsync(9);
 
         startResponse.await();
-        execService.onDisappeared(firstNode);
+        execService.onNodeLeft(
+                new LogicalNode(firstNode, Map.of()),
+                new LogicalTopologySnapshot(currentTopologyVersion.get(), List.of(), randomUUID())
+        );
 
         nodeFailedLatch.countDown();
 
@@ -820,45 +855,45 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         String expectedOnCoordinator = format(
                 "Debug info for query: {} (canceled=false, stopped=false)" + nl
-                + "  Coordinator node: node_1 (current node)" + nl
-                + "  Root node state: opened" + nl
-                + nl
-                + "  Fragments awaiting init completion:" + nl
-                + "    id=1, node=node_1" + nl
-                + "    id=2, node=node_1" + nl
-                + "    id=2, node=node_2" + nl
-                + "    id=2, node=node_3" + nl
-                + nl
-                + "  Local fragments:" + nl
-                + "    id=1, state=opened, canceled=false, class=Inbox (root)" + nl
-                + "    id=2, state=opened, canceled=false, class=Outbox" + nl
-                + nl
-                + "  Fragment#1 tree:" + nl
-                + "    class=Inbox, requested=512" + nl
-                + "      class=RemoteSource, nodeName=node_1, state=WAITING" + nl
-                + "      class=RemoteSource, nodeName=node_2, state=WAITING" + nl
-                + "      class=RemoteSource, nodeName=node_3, state=WAITING" + nl
-                + nl
-                + "  Fragment#2 tree:" + nl
-                + "    class=Outbox, waiting=-1" + nl
-                + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
-                + "      class=, requested=0" + nl
-                + nl, new ExecutionId(ctx.queryId(), 0));
+                        + "  Coordinator node: node_1 (current node)" + nl
+                        + "  Root node state: opened" + nl
+                        + nl
+                        + "  Fragments awaiting init completion:" + nl
+                        + "    id=1, node=node_1" + nl
+                        + "    id=2, node=node_1" + nl
+                        + "    id=2, node=node_2" + nl
+                        + "    id=2, node=node_3" + nl
+                        + nl
+                        + "  Local fragments:" + nl
+                        + "    id=1, state=opened, canceled=false, class=Inbox (root)" + nl
+                        + "    id=2, state=opened, canceled=false, class=Outbox" + nl
+                        + nl
+                        + "  Fragment#1 tree:" + nl
+                        + "    class=Inbox, requested=512" + nl
+                        + "      class=RemoteSource, nodeName=node_1, state=WAITING" + nl
+                        + "      class=RemoteSource, nodeName=node_2, state=WAITING" + nl
+                        + "      class=RemoteSource, nodeName=node_3, state=WAITING" + nl
+                        + nl
+                        + "  Fragment#2 tree:" + nl
+                        + "    class=Outbox, waiting=-1" + nl
+                        + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
+                        + "      class=, requested=0" + nl
+                        + nl, new ExecutionId(ctx.queryId(), 0));
 
         assertThat(debugInfoCoordinator, equalTo(expectedOnCoordinator));
 
         String expectedOnNonCoordinator = format(
                 "Debug info for query: {} (canceled=false, stopped=false)" + nl
-                + "  Coordinator node: node_1" + nl
-                + nl
-                + "  Local fragments:" + nl
-                + "    id=2, state=opened, canceled=false, class=Outbox" + nl
-                + nl
-                + "  Fragment#2 tree:" + nl
-                + "    class=Outbox, waiting=-1" + nl
-                + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
-                + "      class=, requested=0" + nl
-                + nl, new ExecutionId(ctx.queryId(), 0));
+                        + "  Coordinator node: node_1" + nl
+                        + nl
+                        + "  Local fragments:" + nl
+                        + "    id=2, state=opened, canceled=false, class=Outbox" + nl
+                        + nl
+                        + "  Fragment#2 tree:" + nl
+                        + "    class=Outbox, waiting=-1" + nl
+                        + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
+                        + "      class=, requested=0" + nl
+                        + nl, new ExecutionId(ctx.queryId(), 0));
 
         assertThat(debugInfo2, equalTo(expectedOnNonCoordinator));
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
@@ -992,13 +1027,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      * <p>The sequence of events on real cluster is as follow:<ul>
      * <li>Given: cluster of 3 nodes, distribution zone spans all these nodes.</li>
      * <li>Node 1 has been restarted.</li>
-     * <li>Notification of org.apache.ignite.internal.network.TopologyEventHandler#onDisappeared handlers are delayed on node 2 (due to
-     * metastorage lagging or whatever reason).</li>
+     * <li>Notification of org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener#onNodeLeft
+     * handlers are delayed on node 2 (due to metastorage lagging or whatever reason).</li>
      * <li>Query started from node 1.</li>
      * <li>Root fragment processed locally, QueryBatchRequest came to node 2 before QueryStartRequest. This step
      * is crucial since it puts not completed future to mailbox registry
      * (org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl#locals).</li>
-     * <li>TopologyEventHandler's are notified on node 2. This step
+     * <li>LogicalTopologyEventListener's are notified on node 2. This step
      * causes onNodeLeft handler to be chained to the future from previous step. QueryStartRequest came to node 2. Query fragment is created
      * an immediately closed by onNodeLeft handler.</li>
      * </ul>
@@ -1035,16 +1070,74 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     throw new RuntimeException(e);
                 }
 
-                InternalClusterNode sameNameDifferentIdNode = clusterNode(nodeNames.get(0));
-                // Fire NODE_LEFT event on map-node in question. This event contains
-                // cluster node with consistent ID equals to ID of node-initiator, but
-                // different volatile id. This emulates situation, when request prepared
-                // on newer topology outruns event processing from previous topology change.
-                testCluster.node(nodeNames.get(2)).notifyNodeLeft(sameNameDifferentIdNode);
+                QueryStartRequest queryStartRequest = (QueryStartRequest) msg;
+                Long topologyVersion = queryStartRequest.topologyVersion();
+                if (topologyVersion == null) {
+                    throw new IllegalStateException("Topology version is missing");
+                }
+
+                InternalClusterNode node = clusterNode(nodeNames.get(2));
+                // This emulates situation, when request prepared on newer topology outruns event processing from previous topology change.
+                testCluster.node(nodeNames.get(2)).notifyNodeLeft(node, topologyVersion - 1);
             }
 
             return nullCompletedFuture();
         });
+
+        SqlOperationContext ctx = createContext();
+
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> cursorFuture = executionServices.get(0).executePlan(plan, ctx);
+        // Request must not hung.
+        await(await(cursorFuture).requestNextAsync(100));
+    }
+
+    /**
+     * Tests scenario when nodes receive a node left event from the previous topology.
+     */
+    @Test
+    void outdatedNodeLeftEventDoesntCauseQueryToHangAllNodes() {
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", createContext());
+
+        AtomicLong currentTopologyVersion = new AtomicLong();
+        CountDownLatch latch = new CountDownLatch(1);
+
+        // Triggers node left events with previous topology version for every node in the cluster.
+        for (String nodeName : nodeNames) {
+            testCluster.node(nodeName).interceptor((senderNode, msg, original) -> {
+                original.onMessage(senderNode, msg);
+
+                if (msg instanceof QueryStartRequest
+                        // Fragment without target is a root.
+                        && ((QueryStartRequest) msg).fragmentDescription().target() == null) {
+
+                    QueryStartRequest queryStartRequest = (QueryStartRequest) msg;
+                    Long topologyVersion = queryStartRequest.topologyVersion();
+                    if (topologyVersion == null) {
+                        throw new IllegalStateException("Topology version is missing");
+                    }
+
+                    currentTopologyVersion.set(topologyVersion);
+                    latch.countDown();
+                }
+
+                if (!(msg instanceof QueryStartRequest)) {
+                    try {
+                        latch.await();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException("Test was interrupted", e);
+                    }
+                    long previousVersion = currentTopologyVersion.get() - 1;
+
+                    InternalClusterNode node = clusterNode(nodeName);
+                    // This emulates situation, when request prepared on newer topology receive an event from previous topology change.
+                    testCluster.node(nodeName).notifyNodeLeft(node, previousVersion);
+
+                    return nullCompletedFuture();
+                } else {
+                    return nullCompletedFuture();
+                }
+            });
+        }
 
         SqlOperationContext ctx = createContext();
 
@@ -1099,7 +1192,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(expectedEx, actualException);
 
-        verify(txWrapper).finalise(ArgumentMatchers.<Exception>argThat(ex -> 
+        verify(txWrapper).finalise(ArgumentMatchers.<Exception>argThat(ex ->
                 expectedEx.getMessage().equals(ExceptionUtils.unwrapCause(ex).getMessage())));
     }
 
@@ -1128,6 +1221,112 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(txCtx, notNullValue());
 
         assertThat(txCtx.observableTime(), equalTo(expectedCatalogActivationTimestamp));
+    }
+
+    @Test
+    public void coordinatorIgnoresRemoteCloseErrorFromNodeOnCoordinator() throws InterruptedException {
+        ExecutionService execService = executionServices.get(0);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var expectedEx = new RuntimeException("Test error");
+        var queryClosed = new CountDownLatch(nodeNames.size() - 1);
+
+        String coordinatorNode = nodeNames.get(0);
+        testCluster.node(coordinatorNode).interceptor((senderNode, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                QueryStartRequest queryStart = (QueryStartRequest) msg;
+
+                String nodeName = senderNode.name();
+                testCluster.node(coordinatorNode).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(queryStart.queryId())
+                        .fragmentId(queryStart.fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
+            } else {
+                original.onMessage(senderNode, msg);
+            }
+
+            if (msg instanceof QueryCloseMessage) {
+                queryClosed.countDown();
+                return CompletableFuture.failedFuture(new RuntimeException("Test exception: failed to close"));
+            } else {
+                return nullCompletedFuture();
+            }
+        });
+
+        SqlOperationContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        RuntimeException actualException = assertWillThrow(execService.executePlan(plan, ctx), RuntimeException.class);
+        assertEquals(expectedEx, actualException);
+
+        queryClosed.await();
+    }
+
+    @Test
+    public void coordinatorIgnoresRemoteCloseErrorOnNode() throws InterruptedException {
+        ExecutionService execService = executionServices.get(0);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var expectedEx = new RuntimeException("Test error");
+        var queryClosed = new CountDownLatch(nodeNames.size() - 1);
+
+        String coordinatorNodeName = nodeNames.get(0);
+        List<String> shuffledNodeNames = nodeNames.stream()
+                .filter(n -> !n.equals(coordinatorNodeName))
+                .collect(Collectors.toList());
+        Collections.shuffle(shuffledNodeNames);
+
+        testCluster.node(coordinatorNodeName).interceptor((senderNode, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                QueryStartRequest queryStart = (QueryStartRequest) msg;
+
+                String nodeName = senderNode.name();
+                testCluster.node(coordinatorNodeName).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(queryStart.queryId())
+                        .fragmentId(queryStart.fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
+            } else {
+                original.onMessage(senderNode, msg);
+            }
+
+            if (msg instanceof QueryCloseMessage) {
+                queryClosed.countDown();
+                return CompletableFuture.failedFuture(new RuntimeException("Test exception: failed to close"));
+            } else {
+                return nullCompletedFuture();
+            }
+        });
+
+        AtomicBoolean closeShouldFail = new AtomicBoolean();
+
+        for (String nodeName : shuffledNodeNames) {
+            testCluster.node(nodeName).interceptor((senderNode, msg, original) -> {
+                original.onMessage(senderNode, msg);
+
+                if (msg instanceof QueryCloseMessage) {
+                    queryClosed.countDown();
+                    // Let only one QueryClose to return an exception.
+                    if (closeShouldFail.compareAndSet(false, true)) {
+                        return CompletableFuture.failedFuture(new RuntimeException("Test exception: failed to close"));
+                    }
+                }
+                return nullCompletedFuture();
+            });
+        }
+
+        SqlOperationContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        RuntimeException actualException = assertWillThrow(execService.executePlan(plan, ctx), RuntimeException.class);
+        assertEquals(expectedEx, actualException);
+
+        queryClosed.await();
     }
 
     private static Stream<Arguments> txTypes() {
@@ -1185,13 +1384,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
+                ArrayRowHandler.INSTANCE,
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
-                new ExpressionFactoryImpl<>(
+                new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 SHUTDOWN_TIMEOUT
@@ -1219,7 +1418,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         LogicalTopology logicalTopology = TestBuilders.logicalTopology(logicalNodes);
         var service = new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
-                new SystemPropertiesNodeProperties(), Runnable::run
+                Runnable::run
         );
 
         service.onTopologyLeap(logicalTopology.getLogicalTopology());
@@ -1304,8 +1503,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 this.mailboxRegistry = mailboxRegistry;
             }
 
-            public void notifyNodeLeft(InternalClusterNode node) {
-                mailboxRegistry.onDisappeared(node);
+            public void notifyNodeLeft(InternalClusterNode node, long topologyVersion) {
+                LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(topologyVersion, Set.of(), randomUUID());
+                mailboxRegistry.onNodeLeft(new LogicalNode(node, Map.of()), newTopology);
             }
 
             public void dataset(List<Object[]> dataset) {

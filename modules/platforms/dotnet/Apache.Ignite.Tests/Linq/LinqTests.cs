@@ -22,12 +22,14 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Common;
+using Common.Table;
 using Ignite.Sql;
 using Ignite.Table;
 using Microsoft.Extensions.Logging;
 using NodaTime;
 using NUnit.Framework;
-using Table;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Basic LINQ provider tests.

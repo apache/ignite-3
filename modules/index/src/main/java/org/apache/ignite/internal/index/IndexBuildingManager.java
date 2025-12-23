@@ -34,7 +34,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -44,7 +43,9 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -93,9 +94,10 @@ public class IndexBuildingManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             LowWatermark lowWatermark,
-            TxManager txManager
+            TxManager txManager,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MetricManager metricManager
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -125,9 +127,9 @@ public class IndexBuildingManager implements IgniteComponent {
                 executor,
                 replicaService,
                 failureProcessor,
-                nodeProperties,
                 new RetryingFinalTransactionStateResolver(transactionStateResolver, executor),
-                indexMetaStorage
+                indexMetaStorage,
+                metricManager
         );
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, failureProcessor, indexBuilder);
@@ -139,8 +141,8 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 placementDriver,
                 clockService,
-                failureProcessor,
-                nodeProperties
+                partitionReplicaLifecycleManager,
+                failureProcessor
         );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
@@ -151,7 +153,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 placementDriver,
                 indexMetaStorage,
                 failureProcessor,
-                nodeProperties,
                 executor
         );
 
@@ -160,7 +161,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 placementDriver,
                 clusterService,
                 lowWatermark,
-                nodeProperties,
                 indexTaskScheduler
         );
     }

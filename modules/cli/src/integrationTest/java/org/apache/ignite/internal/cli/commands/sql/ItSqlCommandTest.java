@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
-import static org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.DisplayName;
@@ -58,7 +57,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         execute("sql", "select id, name, salary, salary + 1 from person", "--jdbc-url", JDBC_URL);
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "SALARY + 1"),
+                () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "\"SALARY + 1\""),
                 this::assertErrOutputIsEmpty
         );
 
@@ -100,7 +99,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains(CLIENT_CONNECTION_FAILED_MESSAGE)
+                () -> assertErrOutputContains("Connection failed")
         );
     }
 
@@ -189,7 +188,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("SQL query validation error"),
                 () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );

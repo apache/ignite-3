@@ -127,11 +127,14 @@ public class ReplicaService {
     /**
      * Sends request to the replica node and provides raw response.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param targetNodeConsistentId A consistent id of the replica node.
      * @param req Replica request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     private CompletableFuture<ReplicaResponse> sendToReplicaRaw(String targetNodeConsistentId, ReplicaRequest req) {
@@ -269,11 +272,14 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param node Replica node.
      * @param request Request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request) {
@@ -283,11 +289,14 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param replicaConsistentId A consistent id of the replica node.
      * @param request Request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(String replicaConsistentId, ReplicaRequest request) {
@@ -297,12 +306,15 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param node Replica node.
      * @param request Request.
      * @param storageId Storage id.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request, String storageId) {

@@ -95,7 +95,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -120,6 +120,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
+    private static final int ZONE_ID = 0;
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "client";
@@ -219,7 +220,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool(),
+                Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()
         );
@@ -290,7 +291,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .groupId(toTablePartitionIdMessage(replicaMessageFactory, tablePartitionId))
                 .tableId(TABLE_ID)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
+                .commitPartitionId(zonePartitionId())
                 .timestamp(clock.now())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
@@ -420,9 +421,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         return rowBuilder.build();
     }
 
-    private TablePartitionIdMessage tablePartitionId() {
-        return replicaMessageFactory.tablePartitionIdMessage()
-                .tableId(TABLE_ID)
+    private ZonePartitionIdMessage zonePartitionId() {
+        return replicaMessageFactory.zonePartitionIdMessage()
+                .zoneId(ZONE_ID)
                 .partitionId(1)
                 .build();
     }

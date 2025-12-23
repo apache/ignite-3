@@ -34,6 +34,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -86,12 +87,15 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
+        UUID snapshotId = UUID.randomUUID();
+
         OutgoingSnapshot snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 singleton(TABLE_ID, partitionAccess),
                 mock(PartitionTxStateAccess.class),
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
 
         assertDoesNotThrow(() -> manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot));

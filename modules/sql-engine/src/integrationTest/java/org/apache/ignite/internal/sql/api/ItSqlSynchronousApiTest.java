@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -179,7 +180,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         assertThat(txManager().pending(), is(0));
     }
 
-    private void executeBatchAndCancel(Function<CancellationToken, long[]> execute) throws InterruptedException {
+    private void executeBatchAndCancel(Function<CancellationToken, long[]> execute) {
         CancelHandle cancelHandle = CancelHandle.create();
 
         // Run statement in another thread
@@ -187,7 +188,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
             execute.apply(cancelHandle.token());
         });
 
-        waitUntilRunningQueriesCount(greaterThan(0));
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
         assertThat(f.isDone(), is(false));
 
         cancelHandle.cancelAsync();
@@ -200,6 +201,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
 
         // Expect all transactions to be rolled back.
         assertThat(txManager().pending(), is(0));
+
+        // Cancellation future is completed before query is deregistered.
+        // Let's wait until all signs of query are wiped out to avoid interference
+        // between several executions of this method.
+        waitUntilRunningQueriesCount(equalTo(0));
     }
 
     @Override

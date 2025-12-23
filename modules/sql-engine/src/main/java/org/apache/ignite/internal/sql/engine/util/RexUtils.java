@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.rel.RelFieldCollation.Direction.ASCENDING;
+import static org.apache.calcite.rel.RelFieldCollation.Direction.DESCENDING;
+import static org.apache.calcite.rel.RelFieldCollation.NullDirection.FIRST;
+import static org.apache.calcite.rel.RelFieldCollation.NullDirection.LAST;
 import static org.apache.calcite.rex.RexUtil.composeConjunction;
 import static org.apache.calcite.rex.RexUtil.composeDisjunction;
 import static org.apache.calcite.rex.RexUtil.flattenAnd;
@@ -32,6 +36,7 @@ import static org.apache.calcite.sql.SqlKind.IS_NOT_NULL;
 import static org.apache.calcite.sql.SqlKind.IS_NULL;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.LIKE;
 import static org.apache.calcite.sql.SqlKind.NOT;
 import static org.apache.calcite.sql.SqlKind.OR;
 import static org.apache.calcite.sql.SqlKind.SEARCH;
@@ -185,7 +190,8 @@ public class RexUtils {
         return true;
     }
 
-    /** Try to transform expression into DNF form.
+    /**
+     * Try to transform expression into DNF form.
      *
      * @param rexBuilder Expression builder.
      * @param node Expression to process.
@@ -207,7 +213,8 @@ public class RexUtils {
         final RexBuilder rexBuilder;
         final int maxOrNodes;
 
-        /** Constructor.
+        /**
+         * Constructor.
          *
          * @param rexBuilder Rex builder.
          * @param maxOrNodes Limit for OR nodes, if limit is reached further processing will be stopped.
@@ -295,6 +302,7 @@ public class RexUtils {
     private static final Set<SqlKind> TREE_INDEX_COMPARISON =
             EnumSet.of(
                     SEARCH,
+                    LIKE,
                     IS_NULL,
                     IS_NOT_NULL,
                     EQUALS,
@@ -336,7 +344,7 @@ public class RexUtils {
             return null;
         }
 
-        return bounds; 
+        return bounds;
     }
 
     /**
@@ -485,7 +493,7 @@ public class RexUtils {
 
     /** Create index search bound by conditions of the field. */
     private static @Nullable SearchBounds createBounds(
-            @Nullable RelFieldCollation fc, // Can be null for EQUALS condition.
+            RelFieldCollation fc,
             List<RexCall> collFldPreds,
             RelOptCluster cluster,
             RelDataType fldType,
@@ -560,10 +568,27 @@ public class RexUtils {
                 }
 
                 return new MultiBounds(pred, orBounds);
-            } else if (op.kind == SEARCH) {
-                Sarg<?> sarg = ((RexLiteral) pred.operands.get(1)).getValueAs(Sarg.class);
+            } else if (op.kind == SEARCH || op.kind == LIKE) {
+                List<SearchBounds> bounds = null;
+                if (op.kind == LIKE && allowRange) {
+                    RangeBounds bound = expandLikeToBounds(fc, cluster, prevComplexity, pred);
 
-                List<SearchBounds> bounds = expandSargToBounds(fc, cluster, fldType, prevComplexity, sarg, ref, allowRange);
+                    if (bound != null) {
+                        RexNode shouldComputeLower = bound.shouldComputeLower();
+                        RexNode shouldComputeUpper = bound.shouldComputeUpper();
+                        if ((shouldComputeLower != null && !shouldComputeLower.isAlwaysTrue())
+                                || (shouldComputeUpper != null && !shouldComputeUpper.isAlwaysTrue())) {
+                            // Don't try to merge conditional bounds. We might revise this later.
+                            return bound;
+                        }
+                    }
+
+                    bounds = bound == null ? null : List.of(bound);
+                } else if (op.kind == SEARCH) {
+                    Sarg<?> sarg = ((RexLiteral) pred.operands.get(1)).getValueAs(Sarg.class);
+
+                    bounds = expandSargToBounds(fc, cluster, fldType, prevComplexity, sarg, ref, allowRange);
+                }
 
                 if (bounds == null) {
                     continue;
@@ -647,11 +672,11 @@ public class RexUtils {
                     // fallthrough.
 
                 case IS_NOT_NULL:
-                    if (fc.nullDirection == RelFieldCollation.NullDirection.FIRST && lowerBound == null) {
+                    if (fc.nullDirection == FIRST && lowerBound == null) {
                         lowerCond = pred;
                         lowerBound = nullValue;
                         lowerInclude = false;
-                    } else if (fc.nullDirection == RelFieldCollation.NullDirection.LAST && upperBound == null) {
+                    } else if (fc.nullDirection == LAST && upperBound == null) {
                         upperCond = pred;
                         upperBound = nullValue;
                         upperInclude = false;
@@ -730,6 +755,103 @@ public class RexUtils {
         }
 
         return bounds;
+    }
+
+    private static @Nullable RangeBounds expandLikeToBounds(
+            RelFieldCollation fc,
+            RelOptCluster cluster,
+            int prevComplexity,
+            RexCall call
+    ) {
+        if (!call.isA(LIKE)) {
+            return null;
+        }
+
+        int complexity = prevComplexity + 1;
+
+        // Limit amount of search bounds tuples.
+        if (complexity > MAX_SEARCH_BOUNDS_COMPLEXITY) {
+            return null;
+        }
+
+        RexBuilder builder = builder(cluster);
+        RexNode expressionToTest = call.getOperands().get(0);
+        RexNode pattern = call.getOperands().get(1);
+        RexNode escape = call.getOperands().size() > 2 ? call.getOperands().get(2) : null;
+
+        RexNode prefixExpression = findPrefix(builder, pattern, escape);
+        RexNode nextGreaterPrefix = nextGreaterPrefix(builder, prefixExpression);
+
+        RexNode literalTrue = builder.makeLiteral(true);
+
+        // The `nextGreaterPrefix` may return null if current value is the greatest one,
+        // so next is simply doesn't exists. Depending on field collation, a `null` value
+        // may or may not be a valid bound.
+        //
+        // A `null` is valid iff `null` is highest value according to a collation. In other
+        // words, if collation is `ASC NULLS LAST` or `DESC NULLS FIRST`, then any bound is
+        // valid bound and no extra validation required.
+        //
+        // Otherwise, we have to make sure that resulting `nextGreaterPrefix` is valid bound.
+        // If not, we should just leave this bound open. 
+        RexNode shouldComputeBoundExpression = nullIsHighest(fc)
+                ? literalTrue
+                : builder.makeCall(
+                        SqlStdOperatorTable.OR,
+                        // Prefix is null, [null, null) is valid range. It's empty though,
+                        // but `anything LIKE null` should evaluate to FALSE anyway.
+                        builder.makeCall(SqlStdOperatorTable.IS_NULL, prefixExpression),
+                        // Prefix is not null, hence nextPrefix must be not null as well.
+                        builder.makeCall(SqlStdOperatorTable.IS_NOT_NULL, nextGreaterPrefix)
+                );
+
+        RexNode condition = builder.makeCall(
+                SqlStdOperatorTable.AND,
+                lessOrGreater(builder, false, true, expressionToTest, prefixExpression),
+                lessOrGreater(builder, true, false, expressionToTest, nextGreaterPrefix)
+        );
+
+        if (fc.getDirection().isDescending()) {
+            return new RangeBounds(
+                    condition,
+                    shouldComputeBoundExpression,
+                    nextGreaterPrefix,
+                    false,
+                    literalTrue,
+                    prefixExpression,
+                    true
+            );
+        }
+
+        return new RangeBounds(
+                condition,
+                literalTrue,
+                prefixExpression,
+                true,
+                shouldComputeBoundExpression,
+                nextGreaterPrefix,
+                false
+        );
+    }
+
+    private static boolean nullIsHighest(RelFieldCollation collation) {
+        return (collation.getDirection().lax() == ASCENDING && collation.nullDirection == LAST)
+                || (collation.getDirection().lax() == DESCENDING && collation.nullDirection == FIRST);
+    }
+
+    private static RexNode findPrefix(RexBuilder builder, RexNode pattern, @Nullable RexNode escape) {
+        return builder.makeCall(
+                IgniteSqlOperatorTable.FIND_PREFIX,
+                pattern,
+                escape == null ? builder.makeNullLiteral(pattern.getType()) : escape
+        );
+    }
+
+    private static RexNode nextGreaterPrefix(RexBuilder builder, RexNode string) {
+        return builder.makeCall(
+                IgniteSqlOperatorTable.NEXT_GREATER_PREFIX,
+                string
+        );
     }
 
     private static RexNode leastOrGreatest(RexBuilder builder, boolean least, RexNode arg0, RexNode arg1) {
@@ -1320,8 +1442,10 @@ public class RexUtils {
         return wasChanged ? newSearchBounds : searchBounds;
     }
 
-    /** Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which
-     * the original value of the field can be certainly recovered. */
+    /**
+     * Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which the original value of the field can be certainly
+     * recovered.
+     */
     public static boolean isLosslessCast(RexNode node) {
         if (!node.isA(SqlKind.CAST)) {
             return false;
@@ -1353,6 +1477,37 @@ public class RexUtils {
             return source.getPrecision() <= target.getPrecision();
         }
 
-        return RexUtil.isLosslessCast(source, target);
+        return isLosslessCast(source, target);
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-27390 
+    //  This is copy of RexUtil.isLosslessCast from Calcite 1.40. We should replace RexUtils.isLosslessCast
+    //  with calcite's implementation.
+    private static boolean isLosslessCast(RelDataType source, RelDataType target) {
+        final SqlTypeName sourceSqlTypeName = source.getSqlTypeName();
+        final SqlTypeName targetSqlTypeName = target.getSqlTypeName();
+        // 1) Both INT numeric types
+        if (SqlTypeFamily.INTEGER.getTypeNames().contains(sourceSqlTypeName)
+                && SqlTypeFamily.INTEGER.getTypeNames().contains(targetSqlTypeName)) {
+            return targetSqlTypeName.compareTo(sourceSqlTypeName) >= 0;
+        }
+        // 2) Both CHARACTER types: it depends on the precision (length)
+        if (SqlTypeFamily.CHARACTER.getTypeNames().contains(sourceSqlTypeName)
+                && SqlTypeFamily.CHARACTER.getTypeNames().contains(targetSqlTypeName)) {
+            return targetSqlTypeName.compareTo(sourceSqlTypeName) >= 0
+                    && source.getPrecision() <= target.getPrecision();
+        }
+        // 3) From NUMERIC family to CHARACTER family: it depends on the precision/scale
+        if (sourceSqlTypeName.getFamily() == SqlTypeFamily.NUMERIC
+                && targetSqlTypeName.getFamily() == SqlTypeFamily.CHARACTER) {
+            int sourceLength = source.getPrecision() + 1; // include sign
+            if (source.getScale() != -1 && source.getScale() != 0) {
+                sourceLength += source.getScale() + 1; // include decimal mark
+            }
+            final int targetPrecision = target.getPrecision();
+            return targetPrecision == RelDataType.PRECISION_NOT_SPECIFIED || targetPrecision >= sourceLength;
+        }
+        // Return FALSE by default
+        return false;
     }
 }

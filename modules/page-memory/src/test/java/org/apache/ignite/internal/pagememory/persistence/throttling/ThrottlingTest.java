@@ -20,10 +20,11 @@ package org.apache.ignite.internal.pagememory.persistence.throttling;
 import static java.lang.Thread.State.TIMED_WAITING;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MIN_RATIO_NO_THROTTLE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -258,7 +259,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
             // And: All load threads are parked.
             for (Thread t : loadThreads) {
-                assertTrue(waitForCondition(() -> t.getState() == TIMED_WAITING, 1000L), t.getName());
+                await().timeout(5, TimeUnit.SECONDS).until(t::getState, is(TIMED_WAITING));
             }
 
             // When: Disable throttling
@@ -271,7 +272,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
             // Then: All load threads should be unparked.
             for (Thread t : loadThreads) {
-                assertTrue(waitForCondition(() -> t.getState() != TIMED_WAITING, 500L), t.getName());
+                await().timeout(5, TimeUnit.SECONDS).until(t::getState, is(not(TIMED_WAITING)));
             }
 
             for (Thread t : loadThreads) {
@@ -279,6 +280,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
             }
         } finally {
             stopLoad.set(true);
+
+            for (Thread t : loadThreads) {
+                t.join();
+            }
         }
     }
 

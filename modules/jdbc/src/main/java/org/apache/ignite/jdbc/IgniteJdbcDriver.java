@@ -18,6 +18,9 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import com.google.auto.service.AutoService;
 import java.sql.Connection;
@@ -26,12 +29,32 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.logging.Logger;
+import org.apache.ignite.client.BasicAuthenticator;
+import org.apache.ignite.client.IgniteClientAuthenticator;
+import org.apache.ignite.client.IgniteClientConfiguration;
+import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.RetryReadPolicy;
+import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ChannelValidator;
+import org.apache.ignite.internal.client.HostAndPort;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
+import org.apache.ignite.internal.jdbc.JdbcClientDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
+import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC driver implementation for Apache Ignite 3.x.
@@ -74,17 +97,29 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *          <br>If not set then system default on client timezone will be used.</td>
  *   </tr>
  *   <tr>
- *      <td>queryTimeout</td>
+ *      <td>queryTimeoutSeconds</td>
  *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
+ *   </tr>
+ *   <tr>
+ *       <td>partitionAwarenessMetadataCacheSize</td>
+ *       <td>Size of cache to store partition awareness metadata of queries, in number of entries.
+ *           <br>By default, the cache stores 1024 entries.
+ *           <br>The value {@code 0} can be used to disable partition awareness.</td>
  *   </tr>
  *   <tr>
  *      <th colspan="2">Connection properties</th>
  *   </tr>
  *   <tr>
- *      <td>connectionTimeout</td>
- *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
+ *      <td>connectionTimeoutMillis</td>
+ *      <td>Number of milliseconds JDBC client will wait for server to respond. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
+ *   </tr>
+ *   <tr>
+ *      <td>backgroundReconnectIntervalMillis</td>
+ *      <td>Background reconnect interval, in milliseconds.
+ *          <br>The value {@code 0} can be used to disable background reconnection.
+ *          <br>The default value is {@code 30 000}.</td>
  *   </tr>
  *   <tr>
  *       <th colspan="2">Basic authentication</th>
@@ -162,6 +197,9 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    /** Full version string. */
+    private static final String FULL_VER = IgniteProductVersion.CURRENT_VERSION.toString();
+
     /**
      * Tracker of the latest time observed by client.
      *
@@ -179,10 +217,18 @@ public class IgniteJdbcDriver implements Driver {
         }
 
         ConnectionPropertiesImpl connProps = new ConnectionPropertiesImpl();
-
         connProps.init(url, props);
 
-        return new JdbcConnection(connProps, observableTimeTracker);
+        TcpIgniteClient client;
+        try {
+            client = createIgniteClient(connProps, observableTimeTracker);
+        } catch (Exception e) {
+            throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
+        }
+
+        JdbcDatabaseMetadataHandler eventHandler = new JdbcClientDatabaseMetadataHandler(client);
+
+        return new JdbcConnection(client, eventHandler, connProps);
     }
 
     /** {@inheritDoc} */
@@ -228,7 +274,6 @@ public class IgniteJdbcDriver implements Driver {
     /**
      * Register the driver instance.
      *
-     * @return Driver instance.
      * @throws RuntimeException when failed to register driver.
      */
     private static synchronized void register() {
@@ -252,5 +297,82 @@ public class IgniteJdbcDriver implements Driver {
      */
     private static boolean isRegistered() {
         return instance != null;
+    }
+
+    private TcpIgniteClient createIgniteClient(
+            ConnectionProperties connectionProperties,
+            HybridTimestampTracker observableTimeTracker
+    ) {
+        String[] addresses = Arrays.stream(connectionProperties.getAddresses())
+                .map(HostAndPort::toString)
+                .toArray(String[]::new);
+
+        int networkTimeout = connectionProperties.getConnectionTimeout();
+
+        var cfg = new IgniteClientConfigurationImpl(
+                null,
+                addresses,
+                networkTimeout,
+                connectionProperties.getBackgroundReconnectInterval(),
+                null,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
+                new RetryReadPolicy(),
+                null,
+                extractSslConfiguration(connectionProperties),
+                false,
+                extractAuthenticationConfiguration(connectionProperties),
+                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
+                connectionProperties.getPartitionAwarenessMetadataCacheSize(),
+                JdbcDatabaseMetadata.DRIVER_NAME,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL
+        );
+
+        ChannelValidator channelValidator = ctx -> {
+            if (!ctx.isFeatureSupported(ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT)) {
+                ClusterNode node = ctx.clusterNode();
+
+                throw new IgniteClientConnectionException(
+                        CONNECTION_ERR,
+                        IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
+                                + "the feature required by the driver being used. Please refer to the documentation and use a compatible "
+                                + "version of the JDBC driver to connect to this node "
+                                + "[nodeName={}, nodeAddress={}, nodeVersion={}, driverVersion={}]",
+                                node.name(), node.address(), ctx.productVersion(), FULL_VER),
+                        null
+                );
+            }
+        };
+
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(
+                cfg, observableTimeTracker, channelValidator));
+    }
+
+    private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
+        if (connProps.isSslEnabled()) {
+            return SslConfiguration.builder()
+                    .enabled(true)
+                    .trustStorePath(connProps.getTrustStorePath())
+                    .trustStorePassword(connProps.getTrustStorePassword())
+                    .ciphers(connProps.getCiphers())
+                    .keyStorePath(connProps.getKeyStorePath())
+                    .keyStorePassword(connProps.getKeyStorePassword())
+                    .build();
+        } else {
+            return null;
+        }
+    }
+
+    private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
+        String username = connProps.getUsername();
+        String password = connProps.getPassword();
+        if (username != null && password != null) {
+            return BasicAuthenticator.builder()
+                    .username(username)
+                    .password(password)
+                    .build();
+        } else {
+            return null;
+        }
     }
 }

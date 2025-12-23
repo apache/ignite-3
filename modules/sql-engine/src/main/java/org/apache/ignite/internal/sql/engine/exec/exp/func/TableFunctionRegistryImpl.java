@@ -50,13 +50,13 @@ public class TableFunctionRegistryImpl implements TableFunctionRegistry {
     }
 
     private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(
-            ExecutionContext<RowT> context, ExpressionFactory<RowT> expressionFactory, RexNode expr
+            ExecutionContext<RowT> context, ExpressionFactory expressionFactory, RexNode expr
     ) {
         if (expr == null) {
             return null;
         }
 
-        SqlScalar<RowT, Object> value = expressionFactory.scalar(expr);
+        SqlScalar<Object> value = expressionFactory.scalar(expr);
         return () -> {
             Number num = (Number) value.get(context);
             if (num == null) {

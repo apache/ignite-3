@@ -18,9 +18,11 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
@@ -82,6 +84,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataReq
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextResultRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
@@ -163,6 +166,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
+import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -683,6 +687,7 @@ public class ClientInboundMessageHandler
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
+        DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -724,6 +729,10 @@ public class ClientInboundMessageHandler
             packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
             packer.packLongArray(sqlBatchException.updateCounters());
+        } else if (delayedAckException != null) {
+            packer.packInt(1); // 1 extension.
+            packer.packString(ErrorExtensions.DELAYED_ACK);
+            packer.packUuid(delayedAckException.txId());
         } else {
             packer.packNil(); // No extensions.
         }
@@ -815,7 +824,8 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
+                return ClientTupleGetAllRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
                 return ClientTupleGetAndUpsertRequest.process(in, igniteTables, resources, txManager, clockService,
@@ -865,7 +875,8 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsKeyRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
+                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
 
             case ClientOp.JDBC_CONNECT:
                 return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler, resolveCurrentUsername());
@@ -959,8 +970,12 @@ public class ClientInboundMessageHandler
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        clockService, notificationSender(requestId), resolveCurrentUsername()
+                        igniteTables, clockService, notificationSender(requestId), resolveCurrentUsername(),
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT)
                 );
+
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientSqlCursorNextResultRequest.process(in, resources, partitionOperationsExecutor, metrics);
 
             case ClientOp.OPERATION_CANCEL:
                 return ClientOperationCancelRequest.process(in, cancelHandles);
@@ -994,7 +1009,10 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
-                return ClientStreamerBatchSendRequest.process(in, igniteTables);
+                return ClientStreamerBatchSendRequest.process(in, igniteTables).thenApply(w -> {
+                    tsTracker.update(clockService.current());
+                    return w;
+                });
 
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, igniteTables);
@@ -1093,8 +1111,8 @@ public class ClientInboundMessageHandler
         boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
                 && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
-            LOG.info("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
+        if (primaryReplicasUpdated && LOG.isDebugEnabled()) {
+            LOG.debug("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 

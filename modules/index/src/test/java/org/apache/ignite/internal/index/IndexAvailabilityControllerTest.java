@@ -39,6 +39,8 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,16 +52,18 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -68,6 +72,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -89,13 +94,17 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
 
+    private final TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
+
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
+
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties(),
             new CommittedFinalTransactionStateResolver(),
-            indexMetaStorage
+            indexMetaStorage,
+            new TestMetricManager()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
@@ -108,6 +117,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
+
+        when(txRwOperationTracker.awaitCompleteTxRwOperations(anyInt())).thenReturn(nullCompletedFuture());
+
+        when(safeTime.waitFor(any())).thenReturn(nullCompletedFuture());
     }
 
     @BeforeEach
@@ -423,6 +436,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage,
                 mock(MvPartitionStorage.class),
+                txRwOperationTracker,
+                safeTime,
                 mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
                 clock.current()

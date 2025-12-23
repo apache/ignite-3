@@ -45,7 +45,12 @@ public:
     /**
      * Default heartbeat interval.
      */
-    static constexpr std::chrono::microseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
+    static constexpr std::chrono::milliseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
+
+    /**
+     * Default operation
+     */
+    static constexpr std::chrono::milliseconds DEFAULT_OPERATION_TIMEOUT{0};
 
     // Default
     ignite_client_configuration() = default;
@@ -169,7 +174,7 @@ public:
      *
      * @return Heartbeat interval.
      */
-    [[nodiscard]] std::chrono::microseconds get_heartbeat_interval() const { return m_heartbeat_interval; }
+    [[nodiscard]] std::chrono::milliseconds get_heartbeat_interval() const { return m_heartbeat_interval; }
 
     /**
      * Set a heartbeat interval.
@@ -178,13 +183,45 @@ public:
      *
      * @param heartbeat_interval Heartbeat interval.
      */
-    void set_heartbeat_interval(std::chrono::microseconds heartbeat_interval) {
+    void set_heartbeat_interval(std::chrono::milliseconds heartbeat_interval) {
         if (heartbeat_interval.count() < 0) {
             throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative: "
-                + std::to_string(heartbeat_interval.count()) + " microseconds");
+                + std::to_string(heartbeat_interval.count()) + " milliseconds");
         }
 
         m_heartbeat_interval = heartbeat_interval;
+    }
+
+    /**
+     * Gets the operation timeout. Default is 0 (no timeout).
+     *
+     * An "operation" is a single client request to the server. Some public API calls may involve multiple operations,
+     * in which case the operation timeout is applied to each individual network call.
+     *
+     * Notably compute job execution consists of two calls. First request: submit, when server responds with success
+     * that means that job has been stored in the executor's queue and will be executed at some point.
+     * Second request: get_result, client requests job status if it was executed, failed or canceled.
+     * This configuration only applies to each of those requests separately but not to its combination therefore real
+     * execution times of compute jobs could be greater than operation timeout.
+     *
+     * @return Operation timeout.
+     */
+    [[nodiscard]] std::chrono::milliseconds get_operation_timeout() const { return m_operation_timeout; }
+
+    /**
+     * Sets the operation timeout.
+     *
+     * See @ref get_operation_timeout() for details.
+     *
+     * @param operation_timeout Operation timeout.
+     */
+    void set_operation_timeout(std::chrono::milliseconds operation_timeout) {
+        if (operation_timeout.count() < 0) {
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Operation timeout can't be negative: "
+                + std::to_string(operation_timeout.count()) + " milliseconds");
+        }
+
+        m_operation_timeout = operation_timeout;
     }
 
     /**
@@ -304,7 +341,10 @@ private:
     std::uint32_t m_connection_limit{0};
 
     /** Heartbeat interval. */
-    std::chrono::microseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
+    std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
+
+    /** Operation timeout. */
+    std::chrono::milliseconds m_operation_timeout{DEFAULT_OPERATION_TIMEOUT};
 
     /** SSL Mode. */
     ssl_mode m_ssl_mode{ssl_mode::DISABLE};

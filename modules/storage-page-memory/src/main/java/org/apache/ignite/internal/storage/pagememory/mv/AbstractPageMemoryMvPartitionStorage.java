@@ -63,9 +63,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
-import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.LocalLocker;
@@ -115,14 +113,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     volatile RenewablePartitionStorageState renewableState;
 
-    private final DataPageReader rowVersionDataPageReader;
+    protected final DataPageReader rowVersionDataPageReader;
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    private final UpdateNextLinkHandler updateNextLinkHandler;
-
-    private final UpdateTimestampHandler updateTimestampHandler;
 
     /**
      * Constructor.
@@ -147,8 +141,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
-        updateNextLinkHandler = new UpdateNextLinkHandler();
-        updateTimestampHandler = new UpdateTimestampHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -406,7 +398,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
-        int commitTableId = chain.commitTableId();
+        int commitTableId = chain.commitZoneId();
         int commitPartitionId = chain.commitPartitionId();
 
         return ReadResult.createFromWriteIntent(
@@ -432,26 +424,26 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
-        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
             try {
-                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+                AddWriteInvokeClosure addWrite = newAddWriteInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
                 addWrite.afterCompletion();
 
-                AddWriteResult addWriteResult = addWrite.addWriteResult();
+                AddWriteResult addWriteResult = addWrite.result();
 
-                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
                 return addWriteResult;
             } catch (IgniteInternalCheckedException e) {
@@ -460,11 +452,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException(
                         "Error while executing addWrite: [{}]",
                         e,
-                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                        addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId)
                 );
             }
         });
     }
+
+    abstract AddWriteInvokeClosure newAddWriteInvokeClosure(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    );
 
     @Override
     public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
@@ -509,7 +509,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                         rowId,
                         timestamp,
                         txId,
-                        updateTimestampHandler,
                         this
                 );
 
@@ -647,7 +646,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     RowMeta row = new RowMeta(
                             versionChain.rowId(),
                             versionChain.transactionId(),
-                            versionChain.commitTableId(),
+                            versionChain.commitZoneId(),
                             versionChain.commitPartitionId()
                     );
                     result.add(row);
@@ -795,12 +794,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) {
         return IgniteStringFormatter.format(
-                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
-                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+                "rowId={}, rowIsTombstone={}, txId={}, commitZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitZoneId, commitPartitionId, createStorageInfo()
         );
     }
 
@@ -962,27 +961,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        assert THREAD_LOCAL_LOCKER.get() != null;
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
 
-        // Assertion above guarantees that we're in "runConsistently" closure.
-        throwExceptionIfStorageNotInRunnableState();
+            if (count <= 0) {
+                return List.of();
+            } else if (count == 1) {
+                // Use a more optimal implementation to avoid creating a cursor that can load multiple elements from the page at once.
+                return peekSingleGcEntryBusy(lowWatermark);
+            }
 
-        GcRowVersion head = renewableState.gcQueue().getFirst();
-
-        // Garbage collection queue is empty.
-        if (head == null) {
-            return null;
-        }
-
-        HybridTimestamp rowTimestamp = head.getTimestamp();
-
-        // There are no versions in the garbage collection queue before watermark.
-        if (rowTimestamp.compareTo(lowWatermark) > 0) {
-            return null;
-        }
-
-        return head;
+            return peekGcEntriesBusy(lowWatermark, count);
+        });
     }
 
     @Override
@@ -1015,7 +1006,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 rowId,
                 rowTimestamp,
                 rowLink,
-                updateNextLinkHandler,
                 this
         );
 
@@ -1068,4 +1058,56 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @see MvPartitionStorage#estimatedSize
      */
     public abstract void decrementEstimatedSize();
+
+    private List<GcEntry> peekSingleGcEntryBusy(HybridTimestamp lowWatermark) {
+        GcRowVersion head = renewableState.gcQueue().getFirst();
+
+        // Garbage collection queue is empty.
+        if (head == null) {
+            return List.of();
+        }
+
+        HybridTimestamp rowTimestamp = head.getTimestamp();
+
+        // There are no versions in the garbage collection queue before watermark.
+        if (rowTimestamp.compareTo(lowWatermark) > 0) {
+            return List.of();
+        }
+
+        preloadingForGcIfNeededBusy(head);
+
+        return List.of(head);
+    }
+
+    private List<GcEntry> peekGcEntriesBusy(HybridTimestamp lowWatermark, int count) {
+        var res = new ArrayList<GcEntry>(count);
+
+        try (Cursor<GcRowVersion> cursor = renewableState.gcQueue().find(null, null)) {
+            while (res.size() < count && cursor.hasNext()) {
+                GcRowVersion next = cursor.next();
+
+                if (next.getTimestamp().compareTo(lowWatermark) > 0) {
+                    break;
+                }
+
+                res.add(next);
+
+                preloadingForGcIfNeededBusy(next);
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException(
+                    "Peek GC entries failed: [lowWatermark={}, count={}, {}]",
+                    e,
+                    lowWatermark, count, createStorageInfo()
+            );
+        }
+
+        return res;
+    }
+
+    protected void preloadingForGcIfNeededBusy(GcRowVersion gcRowVersion) {
+        // No-op.
+    }
 }

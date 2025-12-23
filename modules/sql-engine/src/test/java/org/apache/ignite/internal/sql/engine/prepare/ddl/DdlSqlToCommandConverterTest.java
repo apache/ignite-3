@@ -25,6 +25,8 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.REAL;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -58,8 +60,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
@@ -70,7 +75,6 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
@@ -89,6 +93,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.CustomMatcher;
@@ -112,9 +117,16 @@ import org.mockito.Mockito;
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     private static final Integer TEST_ZONE_ID = 100;
 
+    private static final List<SqlTypeName> SIGNED_NUMERIC_TYPES = NUMERIC_TYPES.stream()
+            .filter(t -> !SqlTypeName.UNSIGNED_TYPES.contains(t))
+            .collect(Collectors.toList());
+
     @BeforeEach
     void setUp() {
-        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null));
+        Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
+                DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
+                statStalenessProperties);
     }
 
     @Test
@@ -372,7 +384,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        for (SqlTypeName numType : NUMERIC_TYPES) {
+        for (SqlTypeName numType : SIGNED_NUMERIC_TYPES) {
             for (SqlTypeName intervalType : INTERVAL_TYPES) {
                 RelDataType initialNumType = Commons.typeFactory().createSqlType(numType);
                 Object value = SqlTestUtils.generateValueByType(initialNumType);
@@ -392,7 +404,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         PlanningContext ctx = createContext();
 
         for (SqlTypeName intervalType : INTERVAL_TYPES) {
-            for (SqlTypeName numType : NUMERIC_TYPES) {
+            for (SqlTypeName numType : SIGNED_NUMERIC_TYPES) {
                 String value = makeUsableIntervalValue(intervalType.getName());
 
                 fillTestCase(numType.getName(), value, testItems, false, ctx);
@@ -497,7 +509,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         String[] numbers = {"100.4", "100.6", "100", "'100'", "'100.1'"};
 
-        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(NUMERIC_TYPES);
+        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(SIGNED_NUMERIC_TYPES);
         typesWithoutDecimal.remove(DECIMAL);
 
         for (String value : numbers) {
@@ -552,7 +564,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
 
         for (String value : values) {
-            for (SqlTypeName numericType : NUMERIC_TYPES) {
+            for (SqlTypeName numericType : SIGNED_NUMERIC_TYPES) {
                 fillTestCase(numericType.getName(), value, testItems, false, ctx);
             }
         }
@@ -865,6 +877,39 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @Test
+    void createTableWithNonDefaultStalenessConfig() throws SqlParseException {
+        AtomicReference<Long> staleRowsCount = new AtomicReference<>(DEFAULT_MIN_STALE_ROWS_COUNT / 2);
+        AtomicReference<Double> staleRowsFraction = new AtomicReference<>(DEFAULT_STALE_ROWS_FRACTION / 2);
+
+        assert staleRowsCount.get() != 0 && staleRowsFraction.get() != 0.0d;
+
+        Supplier<TableStatsStalenessConfiguration> statStalenessProperties =
+                () -> new TableStatsStalenessConfiguration(staleRowsFraction.get(), staleRowsCount.get());
+
+        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
+                statStalenessProperties);
+
+        CatalogCommand cmd = convert("CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(staleRowsCount.get()));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(staleRowsFraction.get()));
+
+        staleRowsCount.set(staleRowsCount.get() + 1);
+        staleRowsFraction.set(staleRowsFraction.get() + 0.1d);
+
+        cmd = convert("CREATE TABLE t2 (id INT PRIMARY KEY, val INT)");
+
+        newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(staleRowsCount.get()));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(staleRowsFraction.get()));
+    }
+
+    @Test
     void createTableWithMinStaleRows() throws SqlParseException {
         CatalogCommand cmd = convert(
                 "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (min stale rows 321)"
@@ -875,7 +920,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
 
         assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(321L));
-        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(DEFAULT_STALE_ROWS_FRACTION));
     }
 
     @Test
@@ -888,7 +933,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
 
-        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT));
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(DEFAULT_MIN_STALE_ROWS_COUNT));
         assertThat(newTable.descriptor().properties().staleRowsFraction(), is(0.321));
     }
 

@@ -59,9 +59,9 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
@@ -76,6 +76,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.NetworkAddress;
@@ -112,9 +113,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      * Schema of the rows used in the tests. All data providers created within this test class must
      * conform to this row schema.
      */
-    private static final RowSchema ROW_SCHEMA = RowSchema.builder()
-            .addField(NativeTypes.INT32)
-            .addField(NativeTypes.INT32)
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.rowBuilder()
+            .addField("C1", NativeTypes.INT32, true)
+            .addField("C2", NativeTypes.INT32, true)
             .build();
 
     private final Map<String, MailboxRegistry> mailboxes = new HashMap<>();
@@ -516,8 +517,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(ROW_SCHEMA),
-                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator,
+                targetCtx.rowFactoryFactory().create(ROW_SCHEMA), SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);
@@ -765,6 +766,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

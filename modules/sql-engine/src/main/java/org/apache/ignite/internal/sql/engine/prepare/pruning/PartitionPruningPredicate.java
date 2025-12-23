@@ -147,7 +147,7 @@ public final class PartitionPruningPredicate {
             ExecutionContext<RowT> context,
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
-            ExpressionFactory<RowT> expressionFactory,
+            ExpressionFactory expressionFactory,
             Int2ObjectMap<NodeWithConsistencyToken> assignments,
             String nodeName
     ) {
