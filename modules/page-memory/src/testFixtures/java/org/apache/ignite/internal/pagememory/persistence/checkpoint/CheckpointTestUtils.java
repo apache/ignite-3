@@ -42,16 +42,18 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
  * Useful class for testing a checkpoint.
  */
 public class CheckpointTestUtils {
-    private static final CheckpointReadWriteLockMetricSource metricSource = new CheckpointReadWriteLockMetricSource();
+    private static final CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(
+            new CheckpointMetricSource("test")
+    );
 
     /**
      * Returns new instance of {@link CheckpointReadWriteLock}.
      *
-     * @param log             Logger.
+     * @param log Logger.
      * @param executorService Executor service.
      */
     static CheckpointReadWriteLock newReadWriteLock(IgniteLogger log, ExecutorService executorService) {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metricSource);
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metrics);
     }
 
     /**

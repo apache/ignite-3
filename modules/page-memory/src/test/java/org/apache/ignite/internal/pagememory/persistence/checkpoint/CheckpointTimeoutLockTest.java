@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -74,7 +73,9 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @InjectExecutorService
     private ExecutorService executorService;
 
-    private final CheckpointReadWriteLockMetricSource dummyMetricSource = new CheckpointReadWriteLockMetricSource();
+    private final CheckpointReadWriteLockMetrics dummyMetrics = new CheckpointReadWriteLockMetrics(
+            new CheckpointMetricSource("test")
+    );
 
     @AfterEach
     void tearDown() {
@@ -390,11 +391,11 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     }
 
     private CheckpointReadWriteLock newReadWriteLock() {
-        return newReadWriteLock(dummyMetricSource);
+        return newReadWriteLock(dummyMetrics);
     }
 
-    private CheckpointReadWriteLock newReadWriteLock(CheckpointReadWriteLockMetricSource metricSource) {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metricSource);
+    private CheckpointReadWriteLock newReadWriteLock(CheckpointReadWriteLockMetrics metrics) {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metrics);
     }
 
     private CheckpointProgress newCheckpointProgress(CompletableFuture<?> future) {
@@ -419,10 +420,9 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCheckpointReadLockMetrics() throws Exception {
-        CheckpointReadWriteLockMetricSource metricSource = new CheckpointReadWriteLockMetricSource();
-        CheckpointReadWriteLock readWriteLock = newReadWriteLock(metricSource);
-
-        metricSource.enable();
+        CheckpointMetricSource metricSource = new CheckpointMetricSource("test");
+        CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(metricSource);
+        CheckpointReadWriteLock readWriteLock = newReadWriteLock(metrics);
 
         timeoutLock = new CheckpointTimeoutLock(
                 readWriteLock,
@@ -435,26 +435,25 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         timeoutLock.start();
 
         try {
-            DistributionMetric acquisitionTime = metricSource.holder().readLockAcquisitionTime();
             // Verify metrics start at zero
-            assertTrue(Arrays.stream(acquisitionTime.value()).allMatch(it -> it == 0L));
+            assertTrue(Arrays.stream(metrics.readLockAcquisitionTime().value()).allMatch(it -> it == 0L));
 
             // Acquire and immediately release the lock
             timeoutLock.checkpointReadLock();
             timeoutLock.checkpointReadUnlock();
 
             // Verify acquisition was recorded
-            assertTrue(Arrays.stream(acquisitionTime.value()).anyMatch(it -> it == 1L));
+            assertTrue(Arrays.stream(metrics.readLockAcquisitionTime().value()).anyMatch(it -> it == 1L));
 
             // Verify hold time distribution was recorded
-            assertTrue(Arrays.stream(metricSource.holder().readLockHoldTime().value()).anyMatch(it -> it == 1L));
+            assertTrue(Arrays.stream(metrics.readLockHoldTime().value()).anyMatch(it -> it == 1L));
 
             readWriteLock.writeLock();
             runAsync(() -> {
                 timeoutLock.checkpointReadLock();
                 timeoutLock.checkpointReadUnlock();
             });
-            await().untilAsserted(() -> assertThat(metricSource.readLockWaitingThreads().value(), is(1L)));
+            await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(1L)));
             readWriteLock.writeUnlock();
         } finally {
             timeoutLock.stop();
