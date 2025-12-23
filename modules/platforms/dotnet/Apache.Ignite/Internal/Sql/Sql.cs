@@ -353,7 +353,7 @@ namespace Apache.Ignite.Internal.Sql
 
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         private static RowReader<T> GetReaderFactory<T>(ResultSetMetadata metadata) =>
-            ResultSelector.Get<T>(metadata.Columns, selectorExpression: null, ResultSelectorOptions.None);
+            ResultSelector.Get<T>(metadata, selectorExpression: null, ResultSelectorOptions.None);
 
         private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object?>> args)
         {

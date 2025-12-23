@@ -139,7 +139,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            meta => ResultSelector.Get<T>(meta.Columns, queryModel.SelectClause.Selector, selectorOptions),
+            meta => ResultSelector.Get<T>(meta, queryModel.SelectClause.Selector, selectorOptions),
             rowReaderArg: null,
             queryData.Parameters,
             CancellationToken.None)
