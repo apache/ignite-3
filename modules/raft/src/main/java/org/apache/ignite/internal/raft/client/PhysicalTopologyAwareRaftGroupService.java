@@ -432,8 +432,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         raftClient.updateConfiguration(configuration);
     }
 
-
-
     /**
      * Leader election handler.
      */
