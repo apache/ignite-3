@@ -25,7 +25,9 @@ using System.Threading.Tasks;
 /// <param name="Configuration">Configuration.</param>
 /// <param name="ApiTask">API accessor task.</param>
 /// <param name="DnsResolver">DNS resolver.</param>
+/// <param name="ObservableTimestamp">Observable timestamp.</param>
 internal sealed record IgniteClientConfigurationInternal(
     IgniteClientConfiguration Configuration,
     Task<IgniteApiAccessor> ApiTask,
-    IDnsResolver DnsResolver);
+    IDnsResolver DnsResolver,
+    HybridTimestampTracker ObservableTimestamp);
