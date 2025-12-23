@@ -34,6 +34,8 @@ import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfi
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,10 +62,12 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
         server(0).sql().executeScript("CREATE TABLE t(id INT PRIMARY KEY)");
 
         IgniteClient client1 = client();
+        client1.sql().executeScript("SELECT 1");
         ClientInboundMessageHandler handler1 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
         // The handler "test reference" is updated after a new connection is established.
         IgniteClient client2 = startClient();
+        client2.sql().executeScript("SELECT 1");
         ClientInboundMessageHandler handler2 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
         assertThat(handler1, not(sameInstance(handler2)));
@@ -88,9 +92,8 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
                 .getConfiguration(SuggestionsClusterExtensionConfiguration.KEY);
 
         { // Suggestion is enabled by default
-            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
-
             addColumn(client(), 0);
+            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
             assertThat(ddlQueriesInRow(handler), is(1));
         }
 
@@ -99,10 +102,9 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
 
             // The handler "test reference" is updated after a new connection is established.
             IgniteClient client = startClient();
-            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
-
             addColumn(client, 1);
             addColumn(client, 2);
+            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
             assertThat(ddlQueriesInRow(handler), is(-1));
         }
 
@@ -110,10 +112,11 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
             await(config.suggestions().sequentialDdlExecution().change(c -> c.changeEnabled(true)));
 
             IgniteClient client = startClient();
-            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
             addColumn(client, 3);
             addColumn(client, 4);
+
+            ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
             assertThat(ddlQueriesInRow(handler), is(2));
         }
     }
@@ -131,7 +134,10 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
     private static void addColumn(IgniteClient client, int columnNumber) {
         String ddlQuery = IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN col{} int;", columnNumber);
 
-        client.sql().execute(null, ddlQuery).close();
+        try (ResultSet<SqlRow> rs = client.sql().execute(null, ddlQuery)) {
+            assertThat(rs.hasRowSet(), is(false));
+            assertThat(rs.wasApplied(), is(true));
+        }
     }
 
     private static int ddlQueriesInRow(ClientInboundMessageHandler handler) {
