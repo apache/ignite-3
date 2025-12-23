@@ -54,7 +54,7 @@ set(SOURCES
 
 add_library(${TARGET} STATIC ${SOURCES})
 
-target_link_libraries(${TARGET} PUBLIC MbedTLS::mbedtls)
+target_link_libraries(${TARGET} PUBLIC TF-PSA-Crypto::tfpsacrypto)
 
 target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>

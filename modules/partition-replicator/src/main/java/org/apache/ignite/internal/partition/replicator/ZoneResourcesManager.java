@@ -34,6 +34,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageA
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -69,6 +70,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     private final Executor partitionOperationsExecutor;
 
     private final ReplicaManager replicaManager;
+
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
 
     /** Map from zone IDs to their resource holders. */
     private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
@@ -128,7 +131,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 catalogService,
                 failureProcessor,
                 partitionOperationsExecutor,
-                new LogStorageAccessImpl(replicaManager)
+                new LogStorageAccessImpl(replicaManager),
+                snapshotsMetricsSource
         );
 
         var zonePartitionResources = new ZonePartitionResources(
@@ -216,6 +220,10 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         }
 
         return resources.txStateStorage.getPartitionStorage(partitionId);
+    }
+
+    RaftSnapshotsMetricsSource snapshotsMetricsSource() {
+        return snapshotsMetricsSource;
     }
 
     private static class ZoneResources {

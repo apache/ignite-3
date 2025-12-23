@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: 'jobs.gradle'
 
-import java.util.List;
-import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+description = 'ignite-code-deployment-classloader'
 
-/**
- * Creates a class loader for a job.
- */
-public class JobClassLoaderFactory {
-    /**
-     * Create a class loader for the specified units.
-     *
-     * @param units The units of the job.
-     * @return The class loader.
-     */
-    public JobClassLoader createClassLoader(List<DisposableDeploymentUnit> units) {
-        return new JobClassLoader(units, getClass().getClassLoader());
-    }
+dependencies {
+    implementation libs.jetbrains.annotations
+
+    implementation project(':ignite-core')
+    implementation project(':ignite-api')
+    implementation project(':ignite-code-deployment')
+
+    testImplementation project(':ignite-core')
+    testImplementation testFixtures(project(':ignite-core'))
 }
