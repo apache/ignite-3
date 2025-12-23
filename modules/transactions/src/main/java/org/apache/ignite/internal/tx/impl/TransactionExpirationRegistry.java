@@ -29,10 +29,14 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
+
+    /** Volatile transaction state meta storage. */
+    private final VolatileTxStateMetaStorage volatileTxStateMetaStorage;
 
     /**
      * Map from expiration timestamp (number of millis since Unix epoch) to transactions expiring at the timestamp.
@@ -44,6 +48,11 @@ class TransactionExpirationRegistry {
 
     /** Watermark at which expiration has already happened (millis since Unix epoch). */
     private volatile long watermark = Long.MIN_VALUE;
+
+    /** Constructor. */
+    TransactionExpirationRegistry(VolatileTxStateMetaStorage volatileTxStateMetaStorage) {
+        this.volatileTxStateMetaStorage = volatileTxStateMetaStorage;
+    }
 
     private static long physicalExpirationTimeMillis(HybridTimestamp beginTimestamp, long effectiveTimeoutMillis) {
         return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
@@ -113,10 +122,11 @@ class TransactionExpirationRegistry {
         return expirationTime <= watermark;
     }
 
-    private static void abortTransaction(InternalTransaction tx) {
+    private void abortTransaction(InternalTransaction tx) {
         tx.rollbackTimeoutExceededAsync().whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Transaction has aborted due to timeout [txId={}]", ex, tx.id());
+                LOG.error("Transaction has aborted due to timeout [{}]", ex,
+                        TransactionLogUtils.formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             }
         });
     }

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
@@ -83,6 +84,9 @@ public class TxCleanupRequestHandler {
     /** Cursor registry. */
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
+    /** Volatile transaction state meta storage. */
+    private final VolatileTxStateMetaStorage volatileTxStateMetaStorage;
+
     /** The map of txId to a cleanup context, tracking replicated write intents. */
     private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
 
@@ -95,6 +99,7 @@ public class TxCleanupRequestHandler {
      * @param writeIntentSwitchProcessor A cleanup processor.
      * @param resourcesRegistry Resources registry.
      * @param cleanupExecutor Cleanup executor.
+     * @param volatileTxStateMetaStorage Volatile transaction state meta storage.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
@@ -102,7 +107,8 @@ public class TxCleanupRequestHandler {
             ClockService clockService,
             WriteIntentSwitchProcessor writeIntentSwitchProcessor,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            Executor cleanupExecutor
+            Executor cleanupExecutor,
+            VolatileTxStateMetaStorage volatileTxStateMetaStorage
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
@@ -110,6 +116,7 @@ public class TxCleanupRequestHandler {
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
         this.remotelyTriggeredResourceRegistry = resourcesRegistry;
         this.cleanupExecutor = cleanupExecutor;
+        this.volatileTxStateMetaStorage = volatileTxStateMetaStorage;
     }
 
     /**
@@ -186,8 +193,10 @@ public class TxCleanupRequestHandler {
                                         .whenComplete((retryRes, retryEx) -> {
                                             if (retryEx != null && writeIntentSwitchFailureShouldBeLogged(retryEx)) {
                                                 LOG.warn(
-                                                        "Second cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
-                                                        retryEx, txCleanupMessage.txId()
+                                                        "Second cleanup attempt failed (the transaction outcome is not affected) [{}]",
+                                                        retryEx,
+                                                        TransactionLogUtils.formatTxInfo(txCleanupMessage.txId(),
+                                                                volatileTxStateMetaStorage)
                                                 );
                                             }
                                         });
