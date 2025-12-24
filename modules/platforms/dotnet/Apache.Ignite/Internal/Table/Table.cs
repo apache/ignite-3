@@ -153,7 +153,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
             where T : notnull =>
-            new RecordView<T>(this, new RecordSerializer<T>(this, new MapperSerializerHandler<T>(mapper)), _sql);
+            GetRecordViewInternal(mapper);
 
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
@@ -188,6 +188,11 @@ namespace Apache.Ignite.Internal.Table
         internal RecordView<T> GetRecordViewInternal<T>()
             where T : notnull
         {
+            if (BasicMappers.TryGet<T>() is { } mapper)
+            {
+                return GetRecordViewInternal(mapper);
+            }
+
             // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
             return (RecordView<T>)_recordViews.GetOrAdd(
                 typeof(T),
@@ -284,6 +289,10 @@ namespace Apache.Ignite.Internal.Table
                 _partitionAssignmentSemaphore.Release();
             }
         }
+
+        private RecordView<T> GetRecordViewInternal<T>(IMapper<T> mapper)
+            where T : notnull =>
+            new(this, new RecordSerializer<T>(this, new MapperSerializerHandler<T>(mapper)), _sql);
 
         private Task<Schema> GetCachedSchemaAsync(int version)
         {
