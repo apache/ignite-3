@@ -58,7 +58,7 @@ public class ComputeTests(IIgniteClient client)
         }
         catch (InvalidOperationException e)
         {
-            Assert.AreEqual("Colocated job target requires an IIgniteTuple key when running in trimmed AOT mode.", e.Message);
+            Assert.AreEqual("Use JobTarget.Colocated overload with IMapper<T>.", e.Message);
         }
     }
 
