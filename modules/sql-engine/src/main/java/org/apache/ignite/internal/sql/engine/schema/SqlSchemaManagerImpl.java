@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,7 +40,9 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.CompatibilityLookup;
+import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -149,32 +152,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     public IgniteTable table(int catalogVersion, int tableId) {
         return fullDataTableCache.get(cacheKey(catalogVersion, tableId), key -> {
-            IgniteSchemas rootSchema = schemaCache.get(catalogVersion);
-
-            // Retrieve table from the schema (if it exists).
-            if (rootSchema != null) {
-                SchemaPlus schemaPlus = rootSchema.root();
-
-                for (String name : schemaPlus.subSchemas().getNames(LikePattern.any())) {
-                    SchemaPlus subSchema = schemaPlus.subSchemas().get(name);
-
-                    assert subSchema != null : name;
-
-                    IgniteSchema schema = subSchema.unwrap(IgniteSchema.class);
-
-                    assert schema != null : "unknown schema " + subSchema;
-
-                    // Schema contains a wrapper for IgniteTable that includes actual information for a table (indexes, etc).
-                    ActualIgniteTable table = (ActualIgniteTable) schema.tableByIdOpt(tableId);
-
-                    if (table != null) {
-                        return table;
-                    }
-                }
-            }
-
             // Load actual table information from the catalog.
-
             Catalog catalog = catalogManager.catalog(catalogVersion);
 
             if (catalog == null) {
@@ -185,6 +163,32 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             if (tableDescriptor == null) {
                 throw new IgniteInternalException(Common.INTERNAL_ERR, "Table with given id not found: " + tableId);
+            }
+
+            IgniteSchemas rootSchema = schemaCache.get(catalogVersion);
+
+            // Retrieve table from the schema (if it exists).
+            if (rootSchema != null) {
+                SchemaPlus schemaPlus = rootSchema.root();
+
+                CatalogSchemaDescriptor schemaDescriptor = catalog.schema(tableDescriptor.schemaId());
+
+                assert schemaDescriptor != null;
+
+                SchemaPlus subSchema = schemaPlus.subSchemas().get(schemaDescriptor.name());
+
+                assert subSchema != null : schemaDescriptor.name();
+
+                IgniteSchema schema = subSchema.unwrap(IgniteSchema.class);
+
+                assert schema != null : "unknown schema " + subSchema;
+
+                // Schema contains a wrapper for IgniteTable that includes actual information for a table (indexes, etc).
+                ActualIgniteTable table = (ActualIgniteTable) schema.tables().get(tableDescriptor.name());
+
+                if (table != null) {
+                    return table;
+                }
             }
 
             CacheKey tableKey = tableCacheKey(tableDescriptor.id(), tableDescriptor.updateTimestamp());
@@ -228,11 +232,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         int catalogVersion = catalog.version();
         String schemaName = schemaDescriptor.name();
 
-        int numTables = schemaDescriptor.tables().length;
-        List<IgniteDataSource> schemaDataSources = new ArrayList<>(numTables);
+        Lookup<Table> tableLookup = new CompatibilityLookup<>(
+                schemaDescriptor::table,
+                () -> Arrays.stream(schemaDescriptor.tables()).map(CatalogTableDescriptor::name).collect(Collectors.toSet())
+        ).map((tableDescriptor, name) -> {
 
-        // Assemble sql-engine.TableDescriptors as they are required by indexes.
-        for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
+            // Assemble sql-engine.TableDescriptors as they are required by indexes.
             CacheKey tableKey = tableCacheKey(tableDescriptor.id(), tableDescriptor.updateTimestamp());
 
             // Load cached table by (id, version)
@@ -247,26 +252,25 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     tableDescriptor.primaryKeyIndexId()
             );
 
-            // Store a wrapper for the table that includes actual information for a table (indexes, etc),
-            // because the cached table entry (id, version) may not include up-to-date information on indexes.
-            schemaDataSources.add(new ActualIgniteTable(igniteTable, tableIndexes));
-        }
+            return new ActualIgniteTable(igniteTable, tableIndexes);
+        });
 
-        for (CatalogSystemViewDescriptor systemViewDescriptor : schemaDescriptor.systemViews()) {
+        Lookup<Table> systemViewLookup = new CompatibilityLookup<>(
+                schemaDescriptor::systemView,
+                () -> Arrays.stream(schemaDescriptor.systemViews()).map(CatalogSystemViewDescriptor::name).collect(Collectors.toSet())
+        ).map((systemViewDescriptor, name) -> {
             int viewId = systemViewDescriptor.id();
             String viewName = systemViewDescriptor.name();
             TableDescriptor descriptor = createTableDescriptorForSystemView(systemViewDescriptor);
 
-            IgniteSystemView schemaTable = new IgniteSystemViewImpl(
+            return new IgniteSystemViewImpl(
                     viewName,
                     viewId,
                     descriptor
             );
+        });
 
-            schemaDataSources.add(schemaTable);
-        }
-
-        return new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
+        return new IgniteSchema(schemaName, catalogVersion, Lookup.concat(tableLookup, systemViewLookup));
     }
 
     private static IgniteIndex createSchemaIndex(

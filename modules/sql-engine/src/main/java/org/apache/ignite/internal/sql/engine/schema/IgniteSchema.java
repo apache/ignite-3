@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
-import org.apache.ignite.internal.util.CollectionUtils;
-import org.jetbrains.annotations.Nullable;
+import org.apache.calcite.schema.lookup.Lookup;
+import org.apache.calcite.util.NameMap;
 
 /**
  * Schema implementation for sql engine.
@@ -37,16 +35,27 @@ public class IgniteSchema extends AbstractSchema {
 
     private final int catalogVersion;
 
-    private final Map<String, IgniteDataSource> tableByName;
-
-    private final Int2ObjectMap<IgniteDataSource> tableById;
+    private final Lookup<Table> tableLookup;
 
     /** Constructor. */
     public IgniteSchema(String name, int catalogVersion, Collection<? extends IgniteDataSource> tables) {
+       this(
+               name,
+               catalogVersion,
+               Lookup.of(NameMap.immutableCopyOf(tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()))))
+       );
+    }
+
+    /** Constructor. */
+    public IgniteSchema(String name, int catalogVersion, Lookup<Table> tableLookup) {
         this.name = name;
         this.catalogVersion = catalogVersion;
-        this.tableByName = tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()));
-        this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteDataSource::id, Function.identity()));
+        this.tableLookup = tableLookup;
+    }
+
+    @Override
+    public Lookup<Table> tables() {
+        return tableLookup;
     }
 
     /** Schema name. */
@@ -59,20 +68,8 @@ public class IgniteSchema extends AbstractSchema {
         return catalogVersion;
     }
 
-    /** {@inheritDoc} */
     @Override
     protected Map<String, Table> getTableMap() {
-        return Collections.unmodifiableMap(tableByName);
-    }
-
-    /** Returns table by given id. */
-    @Nullable IgniteTable tableByIdOpt(int tableId) {
-        IgniteDataSource dataSource = tableById.get(tableId);
-
-        if (!(dataSource instanceof IgniteTable)) {
-            return null;
-        }
-
-        return (IgniteTable) dataSource;
+        throw  new UnsupportedOperationException();
     }
 }
