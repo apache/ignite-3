@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.internal.raft.client;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -31,6 +31,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
