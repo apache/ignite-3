@@ -162,6 +162,7 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationEv
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -170,6 +171,8 @@ import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.IgniteCluster;
@@ -659,7 +662,7 @@ public class ClientInboundMessageHandler
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (LOG.isDebugEnabled()) {
+        if (LOG.isDebugEnabled() && shouldLogError(err)) {
             if (isNotification) {
                 LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
@@ -736,6 +739,26 @@ public class ClientInboundMessageHandler
         } else {
             packer.packNil(); // No extensions.
         }
+    }
+
+    private static boolean shouldLogError(Throwable e) {
+        Throwable cause = ExceptionUtils.unwrapRootCause(e);
+
+        // Do not log errors caused by query cancellation (triggered by user action).
+        if (cause instanceof QueryCancelledException) {
+            return false;
+        }
+
+        if (cause instanceof TraceableException) {
+            TraceableException te = (TraceableException) cause;
+            int c = te.code();
+
+            return c != Sql.EXECUTION_CANCELLED_ERR
+                    && c != Compute.COMPUTE_JOB_CANCELLED_ERR
+                    && c != Compute.CANCELLING_ERR;
+        }
+
+        return true;
     }
 
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
