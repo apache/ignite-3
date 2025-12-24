@@ -34,16 +34,6 @@ internal static class BasicMappers
     /// <returns>Mapper or null.</returns>
     internal static IMapper<T>? TryGet<T>()
     {
-        if (typeof(T) == typeof(int))
-        {
-            return (IMapper<T>)(object)IntMapper.Instance;
-        }
-
-        if (typeof(T) == typeof(long))
-        {
-            return (IMapper<T>)(object)LongMapper.Instance;
-        }
-
         if (typeof(T) == typeof(Guid))
         {
             return (IMapper<T>)(object)GuidMapper.Instance;
@@ -52,11 +42,6 @@ internal static class BasicMappers
         if (typeof(T) == typeof(string))
         {
             return (IMapper<T>)(object)StringMapper.Instance;
-        }
-
-        if (typeof(T) == typeof(byte[]))
-        {
-            return (IMapper<T>)(object)ByteArrayMapper.Instance;
         }
 
         return null;
@@ -78,32 +63,5 @@ internal static class BasicMappers
         public void Write(string obj, ref RowWriter rowWriter, IMapperSchema schema) => rowWriter.WriteString(obj);
 
         public string Read(ref RowReader rowReader, IMapperSchema schema) => rowReader.ReadString()!;
-    }
-
-    private sealed class ByteArrayMapper : IMapper<byte[]>
-    {
-        public static readonly ByteArrayMapper Instance = new();
-
-        public void Write(byte[] obj, ref RowWriter rowWriter, IMapperSchema schema) => rowWriter.WriteBytes(obj);
-
-        public byte[] Read(ref RowReader rowReader, IMapperSchema schema) => rowReader.ReadBytes()!;
-    }
-
-    private sealed class IntMapper : IMapper<int>
-    {
-        public static readonly IntMapper Instance = new();
-
-        public void Write(int obj, ref RowWriter rowWriter, IMapperSchema schema) => rowWriter.WriteInt(obj);
-
-        public int Read(ref RowReader rowReader, IMapperSchema schema) => rowReader.ReadInt()!.Value;
-    }
-
-    private sealed class LongMapper : IMapper<long>
-    {
-        public static readonly LongMapper Instance = new();
-
-        public void Write(long obj, ref RowWriter rowWriter, IMapperSchema schema) => rowWriter.WriteLong(obj);
-
-        public long Read(ref RowReader rowReader, IMapperSchema schema) => rowReader.ReadLong()!.Value;
     }
 }
