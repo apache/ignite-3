@@ -26,6 +26,7 @@ import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 /**
  * A message for reading estimated number of rows for tables stored on this node.
  */
+@Deprecated
 @Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE)
 public interface LocalPartitionsEstimatedSizeMessage extends NetworkMessage {
     /**

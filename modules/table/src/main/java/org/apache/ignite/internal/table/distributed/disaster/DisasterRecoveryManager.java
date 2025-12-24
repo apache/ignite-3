@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalZonePartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalZonePartitionStatesSystemView;
@@ -104,23 +103,16 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeRequest;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeResponse;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
-import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryRequestForwardException;
@@ -917,13 +909,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             }
 
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
-        } else if (message instanceof LocalPartitionsEstimatedSizeRequest) {
+        } else if (message instanceof DisasterRecoveryRequestMessage) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Received local table partition states request [request={}]", message);
+                LOG.debug("Received disaster recovery request [request={}]", message);
             }
 
-            handleLocalTableStateRequest((LocalPartitionsEstimatedSizeRequest) message, sender, correlationId);
-        } else if (message instanceof DisasterRecoveryRequestMessage) {
             handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
         }
     }
@@ -968,48 +958,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 });
     }
 
-    private void handleLocalTableStateRequest(
-            LocalPartitionsEstimatedSizeRequest request,
-            InternalClusterNode sender,
-            @Nullable Long correlationId
-    ) {
-        assert correlationId != null : "request=" + request + ", sender=" + sender;
-
-        int catalogVersion = request.catalogVersion();
-
-        Set<ZonePartitionId> requestedPartitions = request.zonePartitionIds().stream()
-                .map(ZonePartitionIdMessage::asZonePartitionId)
-                .collect(toSet());
-
-        catalogManager.catalogReadyFuture(catalogVersion).thenRunAsync(() -> {
-            Set<LocalPartitionsEstimatedSizeMessage> statesList = new HashSet<>();
-
-            raftManager.forEach((raftNodeId, raftGroupService) -> {
-                if (raftNodeId.groupId() instanceof ZonePartitionId) {
-
-                    LocalPartitionsEstimatedSizeMessage message = handleSizeRequestForTablesInZone(
-                            requestedPartitions,
-                            (ZonePartitionId) raftNodeId.groupId()
-                    );
-
-                    if (message != null) {
-                        statesList.add(message);
-                    }
-                }
-            });
-
-            LocalPartitionsEstimatedSizeResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionsEstimatedSizeResponse()
-                    .states(statesList)
-                    .build();
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Responding with state for local table partitions [response={}]", response);
-            }
-
-            messagingService.respond(sender, response, correlationId);
-        }, threadPool);
-    }
-
     private void handleLocalPartitionStatesRequest(
             LocalPartitionStatesRequest request,
             InternalClusterNode sender,
@@ -1023,18 +971,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             List<LocalPartitionStateMessage> statesList = new ArrayList<>();
 
             raftManager.forEach((raftNodeId, raftGroupService) -> {
-                if (raftNodeId.groupId() instanceof TablePartitionId) {
-                    LocalPartitionStateMessage message = handleStateRequestForTable(
-                            request,
-                            raftGroupService,
-                            (TablePartitionId) raftNodeId.groupId(),
-                            catalogVersion
-                    );
-
-                    if (message != null) {
-                        statesList.add(message);
-                    }
-                } else if (raftNodeId.groupId() instanceof ZonePartitionId) {
+                if (raftNodeId.groupId() instanceof ZonePartitionId) {
                     LocalPartitionStateMessage message = handleStateRequestForZone(
                             request,
                             raftGroupService,
@@ -1058,19 +995,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
-    }
-
-    private @Nullable LocalPartitionsEstimatedSizeMessage handleSizeRequestForTablesInZone(
-            Set<ZonePartitionId> requestedPartitions,
-            ZonePartitionId zonePartitionId
-    ) {
-        if (!containsOrEmpty(zonePartitionId, requestedPartitions)) {
-            return null;
-        }
-
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionsEstimatedSizeMessage()
-                .tablePartitionIdToEstimatedRowsMap(estimatedSizeMap(zonePartitionId))
-                .build();
     }
 
     private @Nullable LocalPartitionStateMessage handleStateRequestForZone(
@@ -1114,76 +1038,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .filter(Objects::nonNull)
                 .mapToLong(MvPartitionStorage::estimatedSize)
                 .sum();
-    }
-
-    private Map<TablePartitionIdMessage, Long> estimatedSizeMap(ZonePartitionId zonePartitionId) {
-        Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap = new HashMap<>();
-
-        for (TableViewInternal tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
-            if (tableImpl.internalTable().storage() instanceof NullMvTableStorage) {
-                continue;
-            }
-
-            MvPartitionStorage mvPartitionStorage = tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId());
-
-            if (mvPartitionStorage != null) {
-                partitionIdToEstimatedRowsMap.put(
-                        toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY,
-                                new TablePartitionId(tableImpl.tableId(), zonePartitionId.partitionId())),
-                        mvPartitionStorage.estimatedSize()
-                );
-            }
-        }
-
-        return partitionIdToEstimatedRowsMap;
-    }
-
-    private @Nullable LocalPartitionStateMessage handleStateRequestForTable(
-            LocalPartitionStatesRequest request,
-            RaftGroupService raftGroupService,
-            TablePartitionId tablePartitionId,
-            int catalogVersion
-    ) {
-        if (!containsOrEmpty(tablePartitionId.partitionId(), request.partitionIds())) {
-            return null;
-        }
-
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-        assert catalog != null : "Catalog is not found for version: " + catalogVersion;
-
-        CatalogTableDescriptor tableDescriptor = catalog.table(tablePartitionId.tableId());
-        // Only tables that belong to a specific catalog version will be returned.
-        if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())) {
-            return null;
-        }
-
-        // Since the raft service starts after registering a new table, we don't need to wait or write additional asynchronous
-        // code.
-        TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
-        // Perhaps the table began to be stopped or destroyed.
-        if (tableViewInternal == null) {
-            return null;
-        }
-
-        MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
-                .getMvPartition(tablePartitionId.partitionId());
-        // Perhaps the partition began to be stopped or destroyed.
-        if (partitionStorage == null) {
-            return null;
-        }
-
-        Node raftNode = raftGroupService.getRaftNode();
-
-        LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
-                LocalPartitionStateEnumWithLogIndex.of(raftNode);
-
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
-                .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
-                .state(localPartitionStateWithLogIndex.state)
-                .logIndex(localPartitionStateWithLogIndex.logIndex)
-                .estimatedRows(partitionStorage.estimatedSize())
-                .isLearner(raftNode.isLearner())
-                .build();
     }
 
     private static <T> boolean containsOrEmpty(T item, Collection<T> collection) {

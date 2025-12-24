@@ -25,6 +25,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 /**
  * Response for {@link LocalPartitionsEstimatedSizeRequest}.
  */
+@Deprecated
 @Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_RESPONSE)
 public interface LocalPartitionsEstimatedSizeResponse extends NetworkMessage {
     Set<LocalPartitionsEstimatedSizeMessage> states();
