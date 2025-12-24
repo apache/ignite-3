@@ -58,7 +58,7 @@ class SegmentFile implements ManuallyCloseable {
     /** Number of concurrent writers to the buffer. */
     private final AtomicInteger numWriters = new AtomicInteger();
 
-    /** Position in the buffer <b>up to which</b> some data has been written. */
+    /** Position in the buffer <b>up to which</b> some data has been written, but not necessarily synced to the underlying storage. */
     private volatile int lastWritePosition;
 
     /** Position in the buffer <b>up to which</b> all written bytes have been synced. */
@@ -147,6 +147,11 @@ class SegmentFile implements ManuallyCloseable {
         close(bytesToWrite);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Does not execute {@link #sync} on its own, it should be performed manually by the caller.
+     */
     @Override
     public void close() {
         close(null);
@@ -212,14 +217,14 @@ class SegmentFile implements ManuallyCloseable {
     }
 
     private void sync(int upToPosition) {
-        if (syncPosition >= upToPosition) {
+        if (upToPosition <= syncPosition) {
             return;
         }
 
         synchronized (syncLock) {
             int syncPosition = this.syncPosition;
 
-            if (syncPosition >= upToPosition) {
+            if (upToPosition <= syncPosition) {
                 return;
             }
 
