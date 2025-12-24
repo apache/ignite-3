@@ -60,7 +60,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableSegment;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -177,11 +177,12 @@ class IndexBuildController implements ManuallyCloseable {
             assert indexDescriptor != null : "Failed to find an index descriptor for the specified index [indexId="
                     + parameters.indexId() + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
-            assert catalog.table(indexDescriptor.tableId()) != null : "Failed to find a table descriptor for the specified index [indexId="
+            CatalogTableDescriptor tableDescriptor = catalog.table(indexDescriptor.tableId());
+            assert tableDescriptor != null : "Failed to find a table descriptor for the specified index [indexId="
                     + parameters.indexId() + ", tableId=" + indexDescriptor.tableId()
                     + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(catalog.table(indexDescriptor.tableId()).zoneId());
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
 
             assert zoneDescriptor != null : "Failed to find a zone descriptor for the specified table [indexId="
                     + parameters.indexId() + ", tableId=" + indexDescriptor.tableId()
@@ -425,8 +426,8 @@ class IndexBuildController implements ManuallyCloseable {
             return;
         }
 
-        @Nullable ReplicaTableSegment segment = replicaTableSegment(zonePartitionId, tableId, resources, indexDescriptor);
-        if (segment == null) {
+        TableTxRwOperationTracker txRwOperationTracker = txRwOperationTracker(zonePartitionId, tableId, resources, indexDescriptor);
+        if (txRwOperationTracker == null) {
             return;
         }
 
@@ -441,8 +442,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
-                segment.txRwOperationTracker(),
-                segment.safeTime(),
+                txRwOperationTracker,
+                resources.safeTimeTracker(),
                 localNode(),
                 enlistmentConsistencyToken,
                 initialOperationTimestamp
@@ -465,8 +466,8 @@ class IndexBuildController implements ManuallyCloseable {
             return;
         }
 
-        @Nullable ReplicaTableSegment segment = replicaTableSegment(zonePartitionId, tableId, resources, indexDescriptor);
-        if (segment == null) {
+        TableTxRwOperationTracker txRwOperationTracker = txRwOperationTracker(zonePartitionId, tableId, resources, indexDescriptor);
+        if (txRwOperationTracker == null) {
             return;
         }
 
@@ -481,15 +482,15 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
-                segment.txRwOperationTracker(),
-                segment.safeTime(),
+                txRwOperationTracker,
+                resources.safeTimeTracker(),
                 localNode(),
                 enlistmentConsistencyToken,
                 clockService.current()
         );
     }
 
-    private static @Nullable ReplicaTableSegment replicaTableSegment(
+    private static @Nullable TableTxRwOperationTracker txRwOperationTracker(
             ZonePartitionId zonePartitionId,
             int tableId,
             ZonePartitionResources resources,
@@ -499,12 +500,12 @@ class IndexBuildController implements ManuallyCloseable {
         assert replicaListenerFuture.isDone() : "Replica listener future is not done for [zonePartitionId=" + zonePartitionId + "].";
 
         ZonePartitionReplicaListener replicaListener = replicaListenerFuture.join();
-        @Nullable ReplicaTableSegment segment = replicaListener.segmentFor(tableId);
+        @Nullable TableTxRwOperationTracker txRwOperationTracker = replicaListener.txRwOperationTracker(tableId);
 
-        if (segment == null) {
+        if (txRwOperationTracker == null) {
             // Null means that the table has been removed due to table destruction.
             LOG.info(
-                    "Segment is null, skipping index build scheduling "
+                    "Tracker is null, skipping index build scheduling "
                             + "[zoneId={}, tableId={}, partitionId={}, indexId={}]",
                     zonePartitionId.zoneId(),
                     tableId,
@@ -513,7 +514,7 @@ class IndexBuildController implements ManuallyCloseable {
             );
         }
 
-        return segment;
+        return txRwOperationTracker;
     }
 
     private InternalClusterNode localNode() {
