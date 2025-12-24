@@ -33,6 +33,7 @@ namespace Apache.Ignite.Internal.Sql
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Table;
     using Table.Serialization;
     using Transactions;
 
@@ -73,8 +74,19 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public async Task<IResultSet<T>> ExecuteAsync<T>(
-            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args) =>
-            await ExecuteAsyncInternal(
+            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args)
+        {
+            if (BasicMappers.TryGet<T>() is { } mapper)
+            {
+                return await ExecuteAsync(
+                    transaction,
+                    mapper,
+                    statement,
+                    cancellationToken,
+                    args).ConfigureAwait(false);
+            }
+
+            return await ExecuteAsyncInternal(
                     transaction,
                     statement,
                     static meta => GetReaderFactory<T>(meta),
@@ -82,6 +94,7 @@ namespace Apache.Ignite.Internal.Sql
                     args,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
 
         /// <inheritdoc/>
         public async Task<IResultSet<T>> ExecuteAsync<T>(
