@@ -102,7 +102,8 @@ class RetryContext {
      * @param originDescription Supplier describing the origin request from which this one depends, or returning {@code null} if
      *         this request is independent.
      * @param requestFactory Factory for creating requests to the target peer.
-     * @param sendWithRetryTimeoutMillis Timeout, in milliseconds, for the entire retry sequence.
+     * @param sendWithRetryTimeoutMillis Timeout for entire request sending (with retries) in milliseconds, a negative value means no
+     *         timeout.
      * @param responseTimeoutMillis Response timeout for each attempt (up to {@code stopTime}) in milliseconds, {@code -1} if using
      *      {@link ThrottlingContextHolder#peerRequestTimeoutMillis} (default).
      */
@@ -210,6 +211,8 @@ class RetryContext {
     }
 
     TimeoutException createTimeoutException() {
+        long currentTime = Utils.monotonicMs();
+
         return new TimeoutException(format(
                 "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}, request = {}, originCommand = {},"
                         + " retryReasons = {}, stopTime = {}, currentTime = {}, startTime = {}, duration = {}, currentWallTime = {}].",
@@ -220,9 +223,9 @@ class RetryContext {
                 originDescription.get(),
                 retryReasons.toString(),
                 stopTime,
-                Utils.monotonicMs(),
+                currentTime,
                 startTime,
-                Utils.monotonicMs() - startTime,
+                currentTime - startTime,
                 System.currentTimeMillis()
         ));
     }
