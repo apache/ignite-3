@@ -51,14 +51,14 @@ before doing request on primary, C gets current primary P and compares its consi
 - C doesn't have state of tx0 and makes request to P (with read timestamp, if tx2 is RO)
 - on P, storage may have completely different state. Further actions:
   - if request has read timestamp because tx2 is RO:
-  - P selects version corresponding this timestamp,
-  - if later record is present and matches the read timestamp, then responds with this later record,
-  - if WI0 is committed and matches the read timestamp, then responds to C with COMMITTED state,
-  - if absent (aborted) but earlier record is present and matches the read timestamp, then responds with ABORTED state,
-  - if absent (aborted) but another WI1 of transaction tx1 is written, then P resolves WI1 using read timestamp from the request, if WI1 can be read then responds with newest record, if WI1 is ignored then responds with ABORTED (because WI0 is aborted)
-  - if absent (aborted) and no records correspond timestamp, then checks read ts:
-  - if read ts is greater than now - dataAvailabilityTimeout, responds with ABORTED state,
-  - if read ts is less than or equal to now - dataAvailabilityTimeout, respond with error (outdated ro txn), this means the version was collected by GC and state is unknown
+    - P selects version corresponding this timestamp,
+      - if later record is present and matches the read timestamp, then responds with this later record,
+      - if WI0 is committed and matches the read timestamp, then responds to C with COMMITTED state,
+      - if absent (aborted) but earlier record is present and matches the read timestamp, then responds with ABORTED state,
+      - if absent (aborted) but another WI1 of transaction tx1 is written, then P resolves WI1 using read timestamp from the request, if WI1 can be read then responds with newest record, if WI1 is ignored then responds with ABORTED (because WI0 is aborted)
+      - if absent (aborted) and no records correspond timestamp, then checks read ts:
+        - if read ts is greater than now - dataAvailabilityTimeout, responds with ABORTED state,
+        - if read ts is less than or equal to now - dataAvailabilityTimeout, respond with error (outdated ro txn), this means the version was collected by GC and state is unknown
   - the case when request does not have read timestamp (meaning that tx2 is RW txn) is not possible.
 - C gets from P either tx state or more recent row, responds to N (resolution response should be extended with row, its commit timestamp, etc)
 
