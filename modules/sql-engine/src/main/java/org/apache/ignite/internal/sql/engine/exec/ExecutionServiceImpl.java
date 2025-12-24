@@ -206,7 +206,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
-     * @param planValidator Validator of the catalog version from the plan relative to the started transactio.
+     * @param planValidator Validator of the catalog version from the plan relative to the started transaction.
      */
     public ExecutionServiceImpl(
             MessageService messageService,
@@ -264,7 +264,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
-     * @param planValidator Validator of the catalog version from the plan relative to the started transactio.
+     * @param planValidator Validator of the catalog version from the plan relative to the started transaction.
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(

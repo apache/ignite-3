@@ -48,7 +48,7 @@ public class SqlPlanToTxSchemaVersionValidator {
      * @param plan {@link MultiStepPlan multi-step} execution plan.
      * @param tx Query transaction wrapper.
      * @return Successfully completed future if the provided transaction is explicit or the catalog versions match.
-     *         Otherwise returns a future completed with an exception {@link SqlPlanOutdatedException},
+     *         Otherwise returns a future completed with an exception {@link SqlPlanOutdatedException}.
      */
     public CompletableFuture<Void> validate(MultiStepPlan plan, QueryTransactionWrapper tx) {
         if (!tx.implicit()) {
