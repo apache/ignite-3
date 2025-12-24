@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Sql;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -136,7 +137,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
 
         Assert.AreEqual(
             "STR=v-0, INT8=1, KEY=0, INT16=2, INT32=3, INT64=4, FLOAT=5.5, DOUBLE=6.5, UUID=00000001-0002-0003-0405-060708090a01, " +
-            "DATE=Thursday, December 1, 2022, TIME=11:38:01 AM, TIME2=, DATETIME=12/19/2022 11:01:00 AM, DATETIME2=, " +
+            "DATE=Thursday, 01 December 2022, TIME=11:38:01, TIME2=, DATETIME=12/19/2022 11:01:00, DATETIME2=, " +
             "TIMESTAMP=1970-01-01T00:00:01Z, TIMESTAMP2=, BLOB=System.Byte[], DECIMAL=7.7, BOOLEAN=",
             row);
     }
@@ -324,7 +325,11 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
                     _ => throw new InvalidOperationException("Unexpected column type: " + col.Type)
                 };
 
-                sb.Append(col.Name).Append('=').Append(val);
+                var valStr = val is IFormattable formattable
+                    ? formattable.ToString(null, CultureInfo.InvariantCulture)
+                    : val?.ToString();
+
+                sb.Append(col.Name).Append('=').Append(valStr);
             }
 
             return sb.ToString();
