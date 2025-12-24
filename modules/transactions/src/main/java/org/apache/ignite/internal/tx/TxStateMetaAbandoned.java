@@ -42,15 +42,17 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * Constructor.
      *
      * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group ID.
+     * @param commitPartitionId Commit partition replication group id.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param txLabel Transaction label.
      */
     public TxStateMetaAbandoned(
-            UUID txCoordinatorId,
-            ZonePartitionId commitPartitionId,
+            @Nullable UUID txCoordinatorId,
+            @Nullable ZonePartitionId commitPartitionId,
+            @Nullable InternalTransaction tx,
             @Nullable String txLabel
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null, null, null, txLabel);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }
@@ -132,7 +134,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == ABANDONED) {
-                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel);
             } else {
                 return super.build();
             }

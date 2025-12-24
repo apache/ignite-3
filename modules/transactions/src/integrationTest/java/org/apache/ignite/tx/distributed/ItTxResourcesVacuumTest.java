@@ -1076,10 +1076,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 });
     }
 
-    private IgniteImpl anyNode() {
-        return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
-    }
-
     @Nullable
     private static TransactionMeta volatileTxState(IgniteImpl node, UUID txId) {
         TxManagerImpl txManager = (TxManagerImpl) node.txManager();
@@ -1117,5 +1113,4 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             return txStatePartitionStorage.get(txId);
         });
     }
-
 }
