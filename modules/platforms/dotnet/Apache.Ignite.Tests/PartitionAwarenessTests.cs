@@ -343,10 +343,14 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestCustomColocationKey()
+    public async Task TestCustomColocationKey([Values(true, false)] bool withMapper)
     {
         using var client = await GetClient();
-        var view = (await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName))!.GetRecordView<CompositeKey>();
+
+        var table = await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName);
+        var view = withMapper
+            ? table!.GetRecordView(new CompositeKeyMapper())
+            : table!.GetRecordView<CompositeKey>();
 
         // Warm up.
         await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty));
