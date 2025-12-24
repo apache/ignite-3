@@ -36,7 +36,6 @@ import org.jetbrains.annotations.Nullable;
  * replication group.</p>
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-20646 Consider using CLOCK_SKEW unaware await/getPrimaryReplica()
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Consider using ZonePartitionId instead of ReplicationGroupId
 public interface LeasePlacementDriver extends EventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> {
     /**
      * Returns a future for the primary replica for the specified replication group whose expiration time (the right border of the

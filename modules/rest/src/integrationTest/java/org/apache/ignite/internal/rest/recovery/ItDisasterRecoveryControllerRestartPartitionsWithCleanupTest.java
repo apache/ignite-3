@@ -22,11 +22,9 @@ import static io.micronaut.http.HttpStatus.OK;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
@@ -44,22 +42,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryRequestMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryResponseMessage;
-import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIf;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 
 /** Test for disaster recovery restart partitions with cleanup command. */
@@ -73,19 +66,15 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
-
-    public static final String RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT = "/partitions/restartWithCleanup";
-
-    public static final String RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT = "zone/partitions/restartWithCleanup";
+    private static final String RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT = "zone/partitions/restartWithCleanup";
 
     @Inject
     @Client(NODE_1_URL + "/management/v1/recovery/")
-    HttpClient client1;
+    private HttpClient client1;
 
     @Inject
     @Client(NODE_2_URL + "/management/v1/recovery/")
-    HttpClient client2;
+    private HttpClient client2;
 
     @BeforeAll
     public void setUp() {
@@ -105,7 +94,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     public void testRestartPartitionWithCleanupZoneNotFound() {
         String unknownZone = "unknown_zone";
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of());
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), unknownZone, Set.of());
 
         assertThrowsProblem(
                 () -> client1.toBlocking().exchange(post),
@@ -114,22 +103,8 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
-    public void testRestartPartitionWithCleanupTableNotFound() {
-        String tableName = "PUBLIC.unknown_table";
-
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of());
-
-        assertThrowsProblem(
-                () -> client1.toBlocking().exchange(post),
-                isProblem().withStatus(BAD_REQUEST).withDetail("The table does not exist [name=" + tableName.toUpperCase() + "]")
-        );
-    }
-
-    @Test
     void testRestartPartitionsWithCleanupIllegalPartitionNegative() {
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(0, 5, -1, -10));
 
         assertThrowsProblem(
                 () -> client1.toBlocking().exchange(post),
@@ -139,7 +114,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     void testRestartPartitionsWithCleanupPartitionsOutOfRange() {
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(DEFAULT_PARTITION_COUNT));
 
         assertThrowsProblem(
                 () -> client1.toBlocking().exchange(post),
@@ -156,7 +131,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     void testRestartPartitionsWithCleanupNodesAreCaseSensitive() {
         Set<String> uppercaseNodeNames = Set.of(CLUSTER.aliveNode().name().toUpperCase());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+        MutableHttpRequest<?> post = restartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, Set.of());
 
         List<Matcher<? super String>> detailMatchers = uppercaseNodeNames.stream()
                 .map(Matchers::containsString)
@@ -170,7 +145,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testPartitionsWithCleanupEmptySetOfNodes() {
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of());
 
         assertThrowsProblem(
                 () -> client1.toBlocking().exchange(post),
@@ -184,7 +159,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, Set.of(0, 1));
 
         assertThat(client1.toBlocking().exchange(post), hasStatus(OK));
     }
@@ -193,20 +168,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     public void testRestartPartitionsWithCleanupByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
-
-        assertThrowsProblem(
-                () -> client1.toBlocking().exchange(post),
-                isProblem().withStatus(BAD_REQUEST).withDetail("Only one node name should be specified for the operation.")
-        );
-    }
-
-    @Test
-    public void testRestartTablePartitionsWithCleanupByNodes() {
-        Set<String> nodeNames = nodeNames(initialNodes() - 1);
-
-        MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
-                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, Set.of());
 
         assertThrowsProblem(
                 () -> client1.toBlocking().exchange(post),
@@ -220,37 +182,13 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, Set.of());
 
         assertThat(client1.toBlocking().exchange(post), hasStatus(OK));
     }
 
     @Test
-    public void testRestartTablePartitionsWithCleanupAllPartitions() throws InterruptedException {
-        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
-
-        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
-
-        MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
-                new RestartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
-
-        assertThat(client1.toBlocking().exchange(post), hasStatus(OK));
-    }
-
-    private static Stream<Boolean> restartZoneParameters() {
-        if (colocationEnabled()) {
-            // When collocation is enabled, test both restartZone=true and restartZone=false,
-            // since we permit calling RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT with enabled collocation.
-            return Stream.of(true, false);
-        } else {
-            // When collocation is disabled, only test restartZone=false.
-            return Stream.of(false);
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource("restartZoneParameters")
-    public void testRestartTablePartitionsWithCleanupAllPartitionsOnDifferentNode(boolean restartZone) throws InterruptedException {
+    public void testRestartZonePartitionsWithCleanupAllPartitionsOnDifferentNode() throws InterruptedException {
         awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
         IgniteImpl calledNode = unwrapIgniteImpl(CLUSTER.nodes().get(1));
         IgniteImpl targetNode = unwrapIgniteImpl(CLUSTER.nodes().get(0));
@@ -278,7 +216,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(), restartZone);
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, Set.of());
 
         // Send the request to the second node, which should forward it to the first node.
         HttpResponse<Void> response = client2.toBlocking().exchange(post);
@@ -298,25 +236,9 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     private static MutableHttpRequest<?> restartPartitionsRequest(
             Set<String> nodeNames,
             String zoneName,
-            String tableName,
             Collection<Integer> partitionIds
     ) {
-        return restartPartitionsRequest(nodeNames, zoneName, tableName, partitionIds, colocationEnabled());
-    }
-
-    private static MutableHttpRequest<?> restartPartitionsRequest(
-            Set<String> nodeNames,
-            String zoneName,
-            String tableName,
-            Collection<Integer> partitionIds,
-            boolean restartZone
-    ) {
-        if (restartZone) {
-            return HttpRequest.POST(RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT,
-                    new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
-        } else {
-            return HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
-                    new RestartPartitionsRequest(nodeNames, zoneName, tableName, partitionIds));
-        }
+        return HttpRequest.POST(RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT,
+                new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
     }
 }
