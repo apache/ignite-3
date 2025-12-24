@@ -1710,8 +1710,8 @@ public class TestBuilders {
     }
 
     /**
-     * A wrapper around {@link PrepareService} that executes a callback each time the
-     * {@link #prepareAsync(ParsedResult, SqlOperationContext)} method is executed.
+     * A wrapper for {@link PrepareService} that executes a specified callback each time the
+     * {@link #prepareAsync(ParsedResult, SqlOperationContext)} method is called.
      */
     public static class PrepareServiceWithPrepareCallback implements PrepareService {
         private final PrepareService delegate;

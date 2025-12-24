@@ -30,7 +30,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Execution plan validator.
+ * SQL query execution plan validator.
  *
  * <p>Performs validation of the catalog version from the {@link MultiStepPlan multi-step plan} relative to the started transaction.
  */
@@ -43,7 +43,7 @@ public class SqlPlanToTxSchemaVersionValidator {
 
     /**
      * Compares the catalog version from the plan with the version of the active catalog
-     * at the time of the transaction {@link InternalTransaction#schemaTimestamp() schema time}.
+     * at the {@link InternalTransaction#schemaTimestamp() schema time} of the transaction.
      *
      * @param plan {@link MultiStepPlan multi-step} execution plan.
      * @param tx Query transaction wrapper.

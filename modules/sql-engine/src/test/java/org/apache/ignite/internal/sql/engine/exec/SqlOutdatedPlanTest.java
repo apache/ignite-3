@@ -21,13 +21,14 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlPlanToTxSchemaVersionValidator;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.exec.QueryRecoveryTest.TxType;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionalOperationTracker;
@@ -48,14 +50,25 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * Tests that outdated SQL query execution plans are re-planned.
+ * Tests that outdated SQL query execution plan is re-planned using the
+ * {@link InternalTransaction#schemaTimestamp() schema time} of the started transaction.
+ *
+ * <p>Currently, the transaction starts after query planning is completed, if the schema has changed during planning
+ * (the catalog version used in the plan does not match the catalog version of the corresponding transaction start time),
+ * then this plan is considered outdated and the planning phase should be repeated using the transaction start time.
+ *
+ * @see SqlPlanOutdatedException
+ * @see SqlPlanToTxSchemaVersionValidator
  */
 public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
     private static final List<String> DATA_NODES = List.of("DATA_1", "DATA_2");
@@ -78,11 +91,10 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
 
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
 
-        cluster.setAssignmentsProvider("T1", (partitionCount, b) -> {
-                    return IntStream.range(0, partitionCount)
-                            .mapToObj(i -> DATA_NODES)
-                            .collect(Collectors.toList());
-                }
+        cluster.setAssignmentsProvider("T1",
+                (partitionCount, b) -> IntStream.range(0, partitionCount)
+                        .mapToObj(i -> DATA_NODES)
+                        .collect(Collectors.toList())
         );
 
         gatewayNode.initSchema("CREATE TABLE t1 (id INT PRIMARY KEY)");
@@ -94,64 +106,119 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(TxType.class)
-    void schemaChangedDuringPlanning(TxType type) throws Exception {
-        AtomicInteger prepareCalls = new AtomicInteger();
-        CountDownLatch txStartCallLatch = new CountDownLatch(1);
-        CountDownLatch txStartLatch = new CountDownLatch(1);
-        TestTxContext txContext = new TestTxContext(type, txStartCallLatch, txStartLatch);
-
+    void planningIsRepeatedUsingTheSameTransaction(TxType type) throws Exception {
+        TestTxContext txContext = new TestTxContext(type);
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
-
-        ((PrepareServiceWithPrepareCallback) gatewayNode.prepareService())
-                .setPrepareCallback(prepareCalls::incrementAndGet);
-
-        assertThat(prepareCalls.get(), is(0));
+        PrepareServiceSpy prepareServiceSpy = new PrepareServiceSpy(gatewayNode);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
                 gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
 
-        txStartCallLatch.await(10, TimeUnit.SECONDS);
-        assertThat(prepareCalls.get(), is(1));
+        prepareServiceSpy.waitUntilCallsCount(is(1));
         assertThat(txContext.startedTxCounter.get(), is(0));
 
-        CatalogCommand command = AlterTableAddColumnCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName("T1")
-                .columns(List.of(columnParams("VAL", INT32)))
-                .build();
+        // Simulate concurrent schema modification.
+        await(cluster.catalogManager().execute(
+                makeAddColumnCommand("VAL1")));
 
-        await(cluster.catalogManager().execute(command));
+        prepareServiceSpy.unblock();
+        prepareServiceSpy.waitUntilCallsCount(is(2));
 
-        txStartLatch.countDown();
+        // Simulate another one schema modification.
+        await(cluster.catalogManager().execute(
+                makeAddColumnCommand("VAL2")));
+
+        prepareServiceSpy.unblock();
 
         await(await(fut).closeAsync());
 
-        assertThat(prepareCalls.get(), is(2));
+        // Planning must be repeated, but only once.
+        assertThat(prepareServiceSpy.callsCounter.get(), is(2));
+
+        // Transaction should be started only once.
         assertThat(txContext.startedTxCounter.get(), is(1));
+    }
+
+    @Test
+    void schemaChangedAndNodeDisconnectedDuringPlanning() {
+        TestTxContext txContext = new TestTxContext(TxType.RO);
+        TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
+        PrepareServiceSpy prepareServiceSpy = new PrepareServiceSpy(gatewayNode);
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
+                gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
+
+        prepareServiceSpy.waitUntilCallsCount(is(1));
+        assertThat(txContext.startedTxCounter.get(), is(0));
+
+        // Simulate concurrent schema modification.
+        await(cluster.catalogManager().execute(
+                makeAddColumnCommand("VAL1")));
+
+        // And node disconnection.
+        cluster.node(DATA_NODES.get(0)).disconnect();
+
+        prepareServiceSpy.unblock();
+        prepareServiceSpy.waitUntilCallsCount(is(2));
+        prepareServiceSpy.unblock();
+
+        await(await(fut).closeAsync());
+
+        // Planning must be repeated, but only once.
+        assertThat(prepareServiceSpy.callsCounter.get(), is(2));
+
+        // The plan execution must be repeated using a new transaction.
+        assertThat(txContext.startedTxCounter.get(), is(2));
+    }
+
+    private static CatalogCommand makeAddColumnCommand(String columnName) {
+        return AlterTableAddColumnCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName("T1")
+                .columns(List.of(columnParams(columnName, INT32)))
+                .build();
+    }
+
+    private static class PrepareServiceSpy {
+        private final AtomicInteger callsCounter = new AtomicInteger();
+        private final CyclicBarrier prepareBarrier = new CyclicBarrier(2);
+
+        PrepareServiceSpy(TestNode gatewayNode) {
+            ((PrepareServiceWithPrepareCallback) gatewayNode.prepareService())
+                    .setPrepareCallback(() -> {
+                        callsCounter.incrementAndGet();
+
+                        awaitBarrier();
+                    });
+        }
+
+        public void waitUntilCallsCount(Matcher<Integer> integerMatcher) {
+            await().until(callsCounter::get, integerMatcher);
+        }
+
+        void unblock() {
+            awaitBarrier();
+        }
+
+        private void awaitBarrier() {
+            try {
+                prepareBarrier.await(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     private static class TestTxContext implements QueryTransactionContext {
         private final TxType txType;
-        private final CountDownLatch txWaitLatch;
-        private final CountDownLatch txStartLatch;
         private final AtomicInteger startedTxCounter = new AtomicInteger();
 
-        TestTxContext(TxType txType, CountDownLatch txWaitLatch, CountDownLatch txStartLatch) {
+        TestTxContext(TxType txType) {
             this.txType = txType;
-            this.txWaitLatch = txWaitLatch;
-            this.txStartLatch = txStartLatch;
         }
 
         @Override
         public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnlyIgnored, boolean implicit) {
-            try {
-                txWaitLatch.countDown();
-
-                txStartLatch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
             startedTxCounter.incrementAndGet();
 
             return new QueryTransactionWrapperImpl(txType.create(), true, NoOpTransactionalOperationTracker.INSTANCE);
