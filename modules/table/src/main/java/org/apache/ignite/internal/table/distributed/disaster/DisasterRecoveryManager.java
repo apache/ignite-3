@@ -65,7 +65,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -138,6 +137,7 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.Disaster
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryRequestForwardException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalNodesException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodeLeftException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.table.distributed.storage.NullMvTableStorage;
@@ -279,10 +279,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
                 operationsByNodeId.compute(leftNode.id(), (node, operations) -> {
                     if (operations != null) {
-                        operations.completeAllExceptionally(
-                                leftNode.name(),
-                                new NodeNotFoundException(Set.of(leftNode.name()))
-                        );
+                        operations.completeAllExceptionally(leftNode.name(), new NodeLeftException(leftNode.name(), leftNode.id()));
                     }
 
                     return null;
@@ -1228,9 +1225,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     .collect(toSet());
 
             if (!nodes.contains(nodeId)) {
-                result.completeExceptionally(new IllegalStateException(
-                        "Node is not present in logical topology [id=" + nodeId + ", name=" + node.nodeName() + "]"
-                ));
+                result.completeExceptionally(new NodeLeftException(node.nodeName(), nodeId));
 
                 return operations;
             }
