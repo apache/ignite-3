@@ -85,6 +85,27 @@ public class SqlTests(IIgniteClient client)
     }
 
     [UsedImplicitly]
+    public async Task TestAllColumnTypesWithMapper()
+    {
+        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);
+        var view = table!.GetRecordView(new PocoAllColumnsSqlMapper());
+        var poco = GetPoco();
+        await view.UpsertAsync(null, poco);
+
+        await using IResultSet<PocoAllColumnsSql> resultSet = await client.Sql.ExecuteAsync(
+            transaction: null,
+            mapper: new PocoAllColumnsSqlMapper(),
+            statement: $"select * from {table.Name} where KEY = ?",
+            CancellationToken.None,
+            poco.Key);
+
+        List<PocoAllColumnsSql> rows = await resultSet.ToListAsync();
+        PocoAllColumnsSql row = rows.Single();
+
+        Assert.AreEqual(poco, row);
+    }
+
+    [UsedImplicitly]
     public async Task TestExecuteReaderAsync()
     {
         var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);
