@@ -119,7 +119,7 @@ class RetryContext {
         this.originDescription = originDescription;
         this.requestFactory = requestFactory;
         this.request = requestFactory.apply(targetPeer);
-        this.stopTime = RetryUtils.monotonicMsAfter(sendWithRetryTimeoutMillis);
+        this.stopTime = Utils.monotonicMsAfter(sendWithRetryTimeoutMillis);
         this.startTime = Utils.monotonicMs();
         this.attemptScheduleTime = this.startTime;
         this.attemptStartTime = this.startTime;
