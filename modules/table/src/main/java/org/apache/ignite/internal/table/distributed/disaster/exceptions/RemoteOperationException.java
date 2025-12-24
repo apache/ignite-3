@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
 import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 
-/** Exception is thrown when remote node encounters an error while executing a disaster recovery operation. */
+/** Exception thrown when remote node encounters an error while executing a disaster recovery operation. */
 public class RemoteOperationException extends DisasterRecoveryException {
     private static final long serialVersionUID = 1L;
 

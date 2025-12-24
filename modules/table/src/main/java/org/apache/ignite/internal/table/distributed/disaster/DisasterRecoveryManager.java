@@ -64,6 +64,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -236,7 +237,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private final Map<Integer, PartitionStatesMetricSource> metricSourceByTableId = new ConcurrentHashMap<>();
 
-    private final Map<String, MultiNodeOperations> operationsByNodeName = new ConcurrentHashMap<>();
+    private final Map<UUID, MultiNodeOperations> operationsByNodeId = new ConcurrentHashMap<>();
 
     /** Constructor. */
     public DisasterRecoveryManager(
@@ -278,10 +279,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         nodeLeftListener = new LogicalTopologyEventListener() {
             @Override
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-                MultiNodeOperations operations = operationsByNodeName.get(leftNode.name());
-                if (operations != null) {
-                    operations.completeAllExceptionally(leftNode.name(), new NodeStoppingException());
-                }
+                operationsByNodeId.compute(leftNode.id(), (node, operations) -> {
+                    if (operations != null) {
+                        operations.completeAllExceptionally(
+                                leftNode.name(),
+                                new NodeNotFoundException(Set.of(leftNode.name()))
+                        );
+                    }
+
+                    return null;
+                });
             }
         };
     }
@@ -1197,44 +1204,39 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         MultiNodeDisasterRecoveryRequest multiNodeRequest = (MultiNodeDisasterRecoveryRequest) request;
 
-        Collection<String> actualNodeNames = getActualNodeNames(multiNodeRequest.nodeNames());
+        Set<NodeWithAttributes> nodes = getRequestNodes(multiNodeRequest.nodeNames());
 
-        CompletableFuture<?>[] remoteProcessingFutures = actualNodeNames
+        CompletableFuture<?>[] remoteProcessingFutures = nodes
                 .stream()
-                .map(nodeName -> addMultiNodeOperation(nodeName, operationId))
+                .map(node -> addMultiNodeOperation(node, operationId))
                 .toArray(CompletableFuture[]::new);
 
-        return allOf(remoteProcessingFutures)
-                .whenComplete((ignored, e) -> {
-                    for (String nodeName : actualNodeNames) {
-                        operationsByNodeName.compute(nodeName, (node, operations) -> {
-                            if (operations != null) {
-                                operations.remove(operationId);
-
-                                return operations.isEmpty() ? null : operations;
-                            }
-
-                            return null;
-                        });
-                    }
-                });
+        return allOf(remoteProcessingFutures);
     }
 
     /** If request node names is empty, returns all nodes in the logical topology. */
-    private Collection<String> getActualNodeNames(Set<String> requestNodeNames) {
-        if (requestNodeNames.isEmpty()) {
-            return dzManager.logicalTopology().stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
-        } else {
-            return requestNodeNames;
-        }
+    private Set<NodeWithAttributes> getRequestNodes(Set<String> requestNodeNames) {
+        return dzManager.logicalTopology().stream()
+                .filter(node -> requestNodeNames.isEmpty() || requestNodeNames.contains(node.nodeName()))
+                .collect(toSet());
     }
 
-    private CompletableFuture<Void> addMultiNodeOperation(String nodeName, UUID operationId) {
+    private CompletableFuture<Void> addMultiNodeOperation(NodeWithAttributes node, UUID operationId) {
         CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-        operationsByNodeName.compute(nodeName, (node, operations) -> {
+        operationsByNodeId.compute(node.nodeId(), (nodeId, operations) -> {
+            Set<UUID> nodes = dzManager.logicalTopology().stream()
+                    .map(NodeWithAttributes::nodeId)
+                    .collect(toSet());
+
+            if (!nodes.contains(nodeId)) {
+                result.completeExceptionally(new IllegalStateException(
+                        "Node is not present in logical topology [id=" + nodeId + ", name=" + node.nodeName() + "]"
+                ));
+
+                return operations;
+            }
+
             if (operations == null) {
                 operations = new MultiNodeOperations();
             }
@@ -1244,7 +1246,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             return operations;
         });
 
-        return result;
+        // Cleanup operation on completion.
+        return result.whenComplete((v, e) ->
+                operationsByNodeId.compute(node.nodeId(), (nodeId, operations) -> {
+                    if (operations != null) {
+                        operations.remove(operationId);
+
+                        return operations.isEmpty() ? null : operations;
+                    }
+
+                    return null;
+                }));
     }
 
     /**
@@ -1560,7 +1572,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             OperationCompletedMessage message,
             InternalClusterNode sender
     ) {
-        MultiNodeOperations multiNodeOperations = operationsByNodeName.get(sender.name());
+        MultiNodeOperations multiNodeOperations = operationsByNodeId.get(sender.id());
         if (multiNodeOperations != null) {
             multiNodeOperations.complete(message.operationId(), sender.name(), message.exceptionMessage());
         }

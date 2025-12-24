@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -42,6 +43,8 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
 
     @Override
     protected void writeExternalData(ManualGroupRestartRequest request, IgniteDataOutput out) throws IOException {
+        Objects.requireNonNull(request.coordinator(), "Coordinator must not be null");
+
         out.writeUuid(request.operationId());
         out.writeVarInt(request.zoneId());
         out.writeVarInt(request.tableId());

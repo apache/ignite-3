@@ -48,7 +48,11 @@ class MultiNodeOperations {
         Set<UUID> operationIds = Set.copyOf(operationsById.keySet());
 
         for (UUID operationId : operationIds) {
-            operationsById.remove(operationId).completeExceptionally(new RemoteOperationException(e.getMessage(), nodeName));
+            CompletableFuture<Void> operation = operationsById.remove(operationId);
+
+            if (operation != null) {
+                operation.completeExceptionally(new RemoteOperationException(e.getMessage(), nodeName));
+            }
         }
     }
 
