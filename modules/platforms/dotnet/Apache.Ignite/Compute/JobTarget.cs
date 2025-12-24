@@ -79,10 +79,7 @@ public static class JobTarget
     {
         IgniteArgumentCheck.NotNull(key);
 
-        // If a mapper is available for the key type, use it to avoid reflection later.
-        IMapper<TKey>? mapper = BasicMappers.TryGet<TKey>();
-
-        return new ColocatedTarget<TKey>(tableName, key, mapper);
+        return new ColocatedTarget<TKey>(tableName, key, null);
     }
 
     /// <summary>
