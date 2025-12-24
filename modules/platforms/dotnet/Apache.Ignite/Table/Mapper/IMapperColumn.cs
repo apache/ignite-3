@@ -47,9 +47,6 @@ public interface IMapperColumn
 
     /// <summary>
     /// Gets the column scale.
-    /// <returns>
-    /// </returns>
-    /// Number of digits of scale.
     /// </summary>
     int Scale { get; }
 
