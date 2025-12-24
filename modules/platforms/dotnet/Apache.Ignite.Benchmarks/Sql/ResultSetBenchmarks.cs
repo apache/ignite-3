@@ -23,7 +23,6 @@ namespace Apache.Ignite.Benchmarks.Sql
     using System.Threading;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
-    using BenchmarkDotNet.Jobs;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Table.Mapper;
