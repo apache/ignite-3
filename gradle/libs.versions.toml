@@ -73,7 +73,7 @@ caffeine = "3.2.0"
 fastutil = "8.5.18"
 kryo = "5.6.2"
 bytebuddy = "1.18.1"
-mockServer = "5.15.0"
+wiremock = "3.13.2"
 archunit = "1.4.1"
 testkit = "1.14.0"
 openapi = "4.10.0"
@@ -216,8 +216,7 @@ threetenbp = { module = "org.threeten:threetenbp", version.ref = "threetenbp" }
 swaggerv3-annotations = { module = "io.swagger.core.v3:swagger-annotations", version.ref = "swagger" }
 swagger-parser = { module = "io.swagger.parser.v3:swagger-parser", version.ref = "swaggerParser" }
 
-mock-server-netty = { module = "org.mock-server:mockserver-netty", version.ref = "mockServer" }
-mock-server-junit = { module = "org.mock-server:mockserver-junit-jupiter", version.ref = "mockServer" }
+wiremock = { module = "org.wiremock:wiremock", version.ref = "wiremock" }
 
 msgpack-core = { module = "org.msgpack:msgpack-core", version.ref = "msgpack" }
 
