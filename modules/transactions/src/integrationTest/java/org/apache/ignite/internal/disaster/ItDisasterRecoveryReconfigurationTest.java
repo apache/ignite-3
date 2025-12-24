@@ -1504,15 +1504,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
-        Collection<String> dataNodes = new HashSet<>();
+        Collection<String> dataNodeNames = new HashSet<>();
         for (int i = 0; i < 7; i++) {
-            dataNodes.add(node(i).name());
+            dataNodeNames.add(node(i).name());
         }
 
         logger().info("Zone {}", zone);
 
         Set<Assignment> allAssignmentsSet = calculateAssignmentForPartition(
-                dataNodes, partId, zone.partitions(), zone.replicas(), zone.consensusGroupSize());
+                dataNodeNames, partId, zone.partitions(), zone.replicas(), zone.consensusGroupSize());
 
         Assignments allAssignments = Assignments.of(allAssignmentsSet, timestamp);
 
@@ -1523,7 +1523,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
-        assertInsertedValuesOnSpecificNodes(table.name(), dataNodes, partId, 0);
+        assertInsertedValuesOnSpecificNodes(table.name(), dataNodeNames, partId, 0);
 
         Assignments link2Assignments = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),

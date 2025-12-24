@@ -26,7 +26,6 @@ import static org.awaitility.Awaitility.await;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import org.apache.ignite.internal.Cluster;
@@ -127,12 +126,9 @@ class DisasterRecoveryTestUtil {
             int val,
             SchemaDescriptor schema
     ) {
-        CompletableFuture<?>[] futures = nodes.stream()
-                .map(node -> CompletableFuture.runAsync(() ->
-                        assertValueOnSpecificNode(tableName, node, id, val, schema)))
-                .toArray(CompletableFuture[]::new);
-
-        CompletableFuture.allOf(futures).join();
+        for (IgniteImpl node : nodes) {
+            assertValueOnSpecificNode(tableName, node, id, val, schema);
+        }
     }
 
     static void assertValueOnSpecificNode(String tableName, IgniteImpl node, int id, int val, SchemaDescriptor schema) {
@@ -151,8 +147,10 @@ class DisasterRecoveryTestUtil {
                         return compareRows(actual, keyValueRow0);
                     });
         } catch (ConditionTimeoutException e) {
-            throw new AssertionError("Row comparison failed within the timeout on " + node.name()
-                    + " for id=" + id + ", val=" + val, e);
+            throw new AssertionError(
+                    String.format("Row comparison failed within the timeout. [node={}, id={}, val={}]", node.name(), id, val),
+                    e
+            );
         }
     }
 
