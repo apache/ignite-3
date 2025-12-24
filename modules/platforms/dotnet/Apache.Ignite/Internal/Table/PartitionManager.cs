@@ -100,9 +100,7 @@ internal sealed class PartitionManager : IPartitionManager
     [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull =>
-        BasicMappers.TryGet<TK>() is { } mapper
-            ? GetPartitionInternalAsync(key, new MapperSerializerHandler<TK>(mapper))
-            : GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
+        GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
 
     /// <inheritdoc/>
     public ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
