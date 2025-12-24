@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public override string ToString() =>
             new IgniteToStringBuilder(GetType())
-                .AppendList(_columns)
+                .AppendList(Columns)
                 .Build();
     }
 }
