@@ -75,7 +75,6 @@ public static class JobTarget
     /// <param name="key">Key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>Colocated job target.</returns>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     public static IJobTarget<TKey> Colocated<TKey>(QualifiedName tableName, TKey key)
         where TKey : notnull
     {
@@ -107,7 +106,6 @@ public static class JobTarget
     /// <param name="key">Key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>Colocated job target.</returns>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
         where TKey : notnull =>
         Colocated(QualifiedName.Parse(tableName), key);
