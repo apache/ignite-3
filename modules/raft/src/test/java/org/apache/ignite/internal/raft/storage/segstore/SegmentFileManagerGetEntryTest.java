@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -77,6 +78,7 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
             @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
@@ -85,6 +87,7 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
+                raftConfiguration,
                 storageConfiguration
         );
 
