@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlPlanToTxSchemaVersionValidator;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -66,11 +67,11 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.MultiStepPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
@@ -199,7 +200,7 @@ public class TestNode implements LifecycleAware {
             int requiredCatalog = catalogService.activeCatalogVersion(ts.longValue());
 
             if (requiredCatalog != plan.catalogVersion()) {
-                return CompletableFuture.failedFuture(new MultiStepPlanOutdatedException());
+                return CompletableFuture.failedFuture(new SqlPlanOutdatedException());
             }
 
             return CompletableFutures.nullCompletedFuture();
@@ -225,7 +226,7 @@ public class TestNode implements LifecycleAware {
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 5_000,
-                validator
+                SqlPlanToTxSchemaVersionValidator.create(ts -> CompletableFutures.nullCompletedFuture(), catalogService)
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));

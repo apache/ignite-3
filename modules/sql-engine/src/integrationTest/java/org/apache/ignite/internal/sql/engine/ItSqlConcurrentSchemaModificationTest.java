@@ -17,22 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration tests to verify SQL query execution during concurrent schema updates.
  */
-public class ItOutdatedPlanTest extends BaseSqlIntegrationTest {
+public class ItSqlConcurrentSchemaModificationTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
@@ -45,40 +50,18 @@ public class ItOutdatedPlanTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     void dropTables() {
+        System.clearProperty("FAST_QUERY_OPTIMIZATION_ENABLED");
+        Commons.resetFastQueryOptimizationFlag();
+        unwrapIgniteImpl(CLUSTER.aliveNode()).queryEngine().invalidatePlannerCache(Set.of());
+
         dropAllTables();
     }
 
-    @Test
-    void multiStepDmlWithConcurrentDdl() throws InterruptedException {
-        IgniteSql sql = CLUSTER.aliveNode().sql();
+    @ParameterizedTest(name = "FastQueryOptimization={0}")
+    @ValueSource(booleans = {true, false})
+    void dmlWithConcurrentDdl(Boolean fastPlan) throws InterruptedException {
+        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", fastPlan.toString());
 
-        sql("CREATE TABLE t(id INT PRIMARY KEY)");
-
-        int iterations = 10;
-
-        for (int i = 0; i < iterations; i++) {
-            log.info("iteration #" + i);
-
-            String ddlQuery = i % 2 == 0
-                    ? "ALTER TABLE t ADD COLUMN val VARCHAR DEFAULT 'abc'"
-                    : "ALTER TABLE t DROP COLUMN val";
-
-            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
-
-            Thread.sleep(i * ThreadLocalRandom.current().nextInt(10));
-
-            sql.execute(null, "INSERT INTO t (ID) SELECT x * 100 / 2 FROM SYSTEM_RANGE(0, 10)").close();
-
-            await(await(ddlFut).closeAsync());
-
-            assertEquals(0, txManager().pending());
-
-            sql("DELETE FROM t");
-        }
-    }
-
-    @Test
-    void fastDmlWithConcurrentDdl() throws InterruptedException {
         IgniteSql sql = CLUSTER.aliveNode().sql();
 
         sql("CREATE TABLE t(id INT PRIMARY KEY)");
@@ -93,9 +76,47 @@ public class ItOutdatedPlanTest extends BaseSqlIntegrationTest {
                     : "ALTER TABLE t DROP COLUMN val";
 
             CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
+
             Thread.sleep(ThreadLocalRandom.current().nextInt(15) * 10);
 
-            sql.execute(null, "INSERT INTO t (id) VALUES ?", i).close();
+            assertQuery("INSERT INTO t (id) VALUES (?)")
+                    .withParam(i)
+                    .returns(1L)
+                    .check();
+
+            await(await(ddlFut).closeAsync());
+
+            assertEquals(0, txManager().pending());
+        }
+    }
+
+    @ParameterizedTest(name = "FastQueryOptimization={0}")
+    @ValueSource(booleans = {true, false})
+    void selectWithConcurrentDdl(boolean fastPlan) throws InterruptedException {
+        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", String.valueOf(fastPlan));
+
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+
+        sql("CREATE TABLE t(id INT PRIMARY KEY, id2 INT)");
+        sql("INSERT INTO t VALUES (0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9)");
+
+        int iterations = 20;
+
+        for (int i = 0; i < iterations; i++) {
+            log.info("iteration #" + i);
+
+            String ddlQuery = i % 2 == 0
+                    ? "ALTER TABLE t ADD COLUMN val VARCHAR DEFAULT 'abc'"
+                    : "ALTER TABLE t DROP COLUMN val";
+
+            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
+            Thread.sleep(ThreadLocalRandom.current().nextInt(15) * 10);
+
+            int id = i % 10;
+
+            assertQuery(format("SELECT id2 FROM t WHERE id={}", id))
+                    .returns(id)
+                    .check();
 
             await(await(ddlFut).closeAsync());
 

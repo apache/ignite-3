@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,18 +26,14 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
-import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -51,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +57,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Tests that outdated SQL query execution plans are re-planned.
  */
-public class MultistepPlanReplanningTest extends BaseIgniteAbstractTest {
+public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
     private static final List<String> DATA_NODES = List.of("DATA_1", "DATA_2");
     private static final String GATEWAY_NODE_NAME = "gateway";
 
@@ -89,10 +85,10 @@ public class MultistepPlanReplanningTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        gatewayNode.initSchema("CREATE TABLE t1 (id INT PRIMARY KEY, part_id INT, node VARCHAR(128))");
+        gatewayNode.initSchema("CREATE TABLE t1 (id INT PRIMARY KEY)");
 
         cluster.setDataProvider("T1", TestBuilders.tableScan((nodeName, partId) ->
-                Collections.singleton(new Object[]{partId, partId, nodeName}))
+                Collections.singleton(new Object[]{partId}))
         );
     }
 
@@ -100,10 +96,9 @@ public class MultistepPlanReplanningTest extends BaseIgniteAbstractTest {
     @EnumSource(TxType.class)
     void schemaChangedDuringPlanning(TxType type) throws Exception {
         AtomicInteger prepareCalls = new AtomicInteger();
-
-        CyclicBarrier barrier = new CyclicBarrier(2);
-        CountDownLatch execLatch = new CountDownLatch(1);
-        QueryTransactionContext txContext = createTxContext(type, barrier, execLatch);
+        CountDownLatch txStartCallLatch = new CountDownLatch(1);
+        CountDownLatch txStartLatch = new CountDownLatch(1);
+        TestTxContext txContext = new TestTxContext(type, txStartCallLatch, txStartLatch);
 
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
 
@@ -112,67 +107,54 @@ public class MultistepPlanReplanningTest extends BaseIgniteAbstractTest {
 
         assertThat(prepareCalls.get(), is(0));
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = gatewayNode.executeQueryAsync(new SqlProperties(), txContext,
-                "SELECT * FROM t1"
-        );
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
+                gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
 
-        barrier.await(10, TimeUnit.SECONDS);
-
+        txStartCallLatch.await(10, TimeUnit.SECONDS);
         assertThat(prepareCalls.get(), is(1));
+        assertThat(txContext.startedTxCounter.get(), is(0));
 
-        CatalogCommand command = CreateTableCommand.builder()
-                .tableName("test")
-                .schemaName("PUBLIC")
-                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
-                .colocationColumns(List.of("key2"))
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName("T1")
+                .columns(List.of(columnParams("VAL", INT32)))
                 .build();
 
         await(cluster.catalogManager().execute(command));
 
-        execLatch.countDown();
+        txStartLatch.countDown();
 
         await(await(fut).closeAsync());
 
         assertThat(prepareCalls.get(), is(2));
-    }
-
-    private static QueryTransactionContext createTxContext(TxType type, CyclicBarrier barrier, CountDownLatch execLatch) {
-        return new TestTxContext(type, barrier, execLatch);
+        assertThat(txContext.startedTxCounter.get(), is(1));
     }
 
     private static class TestTxContext implements QueryTransactionContext {
         private final TxType txType;
-        private final CyclicBarrier barrier;
-        private final CountDownLatch execLatch;
-        private final AtomicBoolean firstCall = new AtomicBoolean();
+        private final CountDownLatch txWaitLatch;
+        private final CountDownLatch txStartLatch;
+        private final AtomicInteger startedTxCounter = new AtomicInteger();
 
-        private volatile QueryTransactionWrapper txWrapper;
-
-        TestTxContext(TxType txType, CyclicBarrier barrier, CountDownLatch execLatch) {
+        TestTxContext(TxType txType, CountDownLatch txWaitLatch, CountDownLatch txStartLatch) {
             this.txType = txType;
-            this.barrier = barrier;
-            this.execLatch = execLatch;
+            this.txWaitLatch = txWaitLatch;
+            this.txStartLatch = txStartLatch;
         }
 
         @Override
         public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnlyIgnored, boolean implicit) {
-            assert firstCall.compareAndSet(false, true) : "should be called only once";
-
             try {
-                barrier.await();
+                txWaitLatch.countDown();
 
-                execLatch.await();
-            } catch (InterruptedException | BrokenBarrierException e) {
+                txStartLatch.await();
+            } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
 
-            if (txWrapper == null) {
-                InternalTransaction tx = txType.create();
-                txWrapper = new QueryTransactionWrapperImpl(tx, true, NoOpTransactionalOperationTracker.INSTANCE);
-            }
+            startedTxCounter.incrementAndGet();
 
-            return txWrapper;
+            return new QueryTransactionWrapperImpl(txType.create(), true, NoOpTransactionalOperationTracker.INSTANCE);
         }
 
         @Override

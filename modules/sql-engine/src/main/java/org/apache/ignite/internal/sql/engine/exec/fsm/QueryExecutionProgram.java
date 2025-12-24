@@ -26,7 +26,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
-import org.apache.ignite.internal.sql.engine.exec.MultiStepPlanOutdatedException;
+import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -98,7 +98,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            if (fastPlanSchemaMismatch(th)) {
+            if (fastPlanSchemaVersionMismatch(th)) {
                 assert query.plan instanceof ExecutablePlan;
 
                 query.moveTo(ExecutionPhase.OPTIMIZING);
@@ -126,7 +126,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || tableSchemaChanged(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || incompatibleSchemaChange(th);
         }
 
         return false;
@@ -146,7 +146,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
         }
 
         return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th)
-                || multiStepPlanOutdated(th) || tableSchemaChanged(th) || fastPlanSchemaMismatch(th);
+                || multiStepPlanOutdated(th) || incompatibleSchemaChange(th) || fastPlanSchemaVersionMismatch(th);
     }
 
     private static boolean nodeLeft(Throwable th) {
@@ -166,14 +166,14 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
     }
 
     private static boolean multiStepPlanOutdated(Throwable th)  {
-        return th instanceof MultiStepPlanOutdatedException;
+        return th instanceof SqlPlanOutdatedException;
     }
 
-    private static boolean tableSchemaChanged(Throwable th) {
+    private static boolean incompatibleSchemaChange(Throwable th) {
         return ExceptionUtils.extractCodeFrom(th) == Transactions.TX_INCOMPATIBLE_SCHEMA_ERR;
     }
 
-    private static boolean fastPlanSchemaMismatch(Throwable th) {
+    private static boolean fastPlanSchemaVersionMismatch(Throwable th) {
         return ExceptionUtils.hasCause(th, InternalSchemaVersionMismatchException.class);
     }
 }

@@ -109,6 +109,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlPlanToTxSchemaVersionValidator;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -1394,7 +1395,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 SHUTDOWN_TIMEOUT,
-                (ignore0, ignore1) -> nullCompletedFuture()
+                SqlPlanToTxSchemaVersionValidator.NOOP
         );
 
         taskExecutor.start();

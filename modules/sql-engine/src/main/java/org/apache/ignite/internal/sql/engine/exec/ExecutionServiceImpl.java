@@ -54,7 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -84,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlPlanToTxSchemaVersionValidator;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
@@ -189,7 +189,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
     private final ExpressionFactory expressionFactory;
 
-    private final BiFunction<MultiStepPlan, QueryTransactionWrapper, CompletableFuture<Void>> planValidator;
+    private final SqlPlanToTxSchemaVersionValidator planValidator;
 
     /**
      * Constructor.
@@ -206,6 +206,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
+     * @param planValidator Validator of the catalog version from the plan relative to the started transactio.
      */
     public ExecutionServiceImpl(
             MessageService messageService,
@@ -223,7 +224,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             KillCommandHandler killCommandHandler,
             ExpressionFactory expressionFactory,
             long shutdownTimeout,
-            BiFunction<MultiStepPlan, QueryTransactionWrapper, CompletableFuture<Void>> planValidator
+            SqlPlanToTxSchemaVersionValidator planValidator
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
@@ -263,6 +264,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
+     * @param planValidator Validator of the catalog version from the plan relative to the started transactio.
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(
@@ -283,7 +285,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             KillCommandHandler killCommandHandler,
             ExpressionFactory expressionFactory,
             long shutdownTimeout,
-            BiFunction<MultiStepPlan, QueryTransactionWrapper, CompletableFuture<Void>> planValidator
+            SqlPlanToTxSchemaVersionValidator planValidator
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
@@ -353,7 +355,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
         operationContext.notifyTxUsed(txWrapper);
 
-        return planValidator.apply(plan, txWrapper)
+        return planValidator.validate(plan, txWrapper)
                 .thenCompose(ignore -> {
                     PrefetchCallback prefetchCallback = queryManager.prefetchCallback;
 

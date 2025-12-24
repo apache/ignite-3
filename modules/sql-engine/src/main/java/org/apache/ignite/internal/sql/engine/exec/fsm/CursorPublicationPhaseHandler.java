@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
+import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.util.AsyncCursor;
 
 /**
@@ -47,7 +47,7 @@ class CursorPublicationPhaseHandler implements ExecutionPhaseHandler {
 
         SqlQueryType queryType = cursor.queryType();
 
-        if (queryType == SqlQueryType.QUERY && !(query.plan instanceof ExecutablePlan)) {
+        if (queryType == SqlQueryType.QUERY && !(query.plan instanceof KeyValueGetPlan)) {
             // Preserve lazy execution for statements that only reads.
             return Result.completed();
         }
