@@ -162,7 +162,6 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationEv
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -744,11 +743,7 @@ public class ClientInboundMessageHandler
     private static boolean shouldLogError(Throwable e) {
         Throwable cause = ExceptionUtils.unwrapRootCause(e);
 
-        // Do not log errors caused by query cancellation (triggered by user action).
-        if (cause instanceof QueryCancelledException) {
-            return false;
-        }
-
+        // Do not log errors caused by cancellation (triggered by user action).
         if (cause instanceof TraceableException) {
             TraceableException te = (TraceableException) cause;
             int c = te.code();
