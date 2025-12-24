@@ -42,7 +42,7 @@ option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 
-set(IGNITE_INSTALL_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/install" CACHE STRING "Install directory for Ignite")
+set(IGNITE_INSTALL_DESTINATION "" CACHE STRING "Install directory for Ignite")
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
