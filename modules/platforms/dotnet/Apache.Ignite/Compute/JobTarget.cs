@@ -110,6 +110,18 @@ public static class JobTarget
         Colocated(QualifiedName.Parse(tableName), key);
 
     /// <summary>
+    /// Creates a colocated job target for a specific table and key.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="mapper">Mapper for the key.</param>
+    /// <typeparam name="TKey">Key type.</typeparam>
+    /// <returns>Colocated job target.</returns>
+    public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key, IMapper<TKey> mapper)
+        where TKey : notnull =>
+        Colocated(QualifiedName.Parse(tableName), key, mapper);
+
+    /// <summary>
     /// Single node job target.
     /// </summary>
     /// <param name="Data">Cluster node.</param>

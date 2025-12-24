@@ -49,6 +49,12 @@ public class PartitionAwarenessTests
         new object[] { int.MinValue, 2 }
     };
 
+    private static readonly object[] KeyNodeCasesWithMapper = KeyNodeCases
+        .Cast<object[]>()
+        .SelectMany(arr => new[] { true, false }.Select(withMapper => (object[])[.. arr, withMapper]))
+        .Cast<object>()
+        .ToArray();
+
     private FakeServer _server1 = null!;
     private FakeServer _server2 = null!;
 
@@ -384,14 +390,17 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    [TestCaseSource(nameof(KeyNodeCasesWithMapper))]
+    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node, bool withMapper)
     {
         using var client = await GetClient();
         var expectedNode = node == 1 ? _server1 : _server2;
         var key = new SimpleKey(keyId);
 
-        var jobTarget = JobTarget.Colocated(FakeServer.ExistingTableName, key);
+        var jobTarget = withMapper
+            ? JobTarget.Colocated(FakeServer.ExistingTableName, key, new SimpleKeyMapper())
+            : JobTarget.Colocated(FakeServer.ExistingTableName, key);
+
         var jobDescriptor = new JobDescriptor<object?, object?>("job");
 
         // Warm up.
@@ -534,8 +543,6 @@ public class PartitionAwarenessTests
     // ReSharper disable NotAccessedPositionalProperty.Local
     private record CompositeKey(string IdStr, Guid IdGuid);
 
-    private record SimpleKey(int Id);
-
     private sealed class CompositeKeyMapper : IMapper<CompositeKey>
     {
         public void Write(CompositeKey obj, ref RowWriter rowWriter, IMapperSchema schema)
@@ -546,5 +553,14 @@ public class PartitionAwarenessTests
 
         public CompositeKey Read(ref RowReader rowReader, IMapperSchema schema) =>
             new(rowReader.ReadString()!, rowReader.ReadGuid()!.Value);
+    }
+
+    private record SimpleKey(int Id);
+
+    private sealed class SimpleKeyMapper : IMapper<SimpleKey>
+    {
+        public void Write(SimpleKey obj, ref RowWriter rowWriter, IMapperSchema schema) => rowWriter.WriteInt(obj.Id);
+
+        public SimpleKey Read(ref RowReader rowReader, IMapperSchema schema) => new(rowReader.ReadInt()!.Value);
     }
 }
