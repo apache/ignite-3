@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PY_VERS="3.9,3.10,3.11,3.12,3.13"
+PY_VERS="3.10,3.11,3.12,3.13,3.14"
 PACKAGE_NAME="pyignite_dbapi"
 SRC_DIR="$(pwd)"
 DISTR_DIR="$SRC_DIR/distr/"

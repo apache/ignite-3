@@ -52,6 +52,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-schema'))
     testImplementation testFixtures(project(':ignite-storage-api'))
     testImplementation testFixtures(project(':ignite-table'))
@@ -59,6 +60,8 @@ dependencies {
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
     testImplementation testFixtures(project(':ignite-raft'))
     testImplementation testFixtures(project(':ignite-distribution-zones'))
+
+    testImplementation libs.awaitility
 
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-core'))

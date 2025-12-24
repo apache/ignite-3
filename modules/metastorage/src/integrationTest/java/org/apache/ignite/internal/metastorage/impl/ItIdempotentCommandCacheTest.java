@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageM
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -213,6 +214,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             );
 
             var logicalTopologyService = mock(LogicalTopologyService.class);
+
+            when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,

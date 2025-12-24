@@ -15,30 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.tx;
 
-import java.util.function.Consumer;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
+
+import java.util.UUID;
 
 /**
- * Job context.
+ * This exception is thrown when the lock map size exceeded and new lock cannot be acquired and placed there.
  */
-public class JobContext implements AutoCloseable {
-
-    private final JobClassLoader classLoader;
-
-    private final Consumer<JobContext> onClose;
-
-    public JobContext(JobClassLoader classLoader, Consumer<JobContext> onClose) {
-        this.classLoader = classLoader;
-        this.onClose = onClose;
-    }
-
-    public JobClassLoader classLoader() {
-        return classLoader;
-    }
-
-    @Override
-    public void close() {
-        onClose.accept(this);
+public class LockTableOverflowException extends LockException {
+    /**
+     * Constructor.
+     *
+     * @param failedTx Transaction that couldn't acquire a lock.
+     * @param lockMapSizeLimit Current lock map size limit that was exceeded.
+     */
+    public LockTableOverflowException(UUID failedTx, int lockMapSizeLimit) {
+        super(
+                ACQUIRE_LOCK_ERR,
+                "Failed to acquire a lock due to lock table overflow [failedTxId=" + failedTx
+                        + ", lockMapSizeLimit=" + lockMapSizeLimit + ']'
+        );
     }
 }

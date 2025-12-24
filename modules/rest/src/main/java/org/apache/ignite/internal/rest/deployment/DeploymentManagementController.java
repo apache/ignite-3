@@ -36,6 +36,8 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.structure.UnitFile;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
@@ -260,6 +263,28 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private static DeploymentStatus fromDeploymentStatus(org.apache.ignite.internal.deployunit.DeploymentStatus status) {
         return DeploymentStatus.valueOf(status.name());
+    }
+
+    @Override
+    public CompletableFuture<UnitEntry.UnitFolder> unitStructure(String unitId, String unitVersion) {
+        return deployment.nodeUnitFileStructure(unitId, parseVersion(unitVersion)).thenApply(DeploymentManagementController::toDto);
+    }
+
+    private static UnitEntry.UnitFolder toDto(UnitFolder unitFolder) {
+        return new UnitEntry.UnitFolder(
+                unitFolder.name(),
+                unitFolder.children().stream()
+                        .map(DeploymentManagementController::toDto)
+                        .collect(Collectors.toList())
+        );
+    }
+
+    private static UnitEntry toDto(org.apache.ignite.internal.deployunit.structure.UnitEntry entry) {
+        if (entry instanceof UnitFile) {
+            return new UnitEntry.UnitFile(entry.name(), entry.size());
+        } else {
+            return toDto((UnitFolder) entry);
+        }
     }
 
     @Override

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -145,6 +146,8 @@ public class OutgoingSnapshot {
 
     private final OutgoingSnapshotStats snapshotStats;
 
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+
     /**
      * Creates a new instance.
      */
@@ -153,7 +156,8 @@ public class OutgoingSnapshot {
             PartitionKey partitionKey,
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
-            CatalogService catalogService
+            CatalogService catalogService,
+            RaftSnapshotsMetricsSource snapshotMetricsSource
     ) {
         this.id = id;
         this.partitionKey = partitionKey;
@@ -161,6 +165,7 @@ public class OutgoingSnapshot {
         this.txState = txState;
         this.catalogService = catalogService;
         this.snapshotStats = new OutgoingSnapshotStats(id, partitionKey);
+        this.snapshotsMetricsSource = snapshotMetricsSource;
     }
 
     /**
@@ -187,6 +192,7 @@ public class OutgoingSnapshot {
 
         try {
             snapshotStats.onSnapshotStart();
+            snapshotsMetricsSource.onOutgoingSnapshotStart();
 
             int catalogVersion = catalogService.latestCatalogVersion();
 
@@ -662,6 +668,7 @@ public class OutgoingSnapshot {
         busyLock.block();
 
         snapshotStats.onSnapshotEnd();
+        snapshotsMetricsSource.onOutgoingSnapshotEnd();
 
         snapshotStats.logSnapshotStats();
 
