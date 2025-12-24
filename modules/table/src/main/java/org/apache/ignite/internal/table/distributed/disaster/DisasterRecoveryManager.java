@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -62,7 +63,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.NodeNotFoundException;
@@ -1005,7 +1005,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .catalogVersion(catalogVersion)
                 .build();
 
-        return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(DISASTER_RECOVERY_TIMEOUT_MILLIS))
+        return messagingService.invoke(node, request, DISASTER_RECOVERY_TIMEOUT_MILLIS)
                 .thenApply(networkMessage -> {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("Got response from node [nodeName={}, networkMessage={}]", node, networkMessage);
@@ -1167,7 +1167,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         UUID operationId = request.operationId();
 
-        CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS, TimeUnit.SECONDS);
+        CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS, MILLISECONDS);
 
         CompletableFuture<Void> remoteProcessingFuture = remoteProcessingFuture(request);
 
@@ -1220,7 +1220,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private CompletableFuture<Void> addMultiNodeOperation(NodeWithAttributes node, UUID operationId) {
-        CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS, TimeUnit.SECONDS);
+        CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS, MILLISECONDS);
 
         operationsByNodeId.compute(node.nodeId(), (nodeId, operations) -> {
             Set<UUID> nodes = dzManager.logicalTopology().stream()
@@ -1310,7 +1310,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .revision(revision)
                 .build();
 
-        return messagingService.invoke(targetNodeName, message, TimeUnit.SECONDS.toMillis(DISASTER_RECOVERY_TIMEOUT_MILLIS))
+        return messagingService.invoke(targetNodeName, message, DISASTER_RECOVERY_TIMEOUT_MILLIS)
                 .thenApply(responseMsg -> {
                     assert responseMsg instanceof DisasterRecoveryResponseMessage : responseMsg;
 
