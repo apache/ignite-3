@@ -45,6 +45,7 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.Constants.DISASTER_RECOVERY_TIMEOUT_MILLIS;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -174,9 +175,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             new PartitionReplicationMessagesFactory();
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
-    /** Disaster recovery operations timeout in seconds. */
-    private static final int TIMEOUT_SECONDS = 30;
 
     /**
      * Maximal allowed difference between committed index on the leader and on the follower, that differentiates
@@ -808,7 +806,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 CompletableFuture<NetworkMessage> invokeFuture = messagingService.invoke(
                         node.nodeName(),
                         localPartitionStatesRequest,
-                        TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS)
+                        DISASTER_RECOVERY_TIMEOUT_MILLIS
                 );
 
                 futures[i++] = invokeFuture.thenAccept(networkMessage -> {
@@ -1007,7 +1005,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .catalogVersion(catalogVersion)
                 .build();
 
-        return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+        return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(DISASTER_RECOVERY_TIMEOUT_MILLIS))
                 .thenApply(networkMessage -> {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("Got response from node [nodeName={}, networkMessage={}]", node, networkMessage);
@@ -1169,7 +1167,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         UUID operationId = request.operationId();
 
-        CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS, TimeUnit.SECONDS);
 
         CompletableFuture<Void> remoteProcessingFuture = remoteProcessingFuture(request);
 
@@ -1222,7 +1220,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private CompletableFuture<Void> addMultiNodeOperation(NodeWithAttributes node, UUID operationId) {
-        CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        CompletableFuture<Void> result = new CompletableFuture<Void>().orTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS, TimeUnit.SECONDS);
 
         operationsByNodeId.compute(node.nodeId(), (nodeId, operations) -> {
             Set<UUID> nodes = dzManager.logicalTopology().stream()
@@ -1312,7 +1310,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .revision(revision)
                 .build();
 
-        return messagingService.invoke(targetNodeName, message, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+        return messagingService.invoke(targetNodeName, message, TimeUnit.SECONDS.toMillis(DISASTER_RECOVERY_TIMEOUT_MILLIS))
                 .thenApply(responseMsg -> {
                     assert responseMsg instanceof DisasterRecoveryResponseMessage : responseMsg;
 
