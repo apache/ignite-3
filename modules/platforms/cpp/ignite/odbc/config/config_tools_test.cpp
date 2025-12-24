@@ -17,7 +17,7 @@
 
 #include "config_tools.h"
 #include "configuration.h"
-#include "odbc_error.h"
+#include "ignite/odbc/odbc_error.h"
 
 #include <gtest/gtest.h>
 
