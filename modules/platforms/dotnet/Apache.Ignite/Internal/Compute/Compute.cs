@@ -624,6 +624,18 @@ namespace Apache.Ignite.Internal.Compute
                     .ConfigureAwait(false);
             }
 
+            if (target.SerializerHandlerFunc != null)
+            {
+                return await ExecuteColocatedAsync(
+                        target.TableName,
+                        target.Data,
+                        target.SerializerHandlerFunc,
+                        jobDescriptor,
+                        arg,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                     target.TableName,
                     target.Data,
@@ -633,14 +645,13 @@ namespace Apache.Ignite.Internal.Compute
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "IGNITE-27278")]
-            [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "IGNITE-27278")]
+            [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Unreachable with IMapper.")]
+            [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "Unreachable with IMapper.")]
             static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
             {
                 if (!RuntimeFeature.IsDynamicCodeSupported)
                 {
-                    // TODO IGNITE-27278: Remove suppression and require mapper in trimmed mode.
-                    throw new InvalidOperationException("Colocated job target requires an IIgniteTuple key when running in trimmed AOT mode.");
+                    throw new InvalidOperationException("Use JobTarget.Colocated overload with IMapper<T>.");
                 }
 
                 return table.GetRecordViewInternal<TKey>().RecordSerializer.Handler;

@@ -44,6 +44,9 @@ internal record Column(
     /// </summary>
     public bool IsColocation => ColocationIndex >= 0;
 
+    /// <inheritdoc/>
+    public bool Nullable => IsNullable;
+
     /// <summary>
     /// Gets the column index within a binary tuple.
     /// </summary>

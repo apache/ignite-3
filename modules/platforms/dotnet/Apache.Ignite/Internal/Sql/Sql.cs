@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal.Sql
     using Common;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Ignite.Transactions;
     using Linq;
     using Proto;
@@ -41,7 +42,7 @@ namespace Apache.Ignite.Internal.Sql
     internal sealed class Sql : ISql
     {
         private static readonly RowReader<IIgniteTuple> TupleReader =
-            static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => ReadTuple(cols, ref reader);
+            static (ResultSetMetadata metadata, ref BinaryTupleReader reader, object? _) => ReadTuple(metadata.Columns, ref reader);
 
         private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
 
@@ -60,7 +61,14 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args) =>
-            await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args, cancellationToken).ConfigureAwait(false);
+            await ExecuteAsyncInternal(
+                transaction,
+                statement,
+                TupleReaderFactory,
+                rowReaderArg: null,
+                args,
+                cancellationToken)
+                .ConfigureAwait(false);
 
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
@@ -69,17 +77,52 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(
                     transaction,
                     statement,
-                    static cols => GetReaderFactory<T>(cols),
+                    static meta => GetReaderFactory<T>(meta),
+                    rowReaderArg: null,
                     args,
                     cancellationToken)
                 .ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async Task<IResultSet<T>> ExecuteAsync<T>(
+            ITransaction? transaction,
+            IMapper<T> mapper,
+            SqlStatement statement,
+            CancellationToken cancellationToken,
+            params object?[]? args)
+        {
+            IgniteArgumentCheck.NotNull(mapper);
+
+            return await ExecuteAsyncInternal(
+                    transaction,
+                    statement,
+                    RowReaderFactory,
+                    rowReaderArg: mapper,
+                    args,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            static RowReader<T> RowReaderFactory(ResultSetMetadata resultSetMetadata) =>
+                static (ResultSetMetadata meta, ref BinaryTupleReader reader, object? arg) =>
+                {
+                    var mapperReader = new RowReader(ref reader, meta);
+                    var mapper = (IMapper<T>)arg!;
+
+                    return mapper.Read(ref mapperReader, meta);
+                };
+        }
 
         /// <inheritdoc/>
         public async Task<IgniteDbDataReader> ExecuteReaderAsync(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args)
         {
             var resultSet = await ExecuteAsyncInternal<object>(
-                transaction, statement, _ => null!, args, cancellationToken).ConfigureAwait(false);
+                transaction,
+                statement,
+                static _ => null!,
+                rowReaderArg: null,
+                args,
+                cancellationToken).ConfigureAwait(false);
 
             if (!resultSet.HasRowSet)
             {
@@ -215,6 +258,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="statement">Statement to execute.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
+        /// <param name="rowReaderArg">Row reader arg.</param>
         /// <param name="args">Arguments for the statement.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <typeparam name="T">Row type.</typeparam>
@@ -223,6 +267,7 @@ namespace Apache.Ignite.Internal.Sql
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
+            object? rowReaderArg,
             ICollection<object?>? args,
             CancellationToken cancellationToken)
         {
@@ -242,7 +287,7 @@ namespace Apache.Ignite.Internal.Sql
                     ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
-                return new ResultSet<T>(socket, buf, rowReaderFactory, cancellationToken);
+                return new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken);
             }
             catch (SqlException e)
             {
@@ -307,8 +352,8 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
-        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
-            ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
+        private static RowReader<T> GetReaderFactory<T>(ResultSetMetadata metadata) =>
+            ResultSelector.Get<T>(metadata, selectorExpression: null, ResultSelectorOptions.None);
 
         private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object?>> args)
         {
