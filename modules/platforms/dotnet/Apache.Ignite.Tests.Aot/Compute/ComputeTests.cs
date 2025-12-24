@@ -39,7 +39,7 @@ public class ComputeTests(IIgniteClient client)
     }
 
     [UsedImplicitly]
-    public async Task TestColocated()
+    public async Task TestColocatedTuple()
     {
         var keyTuple = new IgniteTuple { [KeyCol] = 42L };
 
@@ -63,7 +63,7 @@ public class ComputeTests(IIgniteClient client)
     }
 
     [UsedImplicitly]
-    public async Task TestColocatedPrimitiveKeyThrows()
+    public async Task TestColocatedWithoutMapperThrows()
     {
         try
         {
