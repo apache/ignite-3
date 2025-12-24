@@ -24,6 +24,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using Ignite.Transactions;
 using Internal.Proto;
 using Internal.Transactions;
@@ -320,10 +321,14 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestCompositeKey()
+    public async Task TestCompositeKey([Values(true, false)] bool withMapper)
     {
         using var client = await GetClient();
-        var view = (await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName))!.GetRecordView<CompositeKey>();
+
+        var table = await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName);
+        var view = withMapper
+            ? table!.GetRecordView(new CompositeKeyMapper())
+            : table!.GetRecordView<CompositeKey>();
 
         await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
 
@@ -526,4 +531,16 @@ public class PartitionAwarenessTests
     private record CompositeKey(string IdStr, Guid IdGuid);
 
     private record SimpleKey(int Id);
+
+    private sealed class CompositeKeyMapper : IMapper<CompositeKey>
+    {
+        public void Write(CompositeKey obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            rowWriter.WriteString(obj.IdStr);
+            rowWriter.WriteGuid(obj.IdGuid);
+        }
+
+        public CompositeKey Read(ref RowReader rowReader, IMapperSchema schema) =>
+            new(rowReader.ReadString()!, rowReader.ReadGuid()!.Value);
+    }
 }
