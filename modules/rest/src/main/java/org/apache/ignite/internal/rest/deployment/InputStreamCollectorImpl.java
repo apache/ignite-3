@@ -54,6 +54,10 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
 
     @Override
     public void addInputStream(String filename, InputStream is) {
+        if (collect.containsKey(filename)) {
+            throw new DuplicateFilenamesException("Duplicate filename: " + filename);
+        }
+
         collect.put(filename, tempStorage.store(filename, is).whenComplete((path, throwable) -> {
             try {
                 is.close();

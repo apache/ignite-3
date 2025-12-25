@@ -595,6 +595,9 @@ public class ErrorGroups {
 
         /** Deployment unit write to fs error. */
         public static final int UNIT_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Duplicate filenames in the unit content. */
+        public static final int UNIT_NON_UNIQUE_FILENAMES_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /**
