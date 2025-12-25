@@ -72,9 +72,9 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
-import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -130,6 +130,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -248,8 +249,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
-        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
-
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -279,10 +278,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 new DummyValidationSchemasSource(schemaManager),
-                localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
                 new RemotelyTriggeredResourceRegistry(),
                 schemaManager,
@@ -395,7 +392,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, replicaPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -420,6 +417,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         ))
                 )
         );
+    }
+
+    private static @NotNull ReplicaPrimacy replicaPrimacy() {
+        return ReplicaPrimacy.forPrimaryReplicaRequest(HybridTimestamp.MIN_VALUE.longValue());
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
@@ -484,7 +485,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, replicaPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 

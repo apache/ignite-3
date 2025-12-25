@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerIndexLockingTest.LOCAL_NODE_ID;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
+import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.validRwPrimacy;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
@@ -75,7 +76,6 @@ import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
-import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -223,8 +223,6 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
 
         when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
-        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
-
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -249,10 +247,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 new DummyValidationSchemasSource(schemaManager),
-                localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
                 new RemotelyTriggeredResourceRegistry(),
                 schemaManager,
@@ -365,7 +361,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -444,7 +440,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 

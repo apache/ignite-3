@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.validRwPrimacy;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
@@ -658,10 +659,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 validationSchemasSource,
-                localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver,
                 new SingleClusterNodeResolver(localNode),
                 new RemotelyTriggeredResourceRegistry(),
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
@@ -1881,7 +1880,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .build();
 
-        return tableReplicaProcessor.invoke(message, localNode.id());
+        return tableReplicaProcessor.process(message, validRwPrimacy(), localNode.id());
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
