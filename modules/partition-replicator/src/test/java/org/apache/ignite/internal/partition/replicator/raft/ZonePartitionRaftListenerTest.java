@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -146,8 +148,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     @InjectExecutorService
     private ExecutorService executor;
 
-    @Mock
-    private SafeTimeValuesTracker safeTimeTracker;
+    private final SafeTimeValuesTracker safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -161,7 +162,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 new ZonePartitionId(ZONE_ID, PARTITION_ID),
                 txStatePartitionStorage,
                 txManager,
-                new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
+                safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
                 outgoingSnapshotsManager,
                 executor
@@ -489,7 +490,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         verify(txStatePartitionStorage, never())
                 .compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
-        verify(txStatePartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
+        // First time for the command, second time for updating safe time.
+        verify(txStatePartitionStorage, times(2)).lastApplied(anyLong(), anyLong());
 
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
 
@@ -512,6 +514,35 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
         assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
+    }
+
+    @Test
+    public void testSafeTime() {
+        HybridTimestamp timestamp = clock.now();
+        SafeTimePropagatingCommand command = mock((Class<? extends SafeTimePropagatingCommand>) SafeTimeSyncCommand.class);
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 1, command, null, timestamp)
+        ).iterator());
+
+        assertEquals(timestamp, safeTimeTracker.current());
+    }
+
+    @Test
+    void updatesLastAppliedForSafeTimeSyncCommands() {
+        safeTimeTracker.update(clock.now(), null);
+
+        SafeTimeSyncCommand safeTimeSyncCommand = new ReplicaMessagesFactory()
+                .safeTimeSyncCommand()
+                .initiatorTime(clock.now())
+                .safeTime(clock.now())
+                .build();
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, safeTimeSyncCommand, null, clock.now())
+        ).iterator());
+
+        verify(txStatePartitionStorage).lastApplied(3, 2);
     }
 
     private CommandClosure<WriteCommand> writeCommandClosure(
@@ -568,7 +599,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                         ZONE_PARTITION_KEY
                 ),
                 mock(StorageUpdateHandler.class),
-                new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 mock(CatalogService.class),
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),

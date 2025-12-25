@@ -527,7 +527,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
-                safeTime,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
