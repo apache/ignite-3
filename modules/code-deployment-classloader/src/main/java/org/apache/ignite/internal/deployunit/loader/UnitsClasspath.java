@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 
-class JobClasspath {
+class UnitsClasspath {
     static Stream<URL> collectClasspath(Path unitDir) {
         if (Files.notExists(unitDir)) {
             throw new IllegalArgumentException("Unit does not exist: " + unitDir);

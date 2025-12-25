@@ -3438,11 +3438,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         return indexBuildingProcessor.tracker();
     }
 
-    @Override
-    public PendingComparableValuesTracker<HybridTimestamp, Void> safeTime() {
-        return safeTime;
-    }
-
     private int partId() {
         return replicationGroupId.partitionId();
     }

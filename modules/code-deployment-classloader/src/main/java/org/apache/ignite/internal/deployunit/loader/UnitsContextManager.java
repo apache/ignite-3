@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.loader;
+package org.apache.ignite.internal.deployunit.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.deployunit.loader.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
@@ -43,10 +44,10 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 /**
  * Manages job context.
  */
-public class JobContextManager {
-    private static final IgniteLogger LOG = Loggers.forClass(JobContextManager.class);
+public class UnitsContextManager {
+    private static final IgniteLogger LOG = Loggers.forClass(UnitsContextManager.class);
 
-    private final RefCountedObjectPool<List<DeploymentUnit>, JobClassLoader> classLoaderPool = new RefCountedObjectPool<>();
+    private final RefCountedObjectPool<List<DeploymentUnit>, UnitsClassLoader> classLoaderPool = new RefCountedObjectPool<>();
 
     private final IgniteDeployment deployment;
     /**
@@ -57,7 +58,7 @@ public class JobContextManager {
     /**
      * The class loader factory.
      */
-    private final JobClassLoaderFactory classLoaderFactory;
+    private final UnitsClassLoaderFactory classLoaderFactory;
 
     /**
      * Constructor.
@@ -66,10 +67,10 @@ public class JobContextManager {
      * @param deploymentUnitAccessor The deployer service.
      * @param classLoaderFactory The class loader factory.
      */
-    public JobContextManager(
+    public UnitsContextManager(
             IgniteDeployment deployment,
             DeploymentUnitAccessor deploymentUnitAccessor,
-            JobClassLoaderFactory classLoaderFactory
+            UnitsClassLoaderFactory classLoaderFactory
     ) {
         this.deployment = deployment;
         this.deploymentUnitAccessor = deploymentUnitAccessor;
@@ -77,19 +78,30 @@ public class JobContextManager {
     }
 
     /**
-     * Acquires a class loader for the given deployment units.
+     * Acquires a class loader for the given deployment units with acquire identifier built from unit names.
      *
      * @param units The deployment units.
      * @return The class loader.
      */
-    public CompletableFuture<JobContext> acquireClassLoader(List<DeploymentUnit> units) {
-        CompletableFuture<JobContext> loaderFut = normalizeVersions(units)
+    public CompletableFuture<UnitsClassLoaderContext> acquireClassLoader(List<DeploymentUnit> units) {
+        return acquireClassLoader(units, units.stream().map(DeploymentUnit::toString).collect(Collectors.joining(", ")));
+    }
+
+    /**
+     * Acquires a class loader for the given deployment units.
+     *
+     * @param units The deployment units.
+     * @param id Acquire identifier.
+     * @return The class loader.
+     */
+    public CompletableFuture<UnitsClassLoaderContext> acquireClassLoader(List<DeploymentUnit> units, String id) {
+        CompletableFuture<UnitsClassLoaderContext> loaderFut = normalizeVersions(units)
                 .thenCompose(normalizedUnits -> checkUnitStatuses(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
-                .thenApply(loader -> new JobContext(loader, this::releaseClassLoader));
+                .thenApply(loader -> new UnitsClassLoaderContext(loader, this::releaseClassLoader));
 
-        CompletableFuture<JobContext> contextFut = loaderFut
+        CompletableFuture<UnitsClassLoaderContext> contextFut = mapClassLoaderExceptions(loaderFut, id)
                 .whenComplete((context, error) -> {
                     if (error != null) {
                         LOG.error("Failed to acquire class loader for units: " + units, error);
@@ -102,7 +114,7 @@ public class JobContextManager {
         // completes. We need to close the context in any case. The successful path should be handled in the caller. We can't handle it
         // there because we don't have the access to the context if the future failed.
         contextFut.exceptionally(e -> {
-            loaderFut.thenAccept(JobContext::close);
+            loaderFut.thenAccept(UnitsClassLoaderContext::close);
             return null;
         });
 
@@ -113,7 +125,7 @@ public class JobContextManager {
      * Creates a class loader for the given deployment units. The units will be acquired. The class loader will be closed when it is not
      * used by any other job.
      */
-    private JobClassLoader createClassLoader(List<DeploymentUnit> units) {
+    private UnitsClassLoader createClassLoader(List<DeploymentUnit> units) {
         List<DisposableDeploymentUnit> disposableDeploymentUnits = units.stream()
                 .map(deploymentUnitAccessor::acquire)
                 .collect(Collectors.toList());
@@ -124,7 +136,7 @@ public class JobContextManager {
      * Releases a class loader. If the class loader is not used by any other job, it will be closed and the deployment units will be
      * released.
      */
-    private void releaseClassLoader(JobContext jobContext) {
+    private void releaseClassLoader(UnitsClassLoaderContext jobContext) {
         List<DeploymentUnit> units = jobContext.classLoader().units().stream()
                 .map(DisposableDeploymentUnit::unit)
                 .collect(Collectors.toList());

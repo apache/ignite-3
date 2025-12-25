@@ -219,6 +219,7 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "USER",
             "USING",
             "UUID",
+            "UNSIGNED",
             "VALUE",
             "VALUES",
             "VARIANT",
