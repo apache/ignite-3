@@ -91,9 +91,12 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
 
     private String[] buildArgs() {
         List<String> result = new ArrayList<>();
+        // Add unmatched args first to preserve positional parameter order.
+        if (args != null) {
+            Collections.addAll(result, args);
+        }
         if (jdbc != null) {
-            result.add(JDBC_URL_OPTION);
-            result.add(jdbc);
+            result.add(JDBC_URL_OPTION + "=" + jdbc);
         }
         if (plain) {
             result.add(PLAIN_OPTION);
@@ -102,11 +105,7 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
             result.add(TIMED_OPTION);
         }
         if (file != null) {
-            result.add(SCRIPT_FILE_OPTION);
-            result.add(file);
-        }
-        if (args != null) {
-            Collections.addAll(result, args);
+            result.add(SCRIPT_FILE_OPTION + "=" + file);
         }
         return result.toArray(new String[0]);
     }
