@@ -130,7 +130,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -419,7 +418,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         );
     }
 
-    private static @NotNull ReplicaPrimacy replicaPrimacy() {
+    private ReplicaPrimacy replicaPrimacy() {
         return ReplicaPrimacy.forPrimaryReplicaRequest(HybridTimestamp.MIN_VALUE.longValue());
     }
 
