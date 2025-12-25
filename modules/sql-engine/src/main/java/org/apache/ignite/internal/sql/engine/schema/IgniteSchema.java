@@ -19,12 +19,12 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.util.NameMap;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Schema implementation for sql engine.
@@ -38,11 +38,12 @@ public class IgniteSchema extends AbstractSchema {
     private final Lookup<Table> tableLookup;
 
     /** Constructor. */
+    @TestOnly
     public IgniteSchema(String name, int catalogVersion, Collection<? extends IgniteDataSource> tables) {
        this(
                name,
                catalogVersion,
-               Lookup.of(NameMap.immutableCopyOf(tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()))))
+               Lookup.of(NameMap.immutableCopyOf(tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Table.class::cast))))
        );
     }
 
