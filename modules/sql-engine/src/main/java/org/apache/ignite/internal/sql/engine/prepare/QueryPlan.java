@@ -62,4 +62,11 @@ public interface QueryPlan {
      * Returns the number of source relations used by this plan. Each relation is reported the number of times it is used. 
      */
     int numSources();
+
+    /**
+     * Returns a flag indicating that the query cursor can be published without waiting for the first page preloading.
+     */
+    default boolean lazyCursorPublication() {
+        return type() == SqlQueryType.QUERY;
+    }
 }
