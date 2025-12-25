@@ -32,7 +32,7 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Partition Raft log compatibility tests when changing replicas. */
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("baseVersions")
 public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends CompatibilityTestBase {
     private static final String ZONE_NAME = "TEST_ZONE";
