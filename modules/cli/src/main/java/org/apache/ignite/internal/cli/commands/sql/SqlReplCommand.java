@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -105,9 +106,7 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
             result.add(file);
         }
         if (args != null) {
-            for (String arg : args) {
-                result.add(arg);
-            }
+            Collections.addAll(result, args);
         }
         return result.toArray(new String[0]);
     }
