@@ -121,8 +121,10 @@ public class ExchangeServiceImpl implements ExchangeService {
         Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
         if (!(traceableErr instanceof TraceableException)) {
-            traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
+            traceableErr = new IgniteInternalException(INTERNAL_ERR, error);
+        }
 
+        if (((TraceableException) traceableErr).code() == INTERNAL_ERR) {
             LOG.info(format("Failed to execute query fragment: traceId={}, executionId={}, fragmentId={}",
                     ((TraceableException) traceableErr).traceId(), executionId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {

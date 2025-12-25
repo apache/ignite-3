@@ -389,7 +389,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 new ExpressionFactoryImpl(
                         Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
                 ),
-                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT,
+                SqlPlanToTxSchemaVersionValidator.create(schemaSyncService, catalogManager)
         ));
 
         queryExecutor = registerService(new QueryExecutor(
