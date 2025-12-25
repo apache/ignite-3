@@ -40,6 +40,7 @@ public interface RaftCommandRunner {
      * @param <R> Execution result type.
      * @return A future with the execution result.
      */
+    @Deprecated // "Use run(Command, long) instead."
     <R> CompletableFuture<R> run(Command cmd);
 
     /**

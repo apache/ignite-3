@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
@@ -104,6 +105,7 @@ import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -676,6 +678,41 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
     }
 
+    @Test
+    public void testOneShotDoesNotRetry() {
+        RaftError error = RaftError.UNKNOWN;
+
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ReadActionRequest.class), anyLong()))
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class), 0);
+
+        assertThat(response, willThrow(RaftException.class, "UNKNOWN"));
+
+        // Verify only one retry.
+        verify(messagingService).invoke(
+                any(InternalClusterNode.class),
+                any(ReadActionRequest.class),
+                anyLong()
+        );
+    }
+
+    @Test
+    public void testTimeoutAfterRefresh() {
+        RaftGroupService service = startRaftGroupService(NODES);
+
+        mockSlowLeaderRequest(1000);
+
+        // Leader request takes 1000ms, so we have no time for the command.
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class), 1000);
+
+        assertThat(response, willThrow(TimeoutException.class, "Operation timeout"));
+    }
+
     @ParameterizedTest
     @EnumSource(names = {"EPERM"})
     public void testRetryOnErrorWithUpdateLeader(RaftError error) {
@@ -784,7 +821,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
             }
 
             if (delay) {
-                return CompletableFuture.supplyAsync(() -> {
+                return supplyAsync(() -> {
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -813,13 +850,13 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     /**
      * Mocks sending {@link GetLeaderRequest}s.
      *
-     * @param delay {@code True} to delay response.
+     * @param failAfterDelay {@code True} to delay response.
      */
-    private void mockLeaderRequest(boolean delay) {
+    private void mockLeaderRequest(boolean failAfterDelay) {
         when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
                 .then(invocation -> {
-                    if (delay) {
-                        return CompletableFuture.supplyAsync(() -> {
+                    if (failAfterDelay) {
+                        return supplyAsync(() -> {
                             try {
                                 Thread.sleep(1000);
                             } catch (InterruptedException e) {
@@ -838,6 +875,27 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
                     return completedFuture(resp);
                 });
+    }
+
+    private void mockSlowLeaderRequest(long delay) {
+        when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+                .then(invocation ->
+                        supplyAsync(() -> {
+                            try {
+                                Thread.sleep(delay);
+                            } catch (InterruptedException e) {
+                                fail();
+                            }
+
+                            PeerId leader0 = PeerId.fromPeer(leader);
+
+                            Object resp = leader0 == null
+                                    ? FACTORY.errorResponse().errorCode(RaftError.EPERM.getNumber()).build()
+                                    : FACTORY.getLeaderResponse().leaderId(leader0.toString()).currentTerm(CURRENT_TERM).build();
+
+                            return resp;
+                        })
+                );
     }
 
     private void mockSnapshotRequest(boolean returnResponseWithError) {
