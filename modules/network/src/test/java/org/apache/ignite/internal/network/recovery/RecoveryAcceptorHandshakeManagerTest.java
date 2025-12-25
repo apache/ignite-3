@@ -45,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
@@ -180,7 +181,8 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
                 channelCreationListener,
                 stopping,
                 new DefaultIgniteProductVersionSource(),
-                topologyService
+                topologyService,
+                new NoOpFailureManager()
         );
 
         manager.onInit(context);

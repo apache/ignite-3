@@ -197,11 +197,11 @@ public class ClusterServiceFactory {
         }
 
         @Override
-        public void onJoined(InternalClusterNode node) {
+        public void onJoined(InternalClusterNode node, long topologyVersion) {
         }
 
         @Override
-        public void onLeft(InternalClusterNode node) {
+        public void onLeft(InternalClusterNode node, long topologyVersion) {
         }
     }
 
