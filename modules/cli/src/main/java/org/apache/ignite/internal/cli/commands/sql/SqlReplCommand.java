@@ -17,13 +17,25 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerReplCommand;
-import org.apache.ignite.internal.util.ArrayUtils;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.IFactory;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Unmatched;
 
 /**
@@ -40,6 +52,21 @@ import picocli.CommandLine.Unmatched;
         description = "SQL query engine operations."
 )
 public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
+    // These options are documented here for --help display but are actually processed by SqlExecReplCommand.
+    // All args are passed through to SqlExecReplCommand via @Unmatched.
+
+    @Option(names = JDBC_URL_OPTION, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
+    private String jdbc;
+
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
+
+    @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
+    private boolean timed;
+
+    @Option(names = SCRIPT_FILE_OPTION, description = SCRIPT_FILE_OPTION_DESC)
+    private String file;
+
     @Unmatched
     private String[] args;
 
@@ -58,6 +85,30 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
                 .setDefaultValueProvider(spec.defaultValueProvider())
                 .setExecutionExceptionHandler(spec.commandLine().getExecutionExceptionHandler());
 
-        return commandLine.execute(args == null ?  ArrayUtils.STRING_EMPTY_ARRAY : args);
+        return commandLine.execute(buildArgs());
+    }
+
+    private String[] buildArgs() {
+        List<String> result = new ArrayList<>();
+        if (jdbc != null) {
+            result.add(JDBC_URL_OPTION);
+            result.add(jdbc);
+        }
+        if (plain) {
+            result.add(PLAIN_OPTION);
+        }
+        if (timed) {
+            result.add(TIMED_OPTION);
+        }
+        if (file != null) {
+            result.add(SCRIPT_FILE_OPTION);
+            result.add(file);
+        }
+        if (args != null) {
+            for (String arg : args) {
+                result.add(arg);
+            }
+        }
+        return result.toArray(new String[0]);
     }
 }
