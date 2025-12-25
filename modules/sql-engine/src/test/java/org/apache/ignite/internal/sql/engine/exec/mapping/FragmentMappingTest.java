@@ -350,7 +350,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         try {
             PlanningContext ctx = PlanningContext.builder()
                     .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                            .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
+                            .defaultSchema(createRootSchema(List.of(schema)).subSchemas().get(schema.getName()))
                             .build())
                     .defaultSchemaName(schema.getName())
                     .query(sqlStmt)
