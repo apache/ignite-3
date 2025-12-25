@@ -103,15 +103,14 @@ For all the commands going forward:
    ```
    cp packaging/build/release/* {dist.dev}/{version}-rc{rc}
    ```
-15. Check for ignite.version.full (TODO [IGNITE-IGNITE-26834](https://issues.apache.org/jira/browse/IGNITE-26834)), remove this step if it will be done automatically through gradle task.
-16. Commit ZIP and DEB\RPM packages:
+15. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ``` 
-17. Put the release on a vote on the developers mailing list.
-18. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don't forget to move `git tag` if there are code related changes `git tag -d {version}-rc{rc}; git tag -a {version}-rc{rc} -m '{version}-rc{rc}'; git push --tags`.
+16. Put the release on a vote on the developers mailing list.
+17. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don't forget to move `git tag` if there are code related changes `git tag -d {version}-rc{rc}; git tag -a {version}-rc{rc} -m '{version}-rc{rc}'; git push --tags`.
 
 ## Finalizing the Release
 
