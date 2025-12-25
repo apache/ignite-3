@@ -31,8 +31,10 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
@@ -84,7 +86,9 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompleteness() {
         createTestTable(cluster, 1, 1);
 
-        List<Transaction> transactions = IntStream.range(0, 100)
+        int operationCount = 100;
+
+        List<Transaction> transactions = IntStream.range(0, operationCount)
                 .mapToObj(n -> cluster.node(0).transactions().begin())
                 .collect(toUnmodifiableList());
 
@@ -94,15 +98,15 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
 
         KeyValueView<Integer, Integer> kvView = cluster.aliveNode().tables().table(TABLE_NAME).keyValueView(Integer.class, Integer.class);
 
-        int failedTransactions = 0;
-        for (int i = 0; i < transactions.size(); i++) {
+        int failedOperations = 0;
+        for (int i = 0; i < operationCount; i++) {
             Transaction tx = transactions.get(i);
             try {
                 kvView.put(tx, i, 42);
                 tx.commit();
             } catch (RuntimeException e) {
                 if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {
-                    failedTransactions++;
+                    failedOperations++;
                 } else {
                     throw e;
                 }
@@ -113,13 +117,57 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
                 .atMost(10, SECONDS)
                 .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
 
-        assertThat(rowsInIndex(cluster.aliveNode()), is(transactions.size() - failedTransactions));
-        assertThat((long) rowsInIndex(cluster.aliveNode()), is(rowCountInTable()));
+        int successfulOperations = transactions.size() - failedOperations;
+
+        assertAll(
+                () -> assertThat(rowsInIndex(cluster.aliveNode()), is(successfulOperations)),
+                () -> assertThat((long) rowsInIndex(cluster.aliveNode()), is(rowCountInTable()))
+        );
     }
 
     private long rowCountInTable() {
         try (ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute(null, "SELECT COUNT(*) FROM " + TABLE_NAME)) {
             return resultSet.next().longValue(0);
         }
+    }
+
+    @Test
+    void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompletenessForImplicitTransactions() {
+        createTestTable(cluster, 1, 1);
+
+        createIndex(cluster, INDEX_NAME);
+
+        simulateCoordinatorLeaveToMakeIndexBuildStart();
+
+        CompletableFuture<Void> indexBuildCompleted = CompletableFuture.runAsync(() -> {
+            await("Index must become available in time")
+                    .atMost(10, SECONDS)
+                    .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
+        });
+
+        KeyValueView<Integer, Integer> kvView = cluster.aliveNode().tables().table(TABLE_NAME).keyValueView(Integer.class, Integer.class);
+
+        int failedOperations = 0;
+        int i = 0;
+        while (!indexBuildCompleted.isDone()) {
+            try {
+                kvView.put(null, i, 42);
+            } catch (RuntimeException e) {
+                if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {
+                    failedOperations++;
+                } else {
+                    throw e;
+                }
+            }
+
+            i++;
+        }
+
+        int successfulOperations = i - failedOperations;
+
+        assertAll(
+                () -> assertThat(rowsInIndex(cluster.aliveNode()), is(successfulOperations)),
+                () -> assertThat((long) rowsInIndex(cluster.aliveNode()), is(rowCountInTable()))
+        );
     }
 }
