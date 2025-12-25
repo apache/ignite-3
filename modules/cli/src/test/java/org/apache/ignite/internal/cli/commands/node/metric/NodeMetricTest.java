@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.cli.commands.node.metric;
 
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.junit.jupiter.api.DisplayName;
@@ -30,13 +33,9 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("source enable srcName")
     void enable() {
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/metric/node/enable")
-                        .withBody("srcName")
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/metric/node/enable")
+                .withRequestBody(equalTo("srcName"))
+                .willReturn(ok()));
 
         execute("node metric source enable --url " + mockUrl + " srcName");
 
@@ -46,13 +45,9 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("source disable srcName")
     void disable() {
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/metric/node/disable")
-                        .withBody("srcName")
-                )
-                .respond(response(null));
+        stubFor(post("/management/v1/metric/node/disable")
+                .withRequestBody(equalTo("srcName"))
+                .willReturn(ok()));
 
         execute("node metric source disable --url " + mockUrl + " srcName");
 
@@ -62,13 +57,8 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("source list")
     void listSources() {
-        String responseBody = "[{\"name\":\"enabledMetric\",\"enabled\":true},{\"name\":\"disabledMetric\",\"enabled\":false}]";
-        clientAndServer
-                .when(request()
-                        .withMethod("GET")
-                        .withPath("/management/v1/metric/node/source")
-                )
-                .respond(response(responseBody));
+        stubFor(get("/management/v1/metric/node/source")
+                .willReturn(ok("[{\"name\":\"enabledMetric\",\"enabled\":true},{\"name\":\"disabledMetric\",\"enabled\":false}]")));
 
         execute("node metric source list --plain --url " + mockUrl);
 
@@ -78,13 +68,8 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("list")
     void listSets() {
-        String responseBody = "[{\"name\":\"metricSet\",\"metrics\":[{\"name\":\"metric\",\"desc\":\"description\"}]}]";
-        clientAndServer
-                .when(request()
-                        .withMethod("GET")
-                        .withPath("/management/v1/metric/node/set")
-                )
-                .respond(response(responseBody));
+        stubFor(get("/management/v1/metric/node/set")
+                .willReturn(ok("[{\"name\":\"metricSet\",\"metrics\":[{\"name\":\"metric\",\"desc\":\"description\"}]}]")));
 
         execute("node metric list --plain --url " + mockUrl);
 

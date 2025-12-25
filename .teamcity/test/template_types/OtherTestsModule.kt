@@ -35,6 +35,10 @@ class OtherTestsModule(
             name = "Clean Up Remaining Processes"
         }
 
+        customScript(type = "bash") {
+            name = "Setup Docker Proxy"
+        }
+
         customGradle {
             id = "RunTests"
             name = "Run tests"

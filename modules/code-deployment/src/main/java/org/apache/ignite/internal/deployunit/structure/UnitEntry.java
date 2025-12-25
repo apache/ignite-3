@@ -15,36 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.constants;
+package org.apache.ignite.internal.deployunit.structure;
 
 /**
- * REST API media types.
+ * Represents an entry in a deployment unit's content structure.
+ *
+ * <p>A unit entry can be either a file or a folder within a deployment unit.
+ * This interface provides basic operations to access the entry's metadata such as name and size.
+ *
+ * @see UnitFile
+ * @see UnitFolder
  */
-public final class MediaType {
-    private MediaType() {}
+public interface UnitEntry {
+    /**
+     * Returns the name of this entry.
+     *
+     * <p>For files, this is the file name. For folders, this is the folder name.
+     *
+     * @return the entry name, never {@code null}
+     */
+    String name();
 
     /**
-     * application/json media type.
+     * Returns the size of this entry in bytes.
+     *
+     * <p>For files, this is the actual file size. For folders, this is the sum
+     * of all children sizes (recursive).
+     *
+     * @return the entry size in bytes, always non-negative
      */
-    public static final String APPLICATION_JSON = "application/json";
-
-    /**
-     * application/json media type with UTF-8 charset.
-     */
-    public static final String APPLICATION_JSON_UTF8 = "application/json; charset=UTF-8";
-
-    /**
-     * application/problem+json media type.
-     */
-    public static final String PROBLEM_JSON = "application/problem+json";
-
-    /**
-     * text/plain media type.
-     */
-    public static final String TEXT_PLAIN = "text/plain";
-
-    /**
-     * multipart/form-data media type.
-     */
-    public static final String FORM_DATA = "multipart/form-data";
+    long size();
 }
