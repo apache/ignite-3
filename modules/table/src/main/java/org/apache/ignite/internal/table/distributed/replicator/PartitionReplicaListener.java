@@ -958,7 +958,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
             if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
+                throw new IllegalStateException("Index not found: uuid=" + request.indexToUse());
             }
 
             if (request.exactKey() != null) {
@@ -967,7 +967,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 return lookupIndex(request, indexStorage.storage(), request.coordinatorId());
             }
 
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            if (!(indexStorage.storage() instanceof SortedIndexStorage)) {
+                throw new IllegalStateException("Scan works only with sorted index");
+            }
 
             return scanSortedIndex(request, indexStorage);
         }
