@@ -260,6 +260,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNIT_UNAVAILABLE:
         case error::code::UNIT_ZIP:
         case error::code::UNIT_WRITE:
+        case error::code::UNIT_NON_UNIQUE_FILENAMES:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // GarbageCollector group. Group code: 14

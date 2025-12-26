@@ -220,9 +220,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
-                        return failedFuture(
-                                new DeploymentUnitAlreadyExistsException(id,
-                                        "Unit " + id + ":" + version + " already exists"));
+                        return failedFuture(new DeploymentUnitAlreadyExistsException("Unit " + id + ":" + version + " already exists"));
                     }
                 });
     }

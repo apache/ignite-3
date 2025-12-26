@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rest.deployment;
 
 import io.micronaut.http.multipart.CompletedFileUpload;
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
@@ -55,7 +54,7 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
     public void onNext(CompletedFileUpload item) {
         try {
             collector.addInputStream(item.getFilename(), item.getInputStream());
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOG.error("Failed to read file: " + item.getFilename(), e);
             suppressException(e);
         }
