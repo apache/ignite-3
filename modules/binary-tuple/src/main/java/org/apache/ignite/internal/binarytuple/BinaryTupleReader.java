@@ -35,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
  * Utility for access to binary tuple elements as typed values.
  */
 public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleParser.Sink {
+    public static final String NULL_TO_PRIMITIVE_ERROR_MESSAGE =
+            "The field value is null and cannot be converted to a primitive data type.";
+
     /** Start offset of the current element. */
     private int begin = 0;
 
@@ -99,6 +102,10 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public boolean booleanValue(int index) {
         seek(index);
 
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return booleanValue(byteBufferAccessor, begin, end);
     }
 
@@ -126,6 +133,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public byte byteValue(int index) {
         seek(index);
+
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return byteValue(byteBufferAccessor, begin, end);
     }
 
@@ -148,6 +160,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public short shortValue(int index) {
         seek(index);
+
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return shortValue(byteBufferAccessor, begin, end);
     }
 
@@ -170,6 +187,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public int intValue(int index) {
         seek(index);
+
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return intValue(byteBufferAccessor, begin, end);
     }
 
@@ -192,6 +214,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public long longValue(int index) {
         seek(index);
+
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return longValue(byteBufferAccessor, begin, end);
     }
 
@@ -214,6 +241,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public float floatValue(int index) {
         seek(index);
+
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return floatValue(byteBufferAccessor, begin, end);
     }
 
@@ -236,6 +268,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public double doubleValue(int index) {
         seek(index);
+
+        if (begin == end) {
+            throw new NullPointerException(NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
         return doubleValue(byteBufferAccessor, begin, end);
     }
 

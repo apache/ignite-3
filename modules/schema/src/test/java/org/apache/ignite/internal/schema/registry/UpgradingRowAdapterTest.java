@@ -42,7 +42,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -52,10 +56,15 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests row assembling and reading.
@@ -113,6 +122,39 @@ public class UpgradingRowAdapterTest {
         BinaryRowImpl restoredRow = new BinaryRowImpl(schema2.version(), resolvedRow.byteBuffer());
         assertThat(restoredRow.schemaVersion(), equalTo(schema2.version()));
         validateRow(values, Row.wrapBinaryRow(schema2, restoredRow));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessors")
+    void nullPointerWhenReadingNullAsPrimitive(
+            NativeType type,
+            BiConsumer<InternalTuple, Integer> fieldAccessor
+    ) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("KEY", INT32, false)},
+                new Column[]{new Column("VAL", INT32, true)}
+        );
+
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 2, new Column("added", type, true));
+
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        List<Object> values = generateRowValues(schema);
+        BinaryRow originalBinaryRow = serializeValuesToRow(schema, values);
+
+        // Upgrade row.
+        Row row = schemaRegistry.resolve(originalBinaryRow, schema2);
+
+        //noinspection TestFailedLine
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, 2),
+                BinaryTupleReader.NULL_TO_PRIMITIVE_ERROR_MESSAGE
+        );
     }
 
     private static SchemaDescriptor createSchemaDescriptorWithColumnsOfAllTypes() {
@@ -226,5 +268,31 @@ public class UpgradingRowAdapterTest {
         }
 
         return asm.build();
+    }
+
+    private static Stream<Arguments> primitiveAccessors() {
+        return SchemaTestUtils.PRIMITIVE_ACCESSORS.keySet().stream()
+                .map(type -> Arguments.of(type, makeFieldAccessor(type.spec())));
+    }
+
+    private static BiConsumer<InternalTuple, Integer> makeFieldAccessor(ColumnType type) {
+        switch (type) {
+            case BOOLEAN:
+                return InternalTuple::booleanValue;
+            case INT8:
+                return InternalTuple::byteValue;
+            case INT16:
+                return InternalTuple::shortValue;
+            case INT32:
+                return InternalTuple::intValue;
+            case INT64:
+                return InternalTuple::longValue;
+            case FLOAT:
+                return InternalTuple::floatValue;
+            case DOUBLE:
+                return InternalTuple::doubleValue;
+            default:
+                throw new IllegalArgumentException("Unsupported type " + type);
+        }
     }
 }

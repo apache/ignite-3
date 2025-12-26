@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -138,7 +139,7 @@ public class UpgradingRowAdapter implements Row {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
-        return mappedId < 0 ? (boolean) column.defaultValue() : row.booleanValue(mappedId);
+        return mappedId < 0 ? (boolean) ensureNotNull(column.defaultValue()) : row.booleanValue(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -164,7 +165,7 @@ public class UpgradingRowAdapter implements Row {
 
         ensureTypeConversionAllowed(column.type().spec(), ColumnType.INT8);
 
-        return mappedId < 0 ? (byte) column.defaultValue() : row.byteValue(mappedId);
+        return mappedId < 0 ? (byte) ensureNotNull(column.defaultValue()) : row.byteValue(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -188,7 +189,7 @@ public class UpgradingRowAdapter implements Row {
 
         ensureTypeConversionAllowed(column.type().spec(), ColumnType.INT16);
 
-        return mappedId < 0 ? (short) column.defaultValue() : row.shortValue(mappedId);
+        return mappedId < 0 ? (short) ensureNotNull(column.defaultValue()) : row.shortValue(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -212,7 +213,7 @@ public class UpgradingRowAdapter implements Row {
 
         ensureTypeConversionAllowed(column.type().spec(), ColumnType.INT32);
 
-        return mappedId < 0 ? (int) column.defaultValue() : row.intValue(mappedId);
+        return mappedId < 0 ? (int) ensureNotNull(column.defaultValue()) : row.intValue(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -236,7 +237,7 @@ public class UpgradingRowAdapter implements Row {
 
         ensureTypeConversionAllowed(column.type().spec(), ColumnType.INT64);
 
-        return mappedId < 0 ? (long) column.defaultValue() : row.longValue(mappedId);
+        return mappedId < 0 ? (long) ensureNotNull(column.defaultValue()) : row.longValue(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -260,7 +261,7 @@ public class UpgradingRowAdapter implements Row {
 
         ensureTypeConversionAllowed(column.type().spec(), ColumnType.FLOAT);
 
-        return mappedId < 0 ? (float) column.defaultValue() : row.floatValue(mappedId);
+        return mappedId < 0 ? (float) ensureNotNull(column.defaultValue()) : row.floatValue(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -284,7 +285,7 @@ public class UpgradingRowAdapter implements Row {
 
         ensureTypeConversionAllowed(column.type().spec(), ColumnType.DOUBLE);
 
-        return mappedId < 0 ? (double) column.defaultValue() : row.doubleValue(mappedId);
+        return mappedId < 0 ? (double) ensureNotNull(column.defaultValue()) : row.doubleValue(mappedId);
     }
 
 
@@ -521,5 +522,13 @@ public class UpgradingRowAdapter implements Row {
         if (!isSupportedColumnTypeChange(from, to)) {
             throw new SchemaException(format("Type conversion is not allowed: {} -> {}", from, to));
         }
+    }
+
+    private static Object ensureNotNull(Object value) {
+        if (value == null) {
+            throw new NullPointerException(BinaryTupleReader.NULL_TO_PRIMITIVE_ERROR_MESSAGE);
+        }
+
+        return value;
     }
 }
