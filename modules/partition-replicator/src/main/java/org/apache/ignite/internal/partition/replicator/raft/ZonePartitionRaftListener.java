@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft;
 
 import static java.lang.Math.max;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -208,7 +209,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
                     result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
                 } else if (command instanceof SafeTimeSyncCommand) {
-                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+                    result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof PrimaryReplicaChangeCommand) {
                     result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
@@ -496,6 +497,26 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private PartitionSnapshots partitionSnapshots() {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
+    }
+
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
+     */
+    private CommandResult handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return EMPTY_NOT_APPLIED_RESULT;
+        }
+
+        // We MUST bump information about last updated index+term.
+        // See a comment in #onWrite() for explanation.
+        txStateStorage.lastApplied(commandIndex, commandTerm);
+
+        return EMPTY_APPLIED_RESULT;
     }
 
     @TestOnly

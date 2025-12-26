@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,8 +38,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,38 +47,20 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Test for {@link PendingComparableValuesTracker}.
  */
 @SuppressWarnings("rawtypes") // Because of test parametrization raw PendingComparableValuesTracker is used.
-public class PendingComparableValuesTrackerTest {
+class PendingComparableValuesTrackerTest extends PendingComparableValuesTrackerTestBase {
+    @Override
+    protected <V extends Comparable<V>, R> void updateTracker(
+            PendingComparableValuesTracker<V, R> tracker,
+            V value,
+            @Nullable R futureResult
+    ) {
+        tracker.update(value, futureResult);
+    }
+
     @ParameterizedTest
     @MethodSource("hybridTimestampTrackerGenerator")
     public void testSimpleWaitFor(PendingComparableValuesTracker trackerParam) {
-        HybridTimestamp ts = new HybridTimestamp(1, 0);
-
-        @SuppressWarnings("unchecked")
-        PendingComparableValuesTracker<HybridTimestamp, Void> tracker = trackerParam;
-
-        HybridTimestamp ts1 = new HybridTimestamp(ts.getPhysical() + 1_000_000, 0);
-        HybridTimestamp ts2 = new HybridTimestamp(ts.getPhysical() + 2_000_000, 0);
-        HybridTimestamp ts3 = new HybridTimestamp(ts.getPhysical() + 3_000_000, 0);
-
-        CompletableFuture<Void> f0 = tracker.waitFor(ts1);
-        CompletableFuture<Void> f1 = tracker.waitFor(ts2);
-        CompletableFuture<Void> f2 = tracker.waitFor(ts3);
-
-        assertFalse(f0.isDone());
-        assertFalse(f1.isDone());
-        assertFalse(f2.isDone());
-
-        tracker.update(ts1, null);
-        assertThat(f0, willCompleteSuccessfully());
-        assertFalse(f1.isDone());
-        assertFalse(f2.isDone());
-
-        tracker.update(ts2, null);
-        assertThat(f1, willCompleteSuccessfully());
-        assertFalse(f2.isDone());
-
-        tracker.update(ts3, null);
-        assertThat(f2, willCompleteSuccessfully());
+        doTestSimpleWaitFor(trackerParam);
     }
 
     @ParameterizedTest
@@ -104,16 +83,16 @@ public class PendingComparableValuesTrackerTest {
         assertFalse(f1.isDone());
         assertFalse(f2.isDone());
 
-        tracker.update(ts1, ts1);
+        updateTracker(tracker, ts1, ts1);
         assertThat(f0, willBe(ts1));
         assertFalse(f1.isDone());
         assertFalse(f2.isDone());
 
-        tracker.update(ts2, ts2);
+        updateTracker(tracker, ts2, ts2);
         assertThat(f1, willBe(ts2));
         assertFalse(f2.isDone());
 
-        tracker.update(ts3, ts3);
+        updateTracker(tracker, ts3, ts3);
         assertThat(f2, willBe(ts3));
     }
 
@@ -139,7 +118,7 @@ public class PendingComparableValuesTrackerTest {
             for (int i = 0; i < iterations; i++) {
                 HybridTimestamp now = clock.now();
 
-                tracker.update(now, null);
+                updateTracker(tracker, now, null);
 
                 HybridTimestamp timestampToWait =
                         new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
@@ -165,7 +144,7 @@ public class PendingComparableValuesTrackerTest {
             return null;
         }, threads, "trackableHybridClockTest");
 
-        tracker.update(HybridTimestamp.MAX_VALUE, null);
+        updateTracker(tracker, HybridTimestamp.MAX_VALUE, null);
 
         assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
     }
@@ -192,7 +171,7 @@ public class PendingComparableValuesTrackerTest {
             for (int i = 0; i < iterations; i++) {
                 HybridTimestamp now = clock.now();
 
-                tracker.update(now, now);
+                updateTracker(tracker, now, now);
 
                 HybridTimestamp timestampToWait =
                         new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
@@ -217,7 +196,7 @@ public class PendingComparableValuesTrackerTest {
             return null;
         }, threads, "trackableHybridClockTest");
 
-        tracker.update(HybridTimestamp.MAX_VALUE, null);
+        updateTracker(tracker, HybridTimestamp.MAX_VALUE, null);
 
         assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
     }
@@ -231,7 +210,7 @@ public class PendingComparableValuesTrackerTest {
         CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
             try {
                 barrier.await();
-                tracker.update(2, null);
+                updateTracker(tracker, 2, null);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -251,21 +230,9 @@ public class PendingComparableValuesTrackerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("intTrackerGenerator")
+    @MethodSource("hybridTimestampTrackerGenerator")
     void testClose(PendingComparableValuesTracker trackerParam) {
-        @SuppressWarnings("unchecked")
-        PendingComparableValuesTracker<Integer, Void> tracker = trackerParam;
-
-        CompletableFuture<Void> future0 = tracker.waitFor(2);
-
-        // Close is called from dedicated stop worker.
-        IgniteTestUtils.runAsync((RunnableX) tracker::close).join();
-
-        assertThrows(TrackerClosedException.class, tracker::current);
-        assertThrows(TrackerClosedException.class, () -> tracker.update(2, null));
-
-        assertThat(future0, willThrowFast(TrackerClosedException.class));
-        assertThat(tracker.waitFor(2), willThrowFast(TrackerClosedException.class));
+        doTestClose(trackerParam);
     }
 
     private static Stream<PendingComparableValuesTracker> hybridTimestampTrackerGenerator() {
@@ -273,14 +240,8 @@ public class PendingComparableValuesTrackerTest {
 
         return Stream.of(
                 new PendingComparableValuesTracker<>(ts),
-                new PendingIndependentComparableValuesTracker<>(ts)
-        );
-    }
-
-    private static Stream<PendingComparableValuesTracker> intTrackerGenerator() {
-        return Stream.of(
-                new PendingComparableValuesTracker<>(1),
-                new PendingIndependentComparableValuesTracker<>(1)
+                new PendingIndependentComparableValuesTracker<>(ts),
+                new SafeTimeValuesTracker(ts)
         );
     }
 }

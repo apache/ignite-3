@@ -945,7 +945,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txManager,
                 partitionDataStorage,
                 partitionUpdateHandlers.storageUpdateHandler,
-                resources.safeTimeTracker(),
                 catalogService,
                 table.schemaView(),
                 indexMetaStorage,
