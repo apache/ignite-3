@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.table.distributed.disaster;
 
-/**
- * Utility class with magic constants.
- */
-public final class Constants {
-    /** Bytes in kilo-byte  (IEC 80000-13). */
-    public static final int KiB = 1024;
+import java.util.Set;
 
-    /** Bytes in mega-byte (IEC 80000-13). */
-    public static final int MiB = 1024 * KiB;
+/** {@link DisasterRecoveryRequest} that should be handled by multiple nodes. */
+public interface MultiNodeDisasterRecoveryRequest extends DisasterRecoveryRequest {
+    /** Returns names of nodes involved in the recovery or empty set if all nodes should be used. */
+    Set<String> nodeNames();
 
-    /** Bytes in giga-byte (IEC 80000-13). */
-    public static final int GiB = 1024 * MiB;
+    /** Returns the name of the node that initiated the request. {@code null} for requests created before field introduction. */
+    String coordinator();
 
-    /** Disaster recovery operations timeout in milliseconds. */
-    public static final int DISASTER_RECOVERY_TIMEOUT_MILLIS = 30_000;
-
-    /** Stub. */
-    private Constants() {
-        // Noop.
-    }
+    /** Returns a new request with updated coordinator name. */
+    MultiNodeDisasterRecoveryRequest updateCoordinator(String newCoordinatorName);
 }

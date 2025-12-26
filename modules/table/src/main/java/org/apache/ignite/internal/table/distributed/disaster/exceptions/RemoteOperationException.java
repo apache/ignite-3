@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-/**
- * Utility class with magic constants.
- */
-public final class Constants {
-    /** Bytes in kilo-byte  (IEC 80000-13). */
-    public static final int KiB = 1024;
+import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 
-    /** Bytes in mega-byte (IEC 80000-13). */
-    public static final int MiB = 1024 * KiB;
+/** Exception thrown when remote node encounters an error while executing a disaster recovery operation. */
+public class RemoteOperationException extends DisasterRecoveryException {
+    private static final long serialVersionUID = 1L;
 
-    /** Bytes in giga-byte (IEC 80000-13). */
-    public static final int GiB = 1024 * MiB;
-
-    /** Disaster recovery operations timeout in milliseconds. */
-    public static final int DISASTER_RECOVERY_TIMEOUT_MILLIS = 30_000;
-
-    /** Stub. */
-    private Constants() {
-        // Noop.
+    /** Constructor. */
+    public RemoteOperationException(String message, String nodeName) {
+        super(
+                DisasterRecovery.REMOTE_NODE_ERR,
+                "Processing error on node " + nodeName + " during disaster recovery: " + message
+        );
     }
 }
