@@ -40,11 +40,11 @@ public class IgniteSchema extends AbstractSchema {
     /** Constructor. */
     @TestOnly
     public IgniteSchema(String name, int catalogVersion, Collection<? extends IgniteDataSource> tables) {
-       this(
-               name,
-               catalogVersion,
-               Lookup.of(NameMap.immutableCopyOf(tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Table.class::cast))))
-       );
+        this(
+                name,
+                catalogVersion,
+                Lookup.of(NameMap.immutableCopyOf(tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Table.class::cast))))
+        );
     }
 
     /** Constructor. */
@@ -71,6 +71,6 @@ public class IgniteSchema extends AbstractSchema {
 
     @Override
     protected Map<String, Table> getTableMap() {
-        throw  new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 }
