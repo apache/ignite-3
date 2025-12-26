@@ -1,12 +1,15 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 public class WriteIntentSwitchHandlerTest extends ClusterPerTestIntegrationTest {
@@ -33,32 +36,34 @@ public class WriteIntentSwitchHandlerTest extends ClusterPerTestIntegrationTest 
 
     @Test
     void test() {
-        executeSql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+        String tableName = "test";
+
+        executeSql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT)");
 
         IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
         IgniteImpl node1 = unwrapIgniteImpl(cluster.node(1));
 
-        // Failing requests from first to second node.
-        failFirst1000SwitchRequests(node0);
+        CompletableFuture<Void> tableDroppedFut = new CompletableFuture<>();
+
+        failtIntentSwitchUntilTableIsDestroyed(node0, tableDroppedFut);
 
         node1.transactions().runInTransaction((tx) -> {
             for (int i = 0; i < 10; i++) {
-                executeSql(1, tx, "INSERT INTO test (id, val) VALUES (?, ?)", i, i);
+                executeSql(1, tx, "INSERT INTO " + tableName + " (id, val) VALUES (?, ?)", i, i);
             }
         });
+
+        assertThat(node1.distributedTableManager().cachedTable(tableName), notNullValue());
 
         executeSql("DROP TABLE test");
+
+        // Await real table destruction.
+        Awaitility.await().until(() -> node1.distributedTableManager().cachedTable(tableName) == null);
+        tableDroppedFut.complete(null);
     }
 
-    private static void failFirst1000SwitchRequests(IgniteImpl node0) {
-        AtomicInteger counter = new AtomicInteger(0);
-
-        node0.dropMessages((recipientId, message) -> {
-            if (message.getClass().getName().contains("WriteIntentSwitchReplicaRequest")) {
-                int i = counter.incrementAndGet();
-                return i < 1000;
-            }
-            return false;
-        });
+    private static void failtIntentSwitchUntilTableIsDestroyed(IgniteImpl node0, CompletableFuture<Void> tableDroppedFut) {
+        node0.dropMessages((recipientId, message) ->
+                message.getClass().getName().contains("WriteIntentSwitchReplicaRequest") && !tableDroppedFut.isDone());
     }
 }
