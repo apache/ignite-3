@@ -107,6 +107,12 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
 
         if (indexMeta == null || indexMeta.isDropped()) {
             // Index has been dropped.
+
+            storage.runConsistently(locker -> {
+                storage.lastApplied(commandIndex, commandTerm);
+                return null;
+            });
+
             return EMPTY_APPLIED_RESULT;
         }
 
