@@ -18,6 +18,8 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
@@ -27,28 +29,72 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a result return.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a result return.
  *
- * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  *
- * <p>The following steps related to code deployment should be additionally executed before running the current example:
+ * <p>Find instructions on how to run the example in the {@code README.md}
+ * file located in the {@code examples} directory root.</p>
+ *
+ * <h2>Execution Modes</h2>
+ *
+ * <p>There are two modes of execution:</p>
+ *
+ * <h3>1. Automated : The JAR Deployment for  deployment unit is automated </h3>
+ *
+ * <h4>1.1 With IDE</h4>
+ * <ul>
+ *   <li>
+ *     <b>Run from an IDE</b><br>
+ *     Launch the example directly from the IDE. If the required deployment
+ *     unit is not present, the example automatically builds and deploys the
+ *     necessary JAR.
+ *   </li>
+ * </ul>
+ *
+ * <h3>1.2 Without IDE</h3>
+ * <ul>
+ *   <li>
+ *     <b>Run from the command line</b><br>
+ *     Start the example using a Java command where the classpath includes
+ *     all required dependencies:
+ *
+ *     <pre>{@code
+ * java -cp "{user.home}\\.m2\\repository\\org\\apache\\ignite\\ignite-core\\3.1.0-SNAPSHOT\\
+ * ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
+ * <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"
+ *     }</pre>
+ *
+ *     In this mode, {@code runFromIDE=false} indicates command-line execution,
+ *     and {@code jarPath} must reference the examples JAR used as the
+ *     deployment unit.
+ *   </li>
+ * </ul>
+ *
+ * <h2>2. Manual (with IDE): The JAR deployment for the deployment unit is manual</h2>
+ *
+ * <p>Before running this example, complete the following steps related to
+ * code deployment:</p>
+ *
  * <ol>
- *     <li>
- *         Build "ignite-examples-x.y.z.jar" using the next command:<br>
- *         {@code ./gradlew :ignite-examples:jar}
- *     </li>
- *     <li>
- *         Create a new deployment unit using the CLI tool:<br>
- *         {@code cluster unit deploy computeExampleUnit \
- *          --version 1.0.0 \
- *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
- *     </li>
+ *   <li>
+ *     Build the {@code ignite-examples-x.y.z.jar} file:<br>
+ *     {@code ./gradlew :ignite-examples:jar}
+ *   </li>
+ *   <li>
+ *     Deploy the generated JAR as a deployment unit using the CLI:<br>
+ *     <pre>{@code
+ * cluster unit deploy computeExampleUnit \
+ *     --version 1.0.0 \
+ *     --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar
+ *     }</pre>
+ *   </li>
  * </ol>
  */
-public class ComputeWithResultExample {
+
+public class ComputeWithResultExample  extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -59,8 +105,12 @@ public class ComputeWithResultExample {
      * Main method of the example.
      *
      * @param args The command line arguments.
+     * @throws Exception if any error occurs.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -81,11 +131,16 @@ public class ComputeWithResultExample {
 
             System.out.println("\nConfiguring compute job...");
 
+
+
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+
             JobDescriptor<String, Integer> job = JobDescriptor.builder(WordCountJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
-
             JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+
+
 
             //--------------------------------------------------------------------------------------
             //
@@ -106,13 +161,21 @@ public class ComputeWithResultExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nTotal number of words in the phrase is '" + wordCnt + "'.");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 
     /**
      * Job that counts words in the provided phrase.
      */
-    private static class WordCountJob implements ComputeJob<String, Integer> {
+    public static class WordCountJob implements ComputeJob<String, Integer> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String phrase) {
