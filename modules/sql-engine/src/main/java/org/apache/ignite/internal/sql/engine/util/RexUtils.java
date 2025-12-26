@@ -1445,38 +1445,36 @@ public class RexUtils {
     /**
      * Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which the original value of the field can be certainly
      * recovered.
+     * @see RexUtil#isLosslessCast(RexNode)
      */
     public static boolean isLosslessCast(RexNode node) {
-        if (!node.isA(SqlKind.CAST)) {
-            return false;
-        }
+        return node.isA(SqlKind.CAST) && isLosslessCast(((RexCall) node).getOperands().get(0).getType(), node.getType());
 
-        RelDataType source = ((RexCall) node).getOperands().get(0).getType();
-        RelDataType target = node.getType();
+    }
 
+    /**
+     * Returns whether the conversion from source to target type is a 'loss-less' cast.
+     * @see RexUtil#isLosslessCast(RelDataType, RelDataType)
+     */
+    private static boolean isLosslessCast(RelDataType source, RelDataType target) {
+        // Discard casts of different type families.
         if (source.getFamily() != target.getFamily()) {
             return false;
         }
 
-        if (SqlTypeUtil.isExactNumeric(source) && target.getSqlTypeName() == SqlTypeName.DECIMAL) {
-            int tp = target.getPrecision();
-            int ts = target.getScale();
-            int sp = source.getPrecision();
-            int ss = source.getScale();
-
-            return ts >= ss && (tp - ts) >= (sp - ss);
-        }
-
+        // Extend support for CHARACTER with PRECISION_NOT_SPECIFIED.
         if (SqlTypeFamily.CHARACTER.getTypeNames().contains(source.getSqlTypeName())
                 && SqlTypeFamily.CHARACTER.getTypeNames().contains(target.getSqlTypeName())) {
             return target.getSqlTypeName().compareTo(source.getSqlTypeName()) >= 0
                     && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED);
         }
 
-        if (source.getSqlTypeName() == target.getSqlTypeName() && SqlTypeUtil.isDatetime(source)) {
-            return source.getPrecision() <= target.getPrecision();
+        // Add support for temporal types.
+        if (source.getSqlTypeName() == target.getSqlTypeName() && SqlTypeName.DATETIME_TYPES.contains(source.getSqlTypeName())) {
+            return (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED);
         }
 
+        // Finally, fallback to original method.
         return RexUtil.isLosslessCast(source, target);
     }
 }
