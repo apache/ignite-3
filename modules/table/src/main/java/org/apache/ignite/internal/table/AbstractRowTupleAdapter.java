@@ -130,7 +130,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public byte byteValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.byteValue(col.positionInRow());
+        return row.byteValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -138,7 +138,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public byte byteValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.byteValue(col.positionInRow());
+        return row.byteValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -146,7 +146,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public short shortValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.shortValue(col.positionInRow());
+        return row.shortValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -154,7 +154,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public short shortValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.shortValue(col.positionInRow());
+        return row.shortValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -162,7 +162,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int intValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.intValue(col.positionInRow());
+        return row.intValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -170,7 +170,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int intValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.intValue(col.positionInRow());
+        return row.intValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
