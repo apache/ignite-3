@@ -57,6 +57,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -203,14 +204,16 @@ public class TxFinishReplicaRequestHandler {
 
             // Let the client know a transaction has finished with a different outcome.
             if (commit != (txMeta.txState() == COMMITTED)) {
-                LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
-                        txId,
+                LOG.error("Failed to finish a transaction that is already finished [{}, expectedState={}, actualState={}].",
+                        TransactionLogUtils.formatTxInfo(txId, txManager),
                         commit ? COMMITTED : ABORTED,
                         txMeta.txState()
                 );
 
                 throw new MismatchingTransactionOutcomeInternalException(
-                        "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
+                        format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                                TransactionLogUtils.formatTxInfo(txId, txManager),
+                                txMeta.txState()),
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
             }

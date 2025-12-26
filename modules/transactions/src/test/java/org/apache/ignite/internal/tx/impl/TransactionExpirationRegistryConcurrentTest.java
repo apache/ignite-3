@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 /** Concurrent test for {@link TransactionExpirationRegistry}. */
 class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest {
 
-    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
 
     @Test
     void registerExpireUnregister() {
