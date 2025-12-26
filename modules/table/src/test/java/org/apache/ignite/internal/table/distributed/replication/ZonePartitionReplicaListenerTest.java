@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
-import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.validRwPrimacy;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
@@ -117,6 +116,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -453,6 +453,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private IndexMetaStorage indexMetaStorage;
 
+    private ReplicaPrimacyEngine primacyEngine;
+
     private static UUID nodeId(int id) {
         return new UUID(0, id);
     }
@@ -673,6 +675,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         kvMarshaller = marshallerFor(schemaDescriptor);
 
         when(lowWatermark.tryLock(any(), any())).thenReturn(true);
+
+        primacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, grpId, localNode);
 
         reset();
     }
@@ -1880,7 +1884,12 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .build();
 
-        return tableReplicaProcessor.process(message, validRwPrimacy(), localNode.id());
+        return processWithPrimacy(message);
+    }
+
+    private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {
+        return primacyEngine.validatePrimacy(request)
+                .thenCompose(primacy -> tableReplicaProcessor.process(request, primacy, localNode.id()));
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {

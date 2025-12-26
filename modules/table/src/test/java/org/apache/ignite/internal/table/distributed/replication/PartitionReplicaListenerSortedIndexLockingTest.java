@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerIndexLockingTest.LOCAL_NODE_ID;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
-import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.validRwPrimacy;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -287,6 +287,10 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         }).when(txManager).updateTxMeta(any(), any());
 
         return txManager;
+    }
+
+    private static ReplicaPrimacy validRwPrimacy() {
+        return ReplicaPrimacy.forPrimaryReplicaRequest(1);
     }
 
     @BeforeEach
