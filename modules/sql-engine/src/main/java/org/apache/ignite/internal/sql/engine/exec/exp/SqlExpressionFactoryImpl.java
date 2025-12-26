@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
  * wrapper over it is returned.
  */
-public class ExpressionFactoryImpl implements ExpressionFactory {
+public class SqlExpressionFactoryImpl implements SqlExpressionFactory {
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
     private static final RexBuilder REX_BUILDER = Commons.rexBuilder();
     private static final SqlConformance SQL_CONFORMANCE = FRAMEWORK_CONFIG.getParserConfig().conformance();
@@ -66,7 +66,7 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
      * @param cacheSize The size of the cache to store compiled expressions.
      * @param cacheFactory The factory to create cache to store compiled expressions in.
      */
-    public ExpressionFactoryImpl(
+    public SqlExpressionFactoryImpl(
             IgniteTypeFactory typeFactory,
             int cacheSize,
             CacheFactory cacheFactory

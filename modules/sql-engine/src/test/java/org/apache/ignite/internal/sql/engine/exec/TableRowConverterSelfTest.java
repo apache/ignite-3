@@ -35,6 +35,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -76,7 +77,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        StructNativeType rowSchema = NativeTypes.rowBuilder()
+        StructNativeType rowSchema = NativeTypes.structBuilder()
                 .addField("C1", NativeTypes.STRING, false)
                 .addField("C2", NativeTypes.INT32, false)
                 .build();
@@ -115,7 +116,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        StructNativeType rowSchema = NativeTypes.rowBuilder()
+        StructNativeType rowSchema = NativeTypes.structBuilder()
                 .addField("C1", NativeTypes.STRING, false)
                 .addField("C2", NativeTypes.BOOLEAN, false)
                 .addField("C3", NativeTypes.INT32, false)
@@ -165,7 +166,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 List.of(keyColumnNames[colocationColumn])
         );
 
-        StructNativeType rowSchema = NativeTypes.rowBuilder()
+        StructNativeType rowSchema = NativeTypes.structBuilder()
                 .addField("C1", schema.keyColumns().get(0).type(), false)
                 .addField("C2", schema.keyColumns().get(1).type(), false)
                 .build();

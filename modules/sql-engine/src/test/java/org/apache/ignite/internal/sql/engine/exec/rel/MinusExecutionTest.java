@@ -37,7 +37,7 @@ public class MinusExecutionTest extends AbstractSetOpExecutionTest {
 
         switch (type) {
             case MAP:
-                rowSchema = NativeTypes.rowBuilder()
+                rowSchema = NativeTypes.structBuilder()
                         // input columns
                         .addField("C1", NativeTypes.STRING, false)
                         .addField("C1", NativeTypes.INT32, false)
@@ -48,7 +48,7 @@ public class MinusExecutionTest extends AbstractSetOpExecutionTest {
                 break;
             case REDUCE:
             case SINGLE:
-                rowSchema = NativeTypes.rowBuilder()
+                rowSchema = NativeTypes.structBuilder()
                         .addField("C1", NativeTypes.STRING, false)
                         .addField("C1", NativeTypes.INT32, false)
                         .build();

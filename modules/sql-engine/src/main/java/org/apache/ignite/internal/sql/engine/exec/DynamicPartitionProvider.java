@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningPredicate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -53,8 +53,8 @@ public class DynamicPartitionProvider<RowT> implements PartitionProvider<RowT> {
     /** {@inheritDoc} */
     @Override
     public List<PartitionWithConsistencyToken> getPartitions(ExecutionContext<RowT> ctx) {
-        ExpressionFactory expressionFactory = ctx.expressionFactory();
+        SqlExpressionFactory sqlExpressionFactory = ctx.expressionFactory();
 
-        return PartitionPruningPredicate.prunePartitions(ctx, columns, table, expressionFactory, assignments, nodeName);
+        return PartitionPruningPredicate.prunePartitions(ctx, columns, table, sqlExpressionFactory, assignments, nodeName);
     }
 }

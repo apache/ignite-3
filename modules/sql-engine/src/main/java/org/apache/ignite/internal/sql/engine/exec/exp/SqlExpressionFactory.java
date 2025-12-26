@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Expression factory.
  */
-public interface ExpressionFactory {
+public interface SqlExpressionFactory {
     <RowT> AccumulatorsFactory<RowT> accumulatorsFactory(
             AggregateType type,
             List<AggregateCall> calls,

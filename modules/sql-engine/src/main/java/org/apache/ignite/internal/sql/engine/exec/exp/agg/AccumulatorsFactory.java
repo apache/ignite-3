@@ -48,7 +48,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.exec.RowAccessor;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;

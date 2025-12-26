@@ -52,16 +52,16 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -523,6 +523,23 @@ public class TypeUtils {
                 var dt = (TemporalNativeType) nativeType;
 
                 return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
+            case NULL:
+                return factory.createSqlType(SqlTypeName.NULL); 
+            case STRUCT:
+                assert nativeType instanceof StructNativeType;
+
+                var st = (StructNativeType) nativeType;
+
+                RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(factory);
+
+                for (StructNativeType.Field field : st.fields()) {
+                    builder.add(
+                            field.name(),
+                            native2relationalType(factory, field.type(), field.nullable()) 
+                    );
+                }
+
+                return builder.build();
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }
@@ -749,7 +766,7 @@ public class TypeUtils {
      * @see IgniteTypeFactory#relDataTypeToNative(RelDataType)
      */
     public static StructNativeType structuredTypeFromRelTypeList(List<RelDataType> types) {
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
 
         int idx = 0;
         for (RelDataType type : types) {
@@ -776,7 +793,7 @@ public class TypeUtils {
     public static StructNativeType map(StructNativeType schema, int[] mapping) {
         assert mapping != null && mapping.length > 0;
 
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
 
         for (int i : mapping) {
             builder.addField(schema.fields().get(i));

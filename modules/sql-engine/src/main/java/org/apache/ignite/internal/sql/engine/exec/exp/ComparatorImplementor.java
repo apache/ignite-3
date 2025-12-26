@@ -24,7 +24,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.RowAccessor;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.jetbrains.annotations.Nullable;
 

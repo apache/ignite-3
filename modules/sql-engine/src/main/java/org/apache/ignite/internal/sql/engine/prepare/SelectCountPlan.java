@@ -171,7 +171,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
 
         RowHandler<RowT> rowHandler = ctx.rowAccessor();
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
-        StructNativeType rowType = NativeTypes.rowBuilder()
+        StructNativeType rowType = NativeTypes.structBuilder()
                 .addField("COUNT", NativeTypes.INT64, false)
                 .build();
 

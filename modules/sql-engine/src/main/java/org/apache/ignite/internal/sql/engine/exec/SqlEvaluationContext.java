@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.calcite.DataContext;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 
 /**
  * Provides the contextual environment required for evaluating SQL expressions.

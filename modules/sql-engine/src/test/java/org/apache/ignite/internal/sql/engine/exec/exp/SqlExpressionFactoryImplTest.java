@@ -85,12 +85,12 @@ import org.mockito.Mockito;
 /**
  * ExpressionFactoryImpl test.
  */
-public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
+public class SqlExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     /** Type factory. */
     private IgniteTypeFactory typeFactory;
 
     /** Expression factory. */
-    private ExpressionFactoryImpl expFactory;
+    private SqlExpressionFactoryImpl expFactory;
 
     private ExecutionContext<Object[]> ctx;
 
@@ -108,7 +108,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();
 
-        expFactory = new ExpressionFactoryImpl(Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE);
+        expFactory = new SqlExpressionFactoryImpl(Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE);
     }
 
     @Test
@@ -676,7 +676,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Checks the execution of the {@link ExpressionFactory#rowSource(List)} method.
+     * Checks the execution of the {@link SqlExpressionFactory#rowSource(List)} method.
      * <ul>
      * <li>If the input list contains only constant expressions (literals), then row assembly must be performed without compiling the
      * expressions.</li>
@@ -696,7 +696,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         Object val2 = randomUUID();
         RexNode expr2 = SqlTestUtils.generateLiteral(ColumnType.UUID, val2);
 
-        ExpressionFactoryImpl expFactorySpy = Mockito.spy(expFactory);
+        SqlExpressionFactoryImpl expFactorySpy = Mockito.spy(expFactory);
 
         Object[] actual = expFactorySpy.<Object[]>rowSource(List.of(expr1, expr2)).get(ctx);
 

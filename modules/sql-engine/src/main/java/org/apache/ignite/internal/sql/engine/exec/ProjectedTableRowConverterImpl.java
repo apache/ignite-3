@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.InternalTupleEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.util.ExtendedProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.ProjectedTuple;
 

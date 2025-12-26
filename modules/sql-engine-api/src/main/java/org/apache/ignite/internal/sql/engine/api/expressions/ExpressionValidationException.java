@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.sql.engine.api.expressions;
 
 /**
- * Class representing a reader for the input row.
+ * Exception thrown when a given expression is semantically invalid (e.g., type mismatches, undefined columns).
  *
- * @param <RowT> Type of the supported row.
+ * <p>Some examples are:<ul>
+ *     <li>Expression is expected to return value of type T1, but given expression returns value of type T2, and no implicit cast from T1
+ *     to T2 exists.</li>
+ *     <li>There is reference to undeclared column or row alias.</li>
+ *     <li>Operator or function argument's type mismatch.</li>
+ * </ul>
  */
-public interface RowAccessor<RowT> {
-    /** Reads the specified field of the given row. */
-    @Nullable Object get(int field, RowT row);
+public class ExpressionValidationException extends Exception {
+    private static final long serialVersionUID = 2040204247361408378L;
 
-    /** Checks whether the given field is {@code null}. */
-    boolean isNull(int field, RowT row);
-
-    /** Return columns count contained in the incoming row. */
-    int columnsCount(RowT row);
+    /** Constructs the exception. */
+    public ExpressionValidationException(String message) {
+        super(message, null, true, false);
+    }
 }

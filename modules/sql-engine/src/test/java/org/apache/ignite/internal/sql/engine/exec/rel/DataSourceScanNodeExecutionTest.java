@@ -41,9 +41,9 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.type.StructNativeType.Field;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +60,7 @@ import org.junit.jupiter.api.Test;
 /** Tests to verify {@link DataSourceScanNode}. */
 @SuppressWarnings("resource")
 public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
-    private static final StructNativeType ROW_SCHEMA = NativeTypes.rowBuilder()
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.INT32, true)
             .addField("C2", NativeTypes.INT64, true)
             .addField("C3", NativeTypes.INT8, true)
@@ -243,7 +243,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
     private void checkDataSourceScan(int bufferSize, int sourceSize) {
         ExecutionContext<RowWrapper> ctx = executionContext(bufferSize);
 
-        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, true).build();
+        StructNativeType schema = NativeTypes.structBuilder().addField("C1", NativeTypes.INT32, true).build();
         RowFactory<RowWrapper> rowFactory = ctx.rowFactoryFactory().create(schema);
         BinaryTupleSchema tupleSchema = fromRowSchema(schema);
         TupleFactory tupleFactory = tupleFactoryFromSchema(tupleSchema);
@@ -356,7 +356,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
     }
 
     private static StructNativeType project(StructNativeType schema, int[] projection) {
-        RowTypeBuilder builder = NativeTypes.rowBuilder();
+        StructTypeBuilder builder = NativeTypes.structBuilder();
         for (int i : projection) {
             Field field = schema.fields().get(i);
             builder.addField(field.name(), field.type(), field.nullable());

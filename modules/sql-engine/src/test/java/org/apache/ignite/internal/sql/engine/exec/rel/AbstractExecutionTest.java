@@ -54,14 +54,14 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -147,7 +147,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
-                new ExpressionFactoryImpl(
+                new SqlExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,

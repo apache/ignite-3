@@ -44,7 +44,7 @@ import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -147,7 +147,7 @@ public final class PartitionPruningPredicate {
             ExecutionContext<RowT> context,
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
-            ExpressionFactory expressionFactory,
+            SqlExpressionFactory expressionFactory,
             Int2ObjectMap<NodeWithConsistencyToken> assignments,
             String nodeName
     ) {

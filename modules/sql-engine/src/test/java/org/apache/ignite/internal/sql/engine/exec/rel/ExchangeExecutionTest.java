@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -113,7 +113,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      * Schema of the rows used in the tests. All data providers created within this test class must
      * conform to this row schema.
      */
-    private static final StructNativeType ROW_SCHEMA = NativeTypes.rowBuilder()
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.INT32, true)
             .addField("C2", NativeTypes.INT32, true)
             .build();

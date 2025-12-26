@@ -83,8 +83,8 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
@@ -374,7 +374,7 @@ public final class Commons {
             final ICompilerFactory compilerFactory;
 
             try {
-                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(ExpressionFactoryImpl.class.getClassLoader());
+                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(SqlExpressionFactoryImpl.class.getClassLoader());
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);

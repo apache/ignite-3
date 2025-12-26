@@ -57,7 +57,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -311,7 +311,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case UUID:
                 return NativeTypes.UUID;
             case ROW:
-                RowTypeBuilder builder = NativeTypes.rowBuilder();
+                StructTypeBuilder builder = NativeTypes.structBuilder();
 
                 for (RelDataTypeField field : relType.getFieldList()) {
                     builder.addField(field.getName(), relDataTypeToNative(field.getType()), field.getType().isNullable());
