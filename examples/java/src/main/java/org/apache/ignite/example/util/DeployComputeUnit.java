@@ -63,25 +63,59 @@ public class DeployComputeUnit {
 
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
 
-        if (resp.statusCode() != 200) {
+        System.out.println("[DEBUG] Checking deployment status for " + unitId + " version " + version);
+        System.out.println("[DEBUG] HTTP Status: " + resp.statusCode());
+        System.out.println("[DEBUG] Response body: " + resp.body());
+
+        if (resp.statusCode() == 404) {
+            // Unit doesn't exist yet
+            System.out.println("[DEBUG] Unit not found (404)");
             return false;
         }
 
-        // Parse JSON response to check status
+        if (resp.statusCode() != 200) {
+            throw new RuntimeException("Failed to check deployment status. HTTP " + resp.statusCode() + ": " + resp.body());
+        }
+
+        // Parse JSON response - the API returns a Collection<UnitStatus>
         JsonNode root = OBJECT_MAPPER.readTree(resp.body());
-        JsonNode versionToStatus = root.path("versionToStatus");
 
-        if (versionToStatus.isArray()) {
-            for (JsonNode versionStatus : versionToStatus) {
-                String versionValue = versionStatus.path("version").asText();
-                String status = versionStatus.path("status").asText();
+        System.out.println("[DEBUG] Parsed JSON root: " + root);
+        System.out.println("[DEBUG] Is array: " + root.isArray() + ", Is object: " + root.isObject());
 
-                if (version.equals(versionValue) && "DEPLOYED".equals(status)) {
-                    return true;
+        // Handle empty response (unit exists but no matching status)
+        if (root.isArray() && root.isEmpty()) {
+            System.out.println("[DEBUG] Empty array response");
+            return false;
+        }
+
+        // The response is an array of UnitStatus objects
+        if (!root.isArray()) {
+            throw new RuntimeException("Unexpected response format. Expected array, got: " + root);
+        }
+
+        // Check if any node has this version deployed
+        for (JsonNode unitStatus : root) {
+            System.out.println("[DEBUG] Processing UnitStatus: " + unitStatus);
+            JsonNode versionToStatus = unitStatus.path("versionToStatus");
+            System.out.println("[DEBUG] versionToStatus: " + versionToStatus);
+
+            if (versionToStatus.isArray()) {
+                for (JsonNode versionStatus : versionToStatus) {
+                    String versionValue = versionStatus.path("version").asText();
+                    String statusValue = versionStatus.path("status").asText();
+
+                    System.out.println("[DEBUG] Found version: " + versionValue + ", status: " + statusValue);
+
+                    if (version.equals(versionValue) && "DEPLOYED".equals(statusValue)) {
+                        System.out.println("[DEBUG] MATCH FOUND - Deployment is ready!");
+                        return true;
+                    }
                 }
             }
         }
 
+        System.out.println("[DEBUG] No matching DEPLOYED status found");
         return false;
     }
 
