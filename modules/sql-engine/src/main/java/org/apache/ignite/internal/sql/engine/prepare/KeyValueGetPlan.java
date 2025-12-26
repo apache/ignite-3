@@ -316,4 +316,12 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     public int catalogVersion() {
         return catalogVersion;
     }
+
+    @Override
+    public boolean lazyCursorPublication() {
+        // In order to repeat execution in case of an error where the replica request schema
+        // version doesn't match the current table schema version, we must wait first page preloading
+        // (see InternalSchemaVersionMismatchException for more details).
+        return false;
+    }
 }

@@ -23,8 +23,10 @@ import java.time.ZoneId;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -52,6 +54,7 @@ public final class SqlOperationContext {
     private final @Nullable Consumer<Throwable> errorListener;
     private final @Nullable String userName;
     private final @Nullable Long topologyVersion;
+    private final AtomicReference<QueryTransactionWrapper> txOnRetryHolder;
 
     /**
      * Private constructor, used by a builder.
@@ -67,7 +70,8 @@ public final class SqlOperationContext {
             @Nullable Consumer<QueryTransactionWrapper> txUsedListener,
             @Nullable Consumer<Throwable> errorListener,
             @Nullable String userName,
-            @Nullable Long topologyVersion
+            @Nullable Long topologyVersion,
+            @Nullable QueryTransactionWrapper txOnRetry
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -80,10 +84,39 @@ public final class SqlOperationContext {
         this.errorListener = errorListener;
         this.userName = userName;
         this.topologyVersion = topologyVersion;
+        this.txOnRetryHolder = new AtomicReference<>(txOnRetry);
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * Copies an existing context with a new operation time.
+     *
+     * <p>Used in case of a retry. If the operation is repeated while preserving the running transaction,
+     *    the operation time is taken from this transaction.
+     */
+    public SqlOperationContext withOperationTime(Supplier<HybridTimestamp> operationTimeSupplier) {
+        QueryTransactionWrapper retryTx = txOnRetryHolder.get();
+        HybridTimestamp operationTime = retryTx == null
+                ? operationTimeSupplier.get()
+                : retryTx.unwrap().schemaTimestamp();
+
+        return new SqlOperationContext(
+                queryId,
+                timeZoneId,
+                parameters,
+                operationTime,
+                txContext,
+                cancel,
+                defaultSchemaName,
+                txUsedListener,
+                errorListener,
+                userName,
+                topologyVersion,
+                retryTx
+        );
     }
 
     /** Returns unique identifier of the query. */
@@ -182,6 +215,11 @@ public final class SqlOperationContext {
         return excludedNodes.isEmpty() ? null : excludedNodes::contains;
     }
 
+    /** Atomically updates the transaction tracked by the context. */
+    public @Nullable QueryTransactionWrapper getAndSetTxOnRetry(@Nullable QueryTransactionWrapper usedTx) {
+        return txOnRetryHolder.getAndSet(usedTx);
+    }
+
     /**
      * Query context builder.
      */
@@ -268,7 +306,8 @@ public final class SqlOperationContext {
                     txUsedListener,
                     errorListener,
                     userName,
-                    topologyVersion
+                    topologyVersion,
+                    null
             );
         }
     }

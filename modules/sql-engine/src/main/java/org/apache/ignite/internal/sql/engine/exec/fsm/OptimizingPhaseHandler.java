@@ -45,32 +45,14 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         assert result != null : "Query is expected to be parsed at this phase";
 
-        validateParsedStatement(query.properties, result);
-        validateDynamicParameters(result.dynamicParamsCount(), query.params, true);
-        ensureStatementMatchesTx(result.queryType(), query.txContext);
-
-        HybridTimestamp operationTime = query.executor.deriveOperationTime(query.txContext);
-
-        String schemaName = query.properties.defaultSchema();
-        ZoneId timeZoneId = query.properties.timeZoneId();
-        String userName = query.properties.userName();
-
-        SqlOperationContext operationContext = SqlOperationContext.builder()
-                .queryId(query.id)
-                .cancel(query.cancel)
-                .parameters(query.params)
-                .timeZoneId(timeZoneId)
-                .defaultSchemaName(schemaName)
-                .operationTime(operationTime)
-                .txContext(query.txContext)
-                .txUsedListener(tx -> query.usedTransaction = tx)
-                .errorHandler(query::setError)
-                .userName(userName)
-                .build();
+        SqlOperationContext retryOperationContext = query.operationContext;
+        SqlOperationContext operationContext = retryOperationContext == null
+                ? buildContext(query, result)
+                : retryOperationContext.withOperationTime(() -> query.executor.deriveOperationTime(query.txContext));
 
         query.operationContext = operationContext;
 
-        CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationTime)
+        CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationContext.operationTime())
                 .thenCompose(none -> query.executor.prepare(result, operationContext)
                         .thenAccept(plan -> {
                             if (query.txContext.explicitTx() == null) {
@@ -84,6 +66,31 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                         }));
 
         return Result.proceedAfter(awaitFuture);
+    }
+
+    private static SqlOperationContext buildContext(Query query, ParsedResult result) {
+        validateParsedStatement(query.properties, result);
+        validateDynamicParameters(result.dynamicParamsCount(), query.params, true);
+        ensureStatementMatchesTx(result.queryType(), query.txContext);
+
+        HybridTimestamp operationTime = query.executor.deriveOperationTime(query.txContext);
+
+        String schemaName = query.properties.defaultSchema();
+        ZoneId timeZoneId = query.properties.timeZoneId();
+        String userName = query.properties.userName();
+
+        return  SqlOperationContext.builder()
+                .queryId(query.id)
+                .cancel(query.cancel)
+                .parameters(query.params)
+                .timeZoneId(timeZoneId)
+                .defaultSchemaName(schemaName)
+                .operationTime(operationTime)
+                .txContext(query.txContext)
+                .txUsedListener(tx -> query.usedTransaction = tx)
+                .errorHandler(query::setError)
+                .userName(userName)
+                .build();
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */
