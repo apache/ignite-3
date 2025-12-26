@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
@@ -219,7 +220,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
-                        throw new DeploymentUnitAlreadyExistsException("Unit " + id + ":" + version + " already exists");
+                        return failedFuture(new DeploymentUnitAlreadyExistsException("Unit " + id + ":" + version + " already exists"));
                     }
                 });
     }
@@ -292,7 +293,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                             });
                                 });
                     }
-                    throw new DeploymentUnitNotFoundException(id, version);
+                    return failedFuture(new DeploymentUnitNotFoundException(id, version));
                 });
     }
 
@@ -359,7 +360,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
         return deploymentUnitStore.getNodeStatus(nodeName, id, version).thenCompose(nodeStatus -> {
             if (nodeStatus == null) {
-                throw new DeploymentUnitNotFoundException(id, version);
+                return failedFuture(new DeploymentUnitNotFoundException(id, version));
             }
 
             return deployer.getUnitStructure(id, version);
