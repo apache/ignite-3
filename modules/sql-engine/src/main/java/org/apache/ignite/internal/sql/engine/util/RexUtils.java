@@ -1445,6 +1445,7 @@ public class RexUtils {
     /**
      * Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which the original value of the field can be certainly
      * recovered.
+     *
      * @see RexUtil#isLosslessCast(RexNode)
      */
     public static boolean isLosslessCast(RexNode node) {
@@ -1454,6 +1455,7 @@ public class RexUtils {
 
     /**
      * Returns whether the conversion from source to target type is a 'loss-less' cast.
+     *
      * @see RexUtil#isLosslessCast(RelDataType, RelDataType)
      */
     private static boolean isLosslessCast(RelDataType source, RelDataType target) {
