@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -114,7 +115,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public boolean booleanValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.booleanValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.booleanValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -122,7 +127,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public boolean booleanValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.booleanValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.booleanValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -130,7 +139,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public byte byteValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.byteValue(col.positionInRow());
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.byteValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -138,7 +151,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public byte byteValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.byteValue(col.positionInRow());
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.byteValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -146,7 +163,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public short shortValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.shortValue(col.positionInRow());
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.shortValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -154,7 +175,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public short shortValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.shortValue(col.positionInRow());
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.shortValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -162,7 +187,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int intValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.intValue(col.positionInRow());
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.intValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -170,7 +199,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int intValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.intValue(col.positionInRow());
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.intValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +211,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public long longValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.longValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.longValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -186,7 +223,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public long longValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.longValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.longValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -194,7 +235,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public float floatValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.floatValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.floatValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -202,7 +247,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public float floatValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.floatValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.floatValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -210,7 +259,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public double doubleValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.doubleValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnName);
+
+        return row.doubleValue(idx);
     }
 
     /** {@inheritDoc} */
@@ -218,7 +271,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public double doubleValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.doubleValue(correctIndex(col));
+        int idx = correctIndex(col);
+
+        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+
+        return row.doubleValue(idx);
     }
 
     /** {@inheritDoc} */

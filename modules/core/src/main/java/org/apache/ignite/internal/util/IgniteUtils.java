@@ -73,6 +73,8 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -131,6 +133,14 @@ public class IgniteUtils {
 
     /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
     public static final String JMX_METRIC_GROUP_TYPE = "metrics";
+
+    /** The message that is output when trying to convert the {@code null} value to a primitive data type. */
+    public static String NULL_TO_PRIMITIVE_ERROR_MESSAGE =
+            "The value of field at index {} is null and cannot be converted to a primitive data type.";
+
+    /** The message that is output when trying to convert the {@code null} value to a primitive data type. */
+    public static String NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE =
+            "The value of field '{}' is null and cannot be converted to a primitive data type.";
 
     /**
      * Get JDK version.
@@ -1425,6 +1435,20 @@ public class IgniteUtils {
             // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
             // let's switch: false negative can produce assertion errors.
             return true;
+        }
+    }
+
+    /** Throws the {@link NullPointerException} if the provided tuple has a {@code null} value at the specified index. */
+    public static void ensureNotNull(InternalTuple tuple, int fieldIndex, int displayIndex) {
+        if (tuple.hasNullValue(fieldIndex)) {
+            throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, displayIndex));
+        }
+    }
+
+    /** Throws the {@link NullPointerException} if the provided tuple has a {@code null} value at the specified index. */
+    public static void ensureNotNull(InternalTuple tuple, int fieldIndex, String fieldName) {
+        if (tuple.hasNullValue(fieldIndex)) {
+            throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
         }
     }
 }

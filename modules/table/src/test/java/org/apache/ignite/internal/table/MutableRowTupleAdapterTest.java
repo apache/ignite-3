@@ -45,8 +45,11 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
@@ -55,14 +58,20 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests server tuple builder implementation.
@@ -495,6 +504,55 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessors")
+    @SuppressWarnings("ThrowableNotThrown")
+    void nullPointerWhenReadingNullAsPrimitive(
+            NativeType type,
+            BiConsumer<Tuple, Object> fieldAccessor
+    ) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("KEY", INT32, false)},
+                new Column[]{new Column("VAL", type, true)}
+        );
+
+        Tuple tuple = Tuple.create().set("KEY", 1).set("VAL", null);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
+
+        Tuple row = TableRow.tuple(marshaller.marshal(tuple));
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, 1),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
+
+        );
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, "VAL"),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL")
+
+        );
+
+        row.set("NEW", null);
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, 2),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
+
+        );
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, "NEW"),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
+
+        );
+    }
+
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         Tuple tuple = Tuple.create().set("ID", 1L);
@@ -541,5 +599,10 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
+    }
+
+    private static Stream<Arguments> primitiveAccessors() {
+        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
+                .map(e -> Arguments.of(e.getKey(), e.getValue()));
     }
 }
