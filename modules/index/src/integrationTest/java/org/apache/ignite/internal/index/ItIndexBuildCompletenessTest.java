@@ -35,9 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -46,7 +49,9 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ExecutorServiceExtension.class)
 class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
@@ -132,18 +137,22 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompletenessForImplicitTransactions() {
+    void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompletenessForImplicitTransactions(
+            @InjectExecutorService ExecutorService executor
+    ) {
         createTestTable(cluster, 1, 1);
 
-        createIndex(cluster, INDEX_NAME);
+        CompletableFuture<Void> startedOperationsFuture = new CompletableFuture<>();
 
-        simulateCoordinatorLeaveToMakeIndexBuildStart();
+        CompletableFuture<Void> indexBuildCompleted = startedOperationsFuture.thenRunAsync(() -> {
+            createIndex(cluster, INDEX_NAME);
 
-        CompletableFuture<Void> indexBuildCompleted = CompletableFuture.runAsync(() -> {
+            simulateCoordinatorLeaveToMakeIndexBuildStart();
+
             await("Index must become available in time")
                     .atMost(10, SECONDS)
                     .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
-        });
+        }, executor);
 
         KeyValueView<Integer, Integer> kvView = cluster.aliveNode().tables().table(TABLE_NAME).keyValueView(Integer.class, Integer.class);
 
@@ -158,6 +167,10 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
                 } else {
                     throw e;
                 }
+            }
+
+            if (i == 0) {
+                startedOperationsFuture.complete(null);
             }
 
             i++;
