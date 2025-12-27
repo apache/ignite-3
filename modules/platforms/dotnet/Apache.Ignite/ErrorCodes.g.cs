@@ -410,6 +410,9 @@ namespace Apache.Ignite
 
             /// <summary> GroupOverloaded error. </summary>
             public const int GroupOverloaded = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> GroupUnavailable error. </summary>
+            public const int GroupUnavailable = (GroupCode << 16) | (10 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>

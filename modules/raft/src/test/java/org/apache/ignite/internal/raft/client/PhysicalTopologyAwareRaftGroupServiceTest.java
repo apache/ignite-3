@@ -469,7 +469,6 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
         return PhysicalTopologyAwareRaftGroupService.start(
                 GROUP_ID,
                 localClusterService,
-                FACTORY,
                 raftConfiguration,
                 peersAndLearners,
                 executor,

@@ -150,6 +150,7 @@ enum class code : underlying_t {
     CURSOR_CLOSE = 0x80007,
     REPLICA_STOPPING = 0x80008,
     GROUP_OVERLOADED = 0x80009,
+    GROUP_UNAVAILABLE = 0x8000a,
 
     // Storage group. Group code: 9
     INDEX_NOT_BUILT = 0x90001,

@@ -26,7 +26,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 /**
  * Test RAFT listener.
  */
-// Todo: IGNITE-27256 use TestRaftGroupListener from ignite-raft test fixtures, kill this.
 public class TestRaftGroupListener implements RaftGroupListener {
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
