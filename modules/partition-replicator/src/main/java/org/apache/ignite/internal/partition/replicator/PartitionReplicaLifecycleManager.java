@@ -2191,8 +2191,6 @@ public class PartitionReplicaLifecycleManager extends
                 });
     }
 
-    // TODO sanpwc implement recovery part - check recoverTables in TableManager.
-
     // TODO sanpwc create jira for thread safety of drop on lwm and concurrent rebalances along and/or partition restarts.
     /**
      * For HA zones: Check that last rebalance was graceful (caused by common rebalance triggers, like data nodes change, replica factor
