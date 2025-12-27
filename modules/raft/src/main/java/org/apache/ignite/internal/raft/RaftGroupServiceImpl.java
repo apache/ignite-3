@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -86,6 +85,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.SMCompactedThrowable;
 import org.apache.ignite.raft.jraft.rpc.impl.SMFullThrowable;
 import org.apache.ignite.raft.jraft.rpc.impl.SMThrowable;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -674,8 +674,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 return future;
             }
 
-            long stopTime = sendWithRetryTimeoutMillis >= 0 ? currentTimeMillis() + sendWithRetryTimeoutMillis : Long.MAX_VALUE;
-            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime, singleRequestTimeoutMillis);
+            var context = new RetryContext(
+                    groupId,
+                    peer,
+                    originDescription,
+                    requestFactory,
+                    sendWithRetryTimeoutMillis,
+                    singleRequestTimeoutMillis
+            );
 
             sendWithRetry(future, context, peerThrottlingContextHolder);
 
@@ -719,7 +725,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         try {
-            long requestStartTime = currentTimeMillis();
+            long requestStartTime = Utils.monotonicMs();
 
             if (requestStartTime >= retryContext.stopTime()) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack

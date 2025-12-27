@@ -116,6 +116,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -452,6 +453,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private IndexMetaStorage indexMetaStorage;
 
+    private ReplicaPrimacyEngine primacyEngine;
+
     private static UUID nodeId(int id) {
         return new UUID(0, id);
     }
@@ -658,10 +661,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 validationSchemasSource,
-                localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver,
                 new SingleClusterNodeResolver(localNode),
                 new RemotelyTriggeredResourceRegistry(),
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
@@ -674,6 +675,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         kvMarshaller = marshallerFor(schemaDescriptor);
 
         when(lowWatermark.tryLock(any(), any())).thenReturn(true);
+
+        primacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, grpId, localNode);
 
         reset();
     }
@@ -1881,7 +1884,12 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .build();
 
-        return tableReplicaProcessor.invoke(message, localNode.id());
+        return processWithPrimacy(message);
+    }
+
+    private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {
+        return primacyEngine.validatePrimacy(request)
+                .thenCompose(primacy -> tableReplicaProcessor.process(request, primacy, localNode.id()));
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {

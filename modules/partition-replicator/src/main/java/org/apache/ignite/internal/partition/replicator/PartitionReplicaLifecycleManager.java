@@ -761,6 +761,7 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId,
                     revision,
                     onRecovery,
+                    zoneResources,
                     zoneResources.txStatePartitionStorageIsInRebalanceState()
             );
 
@@ -793,10 +794,6 @@ public class PartitionReplicaLifecycleManager extends
                     })
                     .thenCompose(v -> {
                         try {
-                            // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.
-                            //  internalTbl.updatePartitionTrackers is used in order to add storageIndexTracker to some context for further
-                            //  storage closing.
-                            // internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
                             return replicaMgr.startReplica(
                                     zonePartitionId,
                                     raftClient -> {
@@ -1749,6 +1746,8 @@ public class PartitionReplicaLifecycleManager extends
                         try {
                             return replicaMgr.stopReplica(zonePartitionId)
                                     .thenComposeAsync(replicaWasStopped -> {
+                                        closeTrackers(zonePartitionId);
+
                                         afterReplicaStopAction.accept(replicaWasStopped);
 
                                         if (!replicaWasStopped) {
@@ -1764,6 +1763,16 @@ public class PartitionReplicaLifecycleManager extends
                         }
                     });
         });
+    }
+
+    private void closeTrackers(ZonePartitionId zonePartitionId) {
+        // Resources can be null if the replica was never started (or was already stopped) on this node and we are just stopping
+        // the stopped replica.
+        ZonePartitionResources replicaResources = zonePartitionResourcesOrNull(zonePartitionId);
+
+        if (replicaResources != null) {
+            replicaResources.closeTrackers();
+        }
     }
 
     /**

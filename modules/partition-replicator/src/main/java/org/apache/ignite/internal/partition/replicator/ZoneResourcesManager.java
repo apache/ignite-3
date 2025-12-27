@@ -140,6 +140,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 txStatePartitionStorage,
                 raftGroupListener,
                 snapshotStorage,
+                safeTimeTracker,
                 storageIndexTracker
         );
 
@@ -262,6 +263,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
         private final PartitionSnapshotStorage snapshotStorage;
 
+        private final SafeTimeValuesTracker safeTimeTracker;
+
         private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
         /**
@@ -278,11 +281,13 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 TxStatePartitionStorage txStatePartitionStorage,
                 ZonePartitionRaftListener raftListener,
                 PartitionSnapshotStorage snapshotStorage,
+                SafeTimeValuesTracker safeTimeTracker,
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker
         ) {
             this.txStatePartitionStorage = txStatePartitionStorage;
             this.raftListener = raftListener;
             this.snapshotStorage = snapshotStorage;
+            this.safeTimeTracker = safeTimeTracker;
             this.storageIndexTracker = storageIndexTracker;
         }
 
@@ -302,8 +307,17 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             return snapshotStorage;
         }
 
+        public SafeTimeValuesTracker safeTimeTracker() {
+            return safeTimeTracker;
+        }
+
         public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
             return replicaListenerFuture;
+        }
+
+        public void closeTrackers() {
+            safeTimeTracker.close();
+            storageIndexTracker.close();
         }
     }
 }

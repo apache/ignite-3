@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.config;
 
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.patch;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static org.apache.ignite.internal.rest.constants.MediaType.TEXT_PLAIN;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockserver.model.MediaType;
 
 /** Tests "cluster config" commands. */
 @DisplayName("cluster config")
@@ -31,12 +34,8 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("show --url http://localhost:10300")
     void show() {
-        clientAndServer
-                .when(request()
-                        .withMethod("GET")
-                        .withPath("/management/v1/configuration/cluster")
-                )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
+        stubFor(get("/management/v1/configuration/cluster")
+                .willReturn(ok("{\"autoAdjust\":{\"enabled\":true}}").withHeader("Content-Type", TEXT_PLAIN)));
 
         execute("cluster config show --url " + mockUrl);
 
@@ -48,12 +47,8 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("show --url http://localhost:10300/")
     void trailingSlash() {
-        clientAndServer
-                .when(request()
-                        .withMethod("GET")
-                        .withPath("/management/v1/configuration/cluster")
-                )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
+        stubFor(get("/management/v1/configuration/cluster")
+                .willReturn(ok("{\"autoAdjust\":{\"enabled\":true}}").withHeader("Content-Type", TEXT_PLAIN)));
 
         execute("cluster config show --url " + mockUrl + "/");
 
@@ -65,12 +60,8 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("show --url http://localhost:10300 local.baseline")
     void showSubtree() {
-        clientAndServer
-                .when(request()
-                        .withMethod("GET")
-                        .withPath("/management/v1/configuration/cluster/local.baseline")
-                )
-                .respond(response("{\"autoAdjust\":{\"enabled\":true}}").withContentType(MediaType.TEXT_PLAIN));
+        stubFor(get("/management/v1/configuration/cluster/local.baseline")
+                .willReturn(ok("{\"autoAdjust\":{\"enabled\":true}}").withHeader("Content-Type", TEXT_PLAIN)));
 
         execute("cluster config show --url " + mockUrl + " local.baseline");
 
@@ -82,13 +73,9 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("update --url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
     void updateHocon() {
-        clientAndServer
-                .when(request()
-                        .withMethod("PATCH")
-                        .withPath("/management/v1/configuration/cluster")
-                        .withBody("local.baseline.autoAdjust.enabled=true")
-                )
-                .respond(response(null));
+        stubFor(patch("/management/v1/configuration/cluster")
+                .withRequestBody(equalTo("local.baseline.autoAdjust.enabled=true"))
+                .willReturn(ok()));
 
         execute("cluster config update --url "
                 + mockUrl + " local.baseline.autoAdjust.enabled=true");
