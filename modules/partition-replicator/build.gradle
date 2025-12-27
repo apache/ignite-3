@@ -112,6 +112,7 @@ dependencies {
     integrationTestImplementation project(':ignite-eventlog') // TODO: IGNITE-22522 - remove.
 
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.awaitility
 }
 
 description = 'ignite-partition-replicator'
