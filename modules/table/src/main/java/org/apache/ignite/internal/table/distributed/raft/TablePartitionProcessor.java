@@ -188,6 +188,30 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
+        // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
+        // storages!
+        // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
+        // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
+        // in comparison with 'snapshot' state stored in our storages; and if we install a snapshot from our storages
+        // to a follower at this point, for a subsequent AppendEntries the leader will not be able to get prevLogTerm
+        // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
+        // repeat same thing over and over again.
+
+        storage.acquirePartitionSnapshotsReadLock();
+
+        try {
+            return processInternal(command, commandIndex, commandTerm, safeTimestamp);
+        } finally {
+            storage.releasePartitionSnapshotsReadLock();
+        }
+    }
+
+    private CommandResult processInternal(
+            WriteCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) {
         CommandResult result = null;
 
         AbstractCommandHandler<?> commandHandler = commandHandlers.handler(command.groupType(), command.messageType());
