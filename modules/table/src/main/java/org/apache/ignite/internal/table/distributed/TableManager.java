@@ -1264,6 +1264,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTable = table.internalTable();
 
+        // TODO sanpwc remove non colocation code.
         if (!nodeProperties.colocationEnabled()) {
             Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
                     .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
@@ -1543,6 +1544,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return CompletableFutures.allOf(storageFuts);
     }
 
+    // TODO sanpwc rename to stopAndDestroyTableProcessors
     private CompletableFuture<Void> stopAndDestroyTablePartitions(TableViewInternal table) {
         InternalTable internalTable = table.internalTable();
 

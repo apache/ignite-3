@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
@@ -210,6 +211,20 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 });
     }
 
+    // TODO sanpwc javadoc.
+    CompletableFuture<Boolean> areTableResourcesEmpty(ZonePartitionId zonePartitionId) {
+        ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
+
+        if (resources == null) {
+            return trueCompletedFuture();
+        }
+
+        return resources.replicaListenerFuture
+                .thenApply(zoneReplicaListener -> zoneReplicaListener.areTableReplicaProcessorsEmpty()
+                        && resources.raftListener().areTableRaftProcessorsEmpty()
+                        && resources.snapshotStorage().arePartitionSnapshotStoragesEmpty());
+    }
+
     @TestOnly
     @Nullable
     TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
@@ -285,10 +300,6 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
         public PartitionSnapshotStorage snapshotStorage() {
             return snapshotStorage;
-        }
-
-        public PendingComparableValuesTracker<Long, Void> storageIndexTracker() {
-            return storageIndexTracker;
         }
 
         public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {

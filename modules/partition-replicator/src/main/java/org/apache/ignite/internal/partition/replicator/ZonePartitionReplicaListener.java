@@ -318,6 +318,13 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         replicaProcessors.remove(tableId);
     }
 
+    /**
+     * Returns true if there are no table replica processors, false otherwise.
+     */
+    boolean areTableReplicaProcessorsEmpty() {
+        return replicaProcessors.isEmpty();
+    }
+
     public @Nullable ReplicaTableSegment segmentFor(int tableId) {
         ReplicaTableProcessor processor = replicaProcessors.get(tableId);
         return processor == null ? null : new ReplicaTableSegment(processor.txRwOperationTracker(), processor.safeTime());
