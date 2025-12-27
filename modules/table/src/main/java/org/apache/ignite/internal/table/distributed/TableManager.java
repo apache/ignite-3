@@ -1270,21 +1270,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTable = table.internalTable();
 
-        // TODO sanpwc remove non colocation code.
-        if (!nodeProperties.colocationEnabled()) {
-            Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
-                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                    .collect(toSet());
-
-            metaStorageMgr.removeAll(assignmentKeys)
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            LOG.error("Failed to remove assignments from metastorage [tableId={}]", e, tableId);
-                        }
-                    });
-        }
-
-        return stopAndDestroyTablePartitions(table)
+        return stopAndDestroyTableProcessors(table)
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> internalTable.storage().destroy()), ioExecutor)
                 .thenAccept(unused -> inBusyLock(busyLock, () -> {
                     tables.remove(tableId);
@@ -1550,8 +1536,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return CompletableFutures.allOf(storageFuts);
     }
 
-    // TODO sanpwc rename to stopAndDestroyTableProcessors
-    private CompletableFuture<Void> stopAndDestroyTablePartitions(TableViewInternal table) {
+    private CompletableFuture<Void> stopAndDestroyTableProcessors(TableViewInternal table) {
         InternalTable internalTable = table.internalTable();
 
         int partitions = internalTable.partitions();
@@ -1566,20 +1551,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return writeLockAcquisitionFuture.thenCompose(stamp -> {
                 CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-24345
-                //  Partitions should be stopped on the assignments change event triggered by zone drop or alter.
-                //  Stop replica asynchronously, out of metastorage event pipeline.
                 for (int partitionId = 0; partitionId < partitions; partitionId++) {
                     CompletableFuture<Void> resourcesUnloadFuture;
 
-                    if (nodeProperties.colocationEnabled()) {
-                        resourcesUnloadFuture = partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
-                                new ZonePartitionId(internalTable.zoneId(), partitionId),
-                                internalTable.tableId()
-                        );
-                    } else {
-                        resourcesUnloadFuture = nullCompletedFuture();
-                    }
+                    resourcesUnloadFuture = partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                            new ZonePartitionId(internalTable.zoneId(), partitionId),
+                            internalTable.tableId()
+                    );
 
                     var tablePartitionId = new TablePartitionId(internalTable.tableId(), partitionId);
 
