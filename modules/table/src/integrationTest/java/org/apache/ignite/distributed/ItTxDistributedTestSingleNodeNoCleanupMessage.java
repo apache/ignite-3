@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -43,11 +45,15 @@ import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -60,6 +66,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -67,6 +74,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -207,7 +215,24 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         lowWatermark,
                         mock(FailureProcessor.class),
                         new TableMetricSource(QualifiedName.fromSimple("test_table"))
-                );
+                ) {
+                    @Override
+                    public CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
+                        if (request instanceof TableWriteIntentSwitchReplicaRequest) {
+                            logger().info("Dropping cleanup request: {}", request);
+
+                            releaseTxLocks(
+                                    ((TableWriteIntentSwitchReplicaRequest) request).txId(),
+                                    txManager.lockManager()
+                            );
+
+                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false, false, false);
+                            return completedFuture(new ReplicaResult(cleanupResult, null));
+                        }
+
+                        return super.process(request, replicaPrimacy, senderId);
+                    }
+                };
             }
         };
 
@@ -266,6 +291,10 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
         tx2.commit();
 
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    private static void releaseTxLocks(UUID txId, LockManager lockManager) {
+        lockManager.releaseAll(txId);
     }
 
     @Override
