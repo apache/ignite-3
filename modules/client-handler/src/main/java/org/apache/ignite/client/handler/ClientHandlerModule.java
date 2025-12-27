@@ -152,6 +152,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final ClientConnectorConfiguration clientConnectorConfiguration;
 
+    private final Supplier<Boolean> ddlBatchingSuggestionEnabled;
+
     private final Executor partitionOperationsExecutor;
 
     private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
@@ -176,6 +178,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param clientConnectorConfiguration Configuration of the connector.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
+     * @param ddlBatchingSuggestionEnabled Boolean supplier indicates whether the suggestion related DDL batching is enabled.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -195,7 +198,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
             NodeProperties nodeProperties,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            Supplier<Boolean> ddlBatchingSuggestionEnabled
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -212,6 +216,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert catalogService != null;
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
+        assert ddlBatchingSuggestionEnabled != null;
         assert lowWatermark != null;
         assert nodeProperties != null;
         assert partitionOperationsExecutor != null;
@@ -232,6 +237,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
                 lowWatermark, nodeProperties);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
+        this.ddlBatchingSuggestionEnabled = ddlBatchingSuggestionEnabled;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
@@ -455,7 +461,10 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 SUPPORTED_FEATURES,
                 Map.of(),
                 computeExecutors::remove,
-                handshakeEventLoopSwitcher
+                handshakeEventLoopSwitcher,
+                ddlBatchingSuggestionEnabled.get()
+                        ? new DdlBatchingSuggester()
+                        : ignore -> {}
         );
     }
 

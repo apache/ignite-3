@@ -142,7 +142,8 @@ public class TestServer {
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
                 new SystemPropertiesNodeProperties(),
-                Runnable::run
+                Runnable::run,
+                () -> true
         );
 
         module.startAsync(componentContext).join();

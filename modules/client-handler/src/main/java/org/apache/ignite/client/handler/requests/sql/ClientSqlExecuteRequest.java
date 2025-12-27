@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -96,7 +98,8 @@ public class ClientSqlExecuteRequest {
             ClockService clockService,
             NotificationSender notificationSender,
             @Nullable String username,
-            boolean sqlMultistatementsSupported
+            boolean sqlMultistatementsSupported,
+            Consumer<SqlQueryType> queryTypeListener
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -135,6 +138,7 @@ public class ClientSqlExecuteRequest {
                 props.pageSize(),
                 props.toSqlProps().userName(username),
                 () -> cancelHandles.remove(requestId),
+                queryTypeListener,
                 arguments
         ).thenCompose(asyncResultSet ->
                         ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, props.pageSize(),
@@ -165,6 +169,7 @@ public class ClientSqlExecuteRequest {
             int pageSize,
             SqlProperties props,
             Runnable onComplete,
+            Consumer<SqlQueryType> queryTypeListener,
             @Nullable Object... arguments
     ) {
         try {
@@ -177,6 +182,8 @@ public class ClientSqlExecuteRequest {
                         arguments
                     )
                     .thenCompose(cur -> {
+                                queryTypeListener.accept(cur.queryType());
+
                                 doWhenAllCursorsComplete(cur, onComplete);
 
                                 return cur.requestNextAsync(pageSize)
