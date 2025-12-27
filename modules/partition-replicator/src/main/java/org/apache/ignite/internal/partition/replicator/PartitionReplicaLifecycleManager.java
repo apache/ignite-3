@@ -475,7 +475,7 @@ public class PartitionReplicaLifecycleManager extends
         // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
         // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
         // TODO sanpwc Add ticket for that.
-//        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        // int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int earliestCatalogVersion = lwm == null ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
 
@@ -499,7 +499,6 @@ public class PartitionReplicaLifecycleManager extends
 
                         startZoneFutures.add(
                                 calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor, true));
-
 
                         if (nextCatalog0 != null && nextCatalog0.zone(zoneId) == null) {
                             destructionEventsQueue.enqueue(new DestroyZoneEvent(nextCatalog0.version(), zoneId));
@@ -2077,13 +2076,14 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * For each partition:
-     * <or>
-     * <li>Check whether it's started or await if it's starting.</li>
-     * <li>Check whether the partition is eligible for removal, it is if it has zero table resources and if txStateStorage is empty.</li>
-     * <li>Stop partition, drop zone partition resources and unregister it from within startedReplicationGroups.</li>
-     * <li>Remove partition assignments from meta storage.</li>
-     * </or>
+     * For each partition performs following actions.
+     *
+     * <ol>
+     *     <li>Check whether it's started or await if it's starting.</li>
+     *     <li>Check whether the partition is eligible for removal, it is if it has zero table resources and if txStateStorage is empty.</li>
+     *     <li>Stop partition, drop zone partition resources and unregister it from within startedReplicationGroups.</li>
+     *     <li>Remove partition assignments from meta storage.</li>
+     * </ol>
      */
     private void removeZonePartitionsIfPossible(DestroyZoneEvent event) {
         int zoneId = event.zoneId();
