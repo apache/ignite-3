@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.util;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,12 +24,11 @@ import java.util.PriorityQueue;
 import java.util.function.ToLongFunction;
 
 /**
- * A thread-safe wrapper over {@link java.util.PriorityQueue}, which uses {@code long} value for ordering.
+ * A thread-safe wrapper over {@link PriorityQueue}, which uses {@code long} value for ordering.
  * The implementation provides a method to poll top item up to the given priority.
  *
  * @param <T> Item type.
  */
-// TODO sanpwc drop and use one from utils.
 public class LongPriorityQueue<T> {
     /** A queue. Guarded by itself. */
     private final PriorityQueue<T> queue;

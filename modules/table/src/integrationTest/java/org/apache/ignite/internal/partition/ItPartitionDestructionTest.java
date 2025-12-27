@@ -23,6 +23,13 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,6 +39,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.io.FileMatchers.anExistingFile;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -53,17 +61,19 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.IgnitePaths;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -71,7 +81,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionOptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.rocksdb.ReadOptions;
@@ -137,7 +146,6 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
     void partitionIsDestroyedOnZoneDestruction() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
@@ -154,7 +162,16 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         executeUpdate("DROP TABLE " + TABLE_NAME);
         executeUpdate("DROP ZONE " + ZONE_NAME);
 
+        verifyPartitionMvDataGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
+
+        verifyPartitionNonMvDataExistsOnDisk(ignite0, replicationGroupId);
+
+        // Trigger txStateStorage vacuumization that will remove all records from the storage and thus make it eligible for removal.
+        assertThat(ignite0.txManager().vacuum(mock(ResourceVacuumMetrics.class)), willCompleteSuccessfully());
+
         verifyPartitionGetsFullyRemovedFromDisk(ignite0, tableId, replicationGroupId);
+
+        verifyAssignmentKeysWereRemovedFromMetaStorage(ignite0, replicationGroupId);
     }
 
     /**
@@ -208,7 +225,6 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
     void partitionIsDestroyedOnZoneDestructionOnNodeRecovery() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
@@ -234,6 +250,11 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         executeUpdate("DROP ZONE " + ZONE_NAME);
         HybridTimestamp tsAfterDrop = latestCatalogVersionTs(ignite0);
 
+        verifyPartitionNonMvDataExistsOnDisk(ignite0, replicationGroupId);
+
+        // Trigger txStateStorage vacuumization that will remove all records from the storage and thus make it eligible for removal.
+        assertThat(ignite0.txManager().vacuum(mock(ResourceVacuumMetrics.class)), willCompleteSuccessfully());
+
         cluster.stopNode(0);
 
         // Simulate a situation when an LWM was raised (and persisted) and the node was stopped immediately, so we were not
@@ -243,6 +264,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
         verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+
+        verifyAssignmentKeysWereRemovedFromMetaStorage(restartedIgnite0, replicationGroupId);
     }
 
     /**
@@ -371,7 +394,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         return table.zoneId();
     }
 
-    private static void makeSurePartitionExistsOnDisk(IgniteImpl ignite, int tableId, PartitionGroupId replicationGroupId) {
+    private static void makeSurePartitionExistsOnDisk(IgniteImpl ignite, int tableId, ZonePartitionId replicationGroupId) {
         makeSurePartitionMvDataExistsOnDisk(ignite, tableId);
 
         assertTrue(hasSomethingInTxStateStorage(ignite, replicationGroupId));
@@ -428,20 +451,20 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                 .array();
     }
 
-    private static File partitionRaftMetaFile(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+    private static File partitionRaftMetaFile(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
         String relativePath = partitionRaftNodeIdStringForStorage(ignite, replicationGroupId) + "/meta/raft_meta";
         Path raftMetaFilePath = ignite.partitionsWorkDir().metaPath().resolve(relativePath);
         return raftMetaFilePath.toFile();
     }
 
-    private static LogStorage partitionLogStorage(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+    private static LogStorage partitionLogStorage(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
         return ignite.partitionsLogStorageFactory().createLogStorage(
                 partitionRaftNodeIdStringForStorage(ignite, replicationGroupId),
                 new RaftOptions()
         );
     }
 
-    private static String partitionRaftNodeIdStringForStorage(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+    private static String partitionRaftNodeIdStringForStorage(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
         RaftNodeId partitionRaftNodeId = new RaftNodeId(replicationGroupId, new Peer(ignite.name()));
         return partitionRaftNodeId.nodeIdStringForStorage();
     }
@@ -453,7 +476,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static void verifyPartitionGetsFullyRemovedFromDisk(
             IgniteImpl ignite,
             int tableId,
-            PartitionGroupId replicationGroupId
+            ZonePartitionId replicationGroupId
     ) throws InterruptedException {
         verifyPartitionGetsRemovedFromDisk(ignite, tableId, replicationGroupId, true);
     }
@@ -461,7 +484,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static void verifyPartitionMvDataGetsRemovedFromDisk(
             IgniteImpl ignite,
             int tableId,
-            PartitionGroupId replicationGroupId
+            ZonePartitionId replicationGroupId
     ) throws InterruptedException {
         verifyPartitionGetsRemovedFromDisk(ignite, tableId, replicationGroupId, false);
     }
@@ -469,7 +492,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static void verifyPartitionGetsRemovedFromDisk(
             IgniteImpl ignite,
             int tableId,
-            PartitionGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             boolean concernNonMvData
     ) throws InterruptedException {
         File partitionFile = testTablePartition0File(ignite, tableId);
@@ -495,6 +518,15 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time"
             );
         }
+    }
+
+    private static void verifyPartitionNonMvDataExistsOnDisk(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
+        assertTrue(hasSomethingInTxStateStorage(ignite, replicationGroupId), "Tx state storage was unexpectedly destroyed");
+
+        assertTrue(partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() > 0L, "Partition Raft log was unexpectedly removed.");
+
+        File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
+        assertTrue(raftMetaFile.exists(), "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was unexpectedly removed.");
     }
 
     private static void waitTillCatalogDoesNotContainTargetTable(IgniteImpl ignite, String tableName) throws InterruptedException {
@@ -550,7 +582,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         verifyPartitionGetsFullyRemovedFromDisk(notHostingIgnite, tableId, replicationGroupId);
     }
 
-    private void waitTillAssignmentCountReaches(int targetAssignmentCount, ReplicationGroupId replicationGroupId)
+    private void waitTillAssignmentCountReaches(int targetAssignmentCount, ZonePartitionId replicationGroupId)
             throws InterruptedException {
         assertTrue(
                 waitForCondition(() -> partitionAssignments(replicationGroupId).size() == targetAssignmentCount, SECONDS.toMillis(10)),
@@ -558,7 +590,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         );
     }
 
-    private Set<Assignment> partitionAssignments(ReplicationGroupId replicationGroupId) {
+    private Set<Assignment> partitionAssignments(ZonePartitionId replicationGroupId) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
         CompletableFuture<TokenizedAssignments> assignmentsFuture = ignite.placementDriver()
@@ -571,7 +603,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         return assignments.nodes();
     }
 
-    private IgniteImpl nodeNotHostingPartition(ReplicationGroupId replicationGroupId) throws InterruptedException {
+    private IgniteImpl nodeNotHostingPartition(ZonePartitionId replicationGroupId) throws InterruptedException {
         waitTillAssignmentCountReaches(1, replicationGroupId);
 
         Set<Assignment> assignments = partitionAssignments(replicationGroupId);
@@ -584,4 +616,67 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                 .map(TestWrappers::unwrapIgniteImpl)
                 .orElseThrow();
     }
+
+    private static void verifyAssignmentKeysWereRemovedFromMetaStorage(IgniteImpl ignite, ZonePartitionId zonePartitionId)
+            throws InterruptedException {
+        MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(stablePartAssignmentsKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Stable assignments were not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Pending assignments were not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(pendingChangeTriggerKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Pending change trigger key was not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(plannedPartAssignmentsKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Planned assignments were not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(switchAppendKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Switch append assignments were not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(switchReduceKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Switch reduce assignments were not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> {
+                    Entry entry = metaStorage.getLocally(assignmentsChainKey(zonePartitionId));
+                    return entry.tombstone() || entry.empty();
+                }, SECONDS.toMillis(10)),
+                "Assignments chain was not removed from meta storage in time."
+        );
+    }
+
+    // TODO sanpwc add test that will trigger rebalance.
 }

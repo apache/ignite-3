@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.Map;
 import java.util.Set;
@@ -98,6 +100,23 @@ class StartedReplicationGroups {
      */
     boolean hasReplicationGroupStarted(ZonePartitionId zonePartitionId) {
         return startedReplicationGroupIds.contains(zonePartitionId);
+    }
+
+    /**
+     * Returns trueCompleted future if group was already started or awaits groups startup if it's in the middle of the start process,
+     * otherwise returns falseCompleted future.
+     */
+    CompletableFuture<Boolean> hasReplicationGroupStartedOrAwaitIfStarting(ZonePartitionId zonePartitionId) {
+        if (startedReplicationGroupIds.contains(zonePartitionId)) {
+            return trueCompletedFuture();
+        }
+
+        CompletableFuture<Void> groupStartingFuture = startingReplicationGroupIds.get(zonePartitionId);
+        if (groupStartingFuture != null) {
+            return groupStartingFuture.thenCompose(ignored -> trueCompletedFuture());
+        }
+
+        return falseCompletedFuture();
     }
 
     private void completeStartingFuture(ZonePartitionId zonePartitionId) {

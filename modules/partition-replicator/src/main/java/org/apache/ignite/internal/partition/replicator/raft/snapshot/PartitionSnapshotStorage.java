@@ -206,6 +206,15 @@ public class PartitionSnapshotStorage {
     }
 
     /**
+     * Returns true if there are neither ongoing snapshot operations nor partition snapshot storages, falser otherwise.
+     */
+    public boolean arePartitionSnapshotStoragesEmpty() {
+        synchronized (snapshotOperationLock) {
+            return ongoingSnapshotOperations.isEmpty() && partitionsByTableId.isEmpty();
+        }
+    }
+
+    /**
      * Returns the TX state storage.
      */
     public PartitionTxStateAccess txState() {

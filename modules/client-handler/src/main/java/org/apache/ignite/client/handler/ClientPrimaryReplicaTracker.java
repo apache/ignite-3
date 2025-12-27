@@ -341,7 +341,7 @@ public class ClientPrimaryReplicaTracker {
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         inBusyLockSafe(busyLock, () -> {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-24345 - support zone destruction.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25017 - support zone destruction.
             int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
