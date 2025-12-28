@@ -2100,7 +2100,7 @@ public class PartitionReplicaLifecycleManager extends
      *
      * <ol>
      *     <li>Check whether it's started or await if it's starting.</li>
-     *     <li>Check whether the partition is eligible for removal, it is if it has zero table resources and if txStateStorage is empty.</li>
+     *     <li>Check whether the partition is eligible for removal -  has zero table resources and empty txStateStorage.</li>
      *     <li>Stop partition, drop zone partition resources and unregister it from within startedReplicationGroups.</li>
      *     <li>Remove partition assignments from meta storage.</li>
      * </ol>
