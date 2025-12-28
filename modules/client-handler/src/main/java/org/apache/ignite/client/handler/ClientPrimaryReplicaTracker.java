@@ -52,9 +52,9 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 

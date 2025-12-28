@@ -2088,7 +2088,6 @@ public class PartitionReplicaLifecycleManager extends
     private void removeZonePartitionsIfPossible(DestroyZoneEvent event) {
         int zoneId = event.zoneId();
         int catalogVersionWithZonePresent = event.catalogVersion() - 1;
-        // TODO sanpwc I'm not sure that it's safe. It might be better to use non-catalog source of partitions count.
         CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersionWithZonePresent).zone(zoneId);
 
         assert zoneDescriptor != null : "Unexpected null zone descriptor for zoneId=" + zoneId + ", catalogVersion "
