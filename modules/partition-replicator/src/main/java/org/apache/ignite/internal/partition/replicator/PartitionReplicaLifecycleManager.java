@@ -499,7 +499,13 @@ public class PartitionReplicaLifecycleManager extends
                                 calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor, true));
 
                         if (nextCatalog0 != null && nextCatalog0.zone(zoneId) == null) {
-                            destructionEventsQueue.enqueue(new DestroyZoneEvent(nextCatalog0.version(), zoneId));
+                            destructionEventsQueue.enqueue(
+                                    new DestroyZoneEvent(
+                                            nextCatalog0.version(),
+                                            zoneId,
+                                            zoneDescriptor.partitions()
+                                    )
+                            );
                         }
                     });
 
@@ -2050,7 +2056,23 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private void onZoneDrop(DropZoneEventParameters parameters) {
-        inBusyLock(busyLock, () -> destructionEventsQueue.enqueue(new DestroyZoneEvent(parameters.catalogVersion(), parameters.zoneId())));
+        inBusyLock(busyLock, () -> {
+            int eventCatalogVersion = parameters.catalogVersion();
+            int catalogVersionWithZonePresent = eventCatalogVersion - 1;
+            int zoneId = parameters.zoneId();
+
+            CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersionWithZonePresent).zone(zoneId);
+
+            assert zoneDescriptor != null : "Unexpected null zone descriptor for zoneId=" + zoneId + ", catalogVersion "
+                    + catalogVersionWithZonePresent;
+
+            destructionEventsQueue.enqueue(
+                new DestroyZoneEvent(
+                        eventCatalogVersion,
+                        zoneId,
+                        zoneDescriptor.partitions()
+                )
+        );});
     }
 
     private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
@@ -2085,14 +2107,10 @@ public class PartitionReplicaLifecycleManager extends
      */
     private void removeZonePartitionsIfPossible(DestroyZoneEvent event) {
         int zoneId = event.zoneId();
-        int catalogVersionWithZonePresent = event.catalogVersion() - 1;
-        CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersionWithZonePresent).zone(zoneId);
-
-        assert zoneDescriptor != null : "Unexpected null zone descriptor for zoneId=" + zoneId + ", catalogVersion "
-                + event.catalogVersion();
+        int partitionsCount = event.partitions();
 
         List<CompletableFuture<Boolean>> partitionsEligibilityForRemovalFutures = new ArrayList<>();
-        for (int partitionIndex = 0; partitionIndex < zoneDescriptor.partitions(); partitionIndex++) {
+        for (int partitionIndex = 0; partitionIndex < partitionsCount; partitionIndex++) {
             ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionIndex);
 
             CompletableFuture<Boolean> partitionRemovalFuture =
@@ -2120,9 +2138,9 @@ public class PartitionReplicaLifecycleManager extends
                             .exceptionally(e -> {
                                 if (!hasCause(e, NodeStoppingException.class)) {
                                     LOG.error(
-                                            "Unable to destroy zone partition [zone={}, zonePartitionId={}]",
+                                            "Unable to destroy zone partition [zonePartitionId={}]",
                                             e,
-                                            zoneDescriptor.name(), zonePartitionId);
+                                            zonePartitionId);
                                 }
 
                                 // In case of false, event will be returned to the destructionEventsQueue and thus removal will be retried
@@ -2202,10 +2220,16 @@ public class PartitionReplicaLifecycleManager extends
     private static class DestroyZoneEvent {
         final int catalogVersion;
         final int zoneId;
+        final int partitions;
 
-        DestroyZoneEvent(int catalogVersion, int zoneId) {
+        DestroyZoneEvent(
+                int catalogVersion,
+                int zoneId,
+                int partitions
+        ) {
             this.catalogVersion = catalogVersion;
             this.zoneId = zoneId;
+            this.partitions = partitions;
         }
 
         int catalogVersion() {
@@ -2214,6 +2238,10 @@ public class PartitionReplicaLifecycleManager extends
 
         int zoneId() {
             return zoneId;
+        }
+
+        int partitions() {
+            return partitions;
         }
     }
 }
