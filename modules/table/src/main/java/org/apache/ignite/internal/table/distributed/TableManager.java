@@ -1875,7 +1875,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void cleanUpResourcesForDroppedTablesOnRecoveryBusy() {
-        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
+        // TODO: IGNITE-20384 Clean up abandoned resources for dropped tables from vault and metastore
 
         Set<Integer> aliveTableIds = aliveTables(catalogService, lowWatermark.getLowWatermark());
 
