@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.commands.PartitionCountProvider;
 
 /**
  * Context contains two instances of the catalog: the base one and the updated one.
