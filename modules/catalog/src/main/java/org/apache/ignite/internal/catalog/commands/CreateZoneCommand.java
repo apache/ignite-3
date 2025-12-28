@@ -21,6 +21,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNullElse;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateConsistencyMode;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
@@ -41,6 +42,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
@@ -130,7 +133,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             throw duplicateDistributionZoneNameCatalogValidationException(zoneName);
         }
 
-        CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());
+        CatalogZoneDescriptor zoneDesc = descriptor(updateContext.partitionCountProvider(), catalog.objectIdGenState());
 
         return List.of(
                 new NewZoneEntry(zoneDesc),
@@ -138,13 +141,19 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         );
     }
 
-    private CatalogZoneDescriptor descriptor(int objectId) {
+    private CatalogZoneDescriptor descriptor(PartitionCountProvider partitionCountProvider, int objectId) {
+        String filter = requireNonNullElse(this.filter, DEFAULT_FILTER);
         int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
+        CatalogStorageProfilesDescriptor storageProfilesDescriptor = fromParams(storageProfileParams);
+        List<String> storageProfiles = storageProfilesDescriptor.profiles()
+                .stream()
+                .map(CatalogStorageProfileDescriptor::storageProfile)
+                .collect(toList());
 
         return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
-                requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
+                requireNonNullElse(partitions, partitionCountProvider.calculate(filter, storageProfiles, replicas)),
                 replicas,
                 requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
                 requireNonNullElse(
@@ -152,8 +161,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                         IMMEDIATE_TIMER_VALUE
                 ),
                 requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
-                requireNonNullElse(filter, DEFAULT_FILTER),
-                fromParams(storageProfileParams),
+                filter,
+                storageProfilesDescriptor,
                 requireNonNullElse(consistencyMode, STRONG_CONSISTENCY)
         );
     }

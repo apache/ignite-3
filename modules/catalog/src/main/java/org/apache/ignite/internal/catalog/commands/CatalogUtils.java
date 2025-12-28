@@ -589,13 +589,14 @@ public class CatalogUtils {
      */
     public static CatalogZoneDescriptor createDefaultZoneDescriptor(
             Catalog catalog,
+            PartitionCountProvider partitionCountProvider,
             int newDefaultZoneId,
             Collection<UpdateEntry> updateEntries
     ) throws CatalogValidationException {
         // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
         checkDuplicateDefaultZoneName(catalog);
 
-        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(newDefaultZoneId);
+        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(partitionCountProvider, newDefaultZoneId);
 
         updateEntries.add(new NewZoneEntry(defaultZone));
         updateEntries.add(new SetDefaultZoneEntry(defaultZone.id()));
@@ -603,11 +604,11 @@ public class CatalogUtils {
         return defaultZone;
     }
 
-    private static CatalogZoneDescriptor createDefaultZoneDescriptor(int newDefaultZoneId) {
+    private static CatalogZoneDescriptor createDefaultZoneDescriptor(PartitionCountProvider partitionCountProvider, int newDefaultZoneId) {
         return new CatalogZoneDescriptor(
                 newDefaultZoneId,
                 DEFAULT_ZONE_NAME,
-                DEFAULT_PARTITION_COUNT,
+                defaultZonePartitionCount(partitionCountProvider),
                 DEFAULT_REPLICA_COUNT,
                 DEFAULT_ZONE_QUORUM_SIZE,
                 IMMEDIATE_TIMER_VALUE,
@@ -616,6 +617,10 @@ public class CatalogUtils {
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
                 STRONG_CONSISTENCY
         );
+    }
+
+    public static int defaultZonePartitionCount(PartitionCountProvider partitionCountProvider) {
+        return partitionCountProvider.calculate(DEFAULT_FILTER, List.of(DEFAULT_STORAGE_PROFILE), DEFAULT_REPLICA_COUNT);
     }
 
     private static void checkDuplicateDefaultZoneName(Catalog catalog) {

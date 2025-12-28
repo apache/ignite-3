@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.commands.PartitionCountProvider;
 
 /**
  * Context contains two instances of the catalog: the base one and the updated one.
@@ -36,10 +37,18 @@ public class UpdateContext {
     /** The updatable catalog descriptor. */
     private Catalog updatableCatalog;
 
+    private final PartitionCountProvider partitionCountProvider;
+
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
+        this(catalog, PartitionCountProvider.defaultPartitionCountProvider());
+    }
+
+    /** Constructor. */
+    public UpdateContext(Catalog catalog, PartitionCountProvider partitionCountProvider) {
         this.baseCatalog = catalog;
         this.updatableCatalog = catalog;
+        this.partitionCountProvider = partitionCountProvider;
     }
 
     /**
@@ -62,5 +71,10 @@ public class UpdateContext {
     /** Applies specified action to the catalog. */
     public void updateCatalog(Function<Catalog, Catalog> updater) {
         updatableCatalog = updater.apply(updatableCatalog);
+    }
+
+    /** Returns partition count provider. */
+    public PartitionCountProvider partitionCountProvider() {
+        return partitionCountProvider;
     }
 }
