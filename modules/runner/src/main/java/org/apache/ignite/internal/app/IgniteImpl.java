@@ -517,6 +517,8 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
+    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
+
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
 
@@ -867,7 +869,7 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
-        PartitionCountProviderWrapper partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
 
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
