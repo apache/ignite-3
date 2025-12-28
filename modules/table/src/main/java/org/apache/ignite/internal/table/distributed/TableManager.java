@@ -1880,11 +1880,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<Integer> aliveTableIds = aliveTables(catalogService, lowWatermark.getLowWatermark());
 
         destroyMvStoragesForTablesNotIn(aliveTableIds);
-
-        if (!nodeProperties.colocationEnabled()) {
-            destroyTxStateStoragesForTablesNotIn(aliveTableIds);
-            destroyReplicationProtocolStoragesForTablesNotIn(aliveTableIds);
-        }
     }
 
     private void destroyMvStoragesForTablesNotIn(Set<Integer> aliveTableIds) {

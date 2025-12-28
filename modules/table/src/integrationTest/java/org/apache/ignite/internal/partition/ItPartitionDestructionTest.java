@@ -81,6 +81,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.rocksdb.ReadOptions;
@@ -225,7 +226,17 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void partitionIsDestroyedOnZoneDestructionOnNodeRecovery() throws Exception {
+    public void partitionIsDestroyedOnZoneDestructionOnNodeRecoveryIfLwmIsNotMovedWhileNodeIsAbsent() throws Exception {
+        verifyPartitionIsDestroyedOnZoneDestructionOnNodeRecovery(false);
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27466")
+    public void partitionIsDestroyedOnZoneDestructionOnNodeRecoveryIfLwmIsMovedWhileNodeIsAbsent() throws Exception {
+        verifyPartitionIsDestroyedOnZoneDestructionOnNodeRecovery(true);
+    }
+
+    private void verifyPartitionIsDestroyedOnZoneDestructionOnNodeRecovery(boolean moveLwmWhileNodeIsAbsent) throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
         Path workDir0 = ((IgniteServerImpl) cluster.server(0)).workDir();
@@ -257,9 +268,11 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         cluster.stopNode(0);
 
-        // Simulate a situation when an LWM was raised (and persisted) and the node was stopped immediately, so we were not
-        // able to destroy the dropped zone yet, even though its drop moment is already under the LWM.
-        raisePersistedLwm(workDir0, tsAfterDrop.tick());
+        if (moveLwmWhileNodeIsAbsent) {
+            // Simulate a situation when an LWM was raised (and persisted) and the node was stopped immediately, so we were not
+            // able to destroy the dropped zone yet, even though its drop moment is already under the LWM.
+            raisePersistedLwm(workDir0, tsAfterDrop.tick());
+        }
 
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
@@ -677,6 +690,4 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                 "Assignments chain was not removed from meta storage in time."
         );
     }
-
-    // TODO sanpwc add test that will trigger rebalance.
 }

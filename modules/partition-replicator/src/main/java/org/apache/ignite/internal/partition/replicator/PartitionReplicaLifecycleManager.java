@@ -442,7 +442,7 @@ public class PartitionReplicaLifecycleManager extends
         assert recoveryFinishFuture.isDone();
         long recoveryRevision = recoveryFinishFuture.join().revision();
 
-        cleanUpResourcesForDroppedZonesOnRecovery();
+        handleResourcesForDroppedZonesOnRecovery();
 
         CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
                 .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision));
@@ -474,8 +474,6 @@ public class PartitionReplicaLifecycleManager extends
         // Once the metastorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
         // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
         // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
-        // TODO sanpwc Add ticket for that.
-        // int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int earliestCatalogVersion = lwm == null ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
 
@@ -575,8 +573,8 @@ public class PartitionReplicaLifecycleManager extends
         }
     }
 
-    private void cleanUpResourcesForDroppedZonesOnRecovery() {
-        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
+    private void handleResourcesForDroppedZonesOnRecovery() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-27466 Handle abandoned resources for dropped zones from vault and metastore
     }
 
     private CompletableFuture<Boolean> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
