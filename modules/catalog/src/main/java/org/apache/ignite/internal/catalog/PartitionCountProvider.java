@@ -19,16 +19,14 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 
-import java.util.List;
-
 /**
  * Default partition count provider.
  */
 @FunctionalInterface
 public interface PartitionCountProvider {
-    int calculate(String dataNodesFilter, List<String> storageProfiles, Integer replicaFactor);
+    int calculate(PartitionCountCalculationParameters params);
 
     static PartitionCountProvider defaultPartitionCountProvider() {
-        return (f, p, r) -> DEFAULT_PARTITION_COUNT;
+        return params -> DEFAULT_PARTITION_COUNT;
     }
 }

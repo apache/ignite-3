@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.List;
-
 /**
  * Wrapper that allows to apply and use different partition count computing approaches.
  */
@@ -37,8 +35,8 @@ public final class PartitionCountProviderWrapper implements PartitionCountProvid
     }
 
     @Override
-    public int calculate(String dataNodesFilter, List<String> storageProfiles, Integer replicaFactor) {
-        return delegate.calculate(dataNodesFilter, storageProfiles, replicaFactor);
+    public int calculate(PartitionCountCalculationParameters parameters) {
+        return delegate.calculate(parameters);
     }
 
     public void setPartitionCountProvider(PartitionCountProvider newProvider) {

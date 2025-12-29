@@ -40,6 +40,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
 import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
@@ -621,7 +622,7 @@ public class CatalogUtils {
     }
 
     public static int defaultZonePartitionCount(PartitionCountProvider partitionCountProvider) {
-        return partitionCountProvider.calculate(DEFAULT_FILTER, List.of(DEFAULT_STORAGE_PROFILE), DEFAULT_REPLICA_COUNT);
+        return partitionCountProvider.calculate(PartitionCountCalculationParameters.builder().build());
     }
 
     private static void checkDuplicateDefaultZoneName(Catalog catalog) {

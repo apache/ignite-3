@@ -40,6 +40,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
 import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -153,7 +154,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
-                requireNonNullElse(partitions, partitionCountProvider.calculate(filter, storageProfiles, replicas)),
+                requireNonNullElse(partitions, partitionCountProvider.calculate(
+                        PartitionCountCalculationParameters.builder()
+                                .dataNodesFilter(filter)
+                                .storageProfiles(storageProfiles)
+                                .replicaFactor(replicas)
+                                .build()
+                )),
                 replicas,
                 requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
                 requireNonNullElse(
@@ -183,7 +190,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         validateConsistencyMode(consistencyMode);
 
-        validateStorageProfiles(storageProfileParams);
+        validateStorageProfiles(storageProfileParams.stream().map(StorageProfileParams::storageProfile).collect(toList()));
     }
 
     /**

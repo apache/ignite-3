@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -89,7 +88,7 @@ public class CatalogParamsValidationUtils {
     /**
      * Validates correctness of the storage profiles.
      */
-    public static void validateStorageProfiles(List<StorageProfileParams> storageProfiles) {
+    public static void validateStorageProfiles(List<String> storageProfiles) {
         if (storageProfiles == null) {
             throw new CatalogValidationException(
                     "Storage profile cannot be null."
