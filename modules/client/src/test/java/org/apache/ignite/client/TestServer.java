@@ -156,6 +156,7 @@ public class TestServer implements AutoCloseable {
                 port,
                 true,
                 null,
+                null,
                 null
         );
     }
@@ -177,7 +178,8 @@ public class TestServer implements AutoCloseable {
             @Nullable Integer port,
             boolean enableRequestHandling,
             @Nullable BitSet features,
-            String @Nullable [] listenAddresses
+            String @Nullable [] listenAddresses,
+            @Nullable UUID nodeId
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -382,7 +384,7 @@ public class TestServer implements AutoCloseable {
         }
     }
 
-    private InternalClusterNode getClusterNode(String name) {
+    private static InternalClusterNode getClusterNode(String name) {
         return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
@@ -413,6 +415,7 @@ public class TestServer implements AutoCloseable {
         private boolean enableRequestHandling = true;
         private @Nullable BitSet features;
         private @Nullable String[] listenAddresses;
+        private @Nullable UUID nodeId;
 
         public Builder idleTimeout(long idleTimeout) {
             this.idleTimeout = idleTimeout;
@@ -469,6 +472,11 @@ public class TestServer implements AutoCloseable {
             return this;
         }
 
+        public Builder nodeId(@Nullable UUID nodeId) {
+            this.nodeId = nodeId;
+            return this;
+        }
+
         /**
          * Builds the test server.
          *
@@ -486,7 +494,8 @@ public class TestServer implements AutoCloseable {
                     port,
                     enableRequestHandling,
                     features,
-                    listenAddresses
+                    listenAddresses,
+                    nodeId
             );
         }
     }
