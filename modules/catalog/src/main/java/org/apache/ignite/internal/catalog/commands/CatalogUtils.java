@@ -736,7 +736,7 @@ public class CatalogUtils {
     public static HybridTimestamp clusterWideEnsuredActivationTimestamp(long activationTs, long maxClockSkewMillis) {
         return HybridTimestamp.hybridTimestamp(activationTs).addPhysicalTime(maxClockSkewMillis)
                 // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
-                // logical parts on different nodes of the cluster (see IGNITE_21084).
+                // logical parts on different nodes of the cluster (see IGNITE-21084).
                 .roundUpToPhysicalTick();
     }
 

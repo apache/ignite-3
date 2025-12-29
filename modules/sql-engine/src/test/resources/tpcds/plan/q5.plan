@@ -6,7 +6,7 @@ Sort
       group: [CHANNEL, ID]
       groupSets: [[CHANNEL, ID], [CHANNEL], []]
       aggregation: [SUM(SALES), SUM(RETURNS), SUM(PROFIT)]
-      est: (rows=1529126614865)
+      est: (rows=1532000739378)
     UnionAll
         est: (rows=1532000739400)
       Project
@@ -71,63 +71,64 @@ Sort
                         est: (rows=12)
       Project
           projection: [CAST(CHANNEL):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, ID, SALES, RETURNS, PROFIT]
+          est: (rows=1526926163852)
         Project
             fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
             projection: [_UTF-8'catalog channel', ||(_UTF-8'catalog_page', CP_CATALOG_PAGE_ID), SALES, RETURNS, -(PROFIT, PROFIT_LOSS)]
-          est: (rows=1526926163852)
+            est: (rows=1526926163852)
           ColocatedHashAggregate
               fieldNames: [CP_CATALOG_PAGE_ID, SALES, PROFIT, RETURNS, PROFIT_LOSS]
               group: [CP_CATALOG_PAGE_ID]
               aggregation: [SUM(SALES_PRICE), SUM(PROFIT), SUM(RETURN_AMT), SUM(NET_LOSS)]
-            est: (rows=1526926163852)
+              est: (rows=1526926163852)
             Project
                 fieldNames: [CP_CATALOG_PAGE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
                 projection: [CP_CATALOG_PAGE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
-              est: (rows=7634630819261)
+                est: (rows=7634630819261)
               MergeJoin
                   predicate: =(PAGE_SK, CP_CATALOG_PAGE_SK)
                   type: inner
-                est: (rows=7634630819261)
+                  est: (rows=7634630819261)
                 HashJoin
                     predicate: =(DATE_SK, D_DATE_SK)
                     type: inner
-                  est: (rows=4343534630)
+                    est: (rows=4343534630)
                   Exchange
                       distribution: single
-                    est: (rows=1585615)
+                      est: (rows=1585615)
                     Sort
                         collation: [PAGE_SK ASC]
-                      est: (rows=1585615)
-                      UnionAll
                         est: (rows=1585615)
+                      UnionAll
+                          est: (rows=1585615)
                         TableScan
                             table: PUBLIC.CATALOG_SALES
                             fieldNames: [PAGE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
                             projection: [CS_CATALOG_PAGE_SK, CS_SOLD_DATE_SK, CS_EXT_SALES_PRICE, CS_NET_PROFIT, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2)]
-                          est: (rows=1441548)
+                            est: (rows=1441548)
                         TableScan
                             table: PUBLIC.CATALOG_RETURNS
                             fieldNames: [PAGE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
                             projection: [CR_CATALOG_PAGE_SK, CR_RETURNED_DATE_SK, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2), CR_RETURN_AMOUNT, CR_NET_LOSS]
-                          est: (rows=144067)
+                            est: (rows=144067)
                   Exchange
                       distribution: single
-                    est: (rows=18262)
+                      est: (rows=18262)
                     TableScan
                         table: PUBLIC.DATE_DIM
                         predicate: SEARCH(D_DATE, Sarg[[2000-08-19..2000-09-02]])
                         fieldNames: [D_DATE_SK, D_DATE]
-                      est: (rows=18262)
+                        est: (rows=18262)
                 Exchange
                     distribution: single
-                  est: (rows=11718)
+                    est: (rows=11718)
                   Sort
                       collation: [CP_CATALOG_PAGE_SK ASC]
-                    est: (rows=11718)
+                      est: (rows=11718)
                     TableScan
                         table: PUBLIC.CATALOG_PAGE
                         fieldNames: [CP_CATALOG_PAGE_SK, CP_CATALOG_PAGE_ID]
-                      est: (rows=11718)
+                        est: (rows=11718)
       Project
           projection: [CAST(CHANNEL):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):VARCHAR(28) CHARACTER SET "UTF-8", SALES, RETURNS, PROFIT]
           est: (rows=1950496781)

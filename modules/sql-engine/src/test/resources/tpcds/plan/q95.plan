@@ -50,7 +50,7 @@ Sort
               HashJoin
                   predicate: =(WS_ORDER_NUMBER, WR_ORDER_NUMBER)
                   type: inner
-                  est: (rows=9016888221786429400)
+                  est: (rows=9016888221786429000)
                 Exchange
                     distribution: single
                     est: (rows=719384)

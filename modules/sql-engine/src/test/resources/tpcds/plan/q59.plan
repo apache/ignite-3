@@ -4,11 +4,11 @@ Limit
   Project
       fieldNames: [S_STORE_NAME1, S_STORE_ID1, D_WEEK_SEQ1, EXPR$3, EXPR$4, EXPR$5, EXPR$6, EXPR$7, EXPR$8, EXPR$9]
       projection: [S_STORE_NAME1, S_STORE_ID1, D_WEEK_SEQ1, /(SUN_SALES1, SUN_SALES2), /(MON_SALES1, MON_SALES2), /(TUE_SALES1, TUE_SALES2), /(WED_SALES1, WED_SALES2), /(THU_SALES1, THU_SALES2), /(FRI_SALES1, FRI_SALES2), /(SAT_SALES1, SAT_SALES2)]
-      est: (rows=181545469684679584)
+      est: (rows=181545469684679580)
     HashJoin
         predicate: AND(=(S_STORE_ID1, S_STORE_ID2), =(D_WEEK_SEQ1, $f9))
         type: inner
-        est: (rows=181545469684679584)
+        est: (rows=181545469684679580)
       Sort
           collation: [S_STORE_NAME1 ASC, S_STORE_ID1 ASC, D_WEEK_SEQ1 ASC]
           est: (rows=2840543529)

@@ -6,7 +6,7 @@ Sort
       group: [CHANNEL, ID]
       groupSets: [[CHANNEL, ID], [CHANNEL], []]
       aggregation: [SUM(SALES), SUM(RETURNS), SUM(PROFIT)]
-      est: (rows=24991)
+      est: (rows=41954)
     UnionAll
         est: (rows=41969)
       Project
@@ -92,84 +92,85 @@ Sort
                       est: (rows=100)
       Project
           projection: [CAST(CHANNEL):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, ID, SALES, RETURNS, PROFIT]
+          est: (rows=12001)
         Project
             fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
             projection: [_UTF-8'catalog channel', ||(_UTF-8'catalog_page', CATALOG_PAGE_ID), SALES, RETURNS, PROFIT]
-          est: (rows=12001)
+            est: (rows=12001)
           ColocatedHashAggregate
               fieldNames: [CATALOG_PAGE_ID, SALES, RETURNS, PROFIT]
               group: [CATALOG_PAGE_ID]
               aggregation: [SUM(CS_EXT_SALES_PRICE), SUM($f2), SUM($f3)]
-            est: (rows=12001)
+              est: (rows=12001)
             Project
                 fieldNames: [CATALOG_PAGE_ID, CS_EXT_SALES_PRICE, $f2, $f3]
                 projection: [CP_CATALOG_PAGE_ID, CS_EXT_SALES_PRICE, CASE(IS NOT NULL(CR_RETURN_AMOUNT), CAST(CR_RETURN_AMOUNT):DECIMAL(12, 2) NOT NULL, 0.00:DECIMAL(12, 2)), -(CS_NET_PROFIT, CASE(IS NOT NULL(CR_NET_LOSS), CAST(CR_NET_LOSS):DECIMAL(12, 2) NOT NULL, 0.00:DECIMAL(12, 2)))]
-              est: (rows=60004)
+                est: (rows=60004)
               HashJoin
                   predicate: =(CS_PROMO_SK, P_PROMO_SK)
                   type: inner
-                est: (rows=60004)
+                  est: (rows=60004)
                 HashJoin
                     predicate: =(CS_ITEM_SK, I_ITEM_SK)
                     type: inner
-                  est: (rows=180194)
+                    est: (rows=180194)
                   HashJoin
                       predicate: =(CS_CATALOG_PAGE_SK, CP_CATALOG_PAGE_SK)
                       type: inner
-                    est: (rows=360387)
+                      est: (rows=360387)
                     HashJoin
                         predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
                         type: inner
-                      est: (rows=360387)
+                        est: (rows=360387)
                       HashJoin
                           predicate: AND(=(CS_ITEM_SK, CR_ITEM_SK), =(CS_ORDER_NUMBER, CR_ORDER_NUMBER))
                           type: left
-                        est: (rows=1441548)
+                          est: (rows=1441548)
                         Exchange
                             distribution: single
-                          est: (rows=1441548)
+                            est: (rows=1441548)
                           TableScan
                               table: PUBLIC.CATALOG_SALES
                               fieldNames: [CS_SOLD_DATE_SK, CS_CATALOG_PAGE_SK, CS_ITEM_SK, CS_PROMO_SK, CS_ORDER_NUMBER, CS_EXT_SALES_PRICE, CS_NET_PROFIT]
-                            est: (rows=1441548)
+                              est: (rows=1441548)
                         Exchange
                             distribution: single
-                          est: (rows=144067)
+                            est: (rows=144067)
                           TableScan
                               table: PUBLIC.CATALOG_RETURNS
                               fieldNames: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_RETURN_AMOUNT, CR_NET_LOSS]
-                            est: (rows=144067)
+                              est: (rows=144067)
                       Exchange
                           distribution: single
-                        est: (rows=18262)
+                          est: (rows=18262)
                         TableScan
                             table: PUBLIC.DATE_DIM
                             predicate: SEARCH(D_DATE, Sarg[[2002-08-06..2002-09-05]])
                             fieldNames: [D_DATE_SK, D_DATE]
-                          est: (rows=18262)
+                            est: (rows=18262)
                     Exchange
                         distribution: single
-                      est: (rows=11718)
+                        est: (rows=11718)
                       TableScan
                           table: PUBLIC.CATALOG_PAGE
                           fieldNames: [CP_CATALOG_PAGE_SK, CP_CATALOG_PAGE_ID]
-                        est: (rows=11718)
+                          est: (rows=11718)
                   Exchange
                       distribution: single
-                    est: (rows=9000)
+                      est: (rows=9000)
                     TableScan
                         table: PUBLIC.ITEM
                         predicate: >(I_CURRENT_PRICE, 50.00)
                         fieldNames: [I_ITEM_SK, I_CURRENT_PRICE]
-                      est: (rows=9000)
+                        est: (rows=9000)
                 Exchange
                     distribution: single
-                  est: (rows=100)
+                    est: (rows=100)
                   TableScan
                       table: PUBLIC.PROMOTION
                       predicate: =(P_CHANNEL_TV, _UTF-8'N')
                       fieldNames: [P_PROMO_SK, P_CHANNEL_TV]
-                    est: (rows=100)
+                      est: (rows=100)
       Project
           projection: [CAST(CHANNEL):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):VARCHAR(28) CHARACTER SET "UTF-8", SALES, RETURNS, PROFIT]
           est: (rows=5989)

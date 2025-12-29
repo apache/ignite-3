@@ -39,26 +39,26 @@ import org.openjdk.jmh.runner.options.TimeValue;
 /**
  * Basic table benchmark.
  *
- * <p>Results on i9-12900H, openjdk 11.0.18, Ubuntu 22.04 after IGNITE_18899:
+ * <p>Results on i9-12900H, openjdk 11.0.18, Ubuntu 22.04:
  * Benchmark                                                Mode  Cnt      Score       Error   Units
- * ClientPutGetBenchmark.get                               thrpt    3  49418.080 ± 17639.810   ops/s (before change)
- * ClientPutGetBenchmark.get                               thrpt    3  50305.929 ± 13924.407   ops/s (after change)
- * ClientPutGetBenchmark.get:·gc.alloc.rate                thrpt    3    666.616 ±  1242.450  MB/sec (before change)
- * ClientPutGetBenchmark.get:·gc.alloc.rate                thrpt    3    480.666 ±   829.508  MB/sec (after change)
- * ClientPutGetBenchmark.get:·gc.alloc.rate.norm           thrpt    3  15572.822 ± 25042.204    B/op (before change)
- * ClientPutGetBenchmark.get:·gc.alloc.rate.norm           thrpt    3  11046.571 ± 21170.502    B/op (after change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space       thrpt    3    716.282 ±   529.130  MB/sec (before change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space       thrpt    3    519.416 ±   555.076  MB/sec (after change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space.norm  thrpt    3  16757.093 ± 17212.675    B/op (before change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space.norm  thrpt    3  11928.927 ± 13109.114    B/op (after change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen          thrpt    3      0.005 ±     0.046  MB/sec (before change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen          thrpt    3      0.001 ±     0.001  MB/sec (after change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen.norm     thrpt    3      0.113 ±     1.101    B/op (before change)
- * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen.norm     thrpt    3      0.025 ±     0.006    B/op (after change)
- * ClientPutGetBenchmark.get:·gc.count                     thrpt    3     40.000              counts (before change)
- * ClientPutGetBenchmark.get:·gc.count                     thrpt    3     29.000              counts (after change)
- * ClientPutGetBenchmark.get:·gc.time                      thrpt    3     15.000                  ms (before change)
- * ClientPutGetBenchmark.get:·gc.time                      thrpt    3     12.000                  ms (after change)
+ * ClientPutGetBenchmark.get                               thrpt    3  49418.080 ± 17639.810   ops/s (before IGNITE-18899)
+ * ClientPutGetBenchmark.get                               thrpt    3  50305.929 ± 13924.407   ops/s (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.alloc.rate                thrpt    3    666.616 ±  1242.450  MB/sec (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.alloc.rate                thrpt    3    480.666 ±   829.508  MB/sec (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.alloc.rate.norm           thrpt    3  15572.822 ± 25042.204    B/op (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.alloc.rate.norm           thrpt    3  11046.571 ± 21170.502    B/op (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space       thrpt    3    716.282 ±   529.130  MB/sec (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space       thrpt    3    519.416 ±   555.076  MB/sec (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space.norm  thrpt    3  16757.093 ± 17212.675    B/op (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space.norm  thrpt    3  11928.927 ± 13109.114    B/op (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen          thrpt    3      0.005 ±     0.046  MB/sec (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen          thrpt    3      0.001 ±     0.001  MB/sec (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen.norm     thrpt    3      0.113 ±     1.101    B/op (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen.norm     thrpt    3      0.025 ±     0.006    B/op (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.count                     thrpt    3     40.000              counts (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.count                     thrpt    3     29.000              counts (after IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.time                      thrpt    3     15.000                  ms (before IGNITE-18899)
+ * ClientPutGetBenchmark.get:·gc.time                      thrpt    3     12.000                  ms (after IGNITE-18899)
  */
 @State(Scope.Benchmark)
 public class ClientPutGetBenchmark {
