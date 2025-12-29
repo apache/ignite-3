@@ -43,15 +43,6 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
         builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
     }
 
-    private static String aggressiveLowWatermarkIncreaseClusterConfig() {
-        return "{\n"
-                + "  ignite.gc.lowWatermark {\n"
-                + "    dataAvailabilityTimeMillis: 1000,\n"
-                + "    updateIntervalMillis: 100\n"
-                + "  },\n"
-                + "}";
-    }
-
     @Test
     void testWriteIntentResolutionAfterTableAlreadyDestroyed() {
         String tableName = "test";

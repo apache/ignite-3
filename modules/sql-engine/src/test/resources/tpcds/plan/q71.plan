@@ -22,7 +22,7 @@ Sort
               est: (rows=49116)
             TableScan
                 table: PUBLIC.TIME_DIM
-                predicate: SEARCH(T_MEAL_TIME, Sarg[_UTF-8'breakfast', _UTF-8'dinner':CHAR(9) CHARACTER SET "UTF-8"]:CHAR(9) CHARACTER SET "UTF-8")
+                predicate: SEARCH(T_MEAL_TIME, Sarg[_UTF-8'breakfast':VARCHAR(9) CHARACTER SET "UTF-8", _UTF-8'dinner':VARCHAR(9) CHARACTER SET "UTF-8"]:VARCHAR(9) CHARACTER SET "UTF-8")
                 fieldNames: [T_TIME_SK, T_HOUR, T_MINUTE, T_MEAL_TIME]
                 est: (rows=49116)
           HashJoin

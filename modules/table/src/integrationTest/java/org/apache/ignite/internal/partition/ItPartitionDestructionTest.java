@@ -105,10 +105,10 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void aggressiveLowWatermarkIncrease(InitParametersBuilder builder) {
-        builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
+        builder.clusterConfiguration(aggressiveLwmIncreaseClusterConfig());
     }
 
-    private static String aggressiveLowWatermarkIncreaseClusterConfig() {
+    private static String aggressiveLwmIncreaseClusterConfig() {
         return "{\n"
                 + "  ignite.gc.lowWatermark {\n"
                 + "    dataAvailabilityTimeMillis: 1000,\n"
@@ -312,7 +312,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         // Node 1 will host the Metastorage and will do Catalog compaction.
         // On node 0, we will verify that storages are destroyed on startup when it seems that the table is not mentioned in the Catalog.
         cluster.startAndInit(2, builder -> {
-            builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
+            builder.clusterConfiguration(aggressiveLwmIncreaseClusterConfig());
             builder.cmgNodeNames(cluster.nodeName(1));
             builder.metaStorageNodeNames(cluster.nodeName(1));
         });
