@@ -45,6 +45,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -99,6 +100,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -287,7 +289,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 zoneResourcesManager,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                clusterService.messagingService(),
+                mock(ReplicaService.class)
         );
 
         var componentContext = new ComponentContext();

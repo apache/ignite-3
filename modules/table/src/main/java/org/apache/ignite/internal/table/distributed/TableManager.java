@@ -123,7 +123,7 @@ import org.apache.ignite.internal.partition.replicator.LocalBeforeReplicaStartEv
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.NaiveAsyncReadWriteLock;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.TablePartitionReplicaProcessorFactory;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -167,7 +167,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTrans
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -179,7 +178,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -221,9 +220,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
-
-    /** Transaction state resolver. */
-    private final TransactionStateResolver transactionStateResolver;
 
     /**
      * Versioned value for linearizing table changing events.
@@ -476,21 +472,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
-        TxMessageSender txMessageSender = new TxMessageSender(
-                messagingService,
-                replicaSvc,
-                clockService
-        );
-
-        transactionStateResolver = new TransactionStateResolver(
-                txManager,
-                clockService,
-                topologyService,
-                messagingService,
-                executorInclinedPlacementDriver,
-                txMessageSender
-        );
-
         schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
         tablesVv = new IncrementalVersionedValue<>("TableManager#tables", registry, 100, null);
@@ -545,8 +526,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
-
-            transactionStateResolver.start();
 
             fullStateTransferIndexChooser.start();
 
@@ -928,13 +907,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
-        Function<RaftCommandRunner, ReplicaTableProcessor> createListener = raftClient -> createReplicaListener(
+        TablePartitionReplicaProcessorFactory createListener = (raftClient, transactionStateResolver) -> createReplicaListener(
                 zonePartitionId,
                 table,
                 resources.safeTimeTracker(),
                 mvPartitionStorage,
                 partitionUpdateHandlers,
-                raftClient
+                raftClient,
+                transactionStateResolver
         );
 
         var tablePartitionRaftListener = new TablePartitionProcessor(
@@ -1054,7 +1034,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             MvPartitionStorage mvPartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            RaftCommandRunner raftClient
+            RaftCommandRunner raftClient,
+            TransactionStateResolver transactionStateResolver
     ) {
         int partitionIndex = replicationGroupId.partitionId();
 
@@ -1074,8 +1055,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
                 new CatalogValidationSchemasSource(catalogService, schemaManager),
+                localNode(),
                 executorInclinedSchemaSyncService,
                 catalogService,
+                executorInclinedPlacementDriver,
                 topologyService,
                 remotelyTriggeredResourceRegistry,
                 schemaManager.schemaRegistry(table.tableId()),
