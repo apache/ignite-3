@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableMap;
@@ -29,7 +31,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 
 class TransactionExpirationRegistry {
@@ -126,7 +127,7 @@ class TransactionExpirationRegistry {
         tx.rollbackTimeoutExceededAsync().whenComplete((res, ex) -> {
             if (ex != null) {
                 LOG.error("Transaction has aborted due to timeout [{}]", ex,
-                        TransactionLogUtils.formatTxInfo(tx.id(), volatileTxStateMetaStorage));
+                        formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             }
         });
     }
