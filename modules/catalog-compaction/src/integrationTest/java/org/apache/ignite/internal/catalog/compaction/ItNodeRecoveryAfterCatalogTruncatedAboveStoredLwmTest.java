@@ -90,7 +90,7 @@ class ItNodeRecoveryAfterCatalogTruncatedAboveStoredLwmTest extends ClusterPerTe
 
         HybridTimestamp lwmStoredOnStoppedNode = readStoredLwm(workDirOfStoppedNode);
 
-        triggerCatalogCompaction();
+        causeEventualCatalogCompaction();
 
         CatalogManager catalogManager = unwrapIgniteImpl(cluster.aliveNode()).catalogManager();
         await().until(() -> catalogManager.earliestCatalog().time() > lwmStoredOnStoppedNode.longValue());
@@ -117,7 +117,9 @@ class ItNodeRecoveryAfterCatalogTruncatedAboveStoredLwmTest extends ClusterPerTe
         }
     }
 
-    private void triggerCatalogCompaction() {
+    private void causeEventualCatalogCompaction() {
+        // We create a couple of catalog versions to let the compactor kick in and compact the catalog.
+        // No transactions are created, so nothing holds the low watermark from advancing and triggering compaction.
         cluster.aliveNode().sql().executeScript("ALTER TABLE " + TABLE_NAME + " ADD COLUMN ADDED1 INT");
         cluster.aliveNode().sql().executeScript("ALTER TABLE " + TABLE_NAME + " ADD COLUMN ADDED2 INT");
     }
