@@ -96,6 +96,8 @@ public class TestServer implements AutoCloseable {
 
     private final NettyBootstrapFactory bootstrapFactory;
 
+    private final UUID nodeId;
+
     private final String nodeName;
 
     private final ClientHandlerMetricSource metrics;
@@ -219,14 +221,16 @@ public class TestServer implements AutoCloseable {
         }
 
         this.nodeName = nodeName;
+        this.nodeId = nodeId == null ? getNodeId(nodeName) : nodeId;
+
         this.ignite = ignite;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeId);
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
-        Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
+        Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName, nodeId));
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
-                i -> getClusterNode(i.getArgument(0, String.class)));
+                i -> getClusterNode(i.getArgument(0, String.class), getNodeId(i.getArgument(0, String.class))));
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
@@ -330,15 +334,6 @@ public class TestServer implements AutoCloseable {
     }
 
     /**
-     * Gets the node ID.
-     *
-     * @return Node ID.
-     */
-    public UUID nodeId() {
-        return getNodeId(nodeName);
-    }
-
-    /**
      * Gets metrics.
      *
      * @return Metrics.
@@ -384,8 +379,8 @@ public class TestServer implements AutoCloseable {
         }
     }
 
-    private static InternalClusterNode getClusterNode(String name) {
-        return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+    private static InternalClusterNode getClusterNode(String name, UUID nodeId) {
+        return new ClusterNodeImpl(nodeId, name, new NetworkAddress("127.0.0.1", 8080));
     }
 
     private static UUID getNodeId(String name) {
