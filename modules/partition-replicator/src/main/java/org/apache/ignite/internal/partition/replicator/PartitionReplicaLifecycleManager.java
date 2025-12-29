@@ -2159,6 +2159,16 @@ public class PartitionReplicaLifecycleManager extends
                 .thenAccept(anyFalse -> {
                     if (anyFalse) {
                         destructionEventsQueue.enqueue(event);
+                    } else {
+                        distributionZoneMgr.onDropZoneDestroy(zoneId, event.catalogVersion)
+                                .whenComplete((r, e) -> {
+                                    if (e != null) {
+                                        LOG.error(
+                                                "Unable to destroy zone resources [zoneId={}]",
+                                                e,
+                                                zoneId);
+                                    }
+                                });
                     }
                 });
     }
