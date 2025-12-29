@@ -32,6 +32,7 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemConfigurationPropertyCompatibilityChecker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockManager newInstance(SystemLocalConfiguration systemLocalConfiguration) {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
@@ -56,7 +57,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTableOverflow() throws Exception {
         int maxSlots = 16;
 
-        HeapLockManager lockManager = new HeapLockManager(maxSlots);
+        HeapLockManager lockManager = new HeapLockManager(maxSlots, new VolatileTxStateMetaStorage());
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID[] txs = new UUID[maxSlots];
@@ -92,7 +93,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTooManyKeysInTx() throws Exception {
         int maxSlots = 16;
 
-        HeapLockManager lockManager = new HeapLockManager(maxSlots);
+        HeapLockManager lockManager = new HeapLockManager(maxSlots, new VolatileTxStateMetaStorage());
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID txId = TestTransactionIds.newTransactionId();
@@ -128,7 +129,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
             @InjectConfiguration("mock.properties: { lockMapSize: \"42\" }")
             SystemLocalConfiguration systemLocalConfiguration
     ) {
-        var lockManager = new HeapLockManager(systemLocalConfiguration);
+        var lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
 
         lockManager.start(DeadlockPreventionPolicy.NO_OP);
 

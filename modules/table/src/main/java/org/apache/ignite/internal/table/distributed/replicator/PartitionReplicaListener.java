@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -182,7 +183,6 @@ import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -1700,7 +1700,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively locked.
                 // This means that we can just resolve the state of this transaction.
-                checkWriteIntentsBelongSameTx(writeIntents);
+                checkWriteIntentsBelongSameTx(writeIntents, txManager);
 
                 return inBusyLockAsync(busyLock, () ->
                         resolveWriteIntentReadability(writeIntent, ts)
@@ -1741,13 +1741,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      *
      * @param writeIntents Write intents.
      */
-    private static void checkWriteIntentsBelongSameTx(Collection<ReadResult> writeIntents) {
+    private static void checkWriteIntentsBelongSameTx(Collection<ReadResult> writeIntents, TxManager txManager) {
         ReadResult writeIntent = findAny(writeIntents).orElseThrow();
 
         for (ReadResult wi : writeIntents) {
             assert Objects.equals(wi.transactionId(), writeIntent.transactionId())
-                    : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
-
+                    : format("Unexpected write intent, tx1={}, tx2={}",
+                    formatTxInfo(writeIntent.transactionId(), txManager), formatTxInfo(wi.transactionId(), txManager));
             assert Objects.equals(wi.commitZoneId(), writeIntent.commitZoneId())
                     : "Unexpected write intent, commitZoneId1=" + writeIntent.commitZoneId()
                     + ", commitZoneId2=" + wi.commitZoneId();
@@ -3264,7 +3264,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             )).whenComplete((unused, e) -> {
                 if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
                     LOG.warn("Failed to complete transaction cleanup command [{}]", e,
-                            TransactionLogUtils.formatTxInfo(txId, txManager));
+                            formatTxInfo(txId, txManager));
                 }
             });
         });
