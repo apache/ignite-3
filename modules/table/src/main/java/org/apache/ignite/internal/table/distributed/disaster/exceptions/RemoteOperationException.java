@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final boolean plain;
-    private final boolean timed;
+/** Exception thrown when remote node encounters an error while executing a disaster recovery operation. */
+public class RemoteOperationException extends DisasterRecoveryException {
+    private static final long serialVersionUID = 1L;
 
-    public SqlQueryResultDecorator(boolean plain) {
-        this(plain, false);
-    }
-
-    public SqlQueryResultDecorator(boolean plain, boolean timed) {
-        this.plain = plain;
-        this.timed = timed;
-    }
-
-    @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(plain, timed);
+    /** Constructor. */
+    public RemoteOperationException(String message, String nodeName) {
+        super(
+                DisasterRecovery.REMOTE_NODE_ERR,
+                "Processing error on node " + nodeName + " during disaster recovery: " + message
+        );
     }
 }
