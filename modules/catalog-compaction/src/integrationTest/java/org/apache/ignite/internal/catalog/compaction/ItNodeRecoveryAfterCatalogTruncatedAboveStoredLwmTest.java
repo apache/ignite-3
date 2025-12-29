@@ -101,7 +101,7 @@ class ItNodeRecoveryAfterCatalogTruncatedAboveStoredLwmTest extends ClusterPerTe
     private void waitTillNodeStoresLwm(int indexOfNodeToStop) {
         VaultManager vaultManager = unwrapIgniteImpl(cluster.node(indexOfNodeToStop)).vault();
 
-        await().untilAsserted(() -> assertThat(vaultManager.get(LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY), is(notNullValue())));
+        await().until(() -> vaultManager.get(LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY), is(notNullValue()));
     }
 
     private static HybridTimestamp readStoredLwm(Path workDirOfStoppedNode) {
