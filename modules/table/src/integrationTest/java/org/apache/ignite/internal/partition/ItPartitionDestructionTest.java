@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchReduceKey;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -84,6 +83,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -520,27 +520,39 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
             boolean concernNonMvData
     ) throws InterruptedException {
         File partitionFile = testTablePartition0File(ignite, tableId);
-        assertTrue(
-                waitForCondition(() -> !partitionFile.exists(), SECONDS.toMillis(10)),
-                "Partition file " + partitionFile.getAbsolutePath() + " was not removed in time"
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Partition file " + partitionFile.getAbsolutePath() + " was not removed in time.",
+                            !partitionFile.exists()
+                    );
+                });
 
         if (concernNonMvData) {
-            assertTrue(
-                    waitForCondition(() -> !hasSomethingInTxStateStorage(ignite, replicationGroupId), SECONDS.toMillis(10)),
-                    "Tx state storage was not destroyed in time"
-            );
+            Awaitility.await().atMost(10, SECONDS)
+                    .untilAsserted(() -> {
+                        assertThat(
+                                "Tx state storage was not destroyed in time.",
+                                !hasSomethingInTxStateStorage(ignite, replicationGroupId)
+                        );
+                    });
 
-            assertTrue(
-                    waitForCondition(() -> partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() == 0L, SECONDS.toMillis(10)),
-                    "Partition Raft log was not removed in time"
-            );
+            Awaitility.await().atMost(10, SECONDS)
+                    .untilAsserted(() -> {
+                        assertThat(
+                                "Partition Raft log was not removed in time.",
+                                partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() == 0L
+                        );
+                    });
 
             File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
-            assertTrue(
-                    waitForCondition(() -> !raftMetaFile.exists(), SECONDS.toMillis(10)),
-                    "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time"
-            );
+            Awaitility.await().atMost(10, SECONDS)
+                    .untilAsserted(() -> {
+                        assertThat(
+                                "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time.",
+                                !raftMetaFile.exists()
+                        );
+                    });
         }
     }
 
@@ -554,10 +566,13 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void waitTillCatalogDoesNotContainTargetTable(IgniteImpl ignite, String tableName) throws InterruptedException {
-        assertTrue(
-                waitForCondition(() -> !catalogHistoryContainsTargetTable(ignite, tableName), SECONDS.toMillis(10)),
-                "Did not observe catalog truncation in time"
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Did not observe catalog truncation in time.",
+                            !catalogHistoryContainsTargetTable(ignite, tableName)
+                    );
+                });
     }
 
     private static boolean catalogHistoryContainsTargetTable(IgniteImpl ignite, String tableName) {
@@ -608,10 +623,13 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
     private void waitTillAssignmentCountReaches(int targetAssignmentCount, ZonePartitionId replicationGroupId)
             throws InterruptedException {
-        assertTrue(
-                waitForCondition(() -> partitionAssignments(replicationGroupId).size() == targetAssignmentCount, SECONDS.toMillis(10)),
-                "Did not see assignments count reaching " + targetAssignmentCount
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Did not see assignments count reaching.",
+                            partitionAssignments(replicationGroupId).size() == targetAssignmentCount
+                    );
+                });
     }
 
     private Set<Assignment> partitionAssignments(ZonePartitionId replicationGroupId) {
@@ -645,99 +663,125 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
             throws InterruptedException {
         MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
 
-        assertTrue(
-                waitForCondition(() -> {
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(stablePartAssignmentsKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Stable assignments were not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Stable assignments were not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> {
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Pending assignments were not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Pending assignments were not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> {
+
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(pendingChangeTriggerKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Pending change trigger key was not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Pending change trigger key was not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> {
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(plannedPartAssignmentsKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Planned assignments were not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Planned assignments were not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> {
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(switchAppendKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Switch append assignments were not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Switch append assignments were not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> {
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(switchReduceKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Switch reduce assignments were not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Switch reduce assignments were not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> {
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(assignmentsChainKey(zonePartitionId));
-                    return entry.tombstone() || entry.empty();
-                }, SECONDS.toMillis(10)),
-                "Assignments chain was not removed from meta storage in time."
-        );
+                    assertThat(
+                            "Assignments chain was not removed from meta storage in time.",
+                            entry.tombstone() || entry.empty()
+                    );
+                });
     }
 
     private static void verifyZoneDistributionZoneManagerResourcesArePresent(IgniteImpl ignite, int zoneId) throws InterruptedException {
         MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
 
-        assertTrue(
-                waitForCondition(() -> !metaStorage.getLocally(zoneDataNodesHistoryKey(zoneId)).empty(), SECONDS.toMillis(10)),
-                "Zone data nodes are not present in meta storage."
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Zone data nodes are not present in meta storage.",
+                            !metaStorage.getLocally(zoneDataNodesHistoryKey(zoneId)).empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> !metaStorage.getLocally(zoneScaleUpTimerKey(zoneId)).empty(), SECONDS.toMillis(10)),
-                "Zone scale up timer is not present in meta storage."
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Zone scale up timer is not present in meta storage.",
+                            !metaStorage.getLocally(zoneScaleUpTimerKey(zoneId)).empty()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> !metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).empty(), SECONDS.toMillis(10)),
-                "Zone scale down timer is not present in meta storage."
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Zone scale down timer is not present in meta storage.",
+                            !metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).empty()
+                    );
+                });
     }
 
     private static void verifyZoneDistributionZoneManagerResourcesWereRemovedFromMetaStorage(IgniteImpl ignite, int zoneId)
             throws InterruptedException {
         MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
 
-        assertTrue(
-                waitForCondition(() -> metaStorage.getLocally(zoneDataNodesHistoryKey(zoneId)).tombstone(), SECONDS.toMillis(10)),
-                "Zone data nodes were not removed from meta storage in time."
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Zone data nodes were not removed from meta storage in time.",
+                            metaStorage.getLocally(zoneDataNodesHistoryKey(zoneId)).tombstone()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> metaStorage.getLocally(zoneScaleUpTimerKey(zoneId)).tombstone(), SECONDS.toMillis(10)),
-                "Zone scale up timer was not removed from meta storage in time."
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Zone scale up timer was not removed from meta storage in time.",
+                            metaStorage.getLocally(zoneScaleUpTimerKey(zoneId)).tombstone()
+                    );
+                });
 
-        assertTrue(
-                waitForCondition(() -> metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).tombstone(), SECONDS.toMillis(10)),
-                "Zone scale down timer was not removed from meta storage in time."
-        );
+        Awaitility.await().atMost(10, SECONDS)
+                .untilAsserted(() -> {
+                    assertThat(
+                            "Zone scale down timer was not removed from meta storage in time.",
+                            metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).tombstone()
+                    );
+                });
     }
 }
