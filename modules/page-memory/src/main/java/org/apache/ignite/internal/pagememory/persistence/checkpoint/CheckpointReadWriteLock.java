@@ -202,7 +202,7 @@ public class CheckpointReadWriteLock {
             int newLockCount = checkpointReadLockHoldCount.get() + 1;
             checkpointReadLockHoldCount.set(newLockCount);
 
-            // We only record acquisition time on first lock acquisition (not on reentrant locks).
+            // We only record acquisition time on first lock acquisition (not on reentry).
             if (newLockCount == 1) {
                 checkpointReadLockAcquiredTime.set(currentNanos);
             }

@@ -23,8 +23,8 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
 /**
  * Metrics for checkpoint read/write lock operations.
  *
- * <p>This metric source tracks performance and contention characteristics of checkpoint read locks
- * acquired by normal operations during database operation. These locks coordinate with the checkpoint
+ * <p>This metric source tracks performance and contention characteristics of checkpoint read lock
+ * acquired by normal operations during database operation. This lock coordinate with the checkpoint
  * write lock to ensure consistency.
  */
 public class CheckpointReadWriteLockMetrics {
@@ -45,7 +45,7 @@ public class CheckpointReadWriteLockMetrics {
             1_000_000,       // 1ms    - complex operation
             10_000_000,      // 10ms   - batch operation
             100_000_000,     // 100ms  - large batch or slow I/O
-            1_000_000_000    // 1s     - pathologically large operation
+            1_000_000_000    // 1s     - pathologically long operation
     };
 
     private final DistributionMetric readLockAcquisitionTime = new DistributionMetric(

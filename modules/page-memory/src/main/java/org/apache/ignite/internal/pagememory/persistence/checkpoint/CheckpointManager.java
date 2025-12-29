@@ -124,7 +124,7 @@ public class CheckpointManager {
                 ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
                 : new ReentrantReadWriteLockWithTracking();
 
-        CheckpointReadWriteLockMetrics readWriteLockMetrics = new CheckpointReadWriteLockMetrics(checkpointMetricSource);
+        var readWriteLockMetrics = new CheckpointReadWriteLockMetrics(checkpointMetricSource);
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(
                 reentrantReadWriteLockWithTracking,
