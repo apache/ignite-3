@@ -75,21 +75,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
     @ParameterizedTest
     @EnumSource(ConsistencyMode.class)
-    void testZoneDeleteRemovesMetaStorageKey(ConsistencyMode consistencyMode) throws Exception {
-        createZone(ZONE_NAME, consistencyMode);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesFromLogicalNodesInStorage(zoneId, nodes, keyValueStorage);
-
-        dropZone(ZONE_NAME);
-
-        // Data nodes should be removed from meta storage
-        assertZonesKeysInMetaStorage(zoneId, null, false);
-    }
-
-    @ParameterizedTest
-    @EnumSource(ConsistencyMode.class)
     void testSeveralZoneCreationsUpdatesTriggerKey(ConsistencyMode consistencyMode) throws Exception {
         createZone(ZONE_NAME, consistencyMode);
 

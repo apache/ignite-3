@@ -28,9 +28,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
@@ -77,7 +75,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -105,7 +102,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -158,7 +154,6 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -190,6 +185,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
@@ -978,6 +974,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27468 Not "thread-safe" in case of concurrent disaster recovery or rebalances.
     private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         if (!busyLock.enterBusy()) {
             return falseCompletedFuture();
@@ -1255,20 +1252,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTable = table.internalTable();
 
-        if (!nodeProperties.colocationEnabled()) {
-            Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
-                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                    .collect(toSet());
-
-            metaStorageMgr.removeAll(assignmentKeys)
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            LOG.error("Failed to remove assignments from metastorage [tableId={}]", e, tableId);
-                        }
-                    });
-        }
-
-        return stopAndDestroyTablePartitions(table)
+        return stopAndDestroyTableProcessors(table)
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> internalTable.storage().destroy()), ioExecutor)
                 .thenAccept(unused -> inBusyLock(busyLock, () -> {
                     tables.remove(tableId);
@@ -1534,7 +1518,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return CompletableFutures.allOf(storageFuts);
     }
 
-    private CompletableFuture<Void> stopAndDestroyTablePartitions(TableViewInternal table) {
+    private CompletableFuture<Void> stopAndDestroyTableProcessors(TableViewInternal table) {
         InternalTable internalTable = table.internalTable();
 
         int partitions = internalTable.partitions();
@@ -1549,20 +1533,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return writeLockAcquisitionFuture.thenCompose(stamp -> {
                 CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-24345
-                //  Partitions should be stopped on the assignments change event triggered by zone drop or alter.
-                //  Stop replica asynchronously, out of metastorage event pipeline.
                 for (int partitionId = 0; partitionId < partitions; partitionId++) {
                     CompletableFuture<Void> resourcesUnloadFuture;
 
-                    if (nodeProperties.colocationEnabled()) {
-                        resourcesUnloadFuture = partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
-                                new ZonePartitionId(internalTable.zoneId(), partitionId),
-                                internalTable.tableId()
-                        );
-                    } else {
-                        resourcesUnloadFuture = nullCompletedFuture();
-                    }
+                    resourcesUnloadFuture = partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                            new ZonePartitionId(internalTable.zoneId(), partitionId),
+                            internalTable.tableId()
+                    );
 
                     var tablePartitionId = new TablePartitionId(internalTable.tableId(), partitionId);
 
@@ -1884,16 +1861,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void cleanUpResourcesForDroppedTablesOnRecoveryBusy(@Nullable HybridTimestamp lwm) {
-        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
+        // TODO: IGNITE-20384 Clean up abandoned resources for dropped tables from vault and metastore
 
         Set<Integer> aliveTableIds = aliveTables(catalogService, lwm);
 
         destroyMvStoragesForTablesNotIn(aliveTableIds);
-
-        if (!nodeProperties.colocationEnabled()) {
-            destroyTxStateStoragesForTablesNotIn(aliveTableIds);
-            destroyReplicationProtocolStoragesForTablesNotIn(aliveTableIds);
-        }
     }
 
     private void destroyMvStoragesForTablesNotIn(Set<Integer> aliveTableIds) {

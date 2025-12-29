@@ -331,6 +331,13 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     }
 
     /**
+     * Returns true if there are no table replica processors, false otherwise.
+     */
+    boolean areTableReplicaProcessorsEmpty() {
+        return replicaProcessors.isEmpty();
+    }
+
+    /**
      * Return table replicas listeners.
      *
      * @return Table replicas listeners.

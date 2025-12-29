@@ -491,6 +491,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
+    /**
+     * Returns true if there are no table processors, false otherwise.
+     */
+    public boolean areTableRaftProcessorsEmpty() {
+        synchronized (tableProcessorsStateLock) {
+            return tableProcessors.isEmpty();
+        }
+    }
+
     private void cleanupSnapshots() {
         partitionsSnapshots.cleanupOutgoingSnapshots(partitionKey);
     }
