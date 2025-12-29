@@ -2193,6 +2193,11 @@ public class PartitionReplicaLifecycleManager extends
             return falseCompletedFuture();
         }
 
+        // In order to simplify the logic of table resources cleanup, that is handled by TableManager and
+        // zone resources cleanup that is handled by PartitionReplicaLifecycleManager, on zone destruction event
+        // we await TableManager to finish its own job instead of stealing it.
+        // In words case if both tables and zone were destroyed on same them lwm, PartitionReplicaLifecycleManager will cleanup
+        // zone resources within the next lwm update.
         return zoneResourcesManager.areTableResourcesEmpty(zonePartitionId);
     }
 
