@@ -71,6 +71,8 @@ public class SafeTimeValuesTracker extends PendingComparableValuesTracker<Hybrid
             this.commandIndex = commandIndex;
             this.commandTerm = commandTerm;
             this.commandClassName = command.getClass().getName();
+
+            completeWaitersOnUpdate(safeTs, null);
         } finally {
             leaveBusy();
         }
