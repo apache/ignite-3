@@ -745,7 +745,9 @@ public class Node {
                 schemaManager,
                 dataStorageMgr,
                 outgoingSnapshotsManager,
-                metricManager
+                metricManager,
+                clusterService.messagingService(),
+                replicaSvc
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
