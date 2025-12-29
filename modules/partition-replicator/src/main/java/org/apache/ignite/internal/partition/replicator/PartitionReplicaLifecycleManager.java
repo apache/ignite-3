@@ -2175,7 +2175,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Checks whether partition could be removed. In order to match the condition zone partition should have zero table resources and
+     * Checks whether partition could be removed. In order to match the condition, a zone partition should have zero table resources and
      * empty txStateStorage.
      */
     private CompletableFuture<Boolean> isEligibleForDrop(ZonePartitionId zonePartitionId) {
