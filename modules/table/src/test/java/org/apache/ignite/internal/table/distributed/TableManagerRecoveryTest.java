@@ -132,6 +132,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
@@ -546,7 +547,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sm,
                 dsm,
                 outgoingSnapshotManager,
-                metricManager
+                metricManager,
+                clusterService.messagingService(),
+                mock(ReplicaService.class)
         ));
 
         tableManager = new TableManager(

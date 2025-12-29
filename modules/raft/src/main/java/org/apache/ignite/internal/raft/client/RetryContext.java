@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.internal.raft.client;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -31,7 +31,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.util.FastTimestamps;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -102,7 +104,8 @@ class RetryContext {
      * @param originDescription Supplier describing the origin request from which this one depends, or returning {@code null} if
      *         this request is independent.
      * @param requestFactory Factory for creating requests to the target peer.
-     * @param stopTime Timestamp that denotes the point in time up to which retry attempts will be made.
+     * @param sendWithRetryTimeoutMillis Timeout for entire request sending (with retries) in milliseconds, a negative value means no
+     *         timeout.
      * @param responseTimeoutMillis Response timeout for each attempt (up to {@code stopTime}) in milliseconds, {@code -1} if using
      *      {@link ThrottlingContextHolder#peerRequestTimeoutMillis} (default).
      */
@@ -111,7 +114,7 @@ class RetryContext {
             Peer targetPeer,
             Supplier<@Nullable String> originDescription,
             Function<Peer, ? extends NetworkMessage> requestFactory,
-            long stopTime,
+            long sendWithRetryTimeoutMillis,
             long responseTimeoutMillis
     ) {
         this.groupId = groupId;
@@ -119,8 +122,8 @@ class RetryContext {
         this.originDescription = originDescription;
         this.requestFactory = requestFactory;
         this.request = requestFactory.apply(targetPeer);
-        this.stopTime = stopTime;
-        this.startTime = System.currentTimeMillis();
+        this.stopTime = Utils.monotonicMsAfter(sendWithRetryTimeoutMillis);
+        this.startTime = Utils.monotonicMs();
         this.attemptScheduleTime = this.startTime;
         this.attemptStartTime = this.startTime;
         this.responseTimeoutMillis = responseTimeoutMillis;
@@ -164,14 +167,17 @@ class RetryContext {
      * @return {@code this}.
      */
     RetryContext nextAttempt(Peer newTargetPeer, String shortReasonMessage) {
-        long currentTime = System.currentTimeMillis();
+        // Used for duration calculation.
+        long currentTime = Utils.monotonicMs();
+        // Used for printing current time.
+        long currentWallClockTime = System.currentTimeMillis();
 
         String reasonMessage = shortReasonMessage
                 + "; attemptWaitDuration=" + (attemptStartTime - attemptScheduleTime)
                 + ", attemptDuration=" + (currentTime - attemptStartTime)
-                + ", attemptStartTime=" + timestampToString(currentTime);
+                + ", attemptStartTime=" + timestampToString(currentWallClockTime);
 
-        retryReasons.add(new RetryReason(reasonMessage, currentTime));
+        retryReasons.add(new RetryReason(reasonMessage, currentWallClockTime));
 
         attemptScheduleTime = currentTime;
 
@@ -207,11 +213,11 @@ class RetryContext {
     }
 
     TimeoutException createTimeoutException() {
-        long ct = System.currentTimeMillis();
+        long currentTime = Utils.monotonicMs();
 
         return new TimeoutException(format(
                 "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}, request = {}, originCommand = {},"
-                        + " retryReasons = {}, stopTime = {}, currentTime = {}, startTime = {}, duration = {}].",
+                        + " retryReasons = {}, stopTime = {}, currentTime = {}, startTime = {}, duration = {}, currentWallTime = {}].",
                 retryCount,
                 groupId,
                 errorTraceId,
@@ -219,9 +225,10 @@ class RetryContext {
                 originDescription.get(),
                 retryReasons.toString(),
                 stopTime,
-                ct,
+                currentTime,
                 startTime,
-                ct - startTime
+                currentTime - startTime,
+                System.currentTimeMillis()
         ));
     }
 
@@ -229,7 +236,7 @@ class RetryContext {
      * Called when a new attempt is started (sends a request).
      */
     void onNewAttempt() {
-        attemptStartTime = FastTimestamps.coarseCurrentTimeMillis();
+        attemptStartTime = Utils.monotonicMs();
     }
 
     private static class RetryReason {

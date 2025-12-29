@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.nio.file.Path;
-import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
@@ -47,15 +46,6 @@ class ItIndexRecoveryTest extends ClusterPerTestIntegrationTest {
         return 0;
     }
 
-    private static void aggressiveLowWatermarkIncrease(InitParametersBuilder builder) {
-        builder.clusterConfiguration("{\n"
-                + "  ignite.gc.lowWatermark {\n"
-                + "    dataAvailabilityTimeMillis: 1000,\n"
-                + "    updateIntervalMillis: 100\n"
-                + "  }\n"
-                + "}");
-    }
-
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void nodeHandlesDroppedTablePrimaryIndexBelowLwmOnRecovery(boolean dropVersionIsNotLast) {
@@ -75,7 +65,7 @@ class ItIndexRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private void testNodeRecoveryWithDroppedIndexBelowLwm(Runnable creator, Runnable dropper, boolean createCatalogVersionAfterDrop) {
-        cluster.startAndInit(1, ItIndexRecoveryTest::aggressiveLowWatermarkIncrease);
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig()));
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
         Path workDir0 = ((IgniteServerImpl) cluster.server(0)).workDir();
 

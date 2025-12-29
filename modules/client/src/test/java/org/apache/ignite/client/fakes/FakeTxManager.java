@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -198,6 +200,16 @@ public class FakeTxManager implements TxManager {
     @Override
     public @Nullable TxStateMeta stateMeta(UUID txId) {
         return null;
+    }
+
+    @Override
+    public CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
+            TxStateMeta txMeta,
+            InternalTransaction tx,
+            long currentEnlistmentConsistencyToken,
+            ZonePartitionId senderGroupId
+    ) {
+        return completedFuture(stateMeta(tx.id()));
     }
 
     @Override

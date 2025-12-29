@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.partition.replicator.SafeLowWatermarkUtils.catalogSafeLowWatermark;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.statusOnRemoveIndex;
@@ -322,7 +323,7 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private CompletableFuture<Void> recoverIndexMetas() {
-        int lwmCatalogVersion = lwmCatalogVersion(lowWatermark.getLowWatermark());
+        int lwmCatalogVersion = lwmCatalogVersion(catalogSafeLowWatermark(lowWatermark, catalogService));
         int latestCatalogVersion = catalogService.latestCatalogVersion();
         int startCatalogVersion = Math.max(lwmCatalogVersion, catalogService.earliestCatalogVersion());
 

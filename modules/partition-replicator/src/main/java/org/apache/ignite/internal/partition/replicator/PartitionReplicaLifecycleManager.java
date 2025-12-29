@@ -53,6 +53,7 @@ import static org.apache.ignite.internal.partition.replicator.LocalPartitionRepl
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.SafeLowWatermarkUtils.catalogSafeLowWatermark;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.assignmentListToString;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
@@ -86,7 +87,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -129,6 +129,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
@@ -158,6 +159,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -168,6 +170,8 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -270,6 +274,10 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ReliableCatalogVersions reliableCatalogVersions;
 
+    private final TransactionStateResolver transactionStateResolver;
+
+    private final TxMessageSender txMessageSender;
+
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
 
@@ -299,6 +307,8 @@ public class PartitionReplicaLifecycleManager extends
      * @param dataStorageManager Data storage manager.
      * @param outgoingSnapshotsManager Outgoing snapshots manager.
      * @param metricManager Metric manager.
+     * @param messagingService Messaging service.
+     * @param replicaService Replica service.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -321,7 +331,9 @@ public class PartitionReplicaLifecycleManager extends
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            MessagingService messagingService,
+            ReplicaService replicaService
     ) {
         this(
                 catalogService,
@@ -352,7 +364,9 @@ public class PartitionReplicaLifecycleManager extends
                         partitionOperationsExecutor,
                         replicaMgr
                 ),
-                metricManager
+                metricManager,
+                messagingService,
+                replicaService
         );
     }
 
@@ -377,7 +391,9 @@ public class PartitionReplicaLifecycleManager extends
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             ZoneResourcesManager zoneResourcesManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            MessagingService messagingService,
+            ReplicaService replicaService
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -407,6 +423,21 @@ public class PartitionReplicaLifecycleManager extends
                 Integer::parseInt
         );
 
+        txMessageSender = new TxMessageSender(
+                messagingService,
+                replicaService,
+                clockService
+        );
+
+        transactionStateResolver = new TransactionStateResolver(
+                txManager,
+                clockService,
+                topologyService,
+                messagingService,
+                executorInclinedPlacementDriver,
+                txMessageSender
+        );
+
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
@@ -420,13 +451,16 @@ public class PartitionReplicaLifecycleManager extends
             return nullCompletedFuture();
         }
 
+        transactionStateResolver.start();
+
         CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
         assert recoveryFinishFuture.isDone();
         long recoveryRevision = recoveryFinishFuture.join().revision();
 
         cleanUpResourcesForDroppedZonesOnRecovery();
 
-        CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
+        HybridTimestamp safeLwm = catalogSafeLowWatermark(lowWatermark, catalogService);
+        CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, safeLwm)
                 .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision));
 
         metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
@@ -769,7 +803,9 @@ public class PartitionReplicaLifecycleManager extends
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
                                                 topologyService.localMember(),
-                                                zonePartitionId
+                                                zonePartitionId,
+                                                transactionStateResolver,
+                                                txMessageSender
                                         );
 
                                         zoneResources.replicaListenerFuture().complete(replicaListener);
@@ -1828,7 +1864,7 @@ public class PartitionReplicaLifecycleManager extends
     public void loadTableListenerToZoneReplica(
             ZonePartitionId zonePartitionId,
             int tableId,
-            Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
+            TablePartitionReplicaProcessorFactory tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
             PartitionMvStorageAccess partitionMvStorageAccess,
             boolean onNodeRecovery
@@ -2016,5 +2052,20 @@ public class PartitionReplicaLifecycleManager extends
     private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
         // Assignments chain is either empty (when there have been no stable switch yet) or contains a single element in chain.
         return assignmentsChain == null || assignmentsChain.size() == 1;
+    }
+
+    /**
+     * Factory for creating table partition replica processors.
+     */
+    @FunctionalInterface
+    public interface TablePartitionReplicaProcessorFactory {
+        /**
+         * Creates a table partition replica processor.
+         *
+         * @param raftCommandRunner Raft command runner.
+         * @param transactionStateResolver Transaction state resolver.
+         * @return Table partition replica processor.
+         */
+        ReplicaTableProcessor createProcessor(RaftCommandRunner raftCommandRunner, TransactionStateResolver transactionStateResolver);
     }
 }
