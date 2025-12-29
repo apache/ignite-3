@@ -31,6 +31,18 @@ import org.jetbrains.annotations.Nullable;
 public interface CriteriaQuerySource<T> {
     /**
      * Executes predicate-based criteria query.
+     * Opens implicit transaction.
+     *
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @return Iterator with query results.
+     * @throws CriteriaException If failed.
+     */
+    default Cursor<T> query(@Nullable Criteria criteria) {
+        return query(null, criteria, null, null);
+    }
+
+    /**
+     * Executes predicate-based criteria query.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
@@ -39,6 +51,19 @@ public interface CriteriaQuerySource<T> {
      */
     default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return query(tx, criteria, null, null);
+    }
+
+    /**
+     * Executes predicate-based criteria query.
+     * Opens implicit transaction.
+     *
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
+     * @return Iterator with query results.
+     * @throws CriteriaException If failed.
+     */
+    default Cursor<T> query(@Nullable Criteria criteria, @Nullable String indexName) {
+        return query(null, criteria, indexName, null);
     }
 
     /**
@@ -56,6 +81,20 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes a predicate-based criteria query.
+     * Opens implicit transaction.
+     *
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
+     * @param opts Criteria query options or {@code null} to use default.
+     * @return Iterator with query results.
+     * @throws CriteriaException If failed.
+     */
+    default Cursor<T> query(@Nullable Criteria criteria, @Nullable String indexName, @Nullable CriteriaQueryOptions opts) {
+        return query(null, criteria, indexName, opts);
+    }
+
+    /**
+     * Executes a predicate-based criteria query.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
@@ -65,6 +104,18 @@ public interface CriteriaQuerySource<T> {
      * @throws CriteriaException If failed.
      */
     Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName, @Nullable CriteriaQueryOptions opts);
+
+    /**
+     * Executes a predicate-based criteria query in an asynchronous way.
+     * Opens implicit transaction.
+     *
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @return Future that represents the pending completion of the operation.
+     * @throws CriteriaException If failed.
+     */
+    default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Criteria criteria) {
+        return queryAsync(null, criteria, null, null);
+    }
 
     /**
      * Executes a predicate-based criteria query in an asynchronous way.
@@ -80,6 +131,19 @@ public interface CriteriaQuerySource<T> {
 
     /**
      * Executes a predicate-based criteria query in an asynchronous way.
+     * Opens implicit transaction.
+     *
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
+     * @return Future that represents the pending completion of the operation.
+     * @throws CriteriaException If failed.
+     */
+    default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Criteria criteria, @Nullable String indexName) {
+        return queryAsync(null, criteria, indexName, null);
+    }
+
+    /**
+     * Executes a predicate-based criteria query in an asynchronous way.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
@@ -90,6 +154,21 @@ public interface CriteriaQuerySource<T> {
     default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria,
             @Nullable String indexName) {
         return queryAsync(tx, criteria, indexName, null);
+    }
+
+    /**
+     * Executes a predicate-based criteria query in an asynchronous way.
+     * Opens implicit transaction.
+     *
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
+     * @param opts Criteria query options or {@code null} to use default.
+     * @return Future that represents the pending completion of the operation.
+     * @throws CriteriaException If failed.
+     */
+    default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Criteria criteria, @Nullable String indexName,
+            @Nullable CriteriaQueryOptions opts) {
+        return queryAsync(null, criteria, indexName, opts);
     }
 
     /**
