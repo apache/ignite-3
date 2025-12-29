@@ -35,7 +35,7 @@ public class CheckpointReadWriteLock {
      */
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
-    private static final long LONG_LOCK_THRESHOLD_MILLIS = 1000;
+    private static final long LONG_LOCK_THRESHOLD_NANOS = 1_000_000;
 
     private static final String LONG_LOCK_THROTTLE_KEY = "long-lock";
 
@@ -196,7 +196,7 @@ public class CheckpointReadWriteLock {
         metrics.decrementReadLockWaitingThreads();
 
         long currentNanos = System.nanoTime();
-        long elapsedNanos = TimeUnit.NANOSECONDS.toMillis(currentNanos - startNanos);
+        long elapsedNanos = currentNanos - startNanos;
 
         if (taken) {
             int newLockCount = checkpointReadLockHoldCount.get() + 1;
@@ -209,7 +209,7 @@ public class CheckpointReadWriteLock {
             metrics.recordReadLockAcquisitionTime(elapsedNanos);
         }
 
-        if (elapsedNanos > LONG_LOCK_THRESHOLD_MILLIS) {
+        if (elapsedNanos > LONG_LOCK_THRESHOLD_NANOS) {
             log.warn(LONG_LOCK_THROTTLE_KEY, "Checkpoint read lock took {} ms to acquire.", elapsedNanos);
         }
     }
@@ -220,7 +220,6 @@ public class CheckpointReadWriteLock {
         if (newLockCount == 0) {
             // Fully unlocked - record hold duration.
             Long acquiredTimeNanos = checkpointReadLockAcquiredTime.get();
-            checkpointReadLockAcquiredTime.set(null);
             long holdDurationNanos = System.nanoTime() - acquiredTimeNanos;
             metrics.recordReadLockHoldDuration(holdDurationNanos);
         }

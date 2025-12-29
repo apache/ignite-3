@@ -24,11 +24,10 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
  * Metrics for checkpoint read/write lock operations.
  *
  * <p>This metric source tracks performance and contention characteristics of checkpoint read lock
- * acquired by normal operations during database operation. This lock coordinate with the checkpoint
- * write lock to ensure consistency.
+ * acquired by normal operations during database operation.
  */
 public class CheckpointReadWriteLockMetrics {
-    private static final long[] LOCK_ACQUISITION_NANOS = {
+    private static final long[] LOCK_ACQUISITION_BOUNDS_NANOS = {
             1_000,           // 1µs   - uncontended, fast path
             10_000,          // 10µs  - minor contention
             100_000,         // 100µs - moderate contention
@@ -38,7 +37,7 @@ public class CheckpointReadWriteLockMetrics {
             1_000_000_000    // 1s    - pathological case, shall be treated as an emergency error
     };
 
-    private static final long[] LOCK_HOLD_NANOS = {
+    private static final long[] LOCK_HOLD_BOUNDS_NANOS = {
             1_000,           // 1µs    - very fast operation (single field update)
             10_000,          // 10µs   - fast single-page operation
             100_000,         // 100µs  - multi-page operation
@@ -51,13 +50,13 @@ public class CheckpointReadWriteLockMetrics {
     private final DistributionMetric readLockAcquisitionTime = new DistributionMetric(
             "ReadLockAcquisitionTime",
             "Time from requesting checkpoint read lock until acquisition in nanoseconds.",
-            LOCK_ACQUISITION_NANOS
+            LOCK_ACQUISITION_BOUNDS_NANOS
     );
 
     private final DistributionMetric readLockHoldTime = new DistributionMetric(
             "ReadLockHoldTime",
             "Duration between checkpoint read lock acquisition and release in nanoseconds.",
-            LOCK_HOLD_NANOS
+            LOCK_HOLD_BOUNDS_NANOS
     );
 
     private final LongAdderMetric readLockWaitingThreads = new LongAdderMetric(
@@ -86,8 +85,8 @@ public class CheckpointReadWriteLockMetrics {
     /**
      * Records the duration of a lock hold in nanoseconds.
      */
-    public void recordReadLockHoldDuration(long lockHoldDuration) {
-        readLockHoldTime.add(lockHoldDuration);
+    public void recordReadLockHoldDuration(long lockHoldDurationNanos) {
+        readLockHoldTime.add(lockHoldDurationNanos);
     }
 
     /**
