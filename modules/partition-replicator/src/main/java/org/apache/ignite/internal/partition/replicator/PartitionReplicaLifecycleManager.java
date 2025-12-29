@@ -2130,7 +2130,7 @@ public class PartitionReplicaLifecycleManager extends
                                                     }
 
                                                     // It's safe to use -1 as revision id here, since we only stop partitions that do not
-                                                    // active table-related resources.
+                                                    // have active table-related resources.
                                                     return stopAndDestroyPartition(zonePartitionId, -1)
                                                             .thenCompose(v -> dropAssignments(zonePartitionId))
                                                             .thenApply(v -> true);
