@@ -26,7 +26,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.configuration.IgnitePaths;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
@@ -132,8 +131,7 @@ class ItIndexRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private static HybridTimestamp latestCatalogVersionTs(IgniteImpl ignite) {
-        Catalog latestCatalog = ignite.catalogManager().catalog(ignite.catalogManager().latestCatalogVersion());
-        return HybridTimestamp.hybridTimestamp(latestCatalog.time());
+        return HybridTimestamp.hybridTimestamp(ignite.catalogManager().latestCatalog().time());
     }
 
     private static void raisePersistedLwm(Path workDir, HybridTimestamp newLwm) {

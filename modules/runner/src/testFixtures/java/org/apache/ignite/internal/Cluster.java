@@ -878,7 +878,7 @@ public class Cluster {
     public ReplicationGroupId solePartitionId(String zoneName, String tableName) {
         IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
+        Catalog catalog = node.catalogManager().latestCatalog();
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
         CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());

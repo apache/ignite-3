@@ -37,8 +37,6 @@ import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
@@ -176,10 +174,11 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
     }
 
     private int zoneId() {
-        CatalogManager catalogManager = unwrapIgniteImpl(cluster.aliveNode()).catalogManager();
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        CatalogZoneDescriptor zone = unwrapIgniteImpl(cluster.aliveNode())
+                .catalogManager()
+                .latestCatalog()
+                .zone(ZONE_NAME);
 
-        CatalogZoneDescriptor zone = catalog.zone(ZONE_NAME);
         assertThat(zone, is(notNullValue()));
 
         return zone.id();

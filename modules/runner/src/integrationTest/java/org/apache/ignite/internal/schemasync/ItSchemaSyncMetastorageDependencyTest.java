@@ -105,6 +105,6 @@ class ItSchemaSyncMetastorageDependencyTest extends ClusterPerTestIntegrationTes
     }
 
     private static boolean hasTableInCatalog(String anotherTableName, CatalogManager catalogManager) {
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(DEFAULT_SCHEMA_NAME, anotherTableName) != null;
+        return catalogManager.latestCatalog().table(DEFAULT_SCHEMA_NAME, anotherTableName) != null;
     }
 }

@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -229,8 +228,9 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static int getTableId(String schemaName, String tableName) {
-        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(schemaName, tableName).id();
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager()
+                .latestCatalog()
+                .table(schemaName, tableName)
+                .id();
     }
 }

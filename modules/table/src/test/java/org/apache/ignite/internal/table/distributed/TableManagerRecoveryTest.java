@@ -316,7 +316,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     public void raftListenersAreRecoveredOnRecovery() throws Exception {
         DistributionZonesTestUtil.createDefaultZone(catalogManager);
 
-        int defaultZonePartitions = catalogManager.catalog(catalogManager.latestCatalogVersion())
+        int defaultZonePartitions = catalogManager.latestCatalog()
                 .defaultZone()
                 .partitions();
 
@@ -340,7 +340,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         int zoneId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).zoneId();
         ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
+        long assignmentsTimestamp = catalogManager.latestCatalog().time();
 
         AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
                 .stable(Assignments.of(Set.of(Assignment.forPeer(node.name()), Assignment.forPeer(node2.name())), assignmentsTimestamp))

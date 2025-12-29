@@ -55,6 +55,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -410,11 +411,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     private static int zoneId(CatalogManager catalogManager, String zoneName) {
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
+        return catalogManager.latestCatalog().zone(zoneName).id();
     }
 
     private static int zoneId(IgniteImpl node) {
-        return node.catalogManager().catalog(node.catalogManager().latestCatalogVersion()).zone(ZONE_NAME).id();
+        return node.catalogManager().latestCatalog().zone(ZONE_NAME).id();
     }
 
     private IgniteImpl findZoneNodeConformingOptions(String testZone, boolean primaryReplica, boolean raftLeader)
@@ -749,9 +750,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             AtomicBoolean blocked,
             AtomicBoolean reached
     ) {
-        int catalogVersion = node.catalogManager().latestCatalogVersion();
-        CatalogZoneDescriptor zoneDescriptor = node.catalogManager().catalog(catalogVersion).zone(testZone);
-        long timestamp = node.catalogManager().catalog(catalogVersion).time();
+        Catalog latestCatalog = node.catalogManager().latestCatalog();
+        CatalogZoneDescriptor zoneDescriptor = latestCatalog.zone(testZone);
+        long timestamp = latestCatalog.time();
 
         Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
                 runningNodes.stream().map(IgniteImpl::name).collect(Collectors.toSet()),
