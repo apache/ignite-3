@@ -54,6 +54,7 @@ public enum Options {
     UNIT_NODES(Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION_DESC),
 
     PLAIN(Constants.PLAIN_OPTION, Constants.PLAIN_OPTION, Constants.PLAIN_OPTION_DESC),
+    TIMED(Constants.TIMED_OPTION, Constants.TIMED_OPTION, Constants.TIMED_OPTION_DESC),
     VERBOSE(Constants.VERBOSE_OPTION, Constants.VERBOSE_OPTION_SHORT, Constants.VERBOSE_OPTION_DESC),
     HELP(Constants.HELP_OPTION, Constants.HELP_OPTION_SHORT, Constants.HELP_OPTION_DESC),
     VERSION(Constants.VERSION_OPTION, Constants.VERSION_OPTION, Constants.VERSION_OPTION_DESC),
@@ -203,6 +204,12 @@ public enum Options {
         /** Plain option description. */
         public static final String PLAIN_OPTION_DESC = "Display output with plain formatting. "
                 + "Might be useful if you want to pipe the output to another command";
+
+        /** Timed option long name. */
+        public static final String TIMED_OPTION = "--timed";
+
+        /** Timed option description. */
+        public static final String TIMED_OPTION_DESC = "Display query execution time (measured on the client) after the output";
 
         /** JDBC URL option long name. */
         public static final String JDBC_URL_OPTION = "--jdbc-url";

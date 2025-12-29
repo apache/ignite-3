@@ -190,7 +190,8 @@ public class RexUtils {
         return true;
     }
 
-    /** Try to transform expression into DNF form.
+    /**
+     * Try to transform expression into DNF form.
      *
      * @param rexBuilder Expression builder.
      * @param node Expression to process.
@@ -212,7 +213,8 @@ public class RexUtils {
         final RexBuilder rexBuilder;
         final int maxOrNodes;
 
-        /** Constructor.
+        /**
+         * Constructor.
          *
          * @param rexBuilder Rex builder.
          * @param maxOrNodes Limit for OR nodes, if limit is reached further processing will be stopped.
@@ -342,7 +344,7 @@ public class RexUtils {
             return null;
         }
 
-        return bounds; 
+        return bounds;
     }
 
     /**
@@ -1440,8 +1442,10 @@ public class RexUtils {
         return wasChanged ? newSearchBounds : searchBounds;
     }
 
-    /** Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which
-     * the original value of the field can be certainly recovered. */
+    /**
+     * Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which the original value of the field can be certainly
+     * recovered.
+     */
     public static boolean isLosslessCast(RexNode node) {
         if (!node.isA(SqlKind.CAST)) {
             return false;
@@ -1473,6 +1477,37 @@ public class RexUtils {
             return source.getPrecision() <= target.getPrecision();
         }
 
-        return RexUtil.isLosslessCast(source, target);
+        return isLosslessCast(source, target);
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-27390 
+    //  This is copy of RexUtil.isLosslessCast from Calcite 1.40. We should replace RexUtils.isLosslessCast
+    //  with calcite's implementation.
+    private static boolean isLosslessCast(RelDataType source, RelDataType target) {
+        final SqlTypeName sourceSqlTypeName = source.getSqlTypeName();
+        final SqlTypeName targetSqlTypeName = target.getSqlTypeName();
+        // 1) Both INT numeric types
+        if (SqlTypeFamily.INTEGER.getTypeNames().contains(sourceSqlTypeName)
+                && SqlTypeFamily.INTEGER.getTypeNames().contains(targetSqlTypeName)) {
+            return targetSqlTypeName.compareTo(sourceSqlTypeName) >= 0;
+        }
+        // 2) Both CHARACTER types: it depends on the precision (length)
+        if (SqlTypeFamily.CHARACTER.getTypeNames().contains(sourceSqlTypeName)
+                && SqlTypeFamily.CHARACTER.getTypeNames().contains(targetSqlTypeName)) {
+            return targetSqlTypeName.compareTo(sourceSqlTypeName) >= 0
+                    && source.getPrecision() <= target.getPrecision();
+        }
+        // 3) From NUMERIC family to CHARACTER family: it depends on the precision/scale
+        if (sourceSqlTypeName.getFamily() == SqlTypeFamily.NUMERIC
+                && targetSqlTypeName.getFamily() == SqlTypeFamily.CHARACTER) {
+            int sourceLength = source.getPrecision() + 1; // include sign
+            if (source.getScale() != -1 && source.getScale() != 0) {
+                sourceLength += source.getScale() + 1; // include decimal mark
+            }
+            final int targetPrecision = target.getPrecision();
+            return targetPrecision == RelDataType.PRECISION_NOT_SPECIFIED || targetPrecision >= sourceLength;
+        }
+        // Return FALSE by default
+        return false;
     }
 }

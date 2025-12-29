@@ -689,7 +689,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            LOG.warn("The stop future was interrupted, going to proceed the stop procedure", e);
+            String message = format("The stop future was interrupted, going to proceed the stop procedure. Exception: {}", e);
+            LOG.warn(message + dumpDebugInfo() + dumpThreads());
         }
     }
 

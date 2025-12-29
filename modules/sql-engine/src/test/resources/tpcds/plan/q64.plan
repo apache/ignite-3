@@ -180,7 +180,7 @@ Sort
                                               est: (rows=2250)
                                             TableScan
                                                 table: PUBLIC.ITEM
-                                                predicate: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(I_CURRENT_PRICE, 80.00), SEARCH(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), Sarg[[81.00:DECIMAL(12, 2)..90.00:DECIMAL(12, 2)]; NULL AS FALSE]:DECIMAL(12, 2)))
+                                                predicate: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(I_CURRENT_PRICE, 80.00), SEARCH(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), Sarg[[81.00:DECIMAL(12, 2)..90.00:DECIMAL(12, 2)]]:DECIMAL(12, 2)))
                                                 fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
                                                 est: (rows=2250)
                                         Filter
@@ -413,7 +413,7 @@ Sort
                                               est: (rows=2250)
                                             TableScan
                                                 table: PUBLIC.ITEM
-                                                predicate: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(I_CURRENT_PRICE, 80.00), SEARCH(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), Sarg[[81.00:DECIMAL(12, 2)..90.00:DECIMAL(12, 2)]; NULL AS FALSE]:DECIMAL(12, 2)))
+                                                predicate: AND(SEARCH(I_COLOR, Sarg[_UTF-8'azure':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'blush':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'gainsboro':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'hot':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'lemon':VARCHAR(20) CHARACTER SET "UTF-8", _UTF-8'misty':VARCHAR(20) CHARACTER SET "UTF-8"]:VARCHAR(20) CHARACTER SET "UTF-8"), >=(I_CURRENT_PRICE, 80.00), SEARCH(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), Sarg[[81.00:DECIMAL(12, 2)..90.00:DECIMAL(12, 2)]]:DECIMAL(12, 2)))
                                                 fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_COLOR, I_PRODUCT_NAME]
                                                 est: (rows=2250)
                                         Filter

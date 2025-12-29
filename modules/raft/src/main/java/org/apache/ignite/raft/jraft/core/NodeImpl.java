@@ -1376,20 +1376,34 @@ public class NodeImpl implements Node, RaftServerService {
             ));
         }
 
-        if (opts.getLogManagerDisruptor() == null) {
-            opts.setLogManagerDisruptor(new StripedDisruptor<>(
+        if (opts.isSystemGroup()) {
+            opts.setLogManagerDisruptor(StripedDisruptor.createSerialDisruptor(
                 opts.getServerName(),
-                "JRaft-LogManager-Disruptor",
+                "JRaft-LogManager-Disruptor-" + groupId,
                 (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getLogStripesCount(),
-                logStorage instanceof RocksDbSharedLogStorage,
-                opts.isLogYieldStrategy(),
-                opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                false,
+                null
             ));
 
-            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+            opts.setLogStripes(IntStream.range(0, 1).mapToObj(i -> new Stripe()).collect(toList()));
+        } else {
+            if (opts.getLogManagerDisruptor() == null) {
+                opts.setLogManagerDisruptor(new StripedDisruptor<>(
+                    opts.getServerName(),
+                    "JRaft-LogManager-Disruptor",
+                    (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new LogManagerImpl.StableClosureEvent(),
+                    opts.getLogStripesCount(),
+                    logStorage instanceof RocksDbSharedLogStorage,
+                    opts.isLogYieldStrategy(),
+                    opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                ));
+
+                opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+            }
         }
     }
 
@@ -3526,7 +3540,7 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
             opts.getReadOnlyServiceDisruptor().shutdown();
         }
-        if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getLogManagerDisruptor() != null && (!opts.isSharedPools() || opts.isSystemGroup())) {
             opts.getLogManagerDisruptor().shutdown();
         }
     }
