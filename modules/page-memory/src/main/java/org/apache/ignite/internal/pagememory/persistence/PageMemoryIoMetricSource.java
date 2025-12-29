@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.pagememory.persistence;
 
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
-/** Metric source for checkpoint of persistent page memory. */
-public class CheckpointMetricSource extends CollectionMetricSource {
+/**
+ * Metric source for page memory byte-level I/O operations.
+ *
+ * <p>This metric source tracks physical I/O performance including bytes transferred,
+ * operation sizes, and latencies at the file I/O level.
+ */
+public class PageMemoryIoMetricSource extends CollectionMetricSource {
     /**
      * Constructor.
-     *
-     * @param name Metric set name.
      */
-    public CheckpointMetricSource(String name) {
-        super(name, "storage", null);
+    public PageMemoryIoMetricSource(String name) {
+        super(name, "storage", "Page memory byte-level I/O metrics");
     }
 
     @Override

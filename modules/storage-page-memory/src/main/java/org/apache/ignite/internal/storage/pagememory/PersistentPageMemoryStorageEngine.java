@@ -36,6 +36,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.MeteredFileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -44,6 +45,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -181,8 +184,11 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         int pageSize = engineConfig.pageSizeBytes().value();
 
+        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource("storage." + ENGINE_NAME + ".io");
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
         try {
-            var fileIoFactory = new RandomAccessFileIoFactory();
+            var fileIoFactory = new MeteredFileIoFactory(new RandomAccessFileIoFactory(), ioMetrics);
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 
@@ -248,9 +254,11 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         metricManager.registerSource(checkpointMetricSource);
         metricManager.registerSource(storageMetricSource);
+        metricManager.registerSource(ioMetricSource);
 
         metricManager.enable(checkpointMetricSource);
         metricManager.enable(storageMetricSource);
+        metricManager.enable(ioMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
