@@ -130,6 +130,8 @@ public class NettyServer {
 
             ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
+            bootstrap.channelFactory(NioServerSocketChannelEx::new);
+
             bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         public void initChannel(SocketChannel ch) {
