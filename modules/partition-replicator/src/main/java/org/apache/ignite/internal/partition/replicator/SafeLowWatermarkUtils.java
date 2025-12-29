@@ -29,13 +29,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SafeLowWatermarkUtils {
     /**
-     * Returns a catalog-safe low watermark (that is, a timestamp that can be used to access the catalog).
-     * If the low watermark is @{code null}, @{code null} is returned. If the low watermark is less than the earliest catalog timestamp,
+     * Returns a catalog-safe low watermark (that is, a timestamp that is not lower than current LWM, but can be safely used
+     * to access the catalog).
+     * If the low watermark is {@code null}, {@code null} is returned. If the low watermark is less than the earliest catalog timestamp,
      * the earliest catalog timestamp is returned. Otherwise, the original low watermark is returned.
      *
      * @param watermark The low watermark.
      * @param catalogService The catalog service.
-     * @return A catalog-safe low watermark or @{code null}.
+     * @return A catalog-safe low watermark or {@code null}.
      */
     public static @Nullable HybridTimestamp catalogSafeLowWatermark(LowWatermark watermark, CatalogService catalogService) {
         HybridTimestamp lwmTimestamp = watermark.getLowWatermark();
