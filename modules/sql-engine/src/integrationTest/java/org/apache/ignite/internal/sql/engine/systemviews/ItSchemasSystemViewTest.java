@@ -55,7 +55,7 @@ public class ItSchemasSystemViewTest extends AbstractSystemViewTest {
     public void test() {
         CatalogManager catalogManager = TestWrappers.unwrapIgniteImpl(node(0)).catalogManager();
 
-        Map<String, Integer> initialSchemas = catalogManager.catalog(catalogManager.latestCatalogVersion())
+        Map<String, Integer> initialSchemas = catalogManager.latestCatalog()
                 .schemas()
                 .stream()
                 .map(s -> Map.entry(s.name(), s.id()))
@@ -75,7 +75,7 @@ public class ItSchemasSystemViewTest extends AbstractSystemViewTest {
 
         sql("CREATE SCHEMA TEST_SCHEMA");
 
-        CatalogSchemaDescriptor newSchema = catalogManager.catalog(catalogManager.latestCatalogVersion()).schema("TEST_SCHEMA");
+        CatalogSchemaDescriptor newSchema = catalogManager.latestCatalog().schema("TEST_SCHEMA");
         assertNotNull(newSchema);
 
         assertQuery("SELECT schema_id, schema_name FROM system.schemas ORDER BY schema_name")

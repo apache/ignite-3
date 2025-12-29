@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -556,20 +555,14 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     private void assertSchemaExists(String name) {
-        CatalogService catalogService = cluster.catalogManager();
-
-        int latestVersion = catalogService.latestCatalogVersion();
-        Catalog catalog = catalogService.catalog(latestVersion);
+        Catalog catalog = cluster.catalogManager().latestCatalog();
 
         assertThat(catalog, notNullValue());
         assertThat(catalog.schema(IgniteNameUtils.parseIdentifier(name)), notNullValue());
     }
 
     private void assertTableExists(QualifiedName name) {
-        CatalogService catalogService = cluster.catalogManager();
-
-        int latestVersion = catalogService.latestCatalogVersion();
-        Catalog catalog = catalogService.catalog(latestVersion);
+        Catalog catalog = cluster.catalogManager().latestCatalog();
 
         assertThat(catalog, notNullValue());
         assertThat(catalog.table(name.schemaName(), name.objectName()), notNullValue());
@@ -581,10 +574,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("SameParameterValue")
     private void assertTableNotExists(String name) {
-        CatalogService catalogService = cluster.catalogManager();
-
-        int latestVersion = catalogService.latestCatalogVersion();
-        Catalog catalog = catalogService.catalog(latestVersion);
+        Catalog catalog = cluster.catalogManager().latestCatalog();
 
         QualifiedName qualifiedName = QualifiedName.fromSimple(name);
 
@@ -597,10 +587,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     private void assertIndexExists(QualifiedName name) {
-        CatalogService catalogService = cluster.catalogManager();
-
-        int latestVersion = catalogService.latestCatalogVersion();
-        Catalog catalog = catalogService.catalog(latestVersion);
+        Catalog catalog = cluster.catalogManager().latestCatalog();
 
         assertThat(catalog, notNullValue());
         assertThat(catalog.aliveIndex(name.schemaName(), name.objectName()), notNullValue());
@@ -608,10 +595,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("SameParameterValue")
     private void assertIndexNotExists(String name) {
-        CatalogService catalogService = cluster.catalogManager();
-
-        int latestVersion = catalogService.latestCatalogVersion();
-        Catalog catalog = catalogService.catalog(latestVersion);
+        Catalog catalog = cluster.catalogManager().latestCatalog();
 
         QualifiedName qualifiedName = QualifiedName.fromSimple(name);
 

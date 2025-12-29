@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.time.Duration.ofSeconds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -371,12 +373,13 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         return metaStorageManager.clusterTime().currentSafeTime().longValue();
     }
 
-    private Catalog latestCatalogVersion() throws Exception {
-        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+    private Catalog latestCatalogVersion() {
+        Catalog latestCatalog = catalogManager.latestCatalog();
 
-        assertThat(latestCatalog, is(notNullValue()));
-
-        assertTrue(waitForCondition(() -> latestCatalog.time() <= currentSafeTime(), 10, 5000));
+        waitAtMost(ofSeconds(5)).until(
+                this::currentSafeTime,
+                is(greaterThanOrEqualTo(latestCatalog.time()))
+        );
 
         return latestCatalog;
     }

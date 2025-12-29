@@ -132,7 +132,7 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
     }
 
     private static List<CatalogStorageProfileDescriptor> extractZoneProfiles(Node node, int zoneId) {
-        CatalogZoneDescriptor zoneDescriptor = node.catalogManager.catalog(node.catalogManager.latestCatalogVersion()).zone(zoneId);
+        CatalogZoneDescriptor zoneDescriptor = node.catalogManager.latestCatalog().zone(zoneId);
 
         assertNotNull(zoneDescriptor);
 

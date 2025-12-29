@@ -26,11 +26,11 @@ import static org.apache.ignite.internal.table.distributed.PartitionModification
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -286,8 +286,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
 
     private static void expectLongValue(String tableName, long value, String metricName) {
         QualifiedName qualifiedName = QualifiedName.parse(tableName);
-        CatalogManager manager = unwrapIgniteImpl(node(0)).catalogManager();
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = unwrapIgniteImpl(node(0)).catalogManager().latestCatalog();
         CatalogTableDescriptor tableDesc = catalog.table(qualifiedName.schemaName(), qualifiedName.objectName());
         int partsCount = catalog.zone(tableDesc.zoneId()).partitions();
 
@@ -322,11 +321,11 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
     }
 
     private static int tableIdByName(QualifiedName qualifiedName) {
-        CatalogManager manager = unwrapIgniteImpl(node(0)).catalogManager();
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
-        CatalogTableDescriptor tableDesc = catalog.table(qualifiedName.schemaName(), qualifiedName.objectName());
+        CatalogTableDescriptor tableDesc = unwrapIgniteImpl(node(0)).catalogManager()
+                .latestCatalog()
+                .table(qualifiedName.schemaName(), qualifiedName.objectName());
 
-        assert tableDesc != null;
+        assertNotNull(tableDesc);
 
         return tableDesc.id();
     }

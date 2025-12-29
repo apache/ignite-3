@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.time.Duration.ofSeconds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -267,22 +267,16 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
         runInRwTransaction(CLUSTER.aliveNode(), tx -> {
             // Create an index inside a transaction, this will prevent the index from building.
-            try {
-                CompletableFuture<Void> creationFuture = runAsync(ItDropIndexMultipleNodesTest::createIndexBlindly);
+            CompletableFuture<Void> creationFuture = runAsync(ItDropIndexMultipleNodesTest::createIndexBlindly);
 
-                assertTrue(waitForCondition(
-                        () -> catalogManager.catalog(catalogManager.latestCatalogVersion()).aliveIndex(SCHEMA_NAME, INDEX_NAME) != null,
-                        10_000
-                ));
+            waitAtMost(ofSeconds(10)).until(
+                    () -> catalogManager.latestCatalog().aliveIndex(SCHEMA_NAME, INDEX_NAME),
+                    is(notNullValue())
+            );
 
-                dropIndex();
+            dropIndex();
 
-                assertThat(creationFuture, willCompleteSuccessfully());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                throw new RuntimeException(e);
-            }
+            assertThat(creationFuture, willCompleteSuccessfully());
         });
 
         assertThat(indexRemovedFuture, willCompleteSuccessfully());

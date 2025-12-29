@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
@@ -293,9 +292,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     private static void waitForStableAssignments(Ignite node, int zoneId) throws Exception {
         IgniteImpl nodeImpl = unwrapIgniteImpl(node);
 
-        Catalog catalog = nodeImpl.catalogManager().catalog(nodeImpl.catalogManager().latestCatalogVersion());
-
-        int numberOfPartitions = catalog.zone(zoneId).partitions();
+        int numberOfPartitions = nodeImpl.catalogManager().latestCatalog().zone(zoneId).partitions();
 
         boolean res = waitForCondition(() -> {
             var stableAssignmentsAreReady = new AtomicBoolean(true);

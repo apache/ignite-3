@@ -42,12 +42,10 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogNotFoundException;
@@ -509,13 +507,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     }
 
     private HybridTimestamp latestCatalogVersionActivationTs() {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        assertNotNull(catalog, "catalogVersion=" + catalogVersion);
-
-        return hybridTimestamp(catalog.time());
+        return hybridTimestamp(catalogManager.latestCatalog().time());
     }
 
     private int tableId(String tableName) {

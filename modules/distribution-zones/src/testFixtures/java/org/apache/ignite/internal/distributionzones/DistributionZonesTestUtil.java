@@ -772,7 +772,7 @@ public class DistributionZonesTestUtil {
 
         setDefaultZone(catalogManager, DEFAULT_ZONE_NAME);
 
-        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog latestCatalog = catalogManager.latestCatalog();
 
         assertNotNull(latestCatalog.defaultZone());
     }

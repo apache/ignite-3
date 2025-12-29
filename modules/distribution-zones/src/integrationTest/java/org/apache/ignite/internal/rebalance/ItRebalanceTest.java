@@ -214,7 +214,9 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
 
         CatalogManager catalogManager = unwrapIgniteImpl(cluster.aliveNode()).catalogManager();
 
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
+        return catalogManager.latestCatalog()
+                .tables()
+                .stream()
                 .filter(t -> t.name().equals(tableName))
                 .findFirst().get().id();
     }

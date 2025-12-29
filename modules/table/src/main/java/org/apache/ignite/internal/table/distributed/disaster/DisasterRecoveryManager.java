@@ -2031,13 +2031,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private Catalog catalogLatestVersion() {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        assert catalog != null : catalogVersion;
-
-        return catalog;
+        return catalogManager.latestCatalog();
     }
 
     private static CatalogTableDescriptor tableDescriptor(Catalog catalog, String schemaName, String tableName) {
@@ -2077,12 +2071,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private void registerMetricSources() {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        assert catalog != null : "Catalog is not found for version: " + catalogVersion;
-
-        catalog.tables().forEach(this::registerPartitionStatesMetricSource);
+        catalogLatestVersion().tables().forEach(this::registerPartitionStatesMetricSource);
     }
 
     private void registerPartitionStatesMetricSource(CatalogTableDescriptor tableDescriptor) {

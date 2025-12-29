@@ -735,7 +735,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void makeIndexAvailable(String name) {
-        Map<String, CatalogIndexDescriptor> indices = catalogManager.catalog(catalogManager.latestCatalogVersion()).indexes()
+        Map<String, CatalogIndexDescriptor> indices = catalogManager.latestCatalog().indexes()
                 .stream().collect(Collectors.toMap(CatalogIndexDescriptor::name, Function.identity()));
 
         CatalogIndexDescriptor indexDescriptor = indices.get(name);

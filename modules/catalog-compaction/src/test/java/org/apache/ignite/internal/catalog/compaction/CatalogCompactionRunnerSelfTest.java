@@ -175,15 +175,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
 
         Map<String, Long> nodeToTime = Map.of(
@@ -230,15 +230,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
@@ -279,15 +279,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
@@ -326,15 +326,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
@@ -430,13 +430,13 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());
         assertThat(catalogManager.execute(createIndex), willCompleteSuccessfully());
 
-        Catalog firstCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog firstCatalog = catalogManager.latestCatalog();
         CatalogIndexDescriptor index = firstCatalog.indexes().stream().filter(idx -> "T1_VAL_IDX".equals(idx.name()))
                 .findFirst()
                 .orElseThrow();
         int indexId = index.id();
 
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         // ConcurrentMap so we can modify it as we go.
@@ -464,7 +464,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         // Advances time, so nodes can observe the latest catalog time at the moment.
         Runnable advanceTime = () -> {
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+            Catalog catalog = catalogManager.latestCatalog();
             long latestTime = catalog.time();
 
             nodeToTime.put(NODE1.name(), latestTime);
@@ -553,7 +553,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         long time = catalog1.time();
@@ -617,7 +617,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         long time = catalog1.time();
@@ -1313,7 +1313,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             List<AvailablePartitionsMessage> availablePartitions = new ArrayList<>();
 
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+            Catalog catalog = catalogManager.latestCatalog();
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 Entry<String, Integer> nodeTableId = Map.entry(nodeName, table.id());
@@ -1367,8 +1367,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             Long minTime = timeSupplier.minLocalTimeAtNode(coordinator);
             Map<TablePartitionId, Long> values = new HashMap<>();
 
-            int version = catalogManager.latestCatalogVersion();
-            Catalog catalog = catalogManager.catalog(version);
+            Catalog catalog = catalogManager.latestCatalog();
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 for (int i = 0; i < CatalogUtils.DEFAULT_PARTITION_COUNT; i++) {
