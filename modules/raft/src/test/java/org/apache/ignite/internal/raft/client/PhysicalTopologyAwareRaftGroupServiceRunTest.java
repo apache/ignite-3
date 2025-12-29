@@ -51,7 +51,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -195,7 +195,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                 executor,
                 eventsClientListener,
                 commandsMarshaller,
-                StoppingExceptionFactories.indicateComponentStop(),
+                StoppingExceptionFactories.indicateNodeStop(),
                 throttlingContextHolder(),
                 NOOP_FAILURE_PROCESSOR
         );
@@ -317,26 +317,6 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         assertThat(result, willThrow(ReplicationGroupUnavailableException.class));
 
         verifyExact3PeersCalled();
-    }
-
-    private void verifyExact3PeersCalled() {
-        ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
-        Mockito.verify(this.messagingService, Mockito.times(3)).invoke(
-                nodeCaptor.capture(),
-                argThat(WriteActionRequest.class::isInstance),
-                anyLong()
-        );
-
-        // Verify each peer was tried exactly once.
-        Set<String> triedPeers = nodeCaptor.getAllValues().stream()
-                .map(InternalClusterNode::name)
-                .collect(Collectors.toSet());
-
-        Set<String> expectedPeers = NODES.stream()
-                .map(Peer::consistentId)
-                .collect(Collectors.toSet());
-
-        assertThat(triedPeers, equalTo(expectedPeers));
     }
 
     /**
@@ -534,11 +514,9 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         assertTrue(elapsed < 1500, "Expected to fail within 1500ms but took " + elapsed + "ms");
     }
 
-    // ==================== Shutdown Tests ====================
-
     /**
      * Tests that with timeout=0, if the client is shutting down during peer trying,
-     * the future completes with ComponentStoppingException.
+     * the future completes with NodeStoppingException.
      */
     @Test
     void testZeroTimeoutShutdownDuringPeerTrying() throws Exception {
@@ -575,13 +553,13 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                     .build());
         }
 
-        // The result should complete with ComponentStoppingException.
-        assertThat(result, willThrow(ComponentStoppingException.class, 5, TimeUnit.SECONDS));
+        // The result should complete with NodeStoppingException.
+        assertThat(result, willThrow(NodeStoppingException.class, 5, TimeUnit.SECONDS));
     }
 
     /**
      * Tests that with infinite timeout, if the client is shutting down during leader waiting,
-     * the future completes with ComponentStoppingException.
+     * the future completes with NodeStoppingException.
      */
     @Test
     void testInfiniteTimeoutShutdownDuringLeaderWaiting() throws Exception {
@@ -613,13 +591,13 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Shutdown the service.
         svc.shutdown();
 
-        // The result should complete with ComponentStoppingException.
-        assertThat(result, willThrow(ComponentStoppingException.class, 5, TimeUnit.SECONDS));
+        // The result should complete with NodeStoppingException.
+        assertThat(result, willThrow(NodeStoppingException.class, 5, TimeUnit.SECONDS));
     }
 
     /**
      * Tests that with bounded timeout, if the client is shutting down during retry phase,
-     * the future completes with ComponentStoppingException immediately without new retry round.
+     * the future completes with NodeStoppingException immediately without new retry round.
      */
     @Test
     void testBoundedTimeoutShutdownDuringRetryPhase() throws Exception {
@@ -672,8 +650,8 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Complete the pending retry invoke - the callback should see shutdown.
         pendingRetryInvoke.complete(null);
 
-        // The result should complete with ComponentStoppingException.
-        assertThat(result, willThrow(ComponentStoppingException.class, 5, TimeUnit.SECONDS));
+        // The result should complete with NodeStoppingException.
+        assertThat(result, willThrow(NodeStoppingException.class, 5, TimeUnit.SECONDS));
 
         // Give some time for any additional retry attempts.
         Thread.sleep(200);
@@ -681,6 +659,26 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Verify no additional retry attempts were made after shutdown.
         // We should have exactly 4 invocations (3 initial + 1 retry attempt that was interrupted).
         assertThat(callCount.get(), is(4));
+    }
+
+    private void verifyExact3PeersCalled() {
+        ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
+        Mockito.verify(this.messagingService, Mockito.times(3)).invoke(
+                nodeCaptor.capture(),
+                argThat(WriteActionRequest.class::isInstance),
+                anyLong()
+        );
+
+        // Verify each peer was tried exactly once.
+        Set<String> triedPeers = nodeCaptor.getAllValues().stream()
+                .map(InternalClusterNode::name)
+                .collect(Collectors.toSet());
+
+        Set<String> expectedPeers = NODES.stream()
+                .map(Peer::consistentId)
+                .collect(Collectors.toSet());
+
+        assertThat(triedPeers, equalTo(expectedPeers));
     }
 
     private static class TestResponse {
