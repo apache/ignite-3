@@ -223,7 +223,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         return executeSql(nodeIndex, null, sql, args);
     }
 
-    protected final List<List<Object>> executeSql(int nodeIndex, Transaction tx, String sql, Object... args) {
+    protected final List<List<Object>> executeSql(int nodeIndex, @Nullable Transaction tx, String sql, Object... args) {
         Ignite ignite = node(nodeIndex);
 
         return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, sql, args);

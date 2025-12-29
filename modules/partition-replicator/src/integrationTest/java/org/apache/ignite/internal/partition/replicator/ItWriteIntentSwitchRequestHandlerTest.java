@@ -19,8 +19,7 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.InitParametersBuilder;
@@ -30,12 +29,10 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestHandler;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link WriteIntentSwitchRequestHandler}. */
-public class WriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrationTest {
+public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
         return 2;
@@ -52,8 +49,6 @@ public class WriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrati
                 + "    dataAvailabilityTimeMillis: 1000,\n"
                 + "    updateIntervalMillis: 100\n"
                 + "  },\n"
-                // Disable tx state storage cleanup.
-                + "  ignite.system.properties." + TxManagerImpl.RESOURCE_TTL_PROP + " = " + Long.MAX_VALUE + "\n"
                 + "}";
     }
 
@@ -70,9 +65,9 @@ public class WriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrati
         // This node will process WriteIntentSwitchReplicaRequest messages.
         IgniteImpl receiverNode = unwrapIgniteImpl(cluster.node(receiverNodeIndex));
 
-        CompletableFuture<Void> tableDroppedFut = new CompletableFuture<>();
+        CompletableFuture<Void> tableDestroyedFut = new CompletableFuture<>();
 
-        failIntentSwitchUntilTableIsDestroyed(senderNode, tableDroppedFut);
+        failIntentSwitchUntilTableIsDestroyed(senderNode, tableDestroyedFut);
 
         receiverNode.transactions().runInTransaction((tx) -> {
             for (int i = 0; i < 10; i++) {
@@ -80,12 +75,10 @@ public class WriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrati
             }
         });
 
-        assertThat(receiverNode.distributedTableManager().cachedTable(tableName), notNullValue());
-
         executeSql("DROP TABLE " + tableName);
 
         // Await real table destruction.
-        Awaitility.await().until(() -> receiverNode.distributedTableManager().cachedTable(tableName) == null);
+        await().until(() -> receiverNode.distributedTableManager().cachedTable(tableName) == null);
 
         LogInspector logInspector = new LogInspector(
                 TxCleanupRequestHandler.class.getName(),
@@ -95,9 +88,10 @@ public class WriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrati
         logInspector.start();
 
         try {
-            tableDroppedFut.complete(null);
+            tableDestroyedFut.complete(null);
 
-            Awaitility.await().until(logInspector::isMatched);
+            // We need to wait for the next write intent switch attempt.
+            await().until(logInspector::isMatched);
         } finally {
             logInspector.stop();
         }
