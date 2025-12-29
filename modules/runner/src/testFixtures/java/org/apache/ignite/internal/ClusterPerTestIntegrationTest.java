@@ -253,6 +253,10 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
                 .orElseThrow(() -> new AssertionError("node not found"));
     }
 
+    protected final IgniteImpl anyNode() {
+        return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
+    }
+
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
     @RegisterExtension
     ClusterStateDumpingExtension testFailureHook = new ClusterStateDumpingExtension();

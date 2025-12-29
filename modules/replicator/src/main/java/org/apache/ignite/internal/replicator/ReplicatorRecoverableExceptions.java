@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -33,6 +34,7 @@ public class ReplicatorRecoverableExceptions {
     private static final Set<Class<? extends Throwable>> RECOVERABLE = Set.of(
             TimeoutException.class,
             IOException.class,
+            UnresolvableConsistentIdException.class,
             ReplicationException.class,
             ReplicationTimeoutException.class,
             PrimaryReplicaMissException.class,

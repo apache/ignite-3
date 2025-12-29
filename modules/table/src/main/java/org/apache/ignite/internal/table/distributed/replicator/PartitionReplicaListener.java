@@ -94,6 +94,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
@@ -131,6 +132,8 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
@@ -186,6 +189,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
@@ -290,6 +294,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private final CatalogService catalogService;
 
+    private final LeasePlacementDriver placementDriver;
+
+    private final InternalClusterNode localNode;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -333,7 +341,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @param safeTime Safe time clock.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
+     * @param validationSchemasSource Validation schemas source.
+     * @param localNode Local cluster node.
      * @param catalogService Catalog service.
+     * @param placementDriver Placement driver.
      * @param clusterNodeResolver Node resolver.
      * @param remotelyTriggeredResourceRegistry Resource registry.
      * @param indexMetaStorage Index meta storage.
@@ -355,8 +366,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
+            InternalClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            LeasePlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             SchemaRegistry schemaRegistry,
@@ -378,6 +391,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.placementDriver = placementDriver;
+        this.localNode = localNode;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
         this.lowWatermark = lowWatermark;
@@ -3266,10 +3281,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
 
+        HybridTimestamp now = clockService.current();
+        ReplicaMeta replicaMeta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
+        Long currentConsistencyToken = (replicaMeta == null || !replicaMeta.getLeaseholderId().equals(localNode.id()))
+                ? null
+                : replicaMeta.getStartTime().longValue();
+
         return transactionStateResolver.resolveTxState(
                         txId,
                         new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
-                        timestamp)
+                        timestamp,
+                        currentConsistencyToken,
+                        replicationGroupId
+                )
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
