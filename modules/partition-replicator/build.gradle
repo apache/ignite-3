@@ -75,6 +75,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-storage-api'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
+    integrationTestImplementation testFixtures(project(':ignite-vault'))
 
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
