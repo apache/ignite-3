@@ -86,7 +86,7 @@ class WebhookSink implements Sink<WebhookSinkView> {
 
     private final ScheduledExecutorService executorService;
 
-    private long lastSendMillis;
+    private volatile long lastSendMillis;
 
     WebhookSink(WebhookSinkView cfg, EventSerializer serializer, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.cfg = cfg;
@@ -139,7 +139,8 @@ class WebhookSink implements Sink<WebhookSinkView> {
         return events;
     }
 
-    public long getLastSendMillis() {
+    @TestOnly
+    long getLastSendMillis() {
         return lastSendMillis;
     }
 
