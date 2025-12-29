@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
@@ -83,7 +84,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionOptions;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -520,7 +520,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
             boolean concernNonMvData
     ) throws InterruptedException {
         File partitionFile = testTablePartition0File(ignite, tableId);
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Partition file " + partitionFile.getAbsolutePath() + " was not removed in time.",
@@ -529,7 +529,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                 });
 
         if (concernNonMvData) {
-            Awaitility.await().atMost(10, SECONDS)
+            await().atMost(10, SECONDS)
                     .untilAsserted(() -> {
                         assertThat(
                                 "Tx state storage was not destroyed in time.",
@@ -537,16 +537,16 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                         );
                     });
 
-            Awaitility.await().atMost(10, SECONDS)
+            await().atMost(10, SECONDS)
                     .untilAsserted(() -> {
                         assertThat(
                                 "Partition Raft log was not removed in time.",
-                                partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() == 0L
+                                partitionLogStorage(ignite, replicationGroupId).getLastLogIndex(), is(0L)
                         );
                     });
 
             File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
-            Awaitility.await().atMost(10, SECONDS)
+            await().atMost(10, SECONDS)
                     .untilAsserted(() -> {
                         assertThat(
                                 "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time.",
@@ -566,7 +566,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void waitTillCatalogDoesNotContainTargetTable(IgniteImpl ignite, String tableName) throws InterruptedException {
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Did not observe catalog truncation in time.",
@@ -623,7 +623,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
     private void waitTillAssignmentCountReaches(int targetAssignmentCount, ZonePartitionId replicationGroupId)
             throws InterruptedException {
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Did not see assignments count reaching.",
@@ -663,7 +663,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
             throws InterruptedException {
         MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(stablePartAssignmentsKey(zonePartitionId));
                     assertThat(
@@ -672,7 +672,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
                     assertThat(
@@ -681,8 +681,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(pendingChangeTriggerKey(zonePartitionId));
                     assertThat(
@@ -691,7 +690,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(plannedPartAssignmentsKey(zonePartitionId));
                     assertThat(
@@ -700,7 +699,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(switchAppendKey(zonePartitionId));
                     assertThat(
@@ -709,7 +708,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(switchReduceKey(zonePartitionId));
                     assertThat(
@@ -718,7 +717,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     Entry entry = metaStorage.getLocally(assignmentsChainKey(zonePartitionId));
                     assertThat(
@@ -731,7 +730,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static void verifyZoneDistributionZoneManagerResourcesArePresent(IgniteImpl ignite, int zoneId) throws InterruptedException {
         MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Zone data nodes are not present in meta storage.",
@@ -739,7 +738,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Zone scale up timer is not present in meta storage.",
@@ -747,7 +746,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Zone scale down timer is not present in meta storage.",
@@ -760,7 +759,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
             throws InterruptedException {
         MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Zone data nodes were not removed from meta storage in time.",
@@ -768,7 +767,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Zone scale up timer was not removed from meta storage in time.",
@@ -776,7 +775,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     );
                 });
 
-        Awaitility.await().atMost(10, SECONDS)
+        await().atMost(10, SECONDS)
                 .untilAsserted(() -> {
                     assertThat(
                             "Zone scale down timer was not removed from meta storage in time.",
