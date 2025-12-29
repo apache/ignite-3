@@ -211,7 +211,7 @@ namespace Apache.Ignite
             /// <summary> ResourceNotFound error. </summary>
             public const int ResourceNotFound = (GroupCode << 16) | (10 & 0xFFFF);
 
-            /// <summary> Client operation timeout. </summary>
+            /// <summary> OperationTimeout error. </summary>
             public const int OperationTimeout = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
@@ -545,6 +545,9 @@ namespace Apache.Ignite
 
             /// <summary> UnitWrite error. </summary>
             public const int UnitWrite = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> UnitNonUniqueFilenames error. </summary>
+            public const int UnitNonUniqueFilenames = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> GarbageCollector errors. </summary>

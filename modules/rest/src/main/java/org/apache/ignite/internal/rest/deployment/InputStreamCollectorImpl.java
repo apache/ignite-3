@@ -54,13 +54,20 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
 
     @Override
     public void addInputStream(String filename, InputStream is) {
-        collect.put(filename, tempStorage.store(filename, is).whenComplete((path, throwable) -> {
-            try {
-                is.close();
-            } catch (IOException e) {
-                LOG.error("Error when closing input stream.", e);
-            }
-        }));
+        if (collect.containsKey(filename)) {
+            closeStream(is);
+            throw new DuplicateFilenamesException("Duplicate filename: " + filename);
+        }
+
+        collect.put(filename, tempStorage.store(filename, is).whenComplete((path, throwable) -> closeStream(is)));
+    }
+
+    private static void closeStream(InputStream is) {
+        try {
+            is.close();
+        } catch (IOException e) {
+            LOG.error("Error when closing input stream.", e);
+        }
     }
 
     @Override
