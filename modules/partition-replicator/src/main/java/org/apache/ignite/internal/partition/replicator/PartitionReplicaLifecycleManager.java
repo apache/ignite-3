@@ -2153,7 +2153,7 @@ public class PartitionReplicaLifecycleManager extends
             partitionsEligibilityForRemovalFutures.add(partitionRemovalFuture);
         }
 
-        // If there's a partition that still have non empty recourses e.g. non-empty txnStateStorage, event is returned
+        // If there's a partition that still has non empty resourses e.g. non-empty txnStateStorage, the event is returned
         // back to destructionEventsQueue and thus will be re-processed on next lwm change.
         allOf(partitionsEligibilityForRemovalFutures.toArray(new CompletableFuture[0]))
                 .thenApply(fs -> partitionsEligibilityForRemovalFutures.stream().anyMatch(f -> !f.join()))
