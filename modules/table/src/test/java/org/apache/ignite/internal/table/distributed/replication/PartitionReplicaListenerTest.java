@@ -664,8 +664,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 validationSchemasSource,
+                localNode,
                 schemaSyncService,
                 catalogService,
+                placementDriver,
                 new SingleClusterNodeResolver(localNode),
                 new RemotelyTriggeredResourceRegistry(),
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
