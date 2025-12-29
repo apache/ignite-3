@@ -61,7 +61,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
     void ddlIsTrackedByConnection() {
         server(0).sql().executeScript("CREATE TABLE t(id INT PRIMARY KEY)");
 
-        IgniteClient client1 = client();
+        IgniteClient client1 = startClient();
         client1.sql().executeScript("SELECT 1");
         ClientInboundMessageHandler handler1 = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
 
@@ -92,7 +92,8 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
                 .getConfiguration(SuggestionsClusterExtensionConfiguration.KEY);
 
         { // Suggestion is enabled by default
-            addColumn(client(), 0);
+            IgniteClient client = startClient();
+            addColumn(client, 0);
             ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
             assertThat(ddlQueriesInRow(handler), is(1));
         }
@@ -115,15 +116,18 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
 
             addColumn(client, 3);
             addColumn(client, 4);
+            addColumn(client, 5);
 
             ClientInboundMessageHandler handler = unwrapIgniteImpl(server(0)).clientInboundMessageHandler();
-            assertThat(ddlQueriesInRow(handler), is(2));
+            assertThat(ddlQueriesInRow(handler), is(3));
         }
     }
 
     private IgniteClient startClient() {
         IgniteClient client = IgniteClient.builder()
                 .addresses(getClientAddresses().toArray(new String[0]))
+                .backgroundReconnectInterval(0)
+                .retryPolicy(null)
                 .build();
 
         closeables.add(client);
