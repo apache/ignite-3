@@ -225,6 +225,7 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -469,7 +470,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        var lockManager = new HeapLockManager(systemConfiguration);
+        var lockManager = new HeapLockManager(systemConfiguration, new VolatileTxStateMetaStorage());
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -629,6 +630,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 replicaService,
                 lockManager,
+                new VolatileTxStateMetaStorage(),
                 clockService,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),

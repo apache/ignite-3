@@ -34,6 +34,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,7 +58,7 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     protected abstract LockManager lockManager();
 
     protected LockManager lockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
         lockManager.start(deadlockPreventionPolicy);
         return lockManager;
     }

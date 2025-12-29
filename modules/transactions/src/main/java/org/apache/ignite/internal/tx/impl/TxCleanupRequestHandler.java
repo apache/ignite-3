@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
@@ -195,8 +195,7 @@ public class TxCleanupRequestHandler {
                                                 LOG.warn(
                                                         "Second cleanup attempt failed (the transaction outcome is not affected) [{}]",
                                                         retryEx,
-                                                        TransactionLogUtils.formatTxInfo(txCleanupMessage.txId(),
-                                                                volatileTxStateMetaStorage)
+                                                        formatTxInfo(txCleanupMessage.txId(), volatileTxStateMetaStorage)
                                                 );
                                             }
                                         });
