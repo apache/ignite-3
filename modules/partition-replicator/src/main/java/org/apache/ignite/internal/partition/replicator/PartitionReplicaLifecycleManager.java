@@ -2103,7 +2103,7 @@ public class PartitionReplicaLifecycleManager extends
      * <ol>
      *     <li>Check whether it's started or await if it's starting.</li>
      *     <li>Check whether the partition is eligible for removal -  has zero table resources and empty txStateStorage.</li>
-     *     <li>Stop partition, drop zone partition resources and unregister it from within startedReplicationGroups.</li>
+     *     <li>Stop partition, destroy zone partition resources and unregister it from within startedReplicationGroups.</li>
      *     <li>Remove partition assignments from meta storage.</li>
      * </ol>
      */
@@ -2130,7 +2130,7 @@ public class PartitionReplicaLifecycleManager extends
                                                     }
 
                                                     // It's safe to use -1 as revision id here, since we only stop partitions that do not
-                                                    // active table-related resources.
+                                                    // have active table-related resources.
                                                     return stopAndDestroyPartition(zonePartitionId, -1)
                                                             .thenCompose(v -> dropAssignments(zonePartitionId))
                                                             .thenApply(v -> true);
@@ -2153,7 +2153,7 @@ public class PartitionReplicaLifecycleManager extends
             partitionsEligibilityForRemovalFutures.add(partitionRemovalFuture);
         }
 
-        // If there's a partition that still have non empty recourses e.g. non-empty txnStateStorage, event is returned
+        // If there's a partition that still has non empty resourses e.g. non-empty txnStateStorage, the event is returned
         // back to destructionEventsQueue and thus will be re-processed on next lwm change.
         allOf(partitionsEligibilityForRemovalFutures.toArray(new CompletableFuture[0]))
                 .thenApply(fs -> partitionsEligibilityForRemovalFutures.stream().anyMatch(f -> !f.join()))
@@ -2175,7 +2175,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Checks whether partition could be removed. In order to match the condition zone partition should have zero table resources and
+     * Checks whether partition could be removed. In order to match the condition, a zone partition should have zero table resources and
      * empty txStateStorage.
      */
     private CompletableFuture<Boolean> isEligibleForDrop(ZonePartitionId zonePartitionId) {
@@ -2196,7 +2196,7 @@ public class PartitionReplicaLifecycleManager extends
         // In order to simplify the logic of table resources cleanup, that is handled by TableManager and
         // zone resources cleanup that is handled by PartitionReplicaLifecycleManager, on zone destruction event
         // we await TableManager to finish its own job instead of stealing it.
-        // In words case if both tables and zone were destroyed on same them lwm, PartitionReplicaLifecycleManager will cleanup
+        // In case when both tables and zone were destroyed on the same lwm, PartitionReplicaLifecycleManager will cleanup
         // zone resources within the next lwm update.
         return zoneResourcesManager.areTableResourcesEmpty(zonePartitionId);
     }

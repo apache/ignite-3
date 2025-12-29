@@ -215,7 +215,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     /**
      *  Returns future of true if there are no corresponding table-related resources, otherwise awaits replicaListenerFuture
      *  and checks whether table replica processors, table raft processors and partition snapshot storages are present.
-     *  if any is present returns false, otherwise returns true.
+     *  if any is present, returns false, otherwise returns true.
      */
     CompletableFuture<Boolean> areTableResourcesEmpty(ZonePartitionId zonePartitionId) {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);

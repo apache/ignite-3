@@ -547,7 +547,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static void verifyPartitionNonMvDataExistsOnDisk(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
         assertTrue(hasSomethingInTxStateStorage(ignite, replicationGroupId), "Tx state storage was unexpectedly destroyed");
 
-        assertTrue(partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() > 0L, "Partition Raft log was unexpectedly removed.");
+        assertThat(partitionLogStorage(ignite, replicationGroupId).getLastLogIndex(), is(greaterThan(0L), "Partition Raft log was unexpectedly removed.");
 
         File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
         assertTrue(raftMetaFile.exists(), "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was unexpectedly removed.");
