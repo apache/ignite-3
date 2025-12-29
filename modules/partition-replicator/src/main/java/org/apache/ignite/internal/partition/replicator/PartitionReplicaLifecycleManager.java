@@ -486,22 +486,22 @@ public class PartitionReplicaLifecycleManager extends
 
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
             Catalog catalog = catalogService.catalog(ver);
-            Catalog nextCatalog0 = nextCatalog;
+            Catalog finalNextCatalog = nextCatalog;
 
             int ver0 = ver;
             catalogService.catalog(ver).zones().stream()
                     .filter(zone -> startedZones.add(zone.id()))
                     .forEach(zoneDescriptor -> {
-                        // Handle missed zone drop event.
                         int zoneId = zoneDescriptor.id();
 
                         startZoneFutures.add(
                                 calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor, true));
 
-                        if (nextCatalog0 != null && nextCatalog0.zone(zoneId) == null) {
+                        // Handle missed zone drop event.
+                        if (finalNextCatalog != null && finalNextCatalog.zone(zoneId) == null) {
                             destructionEventsQueue.enqueue(
                                     new DestroyZoneEvent(
-                                            nextCatalog0.version(),
+                                            finalNextCatalog.version(),
                                             zoneId,
                                             zoneDescriptor.partitions()
                                     )
