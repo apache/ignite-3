@@ -6,7 +6,7 @@ Sort
       group: [CHANNEL, ID]
       groupSets: [[CHANNEL, ID], [CHANNEL], []]
       aggregation: [SUM(SALES), SUM(RETURNS), SUM(PROFIT)]
-      est: (rows=41954)
+      est: (rows=24991)
     UnionAll
         est: (rows=41969)
       Project

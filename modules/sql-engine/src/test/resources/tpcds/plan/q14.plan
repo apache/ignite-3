@@ -7,7 +7,7 @@ Sort
       group: [CHANNEL, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID]
       groupSets: [[CHANNEL, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID], [CHANNEL, I_BRAND_ID, I_CLASS_ID], [CHANNEL, I_BRAND_ID], [CHANNEL], []]
       aggregation: [SUM(SALES), SUM(NUMBER_SALES)]
-      est: (rows=107341)
+      est: (rows=85833)
     UnionAll
         est: (rows=136403)
       Project
