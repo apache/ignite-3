@@ -24,4 +24,6 @@ public interface PageCacheMetrics {
 
     /** Increases the page cache miss metric by one. */
     void incrementPageCacheMiss();
+
+    void incrementPageReplacement();
 }

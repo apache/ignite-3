@@ -21,7 +21,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.PageCacheMetrics;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 
-/** A factory that wraps page replacement policies with metrics collection. */
+/** A factory that augments page replacement policies with metrics collection. */
 public class MeteredPageReplacementPolicyFactory implements PageReplacementPolicyFactory {
     private final PageReplacementPolicyFactory delegate;
     private final PageCacheMetrics metrics;
@@ -53,6 +53,7 @@ public class MeteredPageReplacementPolicyFactory implements PageReplacementPolic
 
         @Override
         public long replace() throws IgniteInternalCheckedException {
+            metrics.incrementPageReplacement();
             return delegate.replace();
         }
 

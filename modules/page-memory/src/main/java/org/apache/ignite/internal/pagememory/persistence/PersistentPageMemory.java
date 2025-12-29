@@ -170,7 +170,7 @@ public class PersistentPageMemory implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Segments array, {@code null} if not {@link #start() started}. */
-    private volatile Segment @Nullable [] segments;
+    private volatile @Nullable Segment[] segments;
 
     /** Lock for segments changes. */
     private final Object segmentsLock = new Object();
@@ -672,8 +672,6 @@ public class PersistentPageMemory implements PageMemory {
 
                 seg.pageReplacementPolicy.onHit(relPtr);
 
-                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
-
                 resPointer = absPtr;
                 waitUntilPageIsFullyInitialized = true;
 
@@ -685,6 +683,7 @@ public class PersistentPageMemory implements PageMemory {
             if (waitUntilPageIsFullyInitialized) {
                 waitUntilPageIsFullyInitialized(resPointer);
             }
+            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
 
         seg.writeLock().lock();
@@ -711,8 +710,6 @@ public class PersistentPageMemory implements PageMemory {
 
                 if (relPtr == INVALID_REL_PTR) {
                     relPtr = seg.removePageForReplacement();
-
-                    metrics.incrementPageReplacement();
                 }
 
                 absPtr = seg.absolute(relPtr);
@@ -791,8 +788,6 @@ public class PersistentPageMemory implements PageMemory {
                 waitUntilPageIsFullyInitialized = true;
             }
 
-            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
-
             return absPtr;
         } finally {
             seg.writeLock().unlock();
@@ -829,6 +824,7 @@ public class PersistentPageMemory implements PageMemory {
                     headerIsValid(lockedPageAbsPtr, true);
                 }
             }
+            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
     }
 
@@ -1016,10 +1012,6 @@ public class PersistentPageMemory implements PageMemory {
 
         if (segments != null) {
             for (Segment seg : segments) {
-                if (seg == null) {
-                    break;
-                }
-
                 seg.readLock().lock();
 
                 try {
@@ -1049,10 +1041,6 @@ public class PersistentPageMemory implements PageMemory {
         long total = 0;
 
         for (Segment seg : segments) {
-            if (seg == null) {
-                break;
-            }
-
             total += seg.dirtyPagesCntr.get();
         }
 

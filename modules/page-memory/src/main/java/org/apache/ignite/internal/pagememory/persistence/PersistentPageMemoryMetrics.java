@@ -27,12 +27,9 @@ import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionC
 
 /** Persistent page memory metrics. */
 class PersistentPageMemoryMetrics implements PageCacheMetrics {
-    private static final long[] PAGE_ACQUIRE_NANOS = {
-            500,           // 500ns - L3 cache hit
-            1_000,         // 1µs   - memory access, cache hit
-            10_000,        // 10µs  - cache hit with minor contention
+    private static final long[] PAGE_ACQUISITIONS_BOUNDS_NANOS = {
+            1_000,         // 1µs   - cache hit
             100_000,       // 100µs - page cache miss, fast SSD
-            1_000_000,     // 1ms   - slow SSD or NVMe
             10_000_000,    // 10ms  - HDD or slow I/O
             100_000_000    // 100ms - very slow I/O or high load
     };
@@ -98,7 +95,7 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
         pageAcquireTime = source.addMetric(new DistributionMetric(
                 "PageAcquireTime",
                 "Distribution of page acquisition time in nanoseconds.",
-                PAGE_ACQUIRE_NANOS
+                PAGE_ACQUISITIONS_BOUNDS_NANOS
         ));
 
         pageCacheHitRate = source.addMetric(new HitRateMetric(
@@ -154,6 +151,7 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
     }
 
     /** Increases the page replacement metric by one. */
+    @Override
     public void incrementPageReplacement() {
         pageReplacements.increment();
     }

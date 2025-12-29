@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
@@ -28,6 +29,8 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,6 +54,10 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
@@ -74,6 +81,8 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,6 +117,9 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     @InjectExecutorService
     private ExecutorService executorService;
+
+    private PersistentPageMemoryMetricSource metricSource;
+    private MetricSet metricSet;
 
     protected abstract ReplacementMode replacementMode();
 
@@ -146,10 +158,12 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 PAGE_SIZE
         );
 
+        metricSource = new PersistentPageMemoryMetricSource("test");
+
         pageMemory = new PersistentPageMemory(
                 PersistentDataRegionConfiguration.builder()
                         .pageSize(PAGE_SIZE).size(MAX_MEMORY_SIZE).replacementMode(replacementMode()).build(),
-                new PersistentPageMemoryMetricSource("test"),
+                metricSource,
                 ioRegistry,
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
@@ -165,6 +179,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         filePageStoreManager.start();
         checkpointManager.start();
         pageMemory.start();
+        metricSet = metricSource.enable();
 
         createPartitionFilePageStoresIfMissing();
     }
@@ -235,6 +250,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         continueWritePagesOnCheckpointFuture.complete(null);
         assertThat(finishCheckpointFuture, willCompleteSuccessfully());
         assertTrue(pageMemory.pageReplacementOccurred());
+        assertMetricValue("PagesWritten", 1L);
+        assertMetricValue("PageReplacements", 1L);
     }
 
     @Test
@@ -341,6 +358,23 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         assertThat(finishCheckpointFuture, willCompleteSuccessfully());
         assertThat(createPagesForPageReplacementFuture, willCompleteSuccessfully());
         verify(deltaFileIoFuture.join()).sync();
+
+        assertMetricValue("PagesWritten", 1L);
+        assertMetricValue("PageReplacements", 1L);
+
+    }
+
+    private void assertMetricValue(String metricName, long expectedValue) {
+        for (Metric metric : metricSet) {
+            System.err.println(format("Metric {} value: {}", metric.name(), metric.getValueAsString()));
+        }
+
+        LongMetric metric = metricSet.get(metricName);
+        assertThat(metric, is(notNullValue()));
+        assertThat(
+                metric.value(),
+                is(expectedValue)
+        );
     }
 
     private void createAndFillTestSimpleValuePage(long pageId) throws Exception {
