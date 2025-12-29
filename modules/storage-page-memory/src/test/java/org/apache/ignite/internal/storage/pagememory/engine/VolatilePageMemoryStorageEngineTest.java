@@ -53,6 +53,7 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
         return new VolatilePageMemoryStorageEngine(
                 "test",
                 configuration,
+                null,
                 ioRegistry,
                 mock(FailureManager.class),
                 clock

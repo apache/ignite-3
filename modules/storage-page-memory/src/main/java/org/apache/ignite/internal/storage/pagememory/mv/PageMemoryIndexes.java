@@ -169,7 +169,7 @@ class PageMemoryIndexes {
         }
     }
 
-    CompletableFuture<Void> destroyIndex(int indexId, IndexMetaTree indexMetaTree) {
+    CompletableFuture<Void> destroyIndex(int indexId, IndexStorageFactory indexStorageFactory, IndexMetaTree indexMetaTree) {
         PageMemoryHashIndexStorage hashIndexStorage = hashIndexes.remove(indexId);
 
         if (hashIndexStorage != null) {
@@ -181,7 +181,13 @@ class PageMemoryIndexes {
         PageMemorySortedIndexStorage sortedIndexStorage = sortedIndexes.remove(indexId);
 
         if (sortedIndexStorage != null) {
-            return destroyStorage(indexId, sortedIndexStorage, indexMetaTree);
+            CompletableFuture<Void> destroyFuture = destroyStorage(indexId, sortedIndexStorage, indexMetaTree);
+
+            destroyFuture.whenComplete((v, t) ->
+                    indexStorageFactory.sortedIndexDestroyed(sortedIndexStorage.indexDescriptor())
+            );
+
+            return destroyFuture;
         }
 
         return nullCompletedFuture();
