@@ -2067,12 +2067,13 @@ public class PartitionReplicaLifecycleManager extends
                     + catalogVersionWithZonePresent;
 
             destructionEventsQueue.enqueue(
-                new DestroyZoneEvent(
-                        eventCatalogVersion,
-                        zoneId,
-                        zoneDescriptor.partitions()
-                )
-        );});
+                    new DestroyZoneEvent(
+                            eventCatalogVersion,
+                            zoneId,
+                            zoneDescriptor.partitions()
+                    )
+            );
+        });
     }
 
     private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
