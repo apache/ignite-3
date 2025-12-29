@@ -23,6 +23,9 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
@@ -160,6 +163,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
 
+        verifyZoneDistributionZoneManagerResourcesArePresent(ignite0, replicationGroupId.zoneId());
+
         executeUpdate("DROP TABLE " + TABLE_NAME);
         executeUpdate("DROP ZONE " + ZONE_NAME);
 
@@ -173,6 +178,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         verifyPartitionGetsFullyRemovedFromDisk(ignite0, tableId, replicationGroupId);
 
         verifyAssignmentKeysWereRemovedFromMetaStorage(ignite0, replicationGroupId);
+
+        verifyZoneDistributionZoneManagerResourcesWereRemovedFromMetaStorage(ignite0, replicationGroupId.zoneId());
     }
 
     /**
@@ -263,6 +270,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         verifyPartitionNonMvDataExistsOnDisk(ignite0, replicationGroupId);
 
+        verifyZoneDistributionZoneManagerResourcesArePresent(ignite0, replicationGroupId.zoneId());
+
         // Trigger txStateStorage vacuumization that will remove all records from the storage and thus make it eligible for removal.
         assertThat(ignite0.txManager().vacuum(mock(ResourceVacuumMetrics.class)), willCompleteSuccessfully());
 
@@ -279,6 +288,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
 
         verifyAssignmentKeysWereRemovedFromMetaStorage(restartedIgnite0, replicationGroupId);
+
+        verifyZoneDistributionZoneManagerResourcesWereRemovedFromMetaStorage(restartedIgnite0, replicationGroupId.zoneId());
     }
 
     /**
@@ -688,6 +699,45 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                     return entry.tombstone() || entry.empty();
                 }, SECONDS.toMillis(10)),
                 "Assignments chain was not removed from meta storage in time."
+        );
+    }
+
+    private static void verifyZoneDistributionZoneManagerResourcesArePresent(IgniteImpl ignite, int zoneId) throws InterruptedException {
+        MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
+
+        assertTrue(
+                waitForCondition(() -> !metaStorage.getLocally(zoneDataNodesHistoryKey(zoneId)).empty(), SECONDS.toMillis(10)),
+                "Zone data nodes are not present in meta storage."
+        );
+
+        assertTrue(
+                waitForCondition(() -> !metaStorage.getLocally(zoneScaleUpTimerKey(zoneId)).empty(), SECONDS.toMillis(10)),
+                "Zone scale up timer is not present in meta storage."
+        );
+
+        assertTrue(
+                waitForCondition(() -> !metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).empty(), SECONDS.toMillis(10)),
+                "Zone scale down timer is not present in meta storage."
+        );
+    }
+
+    private static void verifyZoneDistributionZoneManagerResourcesWereRemovedFromMetaStorage(IgniteImpl ignite, int zoneId)
+            throws InterruptedException {
+        MetaStorageManager metaStorage = unwrapIgniteImpl(ignite).metaStorageManager();
+
+        assertTrue(
+                waitForCondition(() -> metaStorage.getLocally(zoneDataNodesHistoryKey(zoneId)).tombstone(), SECONDS.toMillis(10)),
+                "Zone data nodes were not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> metaStorage.getLocally(zoneScaleUpTimerKey(zoneId)).tombstone(), SECONDS.toMillis(10)),
+                "Zone scale up timer was not removed from meta storage in time."
+        );
+
+        assertTrue(
+                waitForCondition(() -> metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).tombstone(), SECONDS.toMillis(10)),
+                "Zone scale down timer was not removed from meta storage in time."
         );
     }
 }

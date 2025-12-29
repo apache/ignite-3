@@ -2217,7 +2217,6 @@ public class PartitionReplicaLifecycleManager extends
                 });
     }
 
-    // TODO sanpwc create jira for thread safety of drop on lwm and concurrent rebalances along and/or partition restarts.
     /**
      * For HA zones: Check that last rebalance was graceful (caused by common rebalance triggers, like data nodes change, replica factor
      * change, etc.) rather than forced (caused by a disaster recovery reset after losing the majority of nodes).
