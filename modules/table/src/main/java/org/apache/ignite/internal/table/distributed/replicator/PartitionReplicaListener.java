@@ -158,6 +158,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -626,9 +627,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
-            }
+            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -642,7 +641,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         });
             }
 
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            throwsIfIndexIsNotSorted(indexStorage);
 
             return safeReadFuture
                     .thenCompose(unused -> scanSortedIndex(request, indexStorage))
@@ -957,17 +956,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
-            }
+            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return lookupIndex(request, indexStorage.storage(), request.coordinatorId());
             }
-
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            throwsIfIndexIsNotSorted(indexStorage);
 
             return scanSortedIndex(request, indexStorage);
         }
@@ -979,6 +975,44 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.S)
                 .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), cursorId, batchCount));
+    }
+
+    /**
+     * Validates that the index storage exists for the given index ID.
+     *
+     * <p>This method checks if the provided index storage is {@code null}, which indicates that the index
+     * with the given ID does not exist in the partition's index storage map.
+     *
+     * @param indexId Index identifier. May be {@code null}.
+     * @param indexStorage Index storage retrieved from the partition's index storage map. May be {@code null}
+     *         if the index does not exist.
+     * @throws IllegalStateException If the index storage is {@code null}, indicating the index was not found.
+     */
+    private void throwsIfIndexNotFound(@Nullable Integer indexId, TableSchemaAwareIndexStorage indexStorage) {
+        if (indexStorage == null) {
+            throw new IllegalStateException(format("Index not found: [id={}].", indexId));
+        }
+    }
+
+    /**
+     * Validates that the index storage is a sorted index, not a hash index.
+     *
+     * <p>This method ensures that range scan operations are only performed on sorted indexes.
+     * Hash indexes do not support range scans because they are designed for exact key lookups only.
+     * Range scans require ordered traversal, which is only available with sorted indexes.
+     *
+     * <p>If the underlying storage is not a {@link SortedIndexStorage} (e.g., it's a {@link HashIndexStorage}),
+     * an exception is thrown to prevent invalid scan operations.
+     *
+     * @param indexStorage Index storage to validate. Must not be {@code null} (should be validated by
+     *         {@link #throwsIfIndexNotFound(Integer, TableSchemaAwareIndexStorage)} first).
+     * @throws IllegalStateException If the index storage is not a sorted index. The exception message
+     *         indicates that scans work only with sorted indexes.
+     */
+    private void throwsIfIndexIsNotSorted(TableSchemaAwareIndexStorage indexStorage) {
+        if (!(indexStorage.storage() instanceof SortedIndexStorage)) {
+            throw new IllegalStateException("Scan works only with sorted index.");
+        }
     }
 
     /**
