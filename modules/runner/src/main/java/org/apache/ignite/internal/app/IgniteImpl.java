@@ -1359,12 +1359,12 @@ public class IgniteImpl implements Ignite {
         return new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-                joinedNodes.onJoined(joinedNode);
+                joinedNodes.onJoined(joinedNode, newTopology.version());
             }
 
             @Override
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-                joinedNodes.onLeft(leftNode);
+                joinedNodes.onLeft(leftNode, newTopology.version());
             }
         };
     }

@@ -47,15 +47,19 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tostring.S;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration tests for functionality of logical topology events subscription.
  */
 @SuppressWarnings("resource")
+@ExtendWith(FailureManagerExtension.class)
 class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
@@ -254,6 +258,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void nodeReturnedToPhysicalTopologyDoesNotReturnToLogicalTopology() throws Exception {
         cluster.startAndInit(1);
 
@@ -318,6 +323,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void nodeThatCouldNotJoinShouldBeInvalidated(TestInfo testInfo) throws Exception {
         cluster.startAndInit(1);
 

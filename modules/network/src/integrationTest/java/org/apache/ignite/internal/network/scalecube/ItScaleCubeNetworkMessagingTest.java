@@ -96,6 +96,8 @@ import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeMan
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
@@ -107,6 +109,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -115,6 +118,7 @@ import reactor.core.publisher.Mono;
 /**
  * Integration tests for messaging based on ScaleCube.
  */
+@ExtendWith(FailureManagerExtension.class)
 class ItScaleCubeNetworkMessagingTest {
     /** Message sent to establish a connection. */
     private static final String TRAILBLAZER = "trailblazer";
@@ -526,6 +530,7 @@ class ItScaleCubeNetworkMessagingTest {
     @SuppressWarnings("ConstantConditions")
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @MuteFailureManagerLogging
     public void nodeCannotReuseOldId(boolean keepPreExistingConnections) throws Exception {
         testCluster = new Cluster(3, testInfo);
 
@@ -546,6 +551,7 @@ class ItScaleCubeNetworkMessagingTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @MuteFailureManagerLogging
     public void nodeCannotCommunicateAfterLeavingPhysicalTopology(boolean keepPreExistingConnections) throws Exception {
         testCluster = new Cluster(3, testInfo);
 
@@ -907,6 +913,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     public void doesNotDeliverMessagesWhoseSenderLeftPhysicalTopology() throws Exception {
         testCluster = new Cluster(2, testInfo);
 

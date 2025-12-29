@@ -339,18 +339,21 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     }
 
     @Override
-    public void onJoined(InternalClusterNode node) {
+    public void onJoined(InternalClusterNode node, long topologyVersion) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Node joined logical topology [node={}]", node);
         }
         membersByConsistentIdInLogicalTopology.put(node.name(), node);
+        this.topologyVersion = topologyVersion;
     }
 
     @Override
-    public void onLeft(InternalClusterNode node) {
+    public void onLeft(InternalClusterNode node, long topologyVersion) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Node left logical topology [node={}]", node);
         }
+
         membersByConsistentIdInLogicalTopology.remove(node.name());
+        this.topologyVersion = topologyVersion;
     }
 }
