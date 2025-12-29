@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
@@ -30,6 +31,8 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
  * is seen in the rebalance state.
  */
 public class LocalBeforeReplicaStartEventParameters extends LocalPartitionReplicaEventParameters {
+    private final ZonePartitionResources resources;
+
     private volatile boolean anyStorageIsInRebalanceState;
 
     private final List<Supplier<CompletableFuture<Void>>> cleanupActions = new CopyOnWriteArrayList<>();
@@ -40,16 +43,23 @@ public class LocalBeforeReplicaStartEventParameters extends LocalPartitionReplic
      * @param zonePartitionId Zone partition id.
      * @param revision Event's revision.
      * @param onRecovery Flag indicating if this event was produced on node recovery.
+     * @param resources Replica resources.
      */
     public LocalBeforeReplicaStartEventParameters(
             ZonePartitionId zonePartitionId,
             long revision,
             boolean onRecovery,
+            ZonePartitionResources resources,
             boolean anyStorageIsInRebalanceState
     ) {
         super(zonePartitionId, revision, onRecovery);
 
+        this.resources = resources;
         this.anyStorageIsInRebalanceState = anyStorageIsInRebalanceState;
+    }
+
+    public ZonePartitionResources resources() {
+        return resources;
     }
 
     /** Returns whether at least one storage is in rebalance state. */

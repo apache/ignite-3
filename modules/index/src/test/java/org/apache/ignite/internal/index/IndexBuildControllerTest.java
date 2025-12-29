@@ -63,7 +63,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableSegment;
 import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
@@ -129,7 +128,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         lenient().doReturn(completedFuture(replicaListener)).when(zonePartitionResources).replicaListenerFuture();
 
         TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
-        lenient().doReturn(new ReplicaTableSegment(txRwOperationTracker, safeTime)).when(replicaListener).segmentFor(anyInt());
+        lenient().doReturn(txRwOperationTracker).when(replicaListener).txRwOperationTracker(anyInt());
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,

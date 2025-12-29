@@ -15,7 +15,7 @@ object ApacheIgnite3 : BuildType({
         customScript(type = "bash") {
             name = "Clean up local maven repository"
         }
-
+        
         customGradle {
             name = "Build Apache Ignite 3"
             tasks = "assemble integrationTestClasses testClasses"
