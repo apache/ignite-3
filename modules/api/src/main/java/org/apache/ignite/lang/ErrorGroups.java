@@ -750,6 +750,9 @@ public class ErrorGroups {
 
         /** Error when forwarding disaster recovery request to another node failed. */
         public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Error when multi node operation fails on any node. */
+        public static final int REMOTE_NODE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Embedded API error group. */

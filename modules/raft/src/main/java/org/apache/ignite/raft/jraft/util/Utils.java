@@ -342,6 +342,38 @@ public final class Utils {
     }
 
     /**
+     * Computes a monotonic-time deadline based on the provided timeout.
+     *
+     * <p>The returned value is expressed in the same time domain as
+     * {@link Utils#monotonicMs()} and is intended for comparisons against
+     * that value (for example, {@code now >= deadline}).
+     *
+     * <p>Timeout semantics:
+     * <ul>
+     *     <li>{@code timeoutMillis < 0} or {@code timeoutMillis == Long.MAX_VALUE}
+     *     — the deadline is unbounded and {@code Long.MAX_VALUE} is returned.</li>
+     *     <li>{@code timeoutMillis >= 0} — the deadline is computed as
+     *     {@code Utils.monotonicMs() + timeoutMillis}, with overflow protection.</li>
+     * </ul>
+     *
+     * @param timeoutMillis timeout in milliseconds controlling the retry window
+     * @return a monotonic-time deadline in milliseconds, or {@code Long.MAX_VALUE}
+     *         if retries are unbounded or if overflow would occur
+     */
+    public static long monotonicMsAfter(long timeoutMillis) {
+        if (timeoutMillis == Long.MAX_VALUE || timeoutMillis < 0) {
+            // Infinite retry.
+            return Long.MAX_VALUE;
+        }
+        long now = monotonicMs();
+        // Overflow check: if now + timeoutMillis would overflow, return MAX_VALUE.
+        if (timeoutMillis > Long.MAX_VALUE - now) {
+            return Long.MAX_VALUE;
+        }
+        return now + timeoutMillis;
+    }
+
+    /**
      * Get string bytes in UTF-8 charset.
      */
     public static byte[] getBytes(final String s) {

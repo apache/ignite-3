@@ -314,6 +314,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NOT_ENOUGH_ALIVE_NODES:
         case error::code::ILLEGAL_NODES_SET:
         case error::code::REQUEST_FORWARD:
+        case error::code::REMOTE_NODE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21

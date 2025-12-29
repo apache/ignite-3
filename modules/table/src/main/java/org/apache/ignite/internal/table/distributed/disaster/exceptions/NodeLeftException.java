@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.REMOTE_NODE_ERR;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final boolean plain;
-    private final boolean timed;
+import java.util.UUID;
 
-    public SqlQueryResultDecorator(boolean plain) {
-        this(plain, false);
-    }
+/** Exception thrown when node left before finishing multi node recovery request. */
+public class NodeLeftException extends DisasterRecoveryException {
+    private static final long serialVersionUID = -6295004626426857229L;
 
-    public SqlQueryResultDecorator(boolean plain, boolean timed) {
-        this.plain = plain;
-        this.timed = timed;
-    }
-
-    @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(plain, timed);
+    public NodeLeftException(String nodeName, UUID nodeId) {
+        super(REMOTE_NODE_ERR, "Node left logical topology [name=" + nodeName + ", id=" + nodeId + "]");
     }
 }

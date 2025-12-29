@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.table.distributed.disaster;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import java.util.Set;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final boolean plain;
-    private final boolean timed;
+/** {@link DisasterRecoveryRequest} that should be handled by multiple nodes. */
+public interface MultiNodeDisasterRecoveryRequest extends DisasterRecoveryRequest {
+    /** Returns names of nodes involved in the recovery or empty set if all nodes should be used. */
+    Set<String> nodeNames();
 
-    public SqlQueryResultDecorator(boolean plain) {
-        this(plain, false);
-    }
+    /** Returns the name of the node that initiated the request. {@code null} for requests created before field introduction. */
+    String coordinator();
 
-    public SqlQueryResultDecorator(boolean plain, boolean timed) {
-        this.plain = plain;
-        this.timed = timed;
-    }
-
-    @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(plain, timed);
-    }
+    /** Returns a new request with updated coordinator name. */
+    MultiNodeDisasterRecoveryRequest updateCoordinator(String newCoordinatorName);
 }

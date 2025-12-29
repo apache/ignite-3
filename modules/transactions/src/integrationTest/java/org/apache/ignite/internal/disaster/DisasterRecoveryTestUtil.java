@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.disaster;
 
+import static java.time.Duration.ofSeconds;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.awaitility.Awaitility.await;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import org.apache.ignite.internal.Cluster;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.awaitility.core.ConditionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -125,27 +125,33 @@ class DisasterRecoveryTestUtil {
             int id,
             int val,
             SchemaDescriptor schema
-    ) throws Exception {
+    ) {
         for (IgniteImpl node : nodes) {
             assertValueOnSpecificNode(tableName, node, id, val, schema);
         }
     }
 
-    static void assertValueOnSpecificNode(String tableName, IgniteImpl node, int id, int val, SchemaDescriptor schema) throws Exception {
+    static void assertValueOnSpecificNode(String tableName, IgniteImpl node, int id, int val, SchemaDescriptor schema) {
         InternalTable internalTable = unwrapTableViewInternal(node.tables().table(tableName)).internalTable();
 
         Row keyValueRow0 = createKeyValueRow(schema, id, val);
         Row keyRow0 = createKeyRow(schema, id);
 
-        assertTrue(waitForCondition(() -> {
-            try {
-                CompletableFuture<BinaryRow> getFut = internalTable.get(keyRow0, node.clock().now(), node.node());
+        try {
+            await()
+                    .atMost(ofSeconds(20))
+                    .until(() -> {
+                        BinaryRow actual = internalTable.get(keyRow0, node.clock().now(), node.node())
+                                .join();
 
-                return compareRows(getFut.get(), keyValueRow0);
-            } catch (Exception e) {
-                return false;
-            }
-        }, 10_000), "Row comparison failed within the timeout.");
+                        return compareRows(actual, keyValueRow0);
+                    });
+        } catch (ConditionTimeoutException e) {
+            throw new AssertionError(
+                    String.format("Row comparison failed within the timeout. [node={}, id={}, val={}]", node.name(), id, val),
+                    e
+            );
+        }
     }
 
     static Row createKeyValueRow(SchemaDescriptor schema, int id, int value) {
