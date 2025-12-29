@@ -148,10 +148,16 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
     }
 
     private void startTwoServers() {
-        FakeIgnite ignite = new FakeIgnite();
-        server = new TestServer(0, ignite, null, null, "node1", AbstractClientTest.clusterId, null, 10901);
-        FakeIgnite ignite1 = new FakeIgnite();
-        server2 = new TestServer(0, ignite1, null, null, "node2", AbstractClientTest.clusterId, null, 10902);
+        server = startServer("node1", 10901);
+        server2 = startServer("node2", 10902);
+    }
+
+    private static TestServer startServer(String nodeName, int port) {
+        return TestServer.builder()
+                .nodeName(nodeName)
+                .clusterId(AbstractClientTest.clusterId)
+                .port(port)
+                .build();
     }
 
     private static void waitForConnections(IgniteClient client, int expectedConnections) throws InterruptedException {
