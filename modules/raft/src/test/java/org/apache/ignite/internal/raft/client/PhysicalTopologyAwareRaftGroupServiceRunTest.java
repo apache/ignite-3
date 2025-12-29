@@ -26,7 +26,9 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -36,16 +38,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -78,7 +84,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -294,23 +302,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
-     * Tests that with timeout=0, the command throws ReplicationGroupUnavailableException when no leader and all peers tried.
-     */
-    @Test
-    void testZeroTimeoutFailWhenNoLeader() {
-        mockUserInputNoLeader();
-
-        PhysicalTopologyAwareRaftGroupService svc = startService();
-
-        // No leader election simulated - service is in WAITING_FOR_LEADER state.
-        // With timeout=0, should fail immediately.
-        CompletableFuture<Object> result = svc.run(testWriteCommand(), 0);
-
-        assertThat(result, willThrow(ReplicationGroupUnavailableException.class));
-    }
-
-    /**
-     * Tests that with timeout=0, all peers are tried before failing.
+     * Tests that with timeout=0, all peers are tried before failing with ReplicationGroupUnavailableException.
      */
     @Test
     void testZeroTimeoutTriesAllPeersBeforeFailing() {
@@ -323,6 +315,28 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         CompletableFuture<Object> result = svc.run(testWriteCommand(), 0);
 
         assertThat(result, willThrow(ReplicationGroupUnavailableException.class));
+
+        verifyExact3PeersCalled();
+    }
+
+    private void verifyExact3PeersCalled() {
+        ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
+        Mockito.verify(this.messagingService, Mockito.times(3)).invoke(
+                nodeCaptor.capture(),
+                argThat(WriteActionRequest.class::isInstance),
+                anyLong()
+        );
+
+        // Verify each peer was tried exactly once.
+        Set<String> triedPeers = nodeCaptor.getAllValues().stream()
+                .map(InternalClusterNode::name)
+                .collect(Collectors.toSet());
+
+        Set<String> expectedPeers = NODES.stream()
+                .map(Peer::consistentId)
+                .collect(Collectors.toSet());
+
+        assertThat(triedPeers, equalTo(expectedPeers));
     }
 
     /**
@@ -344,20 +358,42 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
-     * Tests that with Long.MAX_VALUE timeout, the command waits for leader and succeeds when leader appears.
+     * Tests that with Long.MAX_VALUE timeout, all peers are tried first, then waits for leader, and succeeds when leader appears.
      */
     @Test
-    void testInfiniteTimeoutWaitsForLeaderAndSucceeds() {
-        mockLeaderRequest();
-        mockUserInputSuccess();
+    void testInfiniteTimeoutWaitsForLeaderAndSucceeds() throws Exception {
+        // First 3 WriteActionRequest calls return EPERM (no leader), then success after leader appears.
+        AtomicInteger callCount = new AtomicInteger(0);
+        CountDownLatch allPeersTried = new CountDownLatch(3);
+
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            if (callCount.incrementAndGet() <= 3) {
+                allPeersTried.countDown();
+                return completedFuture(FACTORY.errorResponse()
+                        .errorCode(RaftError.EPERM.getNumber())
+                        .build());
+            }
+            return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
+        });
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
-        // Start the command - it should wait for leader.
+        // Start the command - it should try all peers first, then wait for leader.
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
+        // Wait for all peer attempts to complete.
+        assertTrue(allPeersTried.await(5, TimeUnit.SECONDS), "All peers should be tried");
+
+        verifyExact3PeersCalled();
+
         // Initially not complete (waiting for leader).
-        // After a short delay, simulate leader election.
+        assertThat(result.isDone(), is(false));
+
+        // Simulate leader election.
         executor.schedule(() -> simulateLeaderElection(NODES.get(0), CURRENT_TERM), 100, TimeUnit.MILLISECONDS);
 
         // Should eventually complete successfully.
@@ -434,6 +470,217 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         executor.schedule(() -> simulateLeaderElection(NODES.get(0), CURRENT_TERM), 100, TimeUnit.MILLISECONDS);
 
         assertThat(result, willCompleteSuccessfully());
+    }
+
+    /**
+     * Tests that with bounded timeout, the command fails if peer responses are slow and exceed the deadline.
+     */
+    @Test
+    void testBoundedTimeoutExpiresWhileTryingPeers() {
+        // Each peer response takes 200ms and returns EPERM (no leader).
+        // With 3 peers and 500ms timeout, we should exceed the deadline.
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return FACTORY.errorResponse()
+                        .errorCode(RaftError.EPERM.getNumber())
+                        .build();
+            }, executor);
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // With 500ms timeout and 3 peers each taking 200ms, total time ~600ms > 500ms.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), 500);
+
+        assertThat(result, willThrow(ReplicationGroupUnavailableException.class, 2, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Tests that individual peer request timeouts are bounded by the deadline.
+     *
+     * <p>If the deadline is 500ms but the default response timeout is 3000ms, the first peer request
+     * should timeout at ~500ms, not wait the full 3000ms.
+     */
+    @Test
+    void testBoundedTimeoutLimitsIndividualPeerRequestTimeout() {
+        // First peer never responds (simulating network issue).
+        // Default response timeout is 3000ms, but our deadline is 500ms.
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenReturn(new CompletableFuture<>()); // Never completes
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        long startTime = System.currentTimeMillis();
+
+        // With 500ms timeout, should fail within ~600ms (500ms + some margin), not 3000ms.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), 500);
+
+        assertThat(result, willThrow(ReplicationGroupUnavailableException.class, 1, TimeUnit.SECONDS));
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        // Should complete much faster than the default response timeout (3000ms).
+        assertTrue(elapsed < 1500, "Expected to fail within 1500ms but took " + elapsed + "ms");
+    }
+
+    // ==================== Shutdown Tests ====================
+
+    /**
+     * Tests that with timeout=0, if the client is shutting down during peer trying,
+     * the future completes with ComponentStoppingException.
+     */
+    @Test
+    void testZeroTimeoutShutdownDuringPeerTrying() throws Exception {
+        List<CompletableFuture<Object>> pendingInvokes = new CopyOnWriteArrayList<>();
+        CountDownLatch invokeStarted = new CountDownLatch(1);
+
+        // Return a future that doesn't complete immediately - we'll complete it after shutdown.
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            var pendingFuture = new CompletableFuture<>();
+            pendingInvokes.add(pendingFuture);
+            invokeStarted.countDown();
+            return pendingFuture;
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Start the command with timeout=0.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), 0);
+
+        // Wait for at least one invoke to be pending.
+        assertTrue(invokeStarted.await(5, TimeUnit.SECONDS), "Invoke should start");
+
+        // Shutdown the service.
+        svc.shutdown();
+
+        // Complete the pending invoke with EPERM - the callback should see shutdown.
+        for (var pending : pendingInvokes) {
+            pending.complete(FACTORY.errorResponse()
+                    .errorCode(RaftError.EPERM.getNumber())
+                    .build());
+        }
+
+        // The result should complete with ComponentStoppingException.
+        assertThat(result, willThrow(ComponentStoppingException.class, 5, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Tests that with infinite timeout, if the client is shutting down during leader waiting,
+     * the future completes with ComponentStoppingException.
+     */
+    @Test
+    void testInfiniteTimeoutShutdownDuringLeaderWaiting() throws Exception {
+        CountDownLatch allPeersTried = new CountDownLatch(3);
+
+        // All peers return EPERM (no leader) to trigger leader waiting phase.
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            allPeersTried.countDown();
+            return completedFuture(FACTORY.errorResponse()
+                    .errorCode(RaftError.EPERM.getNumber())
+                    .build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Start the command with infinite timeout.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
+
+        // Wait for all peers to be tried (3 peers).
+        assertTrue(allPeersTried.await(5, TimeUnit.SECONDS), "All peers should be tried");
+
+        // The result should not be complete yet (waiting for leader).
+        assertThat(result.isDone(), is(false));
+
+        // Shutdown the service.
+        svc.shutdown();
+
+        // The result should complete with ComponentStoppingException.
+        assertThat(result, willThrow(ComponentStoppingException.class, 5, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Tests that with bounded timeout, if the client is shutting down during retry phase,
+     * the future completes with ComponentStoppingException immediately without new retry round.
+     */
+    @Test
+    void testBoundedTimeoutShutdownDuringRetryPhase() throws Exception {
+        var pendingRetryInvoke = new CompletableFuture<Void>();
+        var retryPhaseStarted = new CountDownLatch(1);
+        var allPeersTried = new CountDownLatch(3);
+
+        AtomicInteger callCount = new AtomicInteger(0);
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            int count = callCount.incrementAndGet();
+            if (count <= 3) {
+                // First 3 calls: return EPERM to trigger retry logic.
+                allPeersTried.countDown();
+                return completedFuture(FACTORY.errorResponse()
+                        .errorCode(RaftError.EPERM.getNumber())
+                        .build());
+            } else if (count == 4) {
+                // Fourth call: we're in retry phase after leader was notified.
+                // Signal that retry phase started and return a pending future.
+                retryPhaseStarted.countDown();
+                return pendingRetryInvoke.thenApply(v -> FACTORY.errorResponse()
+                        .errorCode(RaftError.EBUSY.getNumber())
+                        .build());
+            }
+            // Should not reach here.
+            return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Start the command with bounded timeout (long enough).
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), 30_000);
+
+        // Wait for all peers to be tried.
+        assertTrue(allPeersTried.await(5, TimeUnit.SECONDS), "All peers should be tried");
+
+        // Simulate leader election to trigger retry phase.
+        simulateLeaderElection(NODES.get(0), CURRENT_TERM);
+
+        // Wait for retry phase to start.
+        assertTrue(retryPhaseStarted.await(5, TimeUnit.SECONDS), "Retry phase should start");
+
+        // Shutdown the service.
+        svc.shutdown();
+
+        // Complete the pending retry invoke - the callback should see shutdown.
+        pendingRetryInvoke.complete(null);
+
+        // The result should complete with ComponentStoppingException.
+        assertThat(result, willThrow(ComponentStoppingException.class, 5, TimeUnit.SECONDS));
+
+        // Give some time for any additional retry attempts.
+        Thread.sleep(200);
+
+        // Verify no additional retry attempts were made after shutdown.
+        // We should have exactly 4 invocations (3 initial + 1 retry attempt that was interrupted).
+        assertThat(callCount.get(), is(4));
     }
 
     private static class TestResponse {
