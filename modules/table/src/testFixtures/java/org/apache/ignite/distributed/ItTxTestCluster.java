@@ -177,6 +177,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
@@ -609,6 +610,7 @@ public class ItTxTestCluster {
                 clusterService.topologyService(),
                 replicaSvc,
                 HeapLockManager.smallInstance(),
+                new VolatileTxStateMetaStorage(),
                 clockService,
                 generator,
                 placementDriver,
@@ -1275,6 +1277,7 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 clientReplicaSvc,
                 HeapLockManager.smallInstance(),
+                new VolatileTxStateMetaStorage(),
                 clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,

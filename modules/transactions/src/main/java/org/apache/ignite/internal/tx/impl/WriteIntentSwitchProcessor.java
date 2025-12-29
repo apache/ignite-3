@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -25,7 +27,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -101,14 +102,14 @@ public class WriteIntentSwitchProcessor {
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
                             LOG.debug("Failed to switch write intents for Tx. The operation will be retried [{}, exception={}].",
-                                    TransactionLogUtils.formatTxInfo(txId, volatileTxStateMetaStorage),
+                                    formatTxInfo(txId, volatileTxStateMetaStorage),
                                     ex.getClass().getSimpleName() + ": " + ex.getMessage());
 
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
                         }
 
                         LOG.info("Failed to switch write intents for Tx [{}].", ex,
-                                TransactionLogUtils.formatTxInfo(txId, volatileTxStateMetaStorage));
+                                formatTxInfo(txId, volatileTxStateMetaStorage));
 
                         return CompletableFuture.<WriteIntentSwitchReplicatedInfo>failedFuture(ex);
                     }

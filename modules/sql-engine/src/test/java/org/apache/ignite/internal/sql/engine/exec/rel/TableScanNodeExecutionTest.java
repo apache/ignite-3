@@ -95,6 +95,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
@@ -182,6 +183,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),
+                    new VolatileTxStateMetaStorage(),
                     clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,

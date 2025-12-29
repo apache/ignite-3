@@ -20,6 +20,8 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -111,18 +113,23 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Coarse locks. */
     private final ConcurrentHashMap<Object, CoarseLockState> coarseMap = new ConcurrentHashMap<>();
 
+    /** Tx state required to present tx labels in logs and exceptions. */
+    private final VolatileTxStateMetaStorage txStateVolatileStorage;
+
     /**
      * Creates an instance of {@link HeapLockManager} with a few slots eligible for tests which don't stress the lock manager too much.
      * Such a small instance is started way faster than a full-blown production ready instance with a lot of slots.
      */
     @TestOnly
     public static HeapLockManager smallInstance() {
-        return new HeapLockManager(1024);
+        VolatileTxStateMetaStorage storage = new VolatileTxStateMetaStorage();
+        storage.start();
+        return new HeapLockManager(1024, storage);
     }
 
     /** Constructor. */
-    public HeapLockManager(SystemLocalConfiguration systemProperties) {
-        this(intProperty(systemProperties, LOCK_MAP_SIZE_PROPERTY_NAME, DEFAULT_SLOTS));
+    public HeapLockManager(SystemLocalConfiguration systemProperties, VolatileTxStateMetaStorage txStateVolatileStorage) {
+        this(intProperty(systemProperties, LOCK_MAP_SIZE_PROPERTY_NAME, DEFAULT_SLOTS), txStateVolatileStorage);
     }
 
     /**
@@ -130,8 +137,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      *
      * @param lockMapSize Lock map size.
      */
-    public HeapLockManager(int lockMapSize) {
+    public HeapLockManager(int lockMapSize, VolatileTxStateMetaStorage txStateVolatileStorage) {
         this.lockMapSize = lockMapSize;
+        this.txStateVolatileStorage = txStateVolatileStorage;
     }
 
     private static int intProperty(SystemLocalConfiguration systemProperties, String name, int defaultValue) {
@@ -376,9 +384,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * @param holder Lock holder.
      * @return Lock exception.
      */
-    private static LockException abandonedLockException(UUID locker, UUID holder) {
+    private static LockException abandonedLockException(UUID locker, UUID holder, VolatileTxStateMetaStorage storage) {
         return new LockException(ACQUIRE_LOCK_ERR,
-                "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
+                format(
+                        "Failed to acquire an abandoned lock due to a possible deadlock [locker={}, holder={}]",
+                        formatTxInfo(locker, storage), formatTxInfo(holder, storage)
+                ));
     }
 
     /**
@@ -621,7 +632,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             fireEvent(LOCK_CONFLICT, new LockEventParameters(failedToAcquireLockTxId, allLockHolderTxs())).whenComplete((v, ex) -> {
                 if (ex != null) {
-                    failedFuture.completeExceptionally(abandonedLockException(failedToAcquireLockTxId, currentLockHolderTxId));
+                    failedFuture.completeExceptionally(abandonedLockException(failedToAcquireLockTxId, currentLockHolderTxId,
+                            txStateVolatileStorage));
                 } else {
                     failedFuture.completeExceptionally(new PossibleDeadlockOnLockAcquireException(
                             failedToAcquireLockTxId,
@@ -866,7 +878,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                 if (currentlyAcquiredLockMode != null && !currentlyAcquiredLockMode.isCompatible(intendedLockMode)) {
                     if (conflictFound(waiter.txId())) {
-                        waiter.fail(abandonedLockException(waiter.txId, tmp.txId));
+                        waiter.fail(abandonedLockException(waiter.txId, tmp.txId, txStateVolatileStorage));
 
                         return true;
                     } else if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
@@ -892,7 +904,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     if (skipFail) {
                         return false;
                     } else if (conflictFound(waiter.txId())) {
-                        waiter.fail(abandonedLockException(waiter.txId, tmp.txId));
+                        waiter.fail(abandonedLockException(waiter.txId, tmp.txId, txStateVolatileStorage));
 
                         return true;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {

@@ -187,6 +187,7 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -619,6 +620,7 @@ public class Node {
                 clusterService,
                 replicaSvc,
                 lockManager,
+                new VolatileTxStateMetaStorage(),
                 clockService,
                 new TransactionIdGenerator(address.port()),
                 placementDriverManager.placementDriver(),

@@ -74,6 +74,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
@@ -138,12 +139,14 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     TransactionInflights transactionInflights,
                     LowWatermark lowWatermark
             ) {
+                VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
                 return new TxManagerImpl(
                         txConfiguration,
                         systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(systemLocalConfiguration),
+                        new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage),
+                        txStateVolatileStorage,
                         clockService,
                         generator,
                         placementDriver,
