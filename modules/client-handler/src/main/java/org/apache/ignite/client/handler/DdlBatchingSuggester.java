@@ -59,8 +59,8 @@ public class DdlBatchingSuggester implements Consumer<SqlQueryType> {
         }
 
         if (counter.incrementAndGet() == THRESHOLD) {
-            printer.accept("[Suggestion] Multiple DDL statements were executed individually. For improved performance, "
-                    + "consider grouping DDL statements into a single SQL script.\nTo disable this suggestion, "
+            printer.accept("Multiple DDL statements were executed individually. For improved performance, "
+                    + "consider grouping DDL statements into a single SQL script. To disable this suggestion, "
                     + "set the cluster property 'ignite.suggestions.sequentialDdlExecution.enabled' to 'false'.");
         }
     }
