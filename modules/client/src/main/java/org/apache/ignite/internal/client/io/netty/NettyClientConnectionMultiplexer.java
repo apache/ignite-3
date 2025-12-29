@@ -85,6 +85,9 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
+                    ch.pipeline().addFirst(new FlushConsolidationHandler(
+                            FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
+
                     if (sslCtx != null) {
                         ch.pipeline().addFirst("ssl", sslCtx.newHandler(ch.alloc()));
                     }
