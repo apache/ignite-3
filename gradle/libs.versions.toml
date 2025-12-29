@@ -171,6 +171,7 @@ micronaut-http-core = { module = "io.micronaut:micronaut-http", version.ref = "m
 micronaut-http-server-core = { module = "io.micronaut:micronaut-http-server", version.ref = "micronaut" }
 micronaut-http-client = { module = "io.micronaut:micronaut-http-client", version.ref = "micronaut" }
 micronaut-http-server-netty = { module = "io.micronaut:micronaut-http-server-netty", version.ref = "micronaut" }
+micronaut-management = { module = "io.micronaut:micronaut-management", version.ref = "micronaut" }
 micronaut-security = { module = "io.micronaut.security:micronaut-security", version.ref = "micronautSecurity" }
 micronaut-security-annotations = { module = "io.micronaut.security:micronaut-security-annotations", version.ref = "micronautSecurity" }
 micronaut-reactor = { module = "io.micronaut.reactor:micronaut-reactor", version.ref = "micronautReactor" }

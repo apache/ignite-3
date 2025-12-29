@@ -17,46 +17,37 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
-import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.apache.ignite.internal.rest.AbstractRestTestBase.get;
 import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCodeAndBody;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
-import java.time.Duration;
 import java.util.Base64;
-import java.util.Set;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.NetworkAddress;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST authentication configuration. */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
-    /** HTTP client that is expected to be defined in subclasses. */
     private final HttpClient client = HttpClient.newBuilder().build();
 
-    private String username = "admin";
+    private @Nullable String username = "admin";
 
-    private String password = "password";
+    private @Nullable String password = "password";
 
     private boolean enableAuth = true;
 
@@ -87,9 +78,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         super.startCluster(testInfo);
 
         // Then.
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node ->
-                assertTrue(isRestAvailable(node.restHttpAddress(), "", ""))
-        );
+        assertRestAvailable("", "");
     }
 
     @Test
@@ -99,136 +88,123 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         super.startCluster(testInfo);
 
         // Authentication is enabled.
-        Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
-        for (IgniteImpl node : nodes) {
-            assertTrue(waitForCondition(() -> isRestNotAvailable(node.restHttpAddress(), "", ""),
-                    Duration.ofSeconds(5).toMillis()));
-        }
+        await().untilAsserted(() -> assertRestNotAvailable("", ""));
 
         // REST is available with valid credentials
-        for (IgniteImpl node : nodes) {
-            assertTrue(isRestAvailable(node.restHttpAddress(), "ignite", "ignite"));
-        }
+        assertRestAvailable("ignite", "ignite");
     }
 
     @Test
     public void changeCredentials(TestInfo testInfo) throws Exception {
         super.startCluster(testInfo);
-        Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // Then.
         // Authentication is enabled.
-        for (IgniteImpl node : nodes) {
-            assertTrue(waitForCondition(() -> isRestNotAvailable(node.restHttpAddress(), "", ""),
-                    Duration.ofSeconds(5).toMillis()));
-        }
+        await().untilAsserted(() -> assertRestNotAvailable("", ""));
 
         // REST is available with valid credentials
-        for (IgniteImpl node : nodes) {
-            assertTrue(isRestAvailable(node.restHttpAddress(), "admin", "password"));
-        }
+        assertRestAvailable("admin", "password");
 
         // REST is not available with invalid credentials
-        for (IgniteImpl node : nodes) {
-            assertFalse(isRestAvailable(node.restHttpAddress(), "admin", "wrong-password"));
-        }
+        assertRestNotAvailable("admin", "wrong-password");
 
         // Change credentials.
         String updateRestAuthConfigBody = "ignite.security.authentication.providers.default.users.admin.password=new-password";
 
-        updateClusterConfiguration(unwrapIgniteImpl(node(0)).restHttpAddress(), "admin", "password", updateRestAuthConfigBody);
+        updateClusterConfiguration(node(0), "admin", "password", updateRestAuthConfigBody);
 
         // REST is not available with old credentials
-        for (IgniteImpl node : nodes) {
-            assertTrue(waitForCondition(() -> isRestNotAvailable(node.restHttpAddress(), "admin", "password"),
-                    Duration.ofSeconds(5).toMillis()));
-        }
+        await().untilAsserted(() -> assertRestNotAvailable("admin", "password"));
 
         // REST is available with new credentials
-        for (IgniteImpl node : nodes) {
-            assertTrue(isRestAvailable(node.restHttpAddress(), "admin", "new-password"));
-        }
+        assertRestAvailable("admin", "new-password");
     }
 
     @Test
     public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws Exception {
         super.startCluster(testInfo);
-        Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // Then.
         // Authentication is enabled.
-        for (IgniteImpl node : nodes) {
-            assertTrue(waitForCondition(() -> isRestNotAvailable(node.restHttpAddress(), "", ""),
-                    Duration.ofSeconds(5).toMillis()));
-        }
+        await().untilAsserted(() -> assertRestNotAvailable("", ""));
 
         // REST is available with valid credentials
-        for (IgniteImpl node : nodes) {
-            assertTrue(isRestAvailable(node.restHttpAddress(), "admin", "password"));
-        }
+        assertRestAvailable("admin", "password");
 
         // REST is not available with invalid credentials
-        for (IgniteImpl node : nodes) {
-            assertFalse(isRestAvailable(node.restHttpAddress(), "admin", "wrong-password"));
-        }
+        assertRestNotAvailable("admin", "wrong-password");
 
         // Restart a node.
         restartNode(2);
 
-        nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
-
         // REST is available with valid credentials
-        for (IgniteImpl node : nodes) {
-            assertTrue(isRestAvailable(node.restHttpAddress(), "admin", "password"));
-        }
+        assertRestAvailable("admin", "password");
 
         // REST is not available with invalid credentials
-        for (IgniteImpl node : nodes) {
-            assertFalse(isRestAvailable(node.restHttpAddress(), "admin", "wrong-password"));
-        }
+        assertRestNotAvailable("admin", "wrong-password");
     }
 
-    private void updateClusterConfiguration(NetworkAddress address, String username, String password, String configToApply) {
-        URI updateClusterConfigUri = URI.create("http://" + hostUrl(address) + "/management/v1/configuration/cluster/");
-        HttpRequest updateClusterConfigRequest = HttpRequest.newBuilder(updateClusterConfigUri)
+    @Test
+    public void probes(TestInfo testInfo) throws Exception {
+        super.startCluster(testInfo);
+
+        // Authentication is enabled.
+        await().untilAsserted(() -> assertRestNotAvailable("", ""));
+
+        cluster.runningNodes().forEach(node -> {
+            assertThat(
+                    send(get(getHost(node), "/health/liveness")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+
+            assertThat(
+                    send(get(getHost(node), "/health/readiness")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+
+            // Health probe is a combination of all indicators not qualified as "liveness".
+            assertThat(
+                    send(get(getHost(node), "/health")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+        });
+    }
+
+    private void updateClusterConfiguration(Ignite node, String username, String password, String configToApply) {
+        HttpRequest updateClusterConfigRequest = HttpRequest.newBuilder(getClusterConfigUri(node))
                 .header("content-type", "text/plain")
                 .header("Authorization", basicAuthenticationHeader(username, password))
                 .method("PATCH", BodyPublishers.ofString(configToApply))
                 .build();
 
-        assertThat(sendRequest(client, updateClusterConfigRequest), hasStatusCode(200));
+        assertThat(send(updateClusterConfigRequest), hasStatusCode(200));
     }
 
-    private boolean isRestNotAvailable(NetworkAddress baseUrl, String username, String password) {
-        return !isRestAvailable(baseUrl, username, password);
+    private void assertRestNotAvailable(String username, String password) {
+        cluster.runningNodes().forEach(node -> assertClusterConfigStatusIs(node, username, password, 401));
     }
 
-    private boolean isRestAvailable(NetworkAddress address, String username, String password) {
-        URI clusterConfigUri = URI.create("http://" + hostUrl(address) + "/management/v1/configuration/cluster/");
-        HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
+    private void assertRestAvailable(String username, String password) {
+        cluster.runningNodes().forEach(node -> assertClusterConfigStatusIs(node, username, password, 200));
+    }
+
+    private void assertClusterConfigStatusIs(Ignite node, String username, String password, int expectedStatusCode) {
+        HttpRequest clusterConfigRequest = HttpRequest.newBuilder(getClusterConfigUri(node))
                 .header("Authorization", basicAuthenticationHeader(username, password))
                 .build();
-        HttpResponse<String> response = sendRequest(client, clusterConfigRequest);
-        int code = response.statusCode();
-        if (code == 200) {
-            return true;
-        } else if (code == 401) {
-            return false;
-        } else {
-            throw new IllegalStateException("Unexpected response code: " + code + ", body: " + response.body());
-        }
+        assertThat(send(clusterConfigRequest), hasStatusCode(expectedStatusCode));
     }
 
-    private static String hostUrl(NetworkAddress networkAddress) {
-        try {
-            InetAddress host = InetAddress.getByName(networkAddress.host());
-            return host.getHostAddress() + ":" + networkAddress.port();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+    private URI getClusterConfigUri(Ignite node) {
+        return URI.create(getHost(node) + "/management/v1/configuration/cluster/");
     }
 
-    private static HttpResponse<String> sendRequest(HttpClient client, HttpRequest request) {
+    private String getHost(Ignite node) {
+        int port = cluster.httpPort(cluster.nodeIndex(node.name()));
+        return "http://localhost:" + port;
+    }
+
+    private HttpResponse<String> send(HttpRequest request) {
         try {
             return client.send(request, BodyHandlers.ofString());
         } catch (IOException | InterruptedException e) {
