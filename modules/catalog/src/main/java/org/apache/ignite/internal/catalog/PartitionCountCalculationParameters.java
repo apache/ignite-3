@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfileNames;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
@@ -55,7 +55,7 @@ public final class PartitionCountCalculationParameters {
 
     private void validate() {
         validateZoneFilter(dataNodesFilter);
-        validateStorageProfiles(storageProfiles);
+        validateStorageProfileNames(storageProfiles);
         validateField(replicaFactor, 1, null, "Invalid number of replicas");
     }
 

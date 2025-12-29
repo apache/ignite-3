@@ -190,7 +190,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         validateConsistencyMode(consistencyMode);
 
-        validateStorageProfiles(storageProfileParams.stream().map(StorageProfileParams::storageProfile).collect(toList()));
+        validateStorageProfiles(storageProfileParams);
     }
 
     /**
