@@ -24,12 +24,12 @@ import java.util.function.LongSupplier;
  *
  * @param <RowT> the type of row data that will be processed in the evaluation context
  */
-public interface ContextBuilder<RowT> {
+public interface EvaluationContextBuilder<RowT> {
     /** Specifies time provider to use in CURRENT_TIMESTAMP function. */
-    ContextBuilder<RowT> timeProvider(LongSupplier timeProvider);
+    EvaluationContextBuilder<RowT> timeProvider(LongSupplier timeProvider);
 
     /** Specifies row accessor to read columns of input row, if any. */
-    ContextBuilder<RowT> rowAccessor(RowAccessor<RowT> rowAccessor);
+    EvaluationContextBuilder<RowT> rowAccessor(RowAccessor<RowT> rowAccessor);
 
     /** Returns created context. */
     EvaluationContext<RowT> build();

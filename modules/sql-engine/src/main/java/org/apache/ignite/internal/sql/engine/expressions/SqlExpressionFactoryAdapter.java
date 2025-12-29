@@ -41,8 +41,8 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.SourceStringReader;
 import org.apache.calcite.util.Static;
 import org.apache.calcite.util.Util.FoundOne;
-import org.apache.ignite.internal.sql.engine.api.expressions.ContextBuilder;
 import org.apache.ignite.internal.sql.engine.api.expressions.EvaluationContext;
+import org.apache.ignite.internal.sql.engine.api.expressions.EvaluationContextBuilder;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionEvaluationException;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionParsingException;
@@ -71,7 +71,7 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
 
     private final SqlExpressionFactory factory;
 
-    /** Constructs tye adapter. */
+    /** Constructs the adapter. */
     public SqlExpressionFactoryAdapter(
             SqlExpressionFactory factory
     ) {
@@ -79,8 +79,8 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
     }
 
     @Override
-    public <RowT> ContextBuilder<RowT> contextBuilder() {
-        return new ContextBuilderImpl<>();
+    public <RowT> EvaluationContextBuilder<RowT> contextBuilder() {
+        return new EvaluationContextBuilderImpl<>();
     }
 
     @Override
@@ -90,20 +90,12 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
     ) throws ExpressionParsingException, ExpressionValidationException {
         SqlNode expressionAst = parse(expression);
 
-        try {
-            // Reject subqueries earlier so we can implement lightweight validation
-            // without necessity to register all the namespaces.
-            expressionAst.accept(RejectSubQueriesValidator.INSTANCE);
+        // Reject subqueries earlier so we can implement lightweight validation
+        // without necessity to register all the namespaces.
+        validate(expressionAst, RejectSubQueriesValidator.INSTANCE);
 
-            // Usage of system context-dependent functions can be validated here as well. 
-            expressionAst.accept(RejectContextDependentFunctionValidator.INSTANCE);
-        } catch (FoundOne one) {
-            String message = (String) one.getNode();
-
-            assert message != null;
-
-            throw new ExpressionValidationException(message);
-        }
+        // Usage of system context-dependent functions can be validated here as well.
+        validate(expressionAst, RejectContextDependentFunctionValidator.INSTANCE);
 
         try (IgnitePlanner planner = createPlanner()) {
             SqlValidator validator = planner.validator();
@@ -115,24 +107,6 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
 
             try {
                 expressionAst.validateExpr(validator, scope);
-
-                try {
-                    // Aggregate functions are not resolved until validation, hence we cannot reject
-                    // such expressions until syntax tree is validated.
-                    expressionAst.accept(RejectAggregatesValidator.INSTANCE);
-                } catch (FoundOne one) {
-                    String message = (String) one.getNode();
-
-                    assert message != null;
-
-                    throw new ExpressionValidationException(message);
-                }
-
-                RelDataType resultType = validator.deriveType(scope, expressionAst);
-
-                if (!SqlTypeUtil.isBoolean(resultType)) {
-                    throw new ExpressionValidationException("Expected BOOLEAN expression but " + resultType + " was provided.");
-                }
             } catch (CalciteContextException ex) {
                 String message = ex.getMessage();
                 if (message == null) {
@@ -142,6 +116,16 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
                 throw new ExpressionValidationException(message);
             }
 
+            // Aggregate functions are not resolved until validation, hence we cannot reject
+            // such expressions until syntax tree is validated.
+            validate(expressionAst, RejectAggregatesValidator.INSTANCE);
+
+            RelDataType resultType = validator.deriveType(scope, expressionAst);
+
+            if (!SqlTypeUtil.isBoolean(resultType)) {
+                throw new ExpressionValidationException("Expected BOOLEAN expression but " + resultType + " was provided.");
+            }
+
             RexNode rexNode = planner.sqlToRelConverter().convertExpressionExt(expressionAst, scope, relDataType);
 
             SqlPredicate predicate = factory.predicate(
@@ -149,12 +133,7 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
                     relDataType
             );
 
-            return new IgnitePredicate() {
-                @Override
-                public <RowT> boolean test(EvaluationContext<RowT> context, RowT row) {
-                    return predicate.test(Commons.cast(context), row);
-                }
-            };
+            return new PredicateAdapter(predicate);
         }
     }
 
@@ -170,22 +149,34 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         }
     }
 
+    private static void validate(SqlNode ast, SqlShuttle validator) throws ExpressionValidationException {
+        try {
+            ast.accept(validator);
+        } catch (FoundOne one) {
+            String message = (String) one.getNode();
+
+            assert message != null;
+
+            throw new ExpressionValidationException(message);
+        }
+    }
+
     private static IgnitePlanner createPlanner() {
         return PlanningContext.builder().catalogVersion(-1).build().planner();
     }
 
-    private static class ContextBuilderImpl<RowT> implements ContextBuilder<RowT> {
+    private static class EvaluationContextBuilderImpl<RowT> implements EvaluationContextBuilder<RowT> {
         private LongSupplier timeProvider = System::currentTimeMillis;
         private RowAccessor<RowT> rowAccessor;
 
         @Override
-        public ContextBuilder<RowT> timeProvider(LongSupplier timeProvider) {
+        public EvaluationContextBuilder<RowT> timeProvider(LongSupplier timeProvider) {
             this.timeProvider = requireNonNull(timeProvider, "timeProvider");
             return this;
         }
 
         @Override
-        public ContextBuilder<RowT> rowAccessor(RowAccessor<RowT> rowAccessor) {
+        public EvaluationContextBuilder<RowT> rowAccessor(RowAccessor<RowT> rowAccessor) {
             this.rowAccessor = requireNonNull(rowAccessor, "rowAccessor");
             return this;
         }
@@ -314,5 +305,18 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         SqlParserPos pos = n.getParserPosition();
         return Static.RESOURCE.validatorContext(pos.getLineNum(), pos.getColumnNum(), pos.getEndLineNum(),
                 pos.getEndColumnNum()).str();
+    }
+
+    private static class PredicateAdapter implements IgnitePredicate {
+        private final SqlPredicate delegate;
+
+        private PredicateAdapter(SqlPredicate delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public <RowT> boolean test(EvaluationContext<RowT> context, RowT row) {
+            return delegate.test(Commons.cast(context), row);
+        }
     }
 }

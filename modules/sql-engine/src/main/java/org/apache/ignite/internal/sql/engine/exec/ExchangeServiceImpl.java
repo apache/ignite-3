@@ -158,17 +158,10 @@ public class ExchangeServiceImpl implements ExchangeService {
                     outbox.onRequest(node.name(), msg.amountOfBatches());
                 }
             } catch (Throwable e) {
-                Throwable toUse;
-                //noinspection InstanceofCatchParameter
-                if (e instanceof ExpressionEvaluationException) {
-                    toUse = SqlExceptionMapperUtil.mapToPublicSqlException(e);
-                } else {
-                    toUse = e;
-                }
+                Throwable toUse = convertEvaluationException(e);
 
                 outbox.onError(toUse);
 
-                //noinspection ThrowInsideCatchBlockWhichIgnoresCaughtException
                 throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", toUse);
             }
         };
@@ -188,13 +181,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             try {
                 inbox.onBatchReceived(node.name(), msg.batchId(), msg.last(), msg.rows());
             } catch (Throwable e) {
-                Throwable toUse;
-                //noinspection InstanceofCatchParameter
-                if (e instanceof ExpressionEvaluationException) {
-                    toUse = SqlExceptionMapperUtil.mapToPublicSqlException(e);
-                } else {
-                    toUse = e;
-                }
+                Throwable toUse = convertEvaluationException(e);
 
                 inbox.onError(toUse);
 
@@ -208,6 +195,14 @@ public class ExchangeServiceImpl implements ExchangeService {
             LOG.debug("Stale batch message received: [nodeName={}, executionId={}, fragmentId={}, exchangeId={}, batchId={}]",
                     node.name(), executionId, msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
+    }
+
+    private static Throwable convertEvaluationException(Throwable e) {
+        if (e instanceof ExpressionEvaluationException) {
+            return SqlExceptionMapperUtil.mapToPublicSqlException(e);
+        }
+
+        return e;
     }
 
     /** {@inheritDoc} */

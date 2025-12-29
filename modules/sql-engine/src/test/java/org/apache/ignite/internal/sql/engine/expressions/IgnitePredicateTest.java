@@ -394,6 +394,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Float.NaN)), is(false));
         }
 
         {
@@ -403,6 +406,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NaN)), is(true));
         }
 
         {
@@ -412,6 +418,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(true));
             assertThat(predicate.test(context, row(100.5f)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NaN)), is(false));
         }
 
         {
@@ -421,6 +430,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(false));
             assertThat(predicate.test(context, row(null)), is(true));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Float.NaN)), is(false));
         }
 
         {
@@ -430,6 +442,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(true));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NaN)), is(true));
         }
 
         {
@@ -439,6 +454,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(true));
             assertThat(predicate.test(context, row(100.5f)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NaN)), is(false));
         }
 
         {
@@ -448,6 +466,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Float.NaN)), is(false));
         }
     }
 
@@ -464,6 +485,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Double.NaN)), is(false));
         }
 
         {
@@ -473,6 +497,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NaN)), is(true));
         }
 
         {
@@ -482,6 +509,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(true));
             assertThat(predicate.test(context, row(100.5)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NaN)), is(false));
         }
 
         {
@@ -491,6 +521,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(false));
             assertThat(predicate.test(context, row(null)), is(true));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Double.NaN)), is(false));
         }
 
         {
@@ -500,6 +533,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(true));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NaN)), is(true));
         }
 
         {
@@ -509,6 +545,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(true));
             assertThat(predicate.test(context, row(100.5)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NaN)), is(false));
         }
 
         {
@@ -518,6 +557,9 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
+            assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(true));
+            assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(false));
+            assertThat(predicate.test(context, row(Double.NaN)), is(false));
         }
     }
 

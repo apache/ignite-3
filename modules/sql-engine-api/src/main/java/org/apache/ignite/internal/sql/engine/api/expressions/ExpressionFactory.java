@@ -62,7 +62,7 @@ import org.apache.ignite.internal.type.StructNativeType;
  * </ul>
  *
  * @see EvaluationContext
- * @see ContextBuilder
+ * @see EvaluationContextBuilder
  * @see ExpressionParsingException
  * @see ExpressionValidationException
  */
@@ -102,5 +102,5 @@ public interface ExpressionFactory {
     ) throws ExpressionParsingException, ExpressionValidationException;
 
     /** Returns builder to create {@link EvaluationContext context} which should be used with expressions returned by this factory. */
-    <RowT> ContextBuilder<RowT> contextBuilder();
+    <RowT> EvaluationContextBuilder<RowT> contextBuilder();
 }

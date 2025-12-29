@@ -149,7 +149,6 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
      * @return A converted expression tree.
      */
     public RexNode convertExpressionExt(SqlNode node, SqlValidatorScope scope, @Nullable RelDataType inputRowType) {
-        // 
         Blackboard bb = createBlackboard(scope, null, false);
 
         if (inputRowType != null) {
