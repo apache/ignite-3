@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -45,7 +46,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     <li>When completing a RW transaction operation, {@link #decrementOperationCount(int)} must be used.</li>
  * </ul>
  */
-public class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
+public class IndexBuilderTxRwOperationTracker implements TableTxRwOperationTracker, ManuallyCloseable {
     private final AtomicInteger minAllowedCatalogVersionForStartOperation = new AtomicInteger(-1);
 
     private final NavigableMap<Integer, CompletableFuture<Void>> minAllowedVersionRaiseFutures = new ConcurrentSkipListMap<>();
@@ -100,6 +101,7 @@ public class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
      *
      * @param catalogVersion Catalog version in which the new index appeared.
      */
+    @Override
     public CompletableFuture<Void> awaitCompleteTxRwOperations(int catalogVersion) {
         return inBusyLock(busyLock, () -> {
             // This code is needed to avoid races with updateAllowedCatalogVersionForStartOperation.

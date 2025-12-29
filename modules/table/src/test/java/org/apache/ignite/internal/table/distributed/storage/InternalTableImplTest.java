@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -35,15 +34,12 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -76,7 +72,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.SwapR
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -90,14 +85,12 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -141,7 +134,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     void setupMocks() {
         lenient().when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
                 .then(invocation -> {
-                    ReplicationGroupId groupId = invocation.getArgument(0);
+                    ZonePartitionId groupId = invocation.getArgument(0);
 
                     return completedFuture(
                             new Lease(clusterNode.name(), clusterNode.id(), HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE, groupId)
@@ -194,32 +187,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     private static boolean isSingleRowPkReplicaRequest(ReplicaRequest request, RequestType requestType) {
         return request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() == requestType;
-    }
-
-    @Test
-    void testUpdatePartitionTrackers() {
-        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
-
-        // Let's check the empty table.
-        assertNull(internalTable.getPartitionSafeTimeTracker(0));
-        assertNull(internalTable.getPartitionStorageIndexTracker(0));
-
-        // Let's check the first insert.
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime0 = mock(PendingComparableValuesTracker.class);
-
-        internalTable.updatePartitionTrackers(0, safeTime0);
-
-        assertSame(safeTime0, internalTable.getPartitionSafeTimeTracker(0));
-        verify(safeTime0, never()).close();
-
-        // Let's check the new insert.
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime1 = mock(PendingComparableValuesTracker.class);
-
-        internalTable.updatePartitionTrackers(0, safeTime1);
-
-        assertSame(safeTime1, internalTable.getPartitionSafeTimeTracker(0));
-
-        verify(safeTime0).close();
     }
 
     private InternalTableImpl newInternalTable(int tableId, int partitionCount) {
@@ -342,7 +309,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(EnlistingOperation.class)
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void tableIdGetsEnlisted(EnlistingOperation operation) {
         InternalTable table = newInternalTable(10, 1);
         InternalTransaction transaction = newReadWriteTransaction();
@@ -357,7 +323,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(EnlistingOperation.class)
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void anotherTableIdGetsEnlistedInSameZonePartitionEnlistment(EnlistingOperation operation) {
         InternalTable table1 = newInternalTable(10, 1);
         InternalTable table2 = newInternalTable(11, 1);

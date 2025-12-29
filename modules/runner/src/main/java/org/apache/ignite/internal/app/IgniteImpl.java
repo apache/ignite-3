@@ -100,8 +100,6 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.configuration.ComputeExtensionConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
-import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
-import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
@@ -126,6 +124,8 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderFactory;
+import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.MetastorageRepairImpl;
@@ -598,7 +598,7 @@ public class IgniteImpl implements Ignite {
 
         FailureProcessorConfiguration failureProcessorConfiguration = nodeConfigRegistry.getConfiguration(
                 FailureProcessorExtensionConfiguration.KEY).failureHandler();
-        failureManager = new FailureManager(node::shutdown, failureProcessorConfiguration);
+        failureManager = new FailureManager(name, node::shutdown, failureProcessorConfiguration);
 
         SystemLocalConfiguration systemConfiguration = nodeConfigRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
 
@@ -1101,7 +1101,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 schemaManager,
                 dataStorageMgr,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                metricManager
         );
 
         systemViewManager.register(txManager);
@@ -1170,6 +1171,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 raftMgr,
                 clusterSvc.topologyService(),
+                logicalTopologyService,
                 distributedTblMgr,
                 metricManager,
                 failureManager,
@@ -1200,6 +1202,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 lowWatermark,
                 txManager,
+                partitionReplicaLifecycleManager,
                 metricManager
         );
 
@@ -1259,7 +1262,11 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),
                 logicalTopologyService,
-                new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
+                new UnitsContextManager(
+                        deploymentManagerImpl,
+                        deploymentManagerImpl.deploymentUnitAccessor(),
+                        new UnitsClassLoaderFactory()
+                ),
                 computeExecutor,
                 computeCfg,
                 eventLog

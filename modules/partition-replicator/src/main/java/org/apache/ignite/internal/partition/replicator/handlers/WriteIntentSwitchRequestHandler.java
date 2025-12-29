@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -31,6 +33,7 @@ import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
@@ -47,7 +50,6 @@ import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -158,7 +160,7 @@ public class WriteIntentSwitchRequestHandler {
             UUID senderId
     ) {
         TableWriteIntentSwitchReplicaRequest tableSpecificRequest = TX_MESSAGES_FACTORY.tableWriteIntentSwitchReplicaRequest()
-                .groupId(ReplicaMessageUtils.toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
+                .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
                 .timestamp(now)
                 .txId(request.txId())
                 .commit(request.commit())
@@ -168,8 +170,22 @@ public class WriteIntentSwitchRequestHandler {
 
         // Using empty primacy because the request is not a PrimaryReplicaRequest.
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(tableSpecificRequest, ReplicaPrimacy.empty(), senderId)
-                .thenCompose(ignored ->
-                        replicaTableProcessor(tableId).process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId));
+                .thenCompose(ignored -> {
+                    ReplicaTableProcessor replicaProcessor = replicaTableProcessor(tableId);
+
+                    if (replicaProcessor == null) {
+                        // Most of the times this condition should be false. This block handles a case when a request got stuck
+                        // somewhere while being replicated and arrived on this node after the target table had been removed.
+                        // In this case we ignore the command, which should be safe to do, because the underlying storage was destroyed
+                        // anyway, but we still return an exception.
+                        LOG.debug("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
+                                request.toStringForLightLogging());
+
+                        return failedFuture(new ComponentStoppingException("Table is already destroyed [tableId=" + tableId + "]"));
+                    }
+
+                    return replicaProcessor.process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId);
+                });
     }
 
     private CompletableFuture<Object> applyCommandToGroup(WriteIntentSwitchReplicaRequest request, Integer catalogVersion) {
@@ -196,10 +212,6 @@ public class WriteIntentSwitchRequestHandler {
     }
 
     private ReplicaTableProcessor replicaTableProcessor(int tableId) {
-        ReplicaTableProcessor replicaTableProcessor = replicaListenerByTableId.apply(tableId);
-
-        assert replicaTableProcessor != null : "No replica table processor for table ID " + tableId;
-
-        return replicaTableProcessor;
+        return replicaListenerByTableId.apply(tableId);
     }
 }

@@ -46,7 +46,7 @@ public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testStopNodeFailureHandler() {
-        testFailureHandler(node -> new StopNodeFailureHandler(node::shutdown));
+        testFailureHandler(node -> new StopNodeFailureHandler("test-node", node::shutdown));
     }
 
     @Test

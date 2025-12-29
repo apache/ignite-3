@@ -744,7 +744,8 @@ public class Node {
                 txManager,
                 schemaManager,
                 dataStorageMgr,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                metricManager
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
@@ -847,6 +848,7 @@ public class Node {
                 failureManager,
                 lowWatermark,
                 txManager,
+                partitionReplicaLifecycleManager,
                 metricManager
         );
 

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -212,7 +212,7 @@ public class OrphanDetector {
                     }
 
                     return replicaService.invoke(commitPartPrimaryNode, TX_MESSAGES_FACTORY.txRecoveryMessage()
-                            .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
+                            .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                             .txId(txId)
                             .build());

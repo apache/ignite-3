@@ -399,29 +399,32 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public void metadata() {
-        sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
+        sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, \"Col1\" VARCHAR NOT NULL)");
 
         IgniteSql sql = igniteSql();
 
         execute(sql, "INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
-        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT COL1, COL0 FROM TEST");
+        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT \"Col1\", COL0 FROM TEST");
 
         // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
 
         assertNotNull(meta);
         assertEquals(-1, meta.indexOf("COL"));
-        assertEquals(0, meta.indexOf("COL1"));
+        assertEquals(0, meta.indexOf("\"Col1\""));
         assertEquals(1, meta.indexOf("COL0"));
 
+        assertEquals(0, meta.indexOf(meta.columns().get(0).name()));
+        assertEquals(1, meta.indexOf(meta.columns().get(1).name()));
+
         checkMetadata(new ColumnMetadataImpl(
-                        "COL1",
+                        "Col1",
                         ColumnType.STRING,
                         CatalogUtils.DEFAULT_VARLEN_LENGTH,
                         ColumnMetadata.UNDEFINED_SCALE,
                         false,
-                        new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+                        new ColumnOriginImpl("PUBLIC", "TEST", "Col1")),
                 meta.columns().get(0));
         checkMetadata(new ColumnMetadataImpl(
                         "COL0",

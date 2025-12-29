@@ -94,14 +94,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
-import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
@@ -132,9 +131,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
-import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -144,7 +141,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
-import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -205,7 +201,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
-public class PartitionReplicaListener implements ReplicaListener, ReplicaTableProcessor {
+public class PartitionReplicaListener implements ReplicaTableProcessor {
     /**
      * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
      * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
@@ -255,9 +251,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     /** Versioned partition storage. */
     private final MvPartitionStorage mvDataStorage;
-
-    /** Raft client. */
-    private final RaftCommandRunner raftCommandRunner;
 
     /** Tx manager. */
     private final TxManager txManager;
@@ -316,7 +309,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private final TableMetricSource metrics;
 
-    private final ReplicaPrimacyEngine replicaPrimacyEngine;
     private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
@@ -340,9 +332,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param safeTime Safe time clock.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
-     * @param localNode Instance of the local node.
      * @param catalogService Catalog service.
-     * @param placementDriver Placement driver.
      * @param clusterNodeResolver Node resolver.
      * @param remotelyTriggeredResourceRegistry Resource registry.
      * @param indexMetaStorage Index meta storage.
@@ -364,10 +354,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
-            InternalClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            LeasePlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             SchemaRegistry schemaRegistry,
@@ -377,7 +365,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TableMetricSource metrics
     ) {
         this.mvDataStorage = mvDataStorage;
-        this.raftCommandRunner = raftCommandRunner;
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;
@@ -398,13 +385,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.tableLockKey = new TablePartitionId(tableId, replicationGroupId.partitionId());
         this.metrics = metrics;
 
-        this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService);
 
-        replicaPrimacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, replicationGroupId, localNode);
-
-        this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
+        tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 schemaCompatValidator,
                 schemaSyncService
@@ -413,17 +398,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
-                indexMetaStorage,
-                indexBuildingProcessor.tracker(),
-                safeTime,
-                raftCommandApplicator);
-    }
-
-    @Override
-    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
-        return replicaPrimacyEngine.validatePrimacy(request)
-                .thenCompose(replicaPrimacy -> processRequestInContext(request, replicaPrimacy, senderId));
+        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator);
     }
 
     @Override
@@ -446,15 +421,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         } else {
             return new ReplicaResult(res, null);
         }
-    }
-
-    /** Returns Raft-client. */
-    @Override
-    public RaftCommandRunner raftClient() {
-        if (raftCommandRunner instanceof ExecutorInclinedRaftCommandRunner) {
-            return ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner();
-        }
-        return raftCommandRunner;
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
@@ -3434,6 +3400,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         busyLock.block();
 
         indexBuildingProcessor.onShutdown();
+    }
+
+    @Override
+    public TableTxRwOperationTracker txRwOperationTracker() {
+        return indexBuildingProcessor.tracker();
     }
 
     private int partId() {

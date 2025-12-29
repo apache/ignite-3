@@ -763,7 +763,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager,
                 schemaManager,
                 dataStorageManager,
-                outgoingSnapshotManager
+                outgoingSnapshotManager,
+                metricManager
         );
 
         TableManager tableManager = new TableManager(
@@ -1331,7 +1332,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    public void testOneNodeRestartWithGap() throws InterruptedException {
+    public void testOneNodeRestartWithGap() {
         IgniteImpl ignite = startNode(0);
 
         IgniteImpl ignite1 = startNode(1);

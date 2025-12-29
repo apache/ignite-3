@@ -26,13 +26,19 @@ import org.apache.ignite.internal.cli.sql.SqlQueryResult;
  */
 public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
     private final boolean plain;
+    private final boolean timed;
 
     public SqlQueryResultDecorator(boolean plain) {
+        this(plain, false);
+    }
+
+    public SqlQueryResultDecorator(boolean plain, boolean timed) {
         this.plain = plain;
+        this.timed = timed;
     }
 
     @Override
     public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(plain);
+        return data.getResult(plain, timed);
     }
 }

@@ -112,8 +112,8 @@ public class JdbcResultSetMetadataSelfTest {
         ));
 
         assertEquals("LABEL1", md.getColumnLabel(1));
-        assertEquals("label2", md.getColumnLabel(2));
-        assertEquals("Label3", md.getColumnLabel(3));
+        assertEquals("\"label2\"", md.getColumnLabel(2));
+        assertEquals("\"Label3\"", md.getColumnLabel(3));
     }
 
     @Test
@@ -125,8 +125,8 @@ public class JdbcResultSetMetadataSelfTest {
         ));
 
         assertEquals("COLUMN1", md.getColumnName(1));
-        assertEquals("Column2", md.getColumnName(2));
-        assertEquals("Column", md.getColumnName(3));
+        assertEquals("\"Column2\"", md.getColumnName(2));
+        assertEquals("\"Column\"", md.getColumnName(3));
     }
 
     @Test
@@ -139,7 +139,7 @@ public class JdbcResultSetMetadataSelfTest {
 
         assertNull(md.getSchemaName(1));
         assertEquals("S", md.getSchemaName(2));
-        assertEquals("Schema", md.getSchemaName(3));
+        assertEquals("\"Schema\"", md.getSchemaName(3));
     }
 
     @Test
@@ -152,7 +152,7 @@ public class JdbcResultSetMetadataSelfTest {
 
         assertNull(md.getTableName(1));
         assertEquals("T", md.getTableName(2));
-        assertEquals("Table", md.getTableName(3));
+        assertEquals("\"Table\"", md.getTableName(3));
     }
 
     @Test

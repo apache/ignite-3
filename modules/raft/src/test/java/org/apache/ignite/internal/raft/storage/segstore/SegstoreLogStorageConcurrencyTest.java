@@ -25,8 +25,12 @@ import static org.hamcrest.Matchers.is;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -36,7 +40,9 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ConfigurationExtension.class)
 class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
     private static final int SEGMENT_SIZE = 100;
 
@@ -45,8 +51,19 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
     private SegmentFileManager segmentFileManager;
 
     @BeforeEach
-    void setUp() throws IOException {
-        segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1, new NoOpFailureManager());
+    void setUp(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration("mock.segmentFileSizeBytes=" + SEGMENT_SIZE)
+            LogStorageConfiguration storageConfiguration
+    ) throws IOException {
+        segmentFileManager = new SegmentFileManager(
+                NODE_NAME,
+                workDir,
+                1,
+                new NoOpFailureManager(),
+                raftConfiguration,
+                storageConfiguration
+        );
 
         segmentFileManager.start();
     }

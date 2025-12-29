@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.recovery.restart;
 
+import static org.apache.ignite.internal.util.Constants.DISASTER_RECOVERY_TIMEOUT_MILLIS;
 import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
 
 import jakarta.inject.Singleton;
@@ -40,7 +41,7 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
 
     @Override
     public DefaultCallOutput<String> execute(RestartPartitionsCallInput input) {
-        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
+        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()).setReadTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS));
 
         try {
             if (nullOrEmpty(input.tableName())) {
