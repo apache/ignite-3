@@ -75,15 +75,6 @@ class ItNodeRecoveryAfterCatalogTruncatedAboveStoredLwmTest extends ClusterPerTe
         builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
     }
 
-    private static String aggressiveLowWatermarkIncreaseClusterConfig() {
-        return "{\n"
-                + "  ignite.gc.lowWatermark {\n"
-                + "    dataAvailabilityTimeMillis: 1000,\n"
-                + "    updateIntervalMillis: 100\n"
-                + "  },\n"
-                + "}";
-    }
-
     @Test
     void nodeWithLwmBelowEarliestCatalogTsShouldRecover() {
         cluster.aliveNode().sql().executeScript("CREATE ZONE " + ZONE_NAME + " (PARTITIONS 1, REPLICAS 3, AUTO SCALE DOWN 0) "
