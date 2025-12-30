@@ -43,7 +43,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -293,11 +292,6 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                 "Low watermark should only grow: [cur=" + lwm + ", new=" + newLowWatermark + "]";
 
         lowWatermark = newLowWatermark;
-    }
-
-    @Override
-    public void listen(LowWatermarkEvent evt, EventListener<? extends LowWatermarkEventParameters> listener) {
-        super.listen(evt, listener);
     }
 
     @Override
