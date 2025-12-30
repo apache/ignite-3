@@ -170,7 +170,7 @@ public class PersistentPageMemory implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Segments array, {@code null} if not {@link #start() started}. */
-    private volatile @Nullable Segment[] segments;
+    private volatile Segment @Nullable [] segments;
 
     /** Lock for segments changes. */
     private final Object segmentsLock = new Object();
