@@ -680,6 +680,51 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
     }
 
+    /**
+     * Tests that UNKNOWN/EINTERNAL/ENOENT errors retry on the same peer (the leader) for ActionRequests.
+     * This is because these errors are transient and the leader is likely to recover.
+     */
+    @ParameterizedTest
+    @EnumSource(names = {"UNKNOWN", "EINTERNAL", "ENOENT"})
+    public void testRetryOnTransientErrorRetriesOnSamePeer(RaftError error) {
+        Peer leaderPeer = NODES.get(0);
+
+        // First call returns error, second call succeeds - both to the same leader.
+        when(messagingService.invoke(
+                argThat((InternalClusterNode node) -> node != null && node.name().equals(leaderPeer.consistentId())),
+                any(ReadActionRequest.class),
+                anyLong())
+        )
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build()))
+                .thenReturn(completedFuture(FACTORY.actionResponse().result(null).build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        assertThat(service.leader(), is(leaderPeer));
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willBe(nullValue()));
+
+        // Verify that only the leader was called (twice: once with error, once with success).
+        verify(messagingService, atLeastOnce()).invoke(
+                argThat((InternalClusterNode target) -> target != null && target.name().equals(leaderPeer.consistentId())),
+                any(ReadActionRequest.class),
+                anyLong()
+        );
+
+        // Verify that other peers were NOT called.
+        for (Peer otherPeer : NODES.subList(1, NODES.size())) {
+            verify(messagingService, org.mockito.Mockito.never()).invoke(
+                    argThat((InternalClusterNode target) -> target != null && target.name().equals(otherPeer.consistentId())),
+                    any(ReadActionRequest.class),
+                    anyLong()
+            );
+        }
+    }
+
     @ParameterizedTest
     @EnumSource(names = {"EPERM"})
     public void testRetryOnErrorWithUpdateLeader(RaftError error) {
