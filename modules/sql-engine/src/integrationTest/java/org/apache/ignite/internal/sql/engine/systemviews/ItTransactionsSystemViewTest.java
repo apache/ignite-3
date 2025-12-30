@@ -60,6 +60,7 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("TRANSACTION_START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
                         new MetadataMatcher().name("TRANSACTION_TYPE").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("TRANSACTION_PRIORITY").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_LABEL").type(ColumnType.STRING).nullable(true),
 
                         // Legacy columns.
                         new MetadataMatcher().name("STATE").type(ColumnType.STRING).nullable(true),

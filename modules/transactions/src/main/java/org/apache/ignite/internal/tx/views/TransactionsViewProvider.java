@@ -77,6 +77,10 @@ public class TransactionsViewProvider {
                 .<Instant>addColumn("TRANSACTION_START_TIME", timestampType, tx -> tx.startTime)
                 .<String>addColumn("TRANSACTION_TYPE", stringType, tx -> tx.type)
                 .<String>addColumn("TRANSACTION_PRIORITY", stringType, tx -> tx.priority)
+                .<String>addColumn("TRANSACTION_LABEL", stringType, tx -> {
+                    TxStateMeta meta = dataSource.txStates.get(UUID.fromString(tx.id));
+                    return meta != null ? meta.txLabel() : null;
+                })
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("STATE", stringType, tx -> tx.state)
