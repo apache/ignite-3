@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.lang.ByteArray.fromString;
 import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -400,8 +399,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = Set.of();
 
-        String stableAssignmentsPrefix =
-                enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX;
+        String stableAssignmentsPrefix = ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
         metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
@@ -455,7 +453,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 2, 1, 1);
 
         metaStorageManager.put(
-                fromString((enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX) + grpPart0),
+                fromString(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + grpPart0),
                 Assignments.toBytes(assignments, assignmentsTimestamp)
         );
 
@@ -582,7 +580,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         assertFalse(leaseExpirationMap.get(groupIds.get(1)).get());
 
         assertThat(metaStorageManager.remove(
-                fromString((enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX) + groupIds.get(0))
+                fromString(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + groupIds.get(0))
         ), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(() -> {
