@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.DIRTY_PAGES;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.LOADED_PAGES;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_READ;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_WRITTEN;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_HITS;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_MISSES;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_REPLACEMENTS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -29,6 +35,7 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -54,9 +61,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
-import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
@@ -81,8 +86,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
-import org.hamcrest.Matchers;
-import org.jetbrains.annotations.Nullable;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -250,8 +254,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         continueWritePagesOnCheckpointFuture.complete(null);
         assertThat(finishCheckpointFuture, willCompleteSuccessfully());
         assertTrue(pageMemory.pageReplacementOccurred());
-        assertMetricValue("PagesWritten", 1L);
-        assertMetricValue("PageReplacements", 1L);
     }
 
     @Test
@@ -358,22 +360,27 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         assertThat(finishCheckpointFuture, willCompleteSuccessfully());
         assertThat(createPagesForPageReplacementFuture, willCompleteSuccessfully());
         verify(deltaFileIoFuture.join()).sync();
-
-        assertMetricValue("PagesWritten", 1L);
-        assertMetricValue("PageReplacements", 1L);
-
     }
 
-    private void assertMetricValue(String metricName, long expectedValue) {
-        for (Metric metric : metricSet) {
-            System.err.println(format("Metric {} value: {}", metric.name(), metric.getValueAsString()));
-        }
+    @Test
+    void verifyPageMemoryMetrics() throws Throwable {
+        testPageReplacement();
 
+        assertMetricValue(PAGES_READ, is(0L)); // since there is no existing pages on disk
+        assertMetricValue(PAGES_WRITTEN, is(1L));
+        assertMetricValue(PAGE_REPLACEMENTS, is(1L));
+        assertMetricValue(PAGE_CACHE_MISSES, is(greaterThan(1L)));
+        assertMetricValue(PAGE_CACHE_HITS, is(greaterThan(1L)));
+        assertMetricValue(DIRTY_PAGES, is(greaterThan(1L)));
+        assertMetricValue(LOADED_PAGES, is(greaterThan(1L)));
+    }
+
+    private void assertMetricValue(String metricName, Matcher<Long> valueMatcher) {
         LongMetric metric = metricSet.get(metricName);
         assertThat(metric, is(notNullValue()));
         assertThat(
                 metric.value(),
-                is(expectedValue)
+                valueMatcher
         );
     }
 

@@ -17,6 +17,15 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.DIRTY_PAGES;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.LOADED_PAGES;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_READ;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_WRITTEN;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_ACQUIRE_TIME;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_HITS;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_MISSES;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_REPLACEMENTS;
+
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.HitRateMetric;
@@ -73,27 +82,27 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
         ));
 
         readPagesFromDisk = source.addMetric(new LongAdderMetric(
-                "PagesRead",
+                PAGES_READ,
                 "Number of pages read from disk since the last restart."
         ));
 
         writePagesToDisk = source.addMetric(new LongAdderMetric(
-                "PagesWritten",
+                PAGES_WRITTEN,
                 "Number of pages written to disk since the last restart."
         ));
 
         pageCacheHitsTotal = source.addMetric(new LongAdderMetric(
-                "PageCacheHits",
+                PAGE_CACHE_HITS,
                 "Number of times a page was found in the page cache."
         ));
 
         pageCacheMisses = source.addMetric(new LongAdderMetric(
-                "PageCacheMisses",
+                PAGE_CACHE_MISSES,
                 "Number of times a page was not found in the page cache and had to be loaded from disk."
         ));
 
         pageAcquireTime = source.addMetric(new DistributionMetric(
-                "PageAcquireTime",
+                PAGE_ACQUIRE_TIME,
                 "Distribution of page acquisition time in nanoseconds.",
                 PAGE_ACQUISITIONS_BOUNDS_NANOS
         ));
@@ -105,18 +114,18 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
         ));
 
         pageReplacements = source.addMetric(new LongAdderMetric(
-                "PageReplacements",
+                PAGE_REPLACEMENTS,
                 "Number of times a page was replaced (evicted) from the page cache."
         ));
 
         source.addMetric(new LongGauge(
-                "LoadedPages",
+                LOADED_PAGES,
                 "Current number of pages loaded in memory.",
                 pageMemory::loadedPages
         ));
 
         source.addMetric(new LongGauge(
-                "DirtyPages",
+                DIRTY_PAGES,
                 "Current number of dirty pages in memory.",
                 pageMemory::dirtyPagesCount
         ));
