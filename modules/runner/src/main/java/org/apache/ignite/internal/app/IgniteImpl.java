@@ -157,8 +157,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
-import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
-import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
@@ -1032,6 +1030,7 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 clusterSvc.topologyService(),
+                lowWatermark,
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
@@ -1041,9 +1040,6 @@ public class IgniteImpl implements Ignite {
         this.catalogCompactionRunner = catalogCompactionRunner;
 
         killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
-
-        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
-                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
@@ -1604,6 +1600,7 @@ public class IgniteImpl implements Ignite {
                         lifecycleManager.startComponentsAsync(
                                 componentContext,
                                 catalogManager,
+                                new LowWatermarkRectifier(lowWatermark, catalogManager),
                                 catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,
