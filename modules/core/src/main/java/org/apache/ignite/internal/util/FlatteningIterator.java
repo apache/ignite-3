@@ -22,7 +22,7 @@ import java.util.NoSuchElementException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * An iterator which implements FLAT MAP operation on the input. 
+ * An iterator which implements FLAT MAP operation on the input.
  */
 public class FlatteningIterator<T> implements Iterator<T>, AutoCloseable {
     private final Iterator<? extends Iterable<T>> source;

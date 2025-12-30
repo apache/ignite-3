@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.systemview;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -42,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.systemview.api.NodeSystemView;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
@@ -62,6 +65,7 @@ import org.apache.ignite.internal.systemview.utils.SystemViewUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL system views manager implementation.
@@ -268,7 +272,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         private final Publisher<InternalTuple> publisher;
 
         private ScannableView(ViewRowFactory rowFactory, SystemView<T> view) {
-            this.publisher = new TransformingPublisher<>(view.dataProvider(), object -> rowFactory.create(view, object));
+            BinaryTupleSchema schema = tupleSchemaForView(view);
+            this.publisher = new TransformingPublisher<>(view.dataProvider(), object -> rowFactory.create(schema, view, object));
         }
 
         Publisher<InternalTuple> scan() {
@@ -277,7 +282,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     private abstract static class ViewRowFactory {
-        abstract <ViewSourceT> InternalTuple create(SystemView<ViewSourceT> view, ViewSourceT source);
+        abstract <ViewSourceT> InternalTuple create(BinaryTupleSchema schema, SystemView<ViewSourceT> view, ViewSourceT source);
     }
 
     private static class NodeViewRowFactory extends ViewRowFactory {
@@ -288,8 +293,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         }
 
         @Override
-        <ViewSourceT> InternalTuple create(SystemView<ViewSourceT> view, ViewSourceT source) {
-            return new NodeViewRow<>(nodeName, view, source);
+        <ViewSourceT> InternalTuple create(BinaryTupleSchema schema, SystemView<ViewSourceT> view, ViewSourceT source) {
+            return new NodeViewRow<>(schema, nodeName, view, source);
         }
     }
 
@@ -297,8 +302,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         private static final ViewRowFactory INSTANCE = new ClusterViewRowFactory();
 
         @Override
-        <ViewSourceT> InternalTuple create(SystemView<ViewSourceT> view, ViewSourceT source) {
-            return new ClusterViewRow<>(view, source);
+        <ViewSourceT> InternalTuple create(BinaryTupleSchema schema, SystemView<ViewSourceT> view, ViewSourceT source) {
+            return new ClusterViewRow<>(schema, view, source);
         }
     }
 
@@ -307,7 +312,9 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         private final SystemView<T> view;
         private final T source;
 
-        private NodeViewRow(String nodeName, SystemView<T> view, T source) {
+        private NodeViewRow(BinaryTupleSchema schema, String nodeName, SystemView<T> view, T source) {
+            super(schema);
+
             this.nodeName = nodeName;
             this.view = view;
             this.source = source;
@@ -316,11 +323,6 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         @Override
         public int elementCount() {
             return view.columns().size() + 1;
-        }
-
-        @Override
-        public ByteBuffer byteBuffer() {
-            throw new UnsupportedOperationException("byteBuffer");
         }
 
         @Override
@@ -335,7 +337,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         private final SystemView<T> view;
         private final T source;
 
-        private ClusterViewRow(SystemView<T> view, T source) {
+        private ClusterViewRow(BinaryTupleSchema schema, SystemView<T> view, T source) {
+            super(schema);
             this.view = view;
             this.source = source;
         }
@@ -346,17 +349,18 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         }
 
         @Override
-        public ByteBuffer byteBuffer() {
-            throw new UnsupportedOperationException("byteBuffer");
-        }
-
-        @Override
         <ReturnT> ReturnT value(int columnIndex) {
             return (ReturnT) view.columns().get(columnIndex).value().apply(source);
         }
     }
 
     private abstract static class AbstractViewRow implements InternalTuple {
+        private final BinaryTupleSchema schema;
+
+        private AbstractViewRow(BinaryTupleSchema schema) {
+            this.schema = schema;
+        }
+
         abstract <T> T value(int columnIndex);
 
         @Override
@@ -435,8 +439,12 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         }
 
         @Override
-        public BigDecimal decimalValue(int columnIndex, int scale) {
+        public @Nullable BigDecimal decimalValue(int columnIndex, int scale) {
             BigDecimal value = value(columnIndex);
+
+            if (value == null) {
+                return null;
+            }
 
             return value.setScale(scale, RoundingMode.UNNECESSARY);
         }
@@ -485,5 +493,16 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         public Duration durationValue(int columnIndex) {
             return value(columnIndex);
         }
-    } 
+
+        @Override
+        public ByteBuffer byteBuffer() {
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(schema.elementCount());
+
+            for (int i = 0; i < schema.elementCount(); i++) {
+                schema.appendValue(builder, i, value(i));
+            }
+
+            return builder.build();
+        }
+    }
 }
