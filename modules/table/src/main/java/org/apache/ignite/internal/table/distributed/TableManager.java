@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED;
-import static org.apache.ignite.internal.partition.replicator.SafeLowWatermarkUtils.catalogSafeLowWatermark;
 import static org.apache.ignite.internal.table.distributed.TableUtils.aliveTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -532,9 +531,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             rebalanceRetryDelayConfiguration.init();
 
-            @Nullable HybridTimestamp lwm = catalogSafeLowWatermark(lowWatermark, catalogService);
-
-            cleanUpResourcesForDroppedTablesOnRecoveryBusy(lwm);
+            cleanUpResourcesForDroppedTablesOnRecoveryBusy();
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, onTableCreateListener);
             catalogService.listen(CatalogEvent.TABLE_DROP, onTableDropListener);
@@ -550,7 +547,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return recoverTables(recoveryRevision, lwm);
+            return recoverTables(recoveryRevision, lowWatermark.getLowWatermark());
         });
     }
 
@@ -1860,10 +1857,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private void cleanUpResourcesForDroppedTablesOnRecoveryBusy(@Nullable HybridTimestamp lwm) {
+    private void cleanUpResourcesForDroppedTablesOnRecoveryBusy() {
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped tables from vault and metastore
 
-        Set<Integer> aliveTableIds = aliveTables(catalogService, lwm);
+        Set<Integer> aliveTableIds = aliveTables(catalogService, lowWatermark.getLowWatermark());
 
         destroyMvStoragesForTablesNotIn(aliveTableIds);
     }

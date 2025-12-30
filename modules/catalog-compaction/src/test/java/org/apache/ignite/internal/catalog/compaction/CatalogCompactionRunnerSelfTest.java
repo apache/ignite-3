@@ -99,6 +99,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -1248,6 +1249,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 clockService,
                 schemaSyncService,
                 topologyService,
+                new TestLowWatermark(),
                 clockService::nowLong,
                 minTimeCollector,
                 rebalanceMinimumRequiredTimeProvider

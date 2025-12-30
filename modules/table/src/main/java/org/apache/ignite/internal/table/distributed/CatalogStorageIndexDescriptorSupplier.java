@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.partition.replicator.SafeLowWatermarkUtils.catalogSafeLowWatermark;
-
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -49,7 +47,7 @@ class CatalogStorageIndexDescriptorSupplier implements StorageIndexDescriptorSup
 
         // Get the current Low Watermark value. Since this class is used only on recovery, we expect that this value will not change
         // concurrently.
-        HybridTimestamp lowWatermarkTimestamp = catalogSafeLowWatermark(lowWatermark, catalogService);
+        HybridTimestamp lowWatermarkTimestamp = lowWatermark.getLowWatermark();
 
         int earliestCatalogVersion = lowWatermarkTimestamp == null
                 ? catalogService.earliestCatalogVersion()

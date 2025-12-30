@@ -43,6 +43,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -164,7 +165,10 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            setLowWatermarkOnRecovery(readLowWatermarkFromVault());
+            HybridTimestamp lwmFromVault = readLowWatermarkFromVault();
+            if (lwmFromVault != null) {
+                setLowWatermarkOnRecovery(lwmFromVault);
+            }
 
             messagingService.addMessageHandler(LowWatermarkMessageGroup.class, this::onReceiveNetworkMessage);
 
@@ -291,11 +295,19 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         lowWatermark = newLowWatermark;
     }
 
-    private void setLowWatermarkOnRecovery(@Nullable HybridTimestamp newLowWatermark) {
+    @Override
+    public void listen(LowWatermarkEvent evt, EventListener<? extends LowWatermarkEventParameters> listener) {
+        super.listen(evt, listener);
+    }
+
+    @Override
+    public void setLowWatermarkOnRecovery(HybridTimestamp newLowWatermark) {
         updateLowWatermarkLock.writeLock().lock();
 
         try {
             lowWatermark = newLowWatermark;
+
+            persistWatermark(newLowWatermark);
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
         }
@@ -383,9 +395,9 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
         return inBusyLockAsync(busyLock, () -> {
-                    vaultManager.put(LOW_WATERMARK_VAULT_KEY, newLowWatermark.toBytes());
+            persistWatermark(newLowWatermark);
 
-                    return waitForLocksAndSetLowWatermark(newLowWatermark)
+            return waitForLocksAndSetLowWatermark(newLowWatermark)
                             .thenComposeAsync(unused2 -> fireEvent(
                                     LOW_WATERMARK_CHANGED,
                                     new ChangeLowWatermarkEventParameters(newLowWatermark)), scheduledThreadPool)
@@ -402,6 +414,10 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                             }, scheduledThreadPool);
                 }
         );
+    }
+
+    private void persistWatermark(HybridTimestamp newLowWatermark) {
+        vaultManager.put(LOW_WATERMARK_VAULT_KEY, newLowWatermark.toBytes());
     }
 
     private CompletableFuture<Void> waitForLocksAndSetLowWatermark(HybridTimestamp newLowWatermark) {
