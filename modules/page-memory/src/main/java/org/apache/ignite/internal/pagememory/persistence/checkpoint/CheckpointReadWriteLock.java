@@ -35,7 +35,7 @@ public class CheckpointReadWriteLock {
      */
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
-    private static final long LONG_LOCK_THRESHOLD_NANOS = 1_000_000;
+    private static final long LONG_LOCK_THRESHOLD_MILLIS = 1000;
 
     private static final String LONG_LOCK_THROTTLE_KEY = "long-lock";
 
@@ -209,8 +209,9 @@ public class CheckpointReadWriteLock {
             metrics.recordReadLockAcquisitionTime(elapsedNanos);
         }
 
-        if (elapsedNanos > LONG_LOCK_THRESHOLD_NANOS) {
-            log.warn(LONG_LOCK_THROTTLE_KEY, "Checkpoint read lock took {} ms to acquire.", elapsedNanos);
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
+        if (elapsedMillis > LONG_LOCK_THRESHOLD_MILLIS) {
+            log.warn(LONG_LOCK_THROTTLE_KEY, "Checkpoint read lock took {} ms to acquire.", elapsedMillis);
         }
     }
 

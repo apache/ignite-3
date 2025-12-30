@@ -468,8 +468,6 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
      * <p>
      * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
      * and confirms that the expected interaction was captured in at least one of them.
-     * This approach mitigates test flakiness that can arise from timing variations — such as those caused by slower test agents —
-     * by focusing on the overall count rather than precise bucket placement.
      */
     private static void assertDistributionMetricRecordsCount(DistributionMetric metric, long expectedMeasuresCount) {
         long totalMeasuresCount = Arrays.stream(metric.value()).sum();
