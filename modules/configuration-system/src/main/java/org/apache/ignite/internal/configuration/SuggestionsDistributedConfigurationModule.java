@@ -15,32 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.table.ItDataConsistencyTest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/**
- * Test data consistency in mixed read-write load initiated from a client.
- */
-public class ItClientDataConsistencyTest extends ItDataConsistencyTest {
-    private IgniteClient client;
-
-    @BeforeEach
-    public void startClient() {
-        client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-    }
-
-    @AfterEach
-    void closeClient() {
-        client.close();
+/** {@link ConfigurationModule} for suggestions cluster wide configuration. */
+@AutoService(ConfigurationModule.class)
+public class SuggestionsDistributedConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
     }
 
     @Override
-    protected Ignite assignNodeForIteration(int workerId) {
-        return client;
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(SuggestionsClusterExtensionConfigurationSchema.class);
     }
 }

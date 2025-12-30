@@ -110,6 +110,8 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
+import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -1293,6 +1295,9 @@ public class IgniteImpl implements Ignite {
         ClientConnectorConfiguration clientConnectorConfiguration = nodeConfigRegistry
                 .getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
 
+        SuggestionsConfiguration suggestionsConfiguration = clusterConfigRegistry
+                .getConfiguration(SuggestionsClusterExtensionConfiguration.KEY).suggestions();
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -1315,7 +1320,8 @@ public class IgniteImpl implements Ignite {
                 clientConnectorConfiguration,
                 lowWatermark,
                 nodeProperties,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);
