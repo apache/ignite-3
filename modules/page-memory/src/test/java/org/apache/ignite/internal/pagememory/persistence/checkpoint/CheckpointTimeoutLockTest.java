@@ -456,7 +456,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
             });
             await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(1L)));
             readWriteLock.writeUnlock();
-            assertThat(metrics.readLockWaitingThreads().value(), is(0L));
+            await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(0L)));
         } finally {
             timeoutLock.stop();
         }
