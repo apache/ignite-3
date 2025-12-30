@@ -434,21 +434,12 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
         setCurrentGroupTopology(config);
 
-        // Do the update under lock to make sure no snapshot is started concurrently with this update.
-        // Note that we do not need to protect from a concurrent command execution by this listener because
-        // configuration is committed in the same thread in which commands are applied.
-        storage.acquirePartitionSnapshotsReadLock();
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(config);
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-        try {
-            storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(config);
-                storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-                return null;
-            });
-        } finally {
-            storage.releasePartitionSnapshotsReadLock();
-        }
+            return null;
+        });
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {

@@ -225,20 +225,6 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         verify(partitionStorage, never()).close();
     }
 
-    @Test
-    void delegatesAcquirePartitionSnapshotsReadLock() {
-        testedStorage.acquirePartitionSnapshotsReadLock();
-
-        verify(partitionSnapshots).acquireReadLock();
-    }
-
-    @Test
-    void delegatesReleasePartitionSnapshotsReadLock() {
-        testedStorage.releasePartitionSnapshotsReadLock();
-
-        verify(partitionSnapshots).releaseReadLock();
-    }
-
     @ParameterizedTest
     @EnumSource(MvWriteAction.class)
     void notYetPassedRowIsEnqueued(MvWriteAction writeAction) {

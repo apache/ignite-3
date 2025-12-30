@@ -89,20 +89,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.runConsistently(closure);
     }
 
-    @Override
-    public void acquirePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
-
-        partitionSnapshots.acquireReadLock();
-    }
-
-    @Override
-    public void releasePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
-
-        partitionSnapshots.releaseReadLock();
-    }
-
     private PartitionSnapshots getPartitionSnapshots() {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
