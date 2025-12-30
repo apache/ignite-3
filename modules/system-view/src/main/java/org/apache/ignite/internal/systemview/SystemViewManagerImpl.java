@@ -18,22 +18,30 @@
 package org.apache.ignite.internal.systemview;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
@@ -46,11 +54,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.systemview.api.NodeSystemView;
 import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.systemview.api.SystemViewColumn;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.utils.SystemViewUtils;
@@ -246,8 +251,14 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     private static Map<String, ScannableView<?>> toScannableViews(String localNodeName, Map<String, SystemView<?>> views) {
         Map<String, ScannableView<?>> scannableViews = new HashMap<>();
 
+        ViewRowFactory nodeViewRowFactory = new NodeViewRowFactory(localNodeName);
+
         for (SystemView<?> view : views.values()) {
-            scannableViews.put(view.name(), new ScannableView<>(localNodeName, (SystemView<Object>) view));
+            ViewRowFactory rowFactory = view instanceof NodeSystemView
+                    ? nodeViewRowFactory
+                    : ClusterViewRowFactory.INSTANCE;
+
+            scannableViews.put(view.name(), new ScannableView<>(rowFactory, (SystemView<Object>) view));
         }
 
         return Map.copyOf(scannableViews);
@@ -256,30 +267,223 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     private static class ScannableView<T> {
         private final Publisher<InternalTuple> publisher;
 
-        private ScannableView(String localNodeName, SystemView<T> view) {
-            BinaryTupleSchema schema = tupleSchemaForView(view);
-
-            this.publisher = new TransformingPublisher<>(view.dataProvider(), object -> {
-                BinaryTupleBuilder builder = new BinaryTupleBuilder(schema.elementCount());
-
-                int offset = 0;
-                if (view instanceof NodeSystemView) {
-                    builder.appendString(localNodeName);
-                    offset++;
-                }
-
-                for (int i = 0; i < view.columns().size(); i++) {
-                    SystemViewColumn<T, ?> column = view.columns().get(i);
-
-                    schema.appendValue(builder, i + offset, column.value().apply(object));
-                }
-
-                return new BinaryTuple(schema.elementCount(), builder.build());
-            });
+        private ScannableView(ViewRowFactory rowFactory, SystemView<T> view) {
+            this.publisher = new TransformingPublisher<>(view.dataProvider(), object -> rowFactory.create(view, object));
         }
 
         Publisher<InternalTuple> scan() {
             return publisher;
         }
     }
+
+    private abstract static class ViewRowFactory {
+        abstract <ViewSourceT> InternalTuple create(SystemView<ViewSourceT> view, ViewSourceT source);
+    }
+
+    private static class NodeViewRowFactory extends ViewRowFactory {
+        private final String nodeName;
+
+        private NodeViewRowFactory(String nodeName) {
+            this.nodeName = nodeName;
+        }
+
+        @Override
+        <ViewSourceT> InternalTuple create(SystemView<ViewSourceT> view, ViewSourceT source) {
+            return new NodeViewRow<>(nodeName, view, source);
+        }
+    }
+
+    private static class ClusterViewRowFactory extends ViewRowFactory {
+        private static final ViewRowFactory INSTANCE = new ClusterViewRowFactory();
+
+        @Override
+        <ViewSourceT> InternalTuple create(SystemView<ViewSourceT> view, ViewSourceT source) {
+            return new ClusterViewRow<>(view, source);
+        }
+    }
+
+    private static class NodeViewRow<T> extends AbstractViewRow {
+        private final String nodeName;
+        private final SystemView<T> view;
+        private final T source;
+
+        private NodeViewRow(String nodeName, SystemView<T> view, T source) {
+            this.nodeName = nodeName;
+            this.view = view;
+            this.source = source;
+        }
+
+        @Override
+        public int elementCount() {
+            return view.columns().size() + 1;
+        }
+
+        @Override
+        public ByteBuffer byteBuffer() {
+            throw new UnsupportedOperationException("byteBuffer");
+        }
+
+        @Override
+        <ReturnT> ReturnT value(int columnIndex) {
+            return columnIndex == 0 
+                    ? (ReturnT) nodeName
+                    : (ReturnT) view.columns().get(columnIndex - 1).value().apply(source);
+        }
+    }
+
+    private static class ClusterViewRow<T> extends AbstractViewRow {
+        private final SystemView<T> view;
+        private final T source;
+
+        private ClusterViewRow(SystemView<T> view, T source) {
+            this.view = view;
+            this.source = source;
+        }
+
+        @Override
+        public int elementCount() {
+            return view.columns().size();
+        }
+
+        @Override
+        public ByteBuffer byteBuffer() {
+            throw new UnsupportedOperationException("byteBuffer");
+        }
+
+        @Override
+        <ReturnT> ReturnT value(int columnIndex) {
+            return (ReturnT) view.columns().get(columnIndex).value().apply(source);
+        }
+    }
+
+    private abstract static class AbstractViewRow implements InternalTuple {
+        abstract <T> T value(int columnIndex);
+
+        @Override
+        public boolean hasNullValue(int columnIndex) {
+            return value(columnIndex) == null;
+        }
+
+        @Override
+        public boolean booleanValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Boolean booleanValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public byte byteValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Byte byteValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public short shortValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Short shortValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public int intValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Integer intValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public long longValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Long longValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public float floatValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Float floatValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public double doubleValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Double doubleValueBoxed(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public BigDecimal decimalValue(int columnIndex, int scale) {
+            BigDecimal value = value(columnIndex);
+
+            return value.setScale(scale, RoundingMode.UNNECESSARY);
+        }
+
+        @Override
+        public String stringValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public byte[] bytesValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public UUID uuidValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public LocalDate dateValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public LocalTime timeValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public LocalDateTime dateTimeValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Instant timestampValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Period periodValue(int columnIndex) {
+            return value(columnIndex);
+        }
+
+        @Override
+        public Duration durationValue(int columnIndex) {
+            return value(columnIndex);
+        }
+    } 
 }
