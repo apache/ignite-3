@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -218,7 +219,8 @@ public class OrphanDetector {
                             .build());
                 }).exceptionally(throwable -> {
                     if (throwable != null) {
-                        LOG.warn("A recovery message for the transaction was handled with the error [tx={}].", throwable, txId);
+                        LOG.warn("A recovery message for the transaction was handled with the error [{}].",
+                                throwable, formatTxInfo(txId, txLocalStateStorage));
                     }
 
                     return null;
