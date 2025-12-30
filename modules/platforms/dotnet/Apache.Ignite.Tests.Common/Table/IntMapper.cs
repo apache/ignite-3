@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Sql;
+namespace Apache.Ignite.Tests.Common.Table;
 
-using Proto.BinaryTuple;
+using Ignite.Table.Mapper;
 
-/// <summary>
-/// Row reader delegate.
-/// </summary>
-/// <param name="metadata">Metadata.</param>
-/// <param name="tupleReader">Tuple reader.</param>
-/// <param name="arg">Argument.</param>
-/// <typeparam name="T">Result type.</typeparam>
-/// <returns>Resulting row.</returns>
-internal delegate T RowReader<out T>(ResultSetMetadata metadata, ref BinaryTupleReader tupleReader, object? arg);
+public class IntMapper : IMapper<int>
+{
+    public void Write(int obj, ref RowWriter rowWriter, IMapperSchema schema)
+        => rowWriter.WriteInt(obj);
+
+    public int Read(ref RowReader rowReader, IMapperSchema schema)
+        => rowReader.ReadInt()!.Value;
+}
