@@ -41,7 +41,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -55,7 +57,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,17 +78,21 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     @Mock
     private ClusterNodeResolver clusterNodeResolver;
 
+    private DataNodesProvider dataNodesProvider;
+
     @BeforeEach
     void setUp() {
         msManager = StandaloneMetaStorageManager.create();
 
         HybridClockImpl clock = new HybridClockImpl();
 
+        dataNodesProvider = new DataNodesProvider();
+
         leaseTracker = new LeaseTracker(
                 msManager,
                 clusterNodeResolver,
                 new TestClockService(clock),
-                zoneId -> completedFuture(Set.of()),
+                dataNodesProvider,
                 id -> null,
                 new SystemPropertiesNodeProperties()
         );
@@ -116,8 +122,8 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
             return falseCompletedFuture();
         });
 
-        TablePartitionId partId0 = new TablePartitionId(0, 0);
-        TablePartitionId partId1 = new TablePartitionId(0, 1);
+        var partId0 = new ZonePartitionId(0, 0);
+        var partId1 = new ZonePartitionId(0, 1);
 
         HybridTimestamp startTime = new HybridTimestamp(1, 0);
         HybridTimestamp expirationTime = new HybridTimestamp(1000, 0);
@@ -184,7 +190,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
             return falseCompletedFuture();
         });
 
-        TablePartitionId partId = new TablePartitionId(0, 0);
+        var partId = new ZonePartitionId(0, 0);
 
         HybridTimestamp expirationTime = new HybridTimestamp(1000, 0);
 
@@ -212,7 +218,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     void awaitPrimaryReplicaPropagatesExceptions() {
         when(clusterNodeResolver.getById(any())).thenThrow(new RuntimeException("test"));
 
-        var groupId = new TablePartitionId(0, 0);
+        var groupId = new ZonePartitionId(0, 0);
 
         CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
                 groupId,
@@ -235,7 +241,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     @Test
     void awaitPrimaryReplicaPropagatesExceptionsOnStop() {
         CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
-                new TablePartitionId(0, 0),
+                new ZonePartitionId(0, 0),
                 HybridTimestamp.MAX_VALUE,
                 30,
                 TimeUnit.SECONDS
@@ -249,12 +255,39 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     @Test
     void awaitPrimaryReplicaThrowsOnTimeout() {
         CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
-                new TablePartitionId(0, 0),
+                new ZonePartitionId(0, 0),
                 HybridTimestamp.MAX_VALUE,
                 1,
                 TimeUnit.MILLISECONDS
         );
 
         assertThat(future, willThrow(PrimaryReplicaAwaitTimeoutException.class));
+    }
+
+    @Test
+    void awaitPrimaryReplicaPropagatesExceptionsWhenNodesIsEmpty() {
+        dataNodesProvider.emulateEmptyDataNodes();
+
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                new ZonePartitionId(0, 0),
+                HybridTimestamp.MAX_VALUE,
+                30,
+                TimeUnit.MILLISECONDS
+        );
+
+        assertThat(future, willThrow(EmptyDataNodesException.class));
+    }
+
+    private static class DataNodesProvider implements Function<Integer, CompletableFuture<Set<String>>> {
+        private volatile boolean emptyNodes;
+
+        void emulateEmptyDataNodes() {
+            emptyNodes = true;
+        }
+
+        @Override
+        public CompletableFuture<Set<String>> apply(Integer integer) {
+            return emptyNodes ? completedFuture(Set.of()) : completedFuture(Set.of("test-node"));
+        }
     }
 }
