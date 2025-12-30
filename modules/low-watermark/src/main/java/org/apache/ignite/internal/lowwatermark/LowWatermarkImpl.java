@@ -301,7 +301,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         try {
             lowWatermark = newLowWatermark;
 
-            persistWatermark(newLowWatermark);
+            saveWatermarkToVault(newLowWatermark);
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
         }
@@ -389,7 +389,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
         return inBusyLockAsync(busyLock, () -> {
-            persistWatermark(newLowWatermark);
+            saveWatermarkToVault(newLowWatermark);
 
             return waitForLocksAndSetLowWatermark(newLowWatermark)
                             .thenComposeAsync(unused2 -> fireEvent(
@@ -410,7 +410,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         );
     }
 
-    private void persistWatermark(HybridTimestamp newLowWatermark) {
+    private void saveWatermarkToVault(HybridTimestamp newLowWatermark) {
         vaultManager.put(LOW_WATERMARK_VAULT_KEY, newLowWatermark.toBytes());
     }
 
