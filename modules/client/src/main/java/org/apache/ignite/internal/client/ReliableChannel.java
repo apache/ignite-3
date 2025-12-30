@@ -947,7 +947,7 @@ public final class ReliableChannel implements AutoCloseable {
                     nodeChannelsByName.put(newNode.name(), this);
 
                     var oldServerNode = serverNode;
-                    if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
+                    if (oldServerNode != null && !oldServerNode.name().equals(newNode.name())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
                     }
