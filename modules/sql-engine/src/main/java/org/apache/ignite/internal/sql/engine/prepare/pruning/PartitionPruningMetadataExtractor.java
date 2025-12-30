@@ -425,8 +425,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 return res;
             }
             case SEARCH: {
-                // Intentionally use of RexUtil.expandSearch (not RexUtils.expandSearchNullable), since here we
-                // expand operator not for bytecode generation and expect output with OR/AND operators.
                 RexNode expandedSearch = RexUtil.expandSearch(rexBuilder, null, node);
                 assert !expandedSearch.isA(SqlKind.SEARCH) : "Search operation is not expanded: " + node;
 

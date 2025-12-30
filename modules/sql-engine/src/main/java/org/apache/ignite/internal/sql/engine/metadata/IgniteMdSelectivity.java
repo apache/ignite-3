@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
+import static org.apache.calcite.rex.RexUtil.expandSearch;
+
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -31,7 +33,6 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
@@ -215,10 +216,8 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         List<RexNode> conjunctions = RelOptUtil.conjunctions(predicate);
 
         for (RexNode pred : conjunctions) {
-            // Intentionally use of RexUtil.expandSearch (not RexUtils.expandSearchNullable), since here we
-            // expand operator not for bytecode generation and expect output with OR/AND operators.
             // Expand sarg`s
-            RexNode predicateExpanded = RexUtil.expandSearch(Commons.rexBuilder(), null, pred);
+            RexNode predicateExpanded = expandSearch(Commons.rexBuilder(), null, pred);
 
             if (predicateExpanded.isA(SqlKind.OR)) {
                 double processed = computeOrSelectivity((RexCall) predicateExpanded, primaryKeys == null
