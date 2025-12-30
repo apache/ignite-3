@@ -52,9 +52,9 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
@@ -341,7 +341,7 @@ public class ClientPrimaryReplicaTracker {
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         inBusyLockSafe(busyLock, () -> {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-24345 - support zone destruction.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25017 - support zone destruction.
             int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);

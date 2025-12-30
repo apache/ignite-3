@@ -50,8 +50,9 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
-class ManualGroupRestartRequest implements DisasterRecoveryRequest {
+class ManualGroupRestartRequest implements MultiNodeDisasterRecoveryRequest {
     private final UUID operationId;
 
     private final int zoneId;
@@ -64,13 +65,17 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private final boolean cleanUp;
 
+    // Nullable for requests created before coordinator field introduction.
+    private final @Nullable String coordinator;
+
     ManualGroupRestartRequest(
             UUID operationId,
             int zoneId,
             Set<Integer> partitionIds,
             Set<String> nodeNames,
             long assignmentsTimestamp,
-            boolean cleanUp
+            boolean cleanUp,
+            @Nullable String coordinator
     ) {
         this.operationId = operationId;
         this.zoneId = zoneId;
@@ -78,6 +83,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         this.nodeNames = Set.copyOf(nodeNames);
         this.assignmentsTimestamp = assignmentsTimestamp;
         this.cleanUp = cleanUp;
+        this.coordinator = coordinator;
     }
 
     @Override
@@ -99,6 +105,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         return partitionIds;
     }
 
+    @Override
     public Set<String> nodeNames() {
         return nodeNames;
     }
@@ -109,6 +116,24 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     public boolean cleanUp() {
         return cleanUp;
+    }
+
+    @Override
+    public @Nullable String coordinator() {
+        return coordinator;
+    }
+
+    @Override
+    public MultiNodeDisasterRecoveryRequest updateCoordinator(String newCoordinatorName) {
+        return new ManualGroupRestartRequest(
+                operationId,
+                zoneId,
+                partitionIds,
+                nodeNames,
+                assignmentsTimestamp,
+                cleanUp,
+                newCoordinatorName
+        );
     }
 
     @Override

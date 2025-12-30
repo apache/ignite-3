@@ -35,6 +35,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.manager.ComponentContext;
 
 /**
@@ -116,6 +117,11 @@ public class DummyIgniteDeployment implements IgniteDeployment {
                 .map(Version::parseVersion)
                 .max(Version::compareTo)
                 .orElseThrow());
+    }
+
+    @Override
+    public CompletableFuture<UnitFolder> nodeUnitFileStructure(String unitId, Version version) {
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     @Override

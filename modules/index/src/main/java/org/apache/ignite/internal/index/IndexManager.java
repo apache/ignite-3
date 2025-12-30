@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREAT
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.partition.replicator.SafeLowWatermarkUtils.catalogSafeLowWatermark;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -58,11 +59,11 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP as well as managing indexes' lifecycle.
@@ -329,7 +330,7 @@ public class IndexManager implements IgniteComponent {
     /** Recover deferred destroy events. */
     private void recoverDestructionQueue() {
         // LWM starts updating only after the node is restored.
-        HybridTimestamp lwm = lowWatermark.getLowWatermark();
+        HybridTimestamp lwm = catalogSafeLowWatermark(lowWatermark, catalogService);
 
         int earliestCatalogVersion = lwm == null
                 ? catalogService.earliestCatalogVersion()

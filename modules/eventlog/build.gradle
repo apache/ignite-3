@@ -45,8 +45,7 @@ dependencies {
 
     testImplementation libs.hamcrest.json
     testImplementation libs.awaitility
-    testImplementation libs.mock.server.netty
-    testImplementation libs.mock.server.junit
+    testImplementation libs.wiremock
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-eventlog'))

@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction state request.
@@ -27,4 +30,22 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 @Transferable(TxMessageGroup.TX_STATE_COMMIT_PARTITION_REQUEST)
 public interface TxStateCommitPartitionRequest extends PrimaryReplicaRequest {
     UUID txId();
+
+    @Nullable HybridTimestamp readTimestamp();
+
+    /**
+     * If this request is caused by write intent resolution, the message may contain the group id and current consistency token of
+     * the partition where the write intent is located (sender partition). This is the current consistency token of the sender partition.
+     *
+     * @return Current consistency token of the sender partition, or {@code null} if the request is not caused by write intent resolution.
+     */
+    @Nullable Long senderCurrentConsistencyToken();
+
+    /**
+     * If this request is caused by write intent resolution, the message may contain the group id and current consistency token of
+     * the partition where the write intent is located (sender partition). This is the group id of the sender partition.
+     *
+     * @return Group id of the sender partition, or {@code null} if the request is not caused by write intent resolution.
+     */
+    @Nullable ZonePartitionIdMessage senderGroupId();
 }

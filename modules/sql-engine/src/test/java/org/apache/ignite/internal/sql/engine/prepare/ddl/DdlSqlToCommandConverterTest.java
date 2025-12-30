@@ -64,6 +64,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
@@ -115,6 +116,10 @@ import org.mockito.Mockito;
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     private static final Integer TEST_ZONE_ID = 100;
+
+    private static final List<SqlTypeName> SIGNED_NUMERIC_TYPES = NUMERIC_TYPES.stream()
+            .filter(t -> !SqlTypeName.UNSIGNED_TYPES.contains(t))
+            .collect(Collectors.toList());
 
     @BeforeEach
     void setUp() {
@@ -379,7 +384,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        for (SqlTypeName numType : NUMERIC_TYPES) {
+        for (SqlTypeName numType : SIGNED_NUMERIC_TYPES) {
             for (SqlTypeName intervalType : INTERVAL_TYPES) {
                 RelDataType initialNumType = Commons.typeFactory().createSqlType(numType);
                 Object value = SqlTestUtils.generateValueByType(initialNumType);
@@ -399,7 +404,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         PlanningContext ctx = createContext();
 
         for (SqlTypeName intervalType : INTERVAL_TYPES) {
-            for (SqlTypeName numType : NUMERIC_TYPES) {
+            for (SqlTypeName numType : SIGNED_NUMERIC_TYPES) {
                 String value = makeUsableIntervalValue(intervalType.getName());
 
                 fillTestCase(numType.getName(), value, testItems, false, ctx);
@@ -504,7 +509,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         String[] numbers = {"100.4", "100.6", "100", "'100'", "'100.1'"};
 
-        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(NUMERIC_TYPES);
+        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(SIGNED_NUMERIC_TYPES);
         typesWithoutDecimal.remove(DECIMAL);
 
         for (String value : numbers) {
@@ -559,7 +564,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
 
         for (String value : values) {
-            for (SqlTypeName numericType : NUMERIC_TYPES) {
+            for (SqlTypeName numericType : SIGNED_NUMERIC_TYPES) {
                 fillTestCase(numericType.getName(), value, testItems, false, ctx);
             }
         }

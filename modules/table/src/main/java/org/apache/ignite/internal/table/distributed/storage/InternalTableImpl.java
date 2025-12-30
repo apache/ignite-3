@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
-import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -131,7 +130,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -185,9 +183,6 @@ public class InternalTableImpl implements InternalTable {
     /** Replica service. */
     private final ReplicaService replicaSvc;
 
-    /** Mutex for the partition maps update. */
-    private final Object updatePartitionMapsMux = new Object();
-
     /** A hybrid logical clock service. */
     private final ClockService clockService;
 
@@ -196,12 +191,6 @@ public class InternalTableImpl implements InternalTable {
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
-
-    /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
-
-    /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
     /** Default read-write transaction timeout. */
     private final Supplier<Long> defaultRwTxTimeout;
@@ -1632,8 +1621,6 @@ public class InternalTableImpl implements InternalTable {
 
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
-        assert !actualTx.isReadOnly();
-
         return readWriteScan(partId, actualTx, indexId, criteria);
     }
 
@@ -2166,16 +2153,6 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
-        return safeTimeTrackerByPartitionId.get(partitionId);
-    }
-
-    @Override
-    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
-        return storageIndexTrackerByPartitionId.get(partitionId);
-    }
-
-    @Override
     public ScheduledExecutorService streamerFlushExecutor() {
         return streamerFlushExecutor.get();
     }
@@ -2267,37 +2244,6 @@ public class InternalTableImpl implements InternalTable {
                             });
                 })
                 .thenCompose(identity());
-    }
-
-    /**
-     * Updates the partition trackers, if there were previous ones, it closes them.
-     *
-     * @param partitionId Partition ID.
-     * @param newSafeTimeTracker New partition safe time tracker.
-     */
-    public void updatePartitionTrackers(
-            int partitionId,
-            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker
-    ) {
-        PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
-
-        synchronized (updatePartitionMapsMux) {
-            Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
-                    new Int2ObjectOpenHashMap<>(partitions);
-            Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
-
-            newSafeTimeTrackerMap.putAll(safeTimeTrackerByPartitionId);
-            newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
-
-            previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
-
-            safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
-            storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
-        }
-
-        if (previousSafeTimeTracker != null) {
-            previousSafeTimeTracker.close();
-        }
     }
 
     private ReplicaRequest upsertAllInternal(

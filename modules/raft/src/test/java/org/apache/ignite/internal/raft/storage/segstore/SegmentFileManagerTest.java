@@ -69,6 +69,7 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -96,6 +97,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private final FailureManager failureManager = new NoOpFailureManager();
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
     private LogStorageConfiguration storageConfiguration;
 
@@ -114,6 +118,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 failureManager,
+                raftConfiguration,
                 storageConfiguration
         );
     }

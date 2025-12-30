@@ -43,6 +43,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.LogStorageView;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -139,6 +140,8 @@ class SegmentFileManager implements ManuallyCloseable {
     /** Configured maximum log entry size. */
     private final int maxLogEntrySize;
 
+    private final boolean isSync;
+
     /** Lock used to block threads while a rollover is in progress. */
     private final Object rolloverLock = new Object();
 
@@ -159,13 +162,14 @@ class SegmentFileManager implements ManuallyCloseable {
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
+            RaftConfiguration raftConfiguration,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
         this.segmentFilesDir = baseDir.resolve("segments");
+        this.stripes = stripes;
+        this.isSync = raftConfiguration.fsync().value();
 
         Files.createDirectories(segmentFilesDir);
-
-        this.stripes = stripes;
 
         LogStorageView logStorageView = storageConfiguration.value();
 
@@ -248,7 +252,7 @@ class SegmentFileManager implements ManuallyCloseable {
     private SegmentFileWithMemtable allocateNewSegmentFile(int fileOrdinal) throws IOException {
         Path path = segmentFilesDir.resolve(segmentFileName(fileOrdinal, 0));
 
-        SegmentFile segmentFile = SegmentFile.createNew(path, segmentFileSize);
+        SegmentFile segmentFile = SegmentFile.createNew(path, segmentFileSize, isSync);
 
         writeHeader(segmentFile);
 
@@ -260,10 +264,10 @@ class SegmentFileManager implements ManuallyCloseable {
      * "complete" segment files (i.e. those that have experienced a rollover) this method is expected to be called on the most recent,
      * possibly incomplete segment file.
      */
-    private static SegmentFileWithMemtable recoverLatestSegmentFile(
+    private SegmentFileWithMemtable recoverLatestSegmentFile(
             Path segmentFilePath, SegmentPayloadParser payloadParser
     ) throws IOException {
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath);
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
 
         WriteModeIndexMemTable memTable = payloadParser.recoverMemtable(segmentFile, segmentFilePath, true);
 
@@ -277,10 +281,10 @@ class SegmentFileManager implements ManuallyCloseable {
      * <p>This method skips CRC validation, because it is used to identify the end of incomplete segment files (and, by definition, this can
      * never happen during this method's invocation), not to validate storage integrity.
      */
-    private static SegmentFileWithMemtable recoverSegmentFile(
+    private SegmentFileWithMemtable recoverSegmentFile(
             Path segmentFilePath, SegmentPayloadParser payloadParser
     ) throws IOException {
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath);
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
 
         WriteModeIndexMemTable memTable = payloadParser.recoverMemtable(segmentFile, segmentFilePath, false);
 
@@ -555,7 +559,7 @@ class SegmentFileManager implements ManuallyCloseable {
         Path path = segmentFilesDir.resolve(segmentFileName(segmentFilePointer.fileOrdinal(), 0));
 
         // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
-        SegmentFile segmentFile = SegmentFile.openExisting(path);
+        SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
 
         ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
 

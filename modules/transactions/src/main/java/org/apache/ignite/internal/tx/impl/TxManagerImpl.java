@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -558,6 +559,33 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return txStateVolatileStorage.state(txId);
     }
 
+    @Override
+    public CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
+            TxStateMeta txMeta,
+            InternalTransaction tx,
+            long currentEnlistmentConsistencyToken,
+            ZonePartitionId senderGroupId
+    ) {
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
+
+        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+            // Remote partition already has different consistency token, so we can't commit this transaction anyway.
+            // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
+            // is not under lock.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
+            return tx.rollbackAsync()
+                    .thenApply(unused -> {
+                        TxStateMeta newMeta = stateMeta(tx.id());
+
+                        assert isFinalState(newMeta.txState());
+
+                        return newMeta;
+                    });
+        }
+
+        return completedFuture(txMeta);
+    }
+
     @TestOnly
     public Collection<TxStateMeta> states() {
         return txStateVolatileStorage.states();
@@ -705,7 +733,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture,
-            boolean unlock
+            boolean unlockOnly
     ) {
         HybridTimestamp commitTimestamp = commitTimestamp(commit);
         // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
@@ -721,7 +749,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             Map<ZonePartitionId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
 
-                            if (unlock) {
+                            if (unlockOnly) {
                                 return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
                                         .thenAccept(ignored -> {
                                             // Don't keep useless state.

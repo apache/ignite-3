@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.util.SlidingHistogram;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -131,7 +132,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         private final AtomicLong adaptiveResponseTimeoutMillis;
 
         /** When the response timeout was last decreased. */
-        private volatile long lastDecreaseTime = System.currentTimeMillis();
+        private volatile long lastDecreaseTime = Utils.monotonicMs();
 
         PeerContextHolder(String consistentId) {
             this.consistentId = consistentId;
@@ -187,7 +188,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
             currentInFlights.decrement();
 
             if (retriableError == null || retriableError) {
-                long now = System.currentTimeMillis();
+                long now = Utils.monotonicMs();
                 long duration = now - requestStartTimestamp;
 
                 histogram.record(duration);

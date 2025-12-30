@@ -10,7 +10,7 @@ Sort
     UnionAll
         est: (rows=1260334)
       Project
-          projection: [CAST(CHANNEL):CHAR(7) CHARACTER SET "UTF-8" NOT NULL, CAST(COL_NAME):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
+          projection: [CAST(CHANNEL):VARCHAR(7) CHARACTER SET "UTF-8" NOT NULL, CAST(COL_NAME):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
           est: (rows=720101)
         Project
             fieldNames: [CHANNEL, COL_NAME, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
@@ -47,7 +47,7 @@ Sort
                   fieldNames: [I_ITEM_SK, I_CATEGORY]
                   est: (rows=18000)
       Project
-          projection: [CAST(CHANNEL):CHAR(7) CHARACTER SET "UTF-8" NOT NULL, COL_NAME, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
+          projection: [CAST(CHANNEL):VARCHAR(7) CHARACTER SET "UTF-8" NOT NULL, CAST(COL_NAME):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
           est: (rows=179846)
         Project
             fieldNames: [CHANNEL, COL_NAME, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
@@ -84,36 +84,39 @@ Sort
                   fieldNames: [I_ITEM_SK, I_CATEGORY]
                   est: (rows=18000)
       Project
-          fieldNames: [CHANNEL, COL_NAME, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
-          projection: [_UTF-8'catalog', _UTF-8'cs_ship_mode_sk', D_YEAR, D_QOY, I_CATEGORY, CS_EXT_SALES_PRICE]
+          projection: [CAST(CHANNEL):VARCHAR(7) CHARACTER SET "UTF-8" NOT NULL, CAST(COL_NAME):VARCHAR(15) CHARACTER SET "UTF-8" NOT NULL, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
           est: (rows=360387)
-        HashJoin
-            predicate: =(CS_ITEM_SK, I_ITEM_SK)
-            type: inner
+        Project
+            fieldNames: [CHANNEL, COL_NAME, D_YEAR, D_QOY, I_CATEGORY, EXT_SALES_PRICE]
+            projection: [_UTF-8'catalog', _UTF-8'cs_ship_mode_sk', D_YEAR, D_QOY, I_CATEGORY, CS_EXT_SALES_PRICE]
             est: (rows=360387)
           HashJoin
-              predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+              predicate: =(CS_ITEM_SK, I_ITEM_SK)
               type: inner
               est: (rows=360387)
-            Exchange
-                distribution: single
+            HashJoin
+                predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                type: inner
                 est: (rows=360387)
-              TableScan
-                  table: PUBLIC.CATALOG_SALES
-                  predicate: IS NULL(CS_SHIP_MODE_SK)
-                  fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_MODE_SK, CS_ITEM_SK, CS_EXT_SALES_PRICE]
+              Exchange
+                  distribution: single
                   est: (rows=360387)
+                TableScan
+                    table: PUBLIC.CATALOG_SALES
+                    predicate: IS NULL(CS_SHIP_MODE_SK)
+                    fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_MODE_SK, CS_ITEM_SK, CS_EXT_SALES_PRICE]
+                    est: (rows=360387)
+              Exchange
+                  distribution: single
+                  est: (rows=73049)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    fieldNames: [D_DATE_SK, D_YEAR, D_QOY]
+                    est: (rows=73049)
             Exchange
                 distribution: single
-                est: (rows=73049)
-              TableScan
-                  table: PUBLIC.DATE_DIM
-                  fieldNames: [D_DATE_SK, D_YEAR, D_QOY]
-                  est: (rows=73049)
-          Exchange
-              distribution: single
-              est: (rows=18000)
-            TableScan
-                table: PUBLIC.ITEM
-                fieldNames: [I_ITEM_SK, I_CATEGORY]
                 est: (rows=18000)
+              TableScan
+                  table: PUBLIC.ITEM
+                  fieldNames: [I_ITEM_SK, I_CATEGORY]
+                  est: (rows=18000)
