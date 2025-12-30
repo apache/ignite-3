@@ -90,7 +90,7 @@ public final class SqlOperationContext {
     }
 
     /**
-     * Copies an existing context with a new operation time preserving the existing transaction.
+     * Copies an existing context preserving the existing transaction.
      *
      * <p>Used in case of a retry. If the operation is repeated while preserving the running transaction,
      *    the operation time is taken from this transaction.
