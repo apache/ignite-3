@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -52,7 +53,7 @@ public final class SqlOperationContext {
     private final @Nullable Consumer<Throwable> errorListener;
     private final @Nullable String userName;
     private final @Nullable Long topologyVersion;
-    private final @Nullable QueryTransactionWrapper retryTx;
+    private final @Nullable AtomicReference<QueryTransactionWrapper> retryTxHolder;
 
     /**
      * Private constructor, used by a builder.
@@ -82,7 +83,7 @@ public final class SqlOperationContext {
         this.errorListener = errorListener;
         this.userName = userName;
         this.topologyVersion = topologyVersion;
-        this.retryTx = retryTx;
+        this.retryTxHolder = new AtomicReference<>(retryTx);
     }
 
     public static Builder builder() {
@@ -210,7 +211,7 @@ public final class SqlOperationContext {
 
     /** Returns transaction used for retry operation or {@code null}. */
     public @Nullable QueryTransactionWrapper retryTx() {
-        return retryTx;
+        return retryTxHolder.getAndSet(null);
     }
 
     /**
