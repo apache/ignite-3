@@ -319,9 +319,8 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
 
     @Override
     public boolean lazyCursorPublication() {
-        // In order to repeat execution in case of an error where the replica request schema
-        // version doesn't match the current table schema version, we must wait first page preloading
-        // (see InternalSchemaVersionMismatchException for more details).
+        // Let's postpone cursor publication so we can recover from errors during
+        // plan execution, like `InternalSchemaVersionMismatchException`.
         return false;
     }
 }

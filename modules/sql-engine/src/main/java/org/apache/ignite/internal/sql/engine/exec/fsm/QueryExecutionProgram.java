@@ -25,7 +25,6 @@ import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSche
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -86,20 +85,20 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 assert query.currentPhase() == ExecutionPhase.CURSOR_INITIALIZATION : query.currentPhase();
 
                 SqlOperationContext context = query.operationContext;
-                QueryTransactionWrapper txWrapper = query.usedTransaction;
+                QueryTransactionWrapper tx = query.usedTransaction;
 
                 assert context != null;
-                assert txWrapper != null;
+                assert tx != null;
 
-                context.getAndSetTxOnRetry(txWrapper);
+                query.operationContext = context.withTransactionForRetry(tx);
 
                 query.moveTo(ExecutionPhase.OPTIMIZING);
 
                 return true;
             }
 
-            if (fastPlanSchemaVersionMismatch(th)) {
-                assert query.plan instanceof ExecutablePlan;
+            if (fastPlanSchemaVersionMismatch(th) || incompatibleSchemaChange(th)) {
+                query.operationContext = null;
 
                 query.moveTo(ExecutionPhase.OPTIMIZING);
 
@@ -126,7 +125,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || incompatibleSchemaChange(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
         }
 
         return false;

@@ -45,12 +45,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         assert result != null : "Query is expected to be parsed at this phase";
 
-        SqlOperationContext retryOperationContext = query.operationContext;
-        SqlOperationContext operationContext = retryOperationContext == null
-                ? buildContext(query, result)
-                : retryOperationContext.withOperationTime(() -> query.executor.deriveOperationTime(query.txContext));
-
-        query.operationContext = operationContext;
+        SqlOperationContext operationContext = buildContext(query, result);
 
         CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationContext.operationTime())
                 .thenCompose(none -> query.executor.prepare(result, operationContext)
@@ -69,6 +64,12 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
     }
 
     private static SqlOperationContext buildContext(Query query, ParsedResult result) {
+        SqlOperationContext retryContext = query.operationContext;
+
+        if (retryContext != null) {
+            return retryContext;
+        }
+
         validateParsedStatement(query.properties, result);
         validateDynamicParameters(result.dynamicParamsCount(), query.params, true);
         ensureStatementMatchesTx(result.queryType(), query.txContext);
@@ -79,7 +80,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
         ZoneId timeZoneId = query.properties.timeZoneId();
         String userName = query.properties.userName();
 
-        return  SqlOperationContext.builder()
+        SqlOperationContext operationContext = SqlOperationContext.builder()
                 .queryId(query.id)
                 .cancel(query.cancel)
                 .parameters(query.params)
@@ -91,6 +92,10 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                 .errorHandler(query::setError)
                 .userName(userName)
                 .build();
+
+        query.operationContext = operationContext;
+
+        return operationContext;
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */

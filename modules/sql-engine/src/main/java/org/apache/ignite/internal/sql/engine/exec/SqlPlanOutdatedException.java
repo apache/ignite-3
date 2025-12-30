@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Exception occurs when SQL engine detects that the execution plan is outdated after preparation.
@@ -28,10 +26,10 @@ import org.apache.ignite.lang.ErrorGroups.Common;
  * using the transaction {@link InternalTransaction#schemaTimestamp() schema timestamp}.
  * This exception should never be passed to the user, and has no special error code.
  */
-public class SqlPlanOutdatedException extends IgniteInternalException {
+public class SqlPlanOutdatedException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     public SqlPlanOutdatedException() {
-        super(Common.INTERNAL_ERR);
+        super(null, null, false, false);
     }
 }

@@ -397,7 +397,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         assert txContext != null;
 
         // Try to use previously started transaction.
-        QueryTransactionWrapper txWrapper = operationContext.getAndSetTxOnRetry(null);
+        QueryTransactionWrapper txWrapper = operationContext.retryTx();
 
         if (txWrapper != null) {
             return txWrapper;
