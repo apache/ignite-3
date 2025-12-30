@@ -68,7 +68,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
@@ -131,7 +131,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     private static final int TABLE_ID = 1;
 
-    private static final ZonePartitionKey ZONE_PARTITION_KEY = new ZonePartitionKey(ZONE_ID, PARTITION_ID);
+    private static final PartitionKey ZONE_PARTITION_KEY = new PartitionKey(ZONE_ID, PARTITION_ID);
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();

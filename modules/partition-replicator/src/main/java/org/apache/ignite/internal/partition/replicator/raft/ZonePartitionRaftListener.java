@@ -41,7 +41,6 @@ import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCom
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.WriteIntentSwitchCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.raft.Command;
@@ -126,7 +125,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.storageIndexTracker = storageIndexTracker;
         this.partitionsSnapshots = partitionsSnapshots;
         this.txStateStorage = txStatePartitionStorage;
-        this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+        this.partitionKey = new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 

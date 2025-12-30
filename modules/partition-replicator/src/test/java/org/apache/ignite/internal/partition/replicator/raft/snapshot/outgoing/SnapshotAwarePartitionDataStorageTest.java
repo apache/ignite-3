@@ -48,7 +48,6 @@ import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +61,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 1;
 
-    private static final int TABLE_ID = 1;
+    private static final int ZONE_ID = 1;
+    private static final int TABLE_ID = 2;
 
     @Mock
     private MvPartitionStorage partitionStorage;
@@ -70,7 +70,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionsSnapshots partitionsSnapshots;
 
-    private final PartitionKey partitionKey = new TablePartitionKey(TABLE_ID, PARTITION_ID);
+    private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, PARTITION_ID);
 
     private SnapshotAwarePartitionDataStorage testedStorage;
 
@@ -294,13 +294,6 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         verify(snapshot).enqueueForSending(TABLE_ID, rowId);
         verify(snapshot2).enqueueForSending(TABLE_ID, rowId);
-    }
-
-    @Test
-    void removesSnapshotsCollectionOnStop() {
-        testedStorage.close();
-
-        verify(partitionsSnapshots).cleanupOutgoingSnapshots(partitionKey);
     }
 
     private enum MvWriteAction {

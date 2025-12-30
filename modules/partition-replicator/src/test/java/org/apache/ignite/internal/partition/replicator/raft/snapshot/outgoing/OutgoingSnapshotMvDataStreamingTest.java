@@ -49,7 +49,6 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -103,7 +102,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private final UUID transactionId = UUID.randomUUID();
     private final int commitTableId = 999;
 
-    private final PartitionKey partitionKey = new ZonePartitionKey(ZONE_ID, PARTITION_ID);
+    private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, PARTITION_ID);
 
     @BeforeEach
     void createTestInstance(
