@@ -366,7 +366,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     void verifyPageMemoryMetrics() throws Throwable {
         testPageReplacement();
 
-        assertMetricValue(PAGES_READ, is(0L)); // since there is no existing pages on disk
+        assertMetricValue(PAGES_READ, is(0L)); // Since there are no existing pages on disk.
         assertMetricValue(PAGES_WRITTEN, is(1L));
         assertMetricValue(PAGE_REPLACEMENTS, is(1L));
         assertMetricValue(PAGE_CACHE_MISSES, is(greaterThan(1L)));

@@ -683,6 +683,7 @@ public class PersistentPageMemory implements PageMemory {
             if (waitUntilPageIsFullyInitialized) {
                 waitUntilPageIsFullyInitialized(resPointer);
             }
+
             metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
 
@@ -824,6 +825,7 @@ public class PersistentPageMemory implements PageMemory {
                     headerIsValid(lockedPageAbsPtr, true);
                 }
             }
+
             metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
     }
