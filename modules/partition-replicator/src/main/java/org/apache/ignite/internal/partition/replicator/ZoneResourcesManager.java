@@ -32,9 +32,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -125,7 +125,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         );
 
         var snapshotStorage = new PartitionSnapshotStorage(
-                new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStatePartitionStorage),

@@ -127,7 +127,6 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
@@ -890,7 +889,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         PartitionDataStorage partitionDataStorage = partitionDataStorage(
-                new ZonePartitionKey(zonePartitionId.zoneId(), partId),
+                new PartitionKey(zonePartitionId.zoneId(), partId),
                 tableId,
                 mvPartitionStorage
         );

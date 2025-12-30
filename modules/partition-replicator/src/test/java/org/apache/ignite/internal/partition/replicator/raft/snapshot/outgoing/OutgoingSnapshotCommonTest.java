@@ -40,7 +40,6 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMeta
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -71,7 +70,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
-    private final PartitionKey partitionKey = new ZonePartitionKey(ZONE_ID, 1);
+    private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, 1);
 
     private static final int REQUIRED_CATALOG_VERSION = 42;
 

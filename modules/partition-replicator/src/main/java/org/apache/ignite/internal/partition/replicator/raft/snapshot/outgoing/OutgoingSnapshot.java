@@ -54,7 +54,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -262,7 +261,7 @@ public class OutgoingSnapshot {
     }
 
     private List<PartitionMvStorageAccess> freezePartitionStorages() {
-        if (partitionKey instanceof ZonePartitionKey) {
+        if (partitionKey instanceof PartitionKey) {
             return partitionsByTableId.values().stream()
                     .sorted(comparingInt(PartitionMvStorageAccess::tableId))
                     .collect(toList());
