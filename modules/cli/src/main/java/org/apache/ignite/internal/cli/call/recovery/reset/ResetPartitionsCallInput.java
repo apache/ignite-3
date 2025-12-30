@@ -28,8 +28,6 @@ public class ResetPartitionsCallInput implements CallInput {
 
     private final String zoneName;
 
-    private final String tableName;
-
     private final List<Integer> partitionIds;
 
     /** Cluster url. */
@@ -42,11 +40,6 @@ public class ResetPartitionsCallInput implements CallInput {
         return zoneName;
     }
 
-    /** Returns table name to reset partitions of. */
-    public String tableName() {
-        return tableName;
-    }
-
     /** IDs of partitions to reset. */
     public List<Integer> partitionIds() {
         return partitionIds;
@@ -55,12 +48,10 @@ public class ResetPartitionsCallInput implements CallInput {
     private ResetPartitionsCallInput(
             String clusterUrl,
             String zoneName,
-            String tableName,
             @Nullable List<Integer> partitionIds
     ) {
         this.clusterUrl = clusterUrl;
         this.zoneName = zoneName;
-        this.tableName = tableName;
         this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
     }
 
@@ -68,7 +59,6 @@ public class ResetPartitionsCallInput implements CallInput {
     public static ResetPartitionsCallInput of(ResetPartitionsMixin statesArgs, String clusterUrl) {
         return builder()
                 .zoneName(statesArgs.zoneName())
-                .tableName(statesArgs.tableName())
                 .partitionIds(statesArgs.partitionIds())
                 .clusterUrl(clusterUrl)
                 .build();
@@ -89,8 +79,6 @@ public class ResetPartitionsCallInput implements CallInput {
 
         private String zoneName;
 
-        private String tableName;
-
         @Nullable
         private List<Integer> partitionIds;
 
@@ -106,12 +94,6 @@ public class ResetPartitionsCallInput implements CallInput {
             return this;
         }
 
-        /** Set name of table to reset partitions of. */
-        ResetPartitionsCallInputBuilder tableName(String tableName) {
-            this.tableName = tableName;
-            return this;
-        }
-
         /** IDs of partitions to reset. */
         ResetPartitionsCallInputBuilder partitionIds(@Nullable List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
@@ -120,7 +102,7 @@ public class ResetPartitionsCallInput implements CallInput {
 
         /** Build {@link ResetPartitionsCallInput}. */
         ResetPartitionsCallInput build() {
-            return new ResetPartitionsCallInput(clusterUrl, zoneName, tableName, partitionIds);
+            return new ResetPartitionsCallInput(clusterUrl, zoneName, partitionIds);
         }
     }
 }

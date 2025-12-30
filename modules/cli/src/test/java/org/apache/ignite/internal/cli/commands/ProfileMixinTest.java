@@ -305,13 +305,13 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         (Function<PartitionStatesCallInput, String>) PartitionStatesCallInput::clusterUrl
                 ),
                 arguments(
-                        "recovery partitions reset --table test --zone test",
+                        "recovery partitions reset --zone test",
                         ResetPartitionsCall.class,
                         ResetPartitionsCallInput.class,
                         (Function<ResetPartitionsCallInput, String>) ResetPartitionsCallInput::clusterUrl
                 ),
                 arguments(
-                        "recovery partitions restart --table test --zone test",
+                        "recovery partitions restart --zone test",
                         RestartPartitionsCall.class,
                         RestartPartitionsCallInput.class,
                         (Function<RestartPartitionsCallInput, String>) RestartPartitionsCallInput::clusterUrl

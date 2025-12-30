@@ -23,9 +23,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
 /**
- * Response for {@link LocalTablePartitionStateRequest}.
+ * Response for {@link LocalPartitionsEstimatedSizeRequest}.
  */
+@Deprecated
 @Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_RESPONSE)
-public interface LocalTablePartitionStateResponse extends NetworkMessage {
-    Set<LocalTablePartitionStateMessage> states();
+public interface LocalPartitionsEstimatedSizeResponse extends NetworkMessage {
+    Set<LocalPartitionsEstimatedSizeMessage> states();
 }

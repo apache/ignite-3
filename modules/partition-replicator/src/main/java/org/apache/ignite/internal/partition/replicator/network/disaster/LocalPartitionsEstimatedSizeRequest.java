@@ -26,8 +26,9 @@ import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 /**
  * Request for reading table states from the node.
  */
+@Deprecated
 @Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_REQUEST)
-public interface LocalTablePartitionStateRequest extends NetworkMessage {
+public interface LocalPartitionsEstimatedSizeRequest extends NetworkMessage {
     Set<ZonePartitionIdMessage> zonePartitionIds();
 
     int catalogVersion();
