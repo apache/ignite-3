@@ -44,7 +44,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
@@ -92,7 +91,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
@@ -333,8 +331,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
-    private final NodeProperties nodeProperties;
-
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
@@ -435,7 +431,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             IndexMetaStorage indexMetaStorage,
             LogSyncer logSyncer,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
-            NodeProperties nodeProperties,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
@@ -465,7 +460,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.nodeName = nodeName;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
-        this.nodeProperties = nodeProperties;
         this.minTimeCollectorService = minTimeCollectorService;
         this.metricManager = metricManager;
         this.partitionModificationCounterFactory = partitionModificationCounterFactory;
@@ -1594,34 +1588,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopTablePartition(TablePartitionId tablePartitionId, TableViewInternal table) {
-        CompletableFuture<Boolean> stopReplicaFuture;
+        // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
+        minTimeCollectorService.removePartition(tablePartitionId);
 
-        try {
-            // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
-            stopReplicaFuture = nodeProperties.colocationEnabled()
-                    ? trueCompletedFuture()
-                    : replicaMgr.stopReplica(tablePartitionId);
-        } catch (NodeStoppingException e) {
-            // No-op.
-            stopReplicaFuture = falseCompletedFuture();
+        PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
+        if (metricSource != null) {
+            try {
+                metricManager.unregisterSource(metricSource);
+            } catch (Exception e) {
+                String message = "Failed to unregister metrics source for table [name={}, partitionId={}].";
+                LOG.warn(message, e, table.name(), tablePartitionId.partitionId());
+            }
         }
 
-        return stopReplicaFuture
-                .thenCompose(v -> {
-                    minTimeCollectorService.removePartition(tablePartitionId);
-
-                    PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
-                    if (metricSource != null) {
-                        try {
-                            metricManager.unregisterSource(metricSource);
-                        } catch (Exception e) {
-                            String message = "Failed to register metrics source for table [name={}, partitionId={}].";
-                            LOG.warn(message, e, table.name(), tablePartitionId.partitionId());
-                        }
-                    }
-
-                    return mvGc.removeStorage(tablePartitionId);
-                });
+        return mvGc.removeStorage(tablePartitionId);
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(

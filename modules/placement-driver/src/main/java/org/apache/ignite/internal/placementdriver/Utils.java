@@ -41,6 +41,12 @@ public class Utils {
             boolean colocationEnabled,
             Function<Integer, Integer> zoneIdByTableIdResolver
     ) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group id type ["
+                + "group=" + groupId
+                + ", type=" + groupId.getClass().getSimpleName()
+                + ", colocationEnabled=" + colocationEnabled
+                + ']';
+
         if (colocationEnabled && groupId instanceof ZonePartitionId) {
             return ((ZonePartitionId) groupId).zoneId();
         } else {
