@@ -396,7 +396,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 clockService,
                 killCommandHandler,
                 expressionFactory,
-                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT,
+                SqlPlanToTxSchemaVersionValidator.create(schemaSyncService, catalogManager)
         ));
 
         queryExecutor = registerService(new QueryExecutor(

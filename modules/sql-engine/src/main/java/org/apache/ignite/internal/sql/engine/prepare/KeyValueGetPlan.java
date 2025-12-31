@@ -316,4 +316,11 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     public int catalogVersion() {
         return catalogVersion;
     }
+
+    @Override
+    public boolean lazyCursorPublication() {
+        // Let's postpone cursor publication so we can recover from errors during
+        // plan execution, like `InternalSchemaVersionMismatchException`.
+        return false;
+    }
 }
