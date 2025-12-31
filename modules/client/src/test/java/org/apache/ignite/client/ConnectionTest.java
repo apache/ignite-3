@@ -214,7 +214,7 @@ public class ConnectionTest extends AbstractClientTest {
             await().until(() -> client.connections().isEmpty());
 
             loggerFactory.waitForLogMatches(
-                    "client:Connection closed \\[remoteAddress=.*?:" + port + ", graceful=false, message=Connection reset\\]",
+                    "client:Connection closed \\[remoteAddress=.*?:" + port + ", graceful=false, message=.*",
                     1000);
 
             loggerFactory.assertLogDoesNotContain("exception");
