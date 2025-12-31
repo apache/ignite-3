@@ -200,7 +200,7 @@ public class ConnectionTest extends AbstractClientTest {
     @Test
     public void testServerDisconnect() {
         try (var server = TestServer.builder().build();
-             var client = IgniteClient.builder().addresses("localhost").build()) {
+             var client = IgniteClient.builder().addresses("localhost:" + server.port()).build()) {
             client.tables().tables();
 
             server.close();
