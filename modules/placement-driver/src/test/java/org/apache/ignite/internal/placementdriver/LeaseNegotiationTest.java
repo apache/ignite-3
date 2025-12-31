@@ -53,7 +53,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -194,9 +193,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdClusterService.topologyService(),
                 clockService,
-                zoneId -> completedFuture(Set.of()),
-                id -> null,
-                new SystemPropertiesNodeProperties()
+                zoneId -> completedFuture(Set.of())
         );
 
         leaseTracker.startTrack(0L);
@@ -204,9 +201,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assignmentsTracker = new AssignmentsTracker(
                 metaStorageManager,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         assignmentsTracker.startTrack();

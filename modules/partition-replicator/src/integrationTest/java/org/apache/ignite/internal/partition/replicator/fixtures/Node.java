@@ -549,12 +549,10 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
-                nodeProperties,
                 replicationConfiguration,
                 Runnable::run,
                 metricManager,
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);

@@ -42,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -92,9 +91,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 msManager,
                 clusterNodeResolver,
                 new TestClockService(clock),
-                dataNodesProvider,
-                id -> null,
-                new SystemPropertiesNodeProperties()
+                dataNodesProvider
         );
 
         assertThat(msManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

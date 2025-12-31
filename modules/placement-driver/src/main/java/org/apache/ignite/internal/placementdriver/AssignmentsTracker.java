@@ -20,9 +20,8 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
 import static org.apache.ignite.internal.placementdriver.Utils.extractZoneIdFromGroupId;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
@@ -43,9 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -85,8 +82,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     /** Map replication group id to stable assignment nodes. */
     private final Map<ReplicationGroupId, TokenizedAssignments> groupStableAssignments;
 
@@ -104,26 +99,19 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
     private final Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider;
 
-    /** Resolver of zone id by table id (result may be {@code null}). */
-    private final Function<Integer, Integer> zoneIdByTableIdResolver;
-
     /**
      * The constructor.
      *
      * @param msManager Meta storage manager.
      * @param failureProcessor Failure processor.
-     * @param nodeProperties Node properties.
      */
     public AssignmentsTracker(
             MetaStorageManager msManager,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
-            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
-            Function<Integer, Integer> zoneIdByTableIdResolver
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider
     ) {
         this.msManager = msManager;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
 
         this.groupStableAssignments = new ConcurrentHashMap<>();
         this.stableAssignmentsListener = createStableAssignmentsListener();
@@ -132,7 +120,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         this.pendingAssignmentsListener = createPendingAssignmentsListener();
 
         this.currentDataNodesProvider = currentDataNodesProvider;
-        this.zoneIdByTableIdResolver = zoneIdByTableIdResolver;
     }
 
     /**
@@ -256,11 +243,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     }
 
     private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReason(EmptyAssignmentsException ex) {
-        Integer zoneId = extractZoneIdFromGroupId(
-                ex.groupId(),
-                nodeProperties.colocationEnabled(),
-                zoneIdByTableIdResolver
-        );
+        Integer zoneId = extractZoneIdFromGroupId(ex.groupId());
 
         if (zoneId == null) {
             return failedFuture(ex);
@@ -514,17 +497,15 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return sb.toString();
     }
 
-    private byte[] pendingAssignmentsQueuePrefixBytes() {
-        return nodeProperties.colocationEnabled()
-                ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
-                : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+    private static byte[] pendingAssignmentsQueuePrefixBytes() {
+        return PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
     }
 
-    private byte[] stableAssignmentsPrefixBytes() {
-        return nodeProperties.colocationEnabled() ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
+    private static byte[] stableAssignmentsPrefixBytes() {
+        return STABLE_ASSIGNMENTS_PREFIX_BYTES;
     }
 
-    private ReplicationGroupId extractReplicationGroupPartitionId(byte[] key, byte[] prefix) {
-        return nodeProperties.colocationEnabled() ? extractZonePartitionId(key, prefix) : extractTablePartitionId(key, prefix);
+    private static ReplicationGroupId extractReplicationGroupPartitionId(byte[] key, byte[] prefix) {
+        return extractZonePartitionId(key, prefix);
     }
 }

@@ -584,12 +584,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureProcessor,
-                nodeProperties,
                 clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication(),
                 threadPoolsManager.commonScheduler(),
                 metricManager,
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(
