@@ -199,20 +199,24 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
-    public void testServerDisconnect() {
+    public void testServerDisconnect() throws InterruptedException {
+        var loggerFactory = new TestLoggerFactory("client");
+
         try (var server = TestServer.builder().build();
              var client = IgniteClient.builder()
                      .addresses("localhost:" + server.port())
                      .heartbeatInterval(100)
                      .retryPolicy(new RetryLimitPolicy().retryLimit(1))
-                     .loggerFactory(new ConsoleLoggerFactory("testServerDisconnect"))
-                     .backgroundReconnectInterval(100)
+                     .loggerFactory(loggerFactory)
                      .build()) {
-            client.tables().tables();
-
             server.close();
-
             await().until(() -> client.connections().isEmpty());
+
+            loggerFactory.waitForLogMatches(
+                    "client:Connection closed \\[remoteAddress=.*?, graceful=false, message=Connection reset\\]",
+                    1000);
+
+            loggerFactory.assertLogDoesNotContain("exception");
         }
     }
 
