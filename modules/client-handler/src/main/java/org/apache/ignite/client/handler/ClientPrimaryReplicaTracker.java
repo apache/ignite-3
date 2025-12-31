@@ -37,7 +37,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -93,8 +92,6 @@ public class ClientPrimaryReplicaTracker {
 
     private final LowWatermark lowWatermark;
 
-    private final NodeProperties nodeProperties;
-
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
@@ -121,15 +118,13 @@ public class ClientPrimaryReplicaTracker {
             CatalogService catalogService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
-            LowWatermark lowWatermark,
-            NodeProperties nodeProperties
+            LowWatermark lowWatermark
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.lowWatermark = lowWatermark;
-        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -179,7 +174,7 @@ public class ClientPrimaryReplicaTracker {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
-                ReplicationGroupId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
+                ZonePartitionId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
 
                 futures[partition] = placementDriver.getPrimaryReplica(replicationGroupId, timestamp).thenAccept(replicaMeta -> {
                     if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
@@ -236,7 +231,7 @@ public class ClientPrimaryReplicaTracker {
         boolean hasKnown = false;
 
         for (int partition = 0; partition < partitions; partition++) {
-            ReplicationGroupId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
+            ZonePartitionId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
             ReplicaHolder holder = primaryReplicas.get(replicationGroupId);
 
             if (holder == null || holder.nodeName == null || holder.leaseStartTime == null) {
@@ -255,13 +250,9 @@ public class ClientPrimaryReplicaTracker {
         return hasKnown ? new PrimaryReplicasResult(res, currentMaxStartTime) : null;
     }
 
-    private ReplicationGroupId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
-        if (nodeProperties.colocationEnabled()) {
-            CatalogTableDescriptor table = requiredTable(tableId, timestamp);
-            return new ZonePartitionId(table.zoneId(), partition);
-        } else {
-            return new TablePartitionId(tableId, partition);
-        }
+    private ZonePartitionId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
+        CatalogTableDescriptor table = requiredTable(tableId, timestamp);
+        return new ZonePartitionId(table.zoneId(), partition);
     }
 
     private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {

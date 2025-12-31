@@ -21,10 +21,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -57,7 +53,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -66,7 +61,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
@@ -84,9 +78,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -135,20 +127,16 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Closure to get a lease that is passed in Meta storage. */
     private volatile Consumer<Lease> renewLeaseConsumer = null;
 
-    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
-
-    private PartitionGroupId replicationGroupId(int objectId, int partId) {
-        return enabledColocation ? new ZonePartitionId(objectId, partId) : new TablePartitionId(objectId, partId);
+    private static ZonePartitionId replicationGroupId(int objectId, int partId) {
+        return new ZonePartitionId(objectId, partId);
     }
 
-    private ByteArray stableAssignmentsKey(PartitionGroupId groupId) {
-        return enabledColocation ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) groupId)
-                : stablePartAssignmentsKey((TablePartitionId) groupId);
+    private static ByteArray stableAssignmentsKey(ZonePartitionId groupId) {
+        return ZoneRebalanceUtil.stablePartAssignmentsKey(groupId);
     }
 
-    private ByteArray pendingAssignmentsQueueKey(PartitionGroupId groupId) {
-        return enabledColocation ? ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) groupId)
-                : pendingPartAssignmentsQueueKey((TablePartitionId) groupId);
+    private static ByteArray pendingAssignmentsQueueKey(ZonePartitionId groupId) {
+        return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(groupId);
     }
 
     @BeforeEach
@@ -191,9 +179,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         assignmentsTracker = new AssignmentsTracker(
                 metaStorageManager,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
         assignmentsTracker.startTrack();
 
@@ -403,8 +389,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl().now()
         );
 
-        byte[] prefixBytes = enabledColocation ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
-                : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+        byte[] prefixBytes = ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
         when(metaStorageManager.prefixLocally(eq(new ByteArray(prefixBytes)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
     }
@@ -417,7 +402,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl().now()
         );
 
-        byte[] prefixBytes = enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
+        byte[] prefixBytes = ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
         when(metaStorageManager.prefixLocally(eq(new ByteArray(prefixBytes)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
     }

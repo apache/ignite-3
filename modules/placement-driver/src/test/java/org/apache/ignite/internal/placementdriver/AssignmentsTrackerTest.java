@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -72,9 +71,7 @@ public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
         assignmentsTracker = new AssignmentsTracker(
                 metaStorageManager,
                 new TestFailureProcessor(),
-                new SystemPropertiesNodeProperties(),
-                zoneId -> completedFuture(dataNodes(zoneId)),
-                id -> id
+                zoneId -> completedFuture(dataNodes(zoneId))
         );
 
         assignmentsTracker.startTrack();

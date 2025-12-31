@@ -36,7 +36,7 @@ import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftLis
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TxInfrastructureTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -110,7 +110,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
 
         assertTrue(commitTs.compareTo(new HybridTimestamp(CLIENT_FROZEN_PHYSICAL_TIME, 0)) > 0, "Observable timestamp should be advanced");
 
-        ReplicationGroupId part = replicationGroupId(accounts, 0);
+        ZonePartitionId part = replicationGroupId(accounts, 0);
 
         NodeImpl[] handle = {null};
         NodeImpl[] leader = {null};
