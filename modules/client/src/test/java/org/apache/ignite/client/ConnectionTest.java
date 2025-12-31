@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
@@ -198,24 +199,21 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
-    public void testServerDisconnect() throws InterruptedException {
+    public void testServerDisconnect() {
         try (var server = TestServer.builder().build();
              var client = IgniteClient.builder()
                      .addresses("localhost:" + server.port())
-                     .heartbeatInterval(10)
-                     .backgroundReconnectInterval(10)
+                     .heartbeatInterval(100)
+                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                     .loggerFactory(new ConsoleLoggerFactory("testServerDisconnect"))
+                     .backgroundReconnectInterval(100)
                      .build()) {
-            System.out.println("START: port=" + server.port());
             client.tables().tables();
 
             server.close();
 
-            // client.tables().tables();
-            Thread.sleep(1000);
-            System.out.println(">>> END1");
+            await().until(() -> client.connections().isEmpty());
         }
-
-        System.out.println(">>> END2");
     }
 
     private static void testConnection(String... addrs) {
