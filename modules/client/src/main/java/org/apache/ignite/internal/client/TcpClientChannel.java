@@ -261,8 +261,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ", graceful=" + graceful + ", message=" +
-                    (cause != null ? cause.getMessage() : "") + ']');
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ", graceful=" + graceful + ", message="
+                    + (cause != null ? cause.getMessage() : "") + ']');
         }
 
         if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
