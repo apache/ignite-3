@@ -27,6 +27,7 @@ import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Netty client connection.
@@ -122,7 +123,7 @@ public class NettyClientConnection implements ClientConnection {
      *
      * @param e Exception that caused the disconnect.
      */
-    void onDisconnected(Exception e) {
+    void onDisconnected(@Nullable Exception e) {
         stateHnd.onDisconnected(e);
     }
 }
