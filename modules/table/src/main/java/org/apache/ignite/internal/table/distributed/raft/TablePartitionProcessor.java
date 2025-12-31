@@ -54,7 +54,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -67,7 +66,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -84,9 +82,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
     /** Handler that processes storage updates. */
     private final StorageUpdateHandler storageUpdateHandler;
-
-    /** Safe time tracker. */
-    private final SafeTimeValuesTracker safeTimeTracker;
 
     private final CatalogService catalogService;
 
@@ -113,7 +108,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
-            SafeTimeValuesTracker safeTimeTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
@@ -127,7 +121,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
-        this.safeTimeTracker = safeTimeTracker;
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
         this.placementDriver = placementDriver;
@@ -200,21 +193,12 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof WriteIntentSwitchCommand) {
             result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
-        } else if (command instanceof SafeTimeSyncCommand) {
-            result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
         }
 
         if (result == null) {
             throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
-        }
-
-        if (result.wasApplied()) {
-            // Adjust safe time before completing update to reduce waiting.
-            if (safeTimestamp != null) {
-                updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
-            }
         }
 
         return result;
@@ -429,26 +413,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         return EMPTY_APPLIED_RESULT;
     }
 
-    /**
-     * Handler for the {@link SafeTimeSyncCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex RAFT index of the command.
-     * @param commandTerm RAFT term of the command.
-     */
-    private CommandResult handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
-            return EMPTY_NOT_APPLIED_RESULT;
-        }
-
-        // We MUST bump information about last updated index+term.
-        // See a comment in #onWrite() for explanation.
-        advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-
-        return EMPTY_APPLIED_RESULT;
-    }
-
     private void advanceLastAppliedIndexConsistently(long commandIndex, long commandTerm) {
         storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
@@ -470,21 +434,12 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
         setCurrentGroupTopology(config);
 
-        // Do the update under lock to make sure no snapshot is started concurrently with this update.
-        // Note that we do not need to protect from a concurrent command execution by this listener because
-        // configuration is committed in the same thread in which commands are applied.
-        storage.acquirePartitionSnapshotsReadLock();
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(config);
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-        try {
-            storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(config);
-                storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-                return null;
-            });
-        } finally {
-            storage.releasePartitionSnapshotsReadLock();
-        }
+            return null;
+        });
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {
@@ -532,14 +487,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     @TestOnly
     public MvPartitionStorage getMvStorage() {
         return storage.getStorage();
-    }
-
-    /**
-     * Returns safe timestamp.
-     */
-    @TestOnly
-    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
-        return safeTimeTracker;
     }
 
     /**

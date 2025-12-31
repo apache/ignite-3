@@ -54,7 +54,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -262,17 +261,9 @@ public class OutgoingSnapshot {
     }
 
     private List<PartitionMvStorageAccess> freezePartitionStorages() {
-        if (partitionKey instanceof ZonePartitionKey) {
-            return partitionsByTableId.values().stream()
-                    .sorted(comparingInt(PartitionMvStorageAccess::tableId))
-                    .collect(toList());
-        } else {
-            // TODO: remove this clause, see https://issues.apache.org/jira/browse/IGNITE-22522
-            // For a non-colocation case we always have a single entry in this map.
-            assert partitionsByTableId.size() == 1;
-
-            return List.copyOf(partitionsByTableId.values());
-        }
+        return partitionsByTableId.values().stream()
+                .sorted(comparingInt(PartitionMvStorageAccess::tableId))
+                .collect(toList());
     }
 
     /**

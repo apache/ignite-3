@@ -56,4 +56,16 @@ public class SqlCommandTest extends CliCommandTestBase {
                 () -> assertErrOutputContains("<command>, --file=<file> are mutually exclusive (specify only one)")
         );
     }
+
+    @Test
+    @DisplayName("Should show --timed option in help")
+    void timedOptionInHelp() {
+        execute("--help");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputContains("--timed"),
+                () -> assertOutputContains("Display query execution time")
+        );
+    }
 }

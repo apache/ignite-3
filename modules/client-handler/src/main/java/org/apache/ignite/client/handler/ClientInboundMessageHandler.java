@@ -163,6 +163,7 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationEv
 import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
@@ -170,6 +171,8 @@ import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.IgniteCluster;
@@ -207,6 +210,9 @@ public class ClientInboundMessageHandler
 
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
+
+    /** Tracks the number of sequential DDL queries executed and prints suggestion to use batching. */
+    private final Consumer<SqlQueryType> queryTypeListener;
 
     /** Configuration. */
     private final ClientConnectorView configuration;
@@ -290,6 +296,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -310,7 +317,8 @@ public class ClientInboundMessageHandler
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
-            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -365,6 +373,8 @@ public class ClientInboundMessageHandler
         this.extensions = extensions;
 
         this.computeConnectionFunc = computeConnectionFunc;
+
+        this.queryTypeListener = queryTypeListener;
     }
 
     @Override
@@ -659,7 +669,7 @@ public class ClientInboundMessageHandler
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (LOG.isDebugEnabled()) {
+        if (LOG.isDebugEnabled() && shouldLogError(err)) {
             if (isNotification) {
                 LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
@@ -736,6 +746,22 @@ public class ClientInboundMessageHandler
         } else {
             packer.packNil(); // No extensions.
         }
+    }
+
+    private static boolean shouldLogError(Throwable e) {
+        Throwable cause = ExceptionUtils.unwrapRootCause(e);
+
+        // Do not log errors caused by cancellation (triggered by user action).
+        if (cause instanceof TraceableException) {
+            TraceableException te = (TraceableException) cause;
+            int c = te.code();
+
+            return c != Sql.EXECUTION_CANCELLED_ERR
+                    && c != Compute.COMPUTE_JOB_CANCELLED_ERR
+                    && c != Compute.CANCELLING_ERR;
+        }
+
+        return true;
     }
 
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
@@ -971,7 +997,7 @@ public class ClientInboundMessageHandler
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
                         igniteTables, clockService, notificationSender(requestId), resolveCurrentUsername(),
-                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT)
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT), queryTypeListener
                 );
 
             case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
@@ -1271,6 +1297,11 @@ public class ClientInboundMessageHandler
     @TestOnly
     public int cancelHandlesCount() {
         return cancelHandles.size();
+    }
+
+    @TestOnly
+    public Consumer<SqlQueryType> queryTypeListener() {
+        return queryTypeListener;
     }
 
     private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {

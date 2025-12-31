@@ -51,6 +51,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -803,7 +804,8 @@ public class DistributionZoneManager extends
         }));
 
         catalogManager.listen(ZONE_DROP, (DropZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
-            return onDropZoneBusy(parameters).thenApply((ignored) -> false);
+            onDropZoneBusy(parameters);
+            return falseCompletedFuture();
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
@@ -891,14 +893,12 @@ public class DistributionZoneManager extends
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
+    private void onDropZoneBusy(DropZoneEventParameters parameters) {
         unregisterMetricSource(parameters.zoneId());
+    }
 
-        long causalityToken = parameters.causalityToken();
-
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
-
-        return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
+    public CompletableFuture<?> onDropZoneDestroy(int zoneId, int dropZoneCatalogVersion) {
+        return dataNodesManager.onZoneDestroy(zoneId, dropZoneCatalogVersion);
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {
