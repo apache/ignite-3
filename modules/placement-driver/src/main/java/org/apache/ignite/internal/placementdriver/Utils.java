@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver;
 
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Utils for placement driver.
@@ -29,10 +28,9 @@ public class Utils {
      * Extracts zone ID from the given group id.
      *
      * @param groupId Replication group ID.
-     * @return Zone ID or {@code null}.
+     * @return Zone ID.
      */
-    @Nullable
-    public static Integer extractZoneIdFromGroupId(ReplicationGroupId groupId) {
+    public static int extractZoneIdFromGroupId(ReplicationGroupId groupId) {
         assert groupId instanceof ZonePartitionId : "Unexpected replication group id type ["
                 + "group=" + groupId
                 + ", type=" + (groupId != null ? groupId.getClass().getSimpleName() : "N/A")

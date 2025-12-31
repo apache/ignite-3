@@ -356,18 +356,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     private CompletableFuture<Void> checkDataNodes(ReplicationGroupId groupId) {
-        Integer zoneId = extractZoneIdFromGroupId(groupId);
+        int zoneId = extractZoneIdFromGroupId(groupId);
 
-        if (zoneId != null) {
-            return currentDataNodesProvider.apply(zoneId)
-                    .thenAccept(dataNodes -> {
-                        if (dataNodes.isEmpty()) {
-                            throw new EmptyDataNodesException(zoneId);
-                        }
-                    });
-        } else {
-            return nullCompletedFuture();
-        }
+        return currentDataNodesProvider.apply(zoneId)
+                .thenAccept(dataNodes -> {
+                    if (dataNodes.isEmpty()) {
+                        throw new EmptyDataNodesException(zoneId);
+                    }
+                });
     }
 
     private boolean isValidReplicaMeta(@Nullable ReplicaMeta replicaMeta) {

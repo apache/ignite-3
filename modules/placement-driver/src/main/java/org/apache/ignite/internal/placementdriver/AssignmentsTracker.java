@@ -243,21 +243,17 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     }
 
     private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReason(EmptyAssignmentsException ex) {
-        Integer zoneId = extractZoneIdFromGroupId(ex.groupId());
+        int zoneId = extractZoneIdFromGroupId(ex.groupId());
 
-        if (zoneId == null) {
-            return failedFuture(ex);
-        } else {
-            return currentDataNodesProvider.apply(zoneId)
-                    .thenApply(dataNodes -> {
-                        if (dataNodes.isEmpty()) {
-                            throw new EmptyAssignmentsException(ex.groupId(), new EmptyDataNodesException(zoneId));
-                        } else {
-                            sneakyThrow(ex);
-                            return null;
-                        }
-                    });
-        }
+        return currentDataNodesProvider.apply(zoneId)
+                .thenApply(dataNodes -> {
+                    if (dataNodes.isEmpty()) {
+                        throw new EmptyAssignmentsException(ex.groupId(), new EmptyDataNodesException(zoneId));
+                    } else {
+                        sneakyThrow(ex);
+                        return null;
+                    }
+                });
     }
 
     private CompletableFuture<TokenizedAssignments> nonEmptyAssignmentFuture(ReplicationGroupId groupId, long futureTimeoutMillis) {
