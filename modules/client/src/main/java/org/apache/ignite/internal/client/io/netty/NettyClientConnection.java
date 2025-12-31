@@ -123,7 +123,7 @@ public class NettyClientConnection implements ClientConnection {
      *
      * @param e Exception that caused the disconnect.
      */
-    void onDisconnected(@Nullable Exception e) {
+    void onDisconnected(@Nullable Throwable e) {
         stateHnd.onDisconnected(e);
     }
 }
