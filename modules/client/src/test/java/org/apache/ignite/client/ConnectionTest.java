@@ -197,6 +197,18 @@ public class ConnectionTest extends AbstractClientTest {
         }
     }
 
+    @Test
+    public void testServerDisconnect() {
+        try (var server = TestServer.builder().build();
+             var client = IgniteClient.builder().addresses("localhost").build()) {
+            client.tables().tables();
+
+            server.close();
+
+            client.tables().tables();
+        }
+    }
+
     private static void testConnection(String... addrs) {
         IgniteClient c = startClient(addrs);
 
