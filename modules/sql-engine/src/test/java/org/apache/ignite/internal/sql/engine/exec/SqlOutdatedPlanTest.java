@@ -27,9 +27,11 @@ import static org.hamcrest.Matchers.is;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -51,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.awaitility.Awaitility;
-import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,29 +107,34 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(TxType.class)
-    void planningIsRepeatedUsingTheSameTransaction(TxType type) throws Exception {
+    void planningIsRepeatedUsingTheSameTransaction(TxType type) {
         TestTxContext txContext = new TestTxContext(type);
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
         PrepareServiceSpy prepareServiceSpy = new PrepareServiceSpy(gatewayNode);
 
+        CompletableFuture<Lock> lockFut1 = prepareServiceSpy.resetLockAndBlockNextCall();
+
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
                 gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
 
-        prepareServiceSpy.waitUntilCallsCount(is(1));
+        await(lockFut1);
+        assertThat(prepareServiceSpy.callsCounter.get(), is(1));
         assertThat(txContext.startedTxCounter.get(), is(0));
 
         // Simulate concurrent schema modification.
         await(cluster.catalogManager().execute(
                 makeAddColumnCommand("VAL1")));
 
-        prepareServiceSpy.unblock();
-        prepareServiceSpy.waitUntilCallsCount(is(2));
+        CompletableFuture<Lock> lockFut2 = prepareServiceSpy.resetLockAndBlockNextCall();
+        Lock lock2 = await(lockFut2);
+        assertThat(prepareServiceSpy.callsCounter.get(), is(2));
+        assertThat(txContext.startedTxCounter.get(), is(1));
 
         // Simulate another one schema modification.
         await(cluster.catalogManager().execute(
                 makeAddColumnCommand("VAL2")));
 
-        prepareServiceSpy.unblock();
+        lock2.unlock();
 
         await(await(fut).closeAsync());
 
@@ -145,10 +151,13 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
         PrepareServiceSpy prepareServiceSpy = new PrepareServiceSpy(gatewayNode);
 
+        CompletableFuture<Lock> lockFut = prepareServiceSpy.resetLockAndBlockNextCall();
+
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
                 gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
 
-        prepareServiceSpy.waitUntilCallsCount(is(1));
+        Lock lock = await(lockFut);
+        assertThat(prepareServiceSpy.callsCounter.get(), is(1));
         assertThat(txContext.startedTxCounter.get(), is(0));
 
         // Simulate concurrent schema modification.
@@ -158,9 +167,7 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         // And node disconnection.
         cluster.node(DATA_NODES.get(0)).disconnect();
 
-        prepareServiceSpy.unblock();
-        prepareServiceSpy.waitUntilCallsCount(is(2));
-        prepareServiceSpy.unblock();
+        lock.unlock();
 
         await(await(fut).closeAsync());
 
@@ -181,31 +188,42 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
 
     private static class PrepareServiceSpy {
         private final AtomicInteger callsCounter = new AtomicInteger();
-        private final CyclicBarrier prepareBarrier = new CyclicBarrier(2);
+        private final AtomicReference<ReentrantLock> prepareBlockHolder = new AtomicReference<>();
 
         PrepareServiceSpy(TestNode gatewayNode) {
             ((PrepareServiceWithPrepareCallback) gatewayNode.prepareService())
                     .setPrepareCallback(() -> {
                         callsCounter.incrementAndGet();
 
-                        awaitBarrier();
+                        Lock lock = prepareBlockHolder.get();
+
+                        try {
+                            lock.tryLock(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        } finally {
+                            lock.unlock();
+                        }
                     });
         }
 
-        public void waitUntilCallsCount(Matcher<Integer> integerMatcher) {
-            Awaitility.await().until(callsCounter::get, integerMatcher);
-        }
+        CompletableFuture<Lock> resetLockAndBlockNextCall() {
+            ReentrantLock nextLock = new ReentrantLock();
 
-        void unblock() {
-            awaitBarrier();
-        }
+            //noinspection LockAcquiredButNotSafelyReleased
+            nextLock.lock();
 
-        private void awaitBarrier() {
-            try {
-                prepareBarrier.await(5, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            ReentrantLock prevLock = prepareBlockHolder.getAndSet(nextLock);
+
+            if (prevLock != null) {
+                prevLock.unlock();
             }
+
+            return CompletableFuture.supplyAsync(() -> {
+                Awaitility.await().until(nextLock::getQueueLength, is(1));
+
+                return nextLock;
+            });
         }
     }
 

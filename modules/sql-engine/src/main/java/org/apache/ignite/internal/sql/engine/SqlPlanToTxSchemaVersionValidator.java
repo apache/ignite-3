@@ -59,6 +59,7 @@ public class SqlPlanToTxSchemaVersionValidator {
 
         return schemaSyncService.waitForMetadataCompleteness(ts)
                 .thenRun(() -> {
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-27491 Avoid re-planning in case of unrelated catalog changes
                     int requiredCatalog = catalogService.activeCatalogVersion(ts.longValue());
 
                     if (requiredCatalog != plan.catalogVersion()) {
