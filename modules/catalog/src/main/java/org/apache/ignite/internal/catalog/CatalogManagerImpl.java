@@ -65,6 +65,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Catalog service implementation.
@@ -114,19 +115,45 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final Object lastSaveUpdateFutureMutex = new Object();
 
     /**
-     * Constructor.
+     * Partition count provider for command update contexts.
      */
+    private final PartitionCountProvider partitionCountProvider;
+
+    /**
+     * Test-only constructor.
+     */
+    @TestOnly
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
             FailureProcessor failureProcessor,
             LongSupplier delayDurationMsSupplier
     ) {
+        this(
+                updateLog,
+                clockService,
+                failureProcessor,
+                delayDurationMsSupplier,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        );
+    }
+
+    /**
+     * Constructor.
+     */
+    public CatalogManagerImpl(
+            UpdateLog updateLog,
+            ClockService clockService,
+            FailureProcessor failureProcessor,
+            LongSupplier delayDurationMsSupplier,
+            PartitionCountProvider partitionCountProvider
+    ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
+        this.partitionCountProvider = partitionCountProvider;
     }
 
     @Override
@@ -258,7 +285,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog));
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog, partitionCountProvider));
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
@@ -401,7 +428,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             BitSet applyResults = new BitSet(updateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
-                UpdateContext updateContext = new UpdateContext(catalog);
+                UpdateContext updateContext = new UpdateContext(catalog, partitionCountProvider);
                 for (int i = 0; i < updateProducers.size(); i++) {
                     UpdateProducer update = updateProducers.get(i);
                     List<UpdateEntry> entries = update.get(updateContext);
