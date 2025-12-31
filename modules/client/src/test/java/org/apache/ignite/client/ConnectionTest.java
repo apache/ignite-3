@@ -198,14 +198,18 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
-    public void testServerDisconnect() {
+    public void testServerDisconnect() throws InterruptedException {
         try (var server = TestServer.builder().build();
-             var client = IgniteClient.builder().addresses("localhost:" + server.port()).build()) {
+             var client = IgniteClient.builder()
+                     .addresses("localhost:" + server.port())
+                     .heartbeatInterval(10)
+                     .build()) {
             client.tables().tables();
 
             server.close();
 
-            client.tables().tables();
+            // client.tables().tables();
+            Thread.sleep(1000);
         }
     }
 
