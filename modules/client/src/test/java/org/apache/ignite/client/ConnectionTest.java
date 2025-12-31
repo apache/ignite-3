@@ -203,12 +203,12 @@ public class ConnectionTest extends AbstractClientTest {
         var loggerFactory = new TestLoggerFactory("client");
 
         try (var server = TestServer.builder().build();
-             var client = IgniteClient.builder()
-                     .addresses("localhost:" + server.port())
-                     .heartbeatInterval(100)
-                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))
-                     .loggerFactory(loggerFactory)
-                     .build()) {
+                var client = IgniteClient.builder()
+                        .addresses("localhost:" + server.port())
+                        .heartbeatInterval(100)
+                        .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                        .loggerFactory(loggerFactory)
+                        .build()) {
             int port = server.port();
             server.close();
             await().until(() -> client.connections().isEmpty());
