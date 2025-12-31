@@ -205,13 +205,17 @@ public class ConnectionTest extends AbstractClientTest {
                      .heartbeatInterval(10)
                      .backgroundReconnectInterval(10)
                      .build()) {
+            System.out.println("START: port=" + server.port());
             client.tables().tables();
 
             server.close();
 
             // client.tables().tables();
             Thread.sleep(1000);
+            System.out.println(">>> END1");
         }
+
+        System.out.println(">>> END2");
     }
 
     private static void testConnection(String... addrs) {

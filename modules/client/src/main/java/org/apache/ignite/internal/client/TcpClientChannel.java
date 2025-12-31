@@ -212,7 +212,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 })
                 .whenComplete((res, err) -> {
                     if (err != null) {
-                        close();
+                        close(err, false);
                     }
                 })
                 .thenApplyAsync(unused -> {
