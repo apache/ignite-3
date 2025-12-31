@@ -198,8 +198,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return connMgr
                 .openAsync(cfg.getAddress(), this, this)
                 .thenCompose(s -> {
-                    if (log.isInfoEnabled()) {
-                        log.info("Connection established [remoteAddress=" + s.remoteAddress() + ']');
+                    if (log.isDebugEnabled()) {
+                        log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
                     }
 
                     tcpConnectionEstablished = true;
@@ -260,8 +260,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        if (log.isInfoEnabled()) {
-            log.info("Connection closed [remoteAddress=" + cfg.getAddress() + ", graceful=" + graceful + ']');
+        if (log.isDebugEnabled()) {
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ", graceful=" + graceful + ", message=" +
+                    (cause != null ? cause.getMessage() : "") + ']');
         }
 
         if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
