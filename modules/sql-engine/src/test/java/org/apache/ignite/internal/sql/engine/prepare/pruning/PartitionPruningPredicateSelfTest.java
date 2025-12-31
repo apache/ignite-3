@@ -40,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -250,10 +250,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();
-            ExpressionFactory expressionFactory = ctx.expressionFactory();
+            SqlExpressionFactory sqlExpressionFactory = ctx.expressionFactory();
 
             List<PartitionWithConsistencyToken> result = PartitionPruningPredicate.prunePartitions(
-                    ctx, pruningColumns, table, expressionFactory, assignments, nodeName
+                    ctx, pruningColumns, table, sqlExpressionFactory, assignments, nodeName
             );
             dynamicActual.put(nodeName, result);
         }

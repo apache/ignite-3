@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.api.expressions;
 
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.type.StructNativeType;
