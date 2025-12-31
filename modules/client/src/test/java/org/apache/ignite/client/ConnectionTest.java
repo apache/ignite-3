@@ -209,11 +209,12 @@ public class ConnectionTest extends AbstractClientTest {
                      .retryPolicy(new RetryLimitPolicy().retryLimit(1))
                      .loggerFactory(loggerFactory)
                      .build()) {
+            int port = server.port();
             server.close();
             await().until(() -> client.connections().isEmpty());
 
             loggerFactory.waitForLogMatches(
-                    "client:Connection closed \\[remoteAddress=.*?, graceful=false, message=Connection reset\\]",
+                    "client:Connection closed \\[remoteAddress=.*?:" + port + ", graceful=false, message=Connection reset\\]",
                     1000);
 
             loggerFactory.assertLogDoesNotContain("exception");
