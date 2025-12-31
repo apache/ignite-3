@@ -18,11 +18,18 @@
 package org.apache.ignite.table;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests server tuple builder implementation.
@@ -85,5 +92,47 @@ public class TupleImplTest extends AbstractMutableTupleTest {
 
         // must be found by non normalized name, regular method does normalization
         assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessors")
+    void nullPointerWhenReadingNullAsPrimitive(Consumer<Tuple> fieldAccessor) {
+        Tuple tuple = Tuple.create().set("VAL", null);
+
+        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple));
+        assertEquals("The field value is null and cannot be converted to a primitive data type.", err.getMessage());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsByName")
+    void nullPointerWhenReadingNullByNameAsPrimitive(Consumer<Tuple> fieldAccessor) {
+        Tuple tuple = Tuple.create().set("VAL", null);
+
+        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple));
+        assertEquals("The field value is null and cannot be converted to a primitive data type.", err.getMessage());
+    }
+
+    private static List<Arguments> primitiveAccessors() {
+        return List.of(
+                Arguments.of(Named.of("boolean", (Consumer<Tuple>) tuple -> tuple.booleanValue(0))),
+                Arguments.of(Named.of("byte", (Consumer<Tuple>) tuple -> tuple.byteValue(0))),
+                Arguments.of(Named.of("short", (Consumer<Tuple>) tuple -> tuple.shortValue(0))),
+                Arguments.of(Named.of("int", (Consumer<Tuple>) tuple -> tuple.intValue(0))),
+                Arguments.of(Named.of("long", (Consumer<Tuple>) tuple -> tuple.longValue(0))),
+                Arguments.of(Named.of("float", (Consumer<Tuple>) tuple -> tuple.floatValue(0))),
+                Arguments.of(Named.of("double", (Consumer<Tuple>) tuple -> tuple.doubleValue(0)))
+        );
+    }
+
+    private static List<Arguments> primitiveAccessorsByName() {
+        return List.of(
+                Arguments.of(Named.of("boolean", (Consumer<Tuple>) tuple -> tuple.booleanValue("VAL"))),
+                Arguments.of(Named.of("byte", (Consumer<Tuple>) tuple -> tuple.byteValue("VAL"))),
+                Arguments.of(Named.of("short", (Consumer<Tuple>) tuple -> tuple.shortValue("VAL"))),
+                Arguments.of(Named.of("int", (Consumer<Tuple>) tuple -> tuple.intValue("VAL"))),
+                Arguments.of(Named.of("long", (Consumer<Tuple>) tuple -> tuple.longValue("VAL"))),
+                Arguments.of(Named.of("float", (Consumer<Tuple>) tuple -> tuple.floatValue("VAL"))),
+                Arguments.of(Named.of("double", (Consumer<Tuple>) tuple -> tuple.doubleValue("VAL")))
+        );
     }
 }

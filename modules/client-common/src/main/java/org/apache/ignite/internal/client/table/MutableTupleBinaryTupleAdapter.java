@@ -28,6 +28,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
@@ -149,113 +150,197 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(String columnName) {
-        return tuple != null
-                ? tuple.booleanValue(columnName)
-                : binaryTuple.booleanValue(validateSchemaColumnType(columnName, ColumnType.BOOLEAN));
+        if (tuple != null) {
+            return tuple.booleanValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.BOOLEAN);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.booleanValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(int columnIndex) {
-        return tuple != null
-                ? tuple.booleanValue(columnIndex)
-                : binaryTuple.booleanValue(validateSchemaColumnType(columnIndex, ColumnType.BOOLEAN));
+        if (tuple != null) {
+            return tuple.booleanValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.BOOLEAN);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.booleanValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        return tuple != null
-                ? tuple.byteValue(columnName)
-                : binaryTuple.byteValue(validateSchemaColumnType(columnName, ColumnType.INT8));
+        if (tuple != null) {
+            return tuple.byteValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.INT8);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.byteValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return tuple != null
-                ? tuple.byteValue(columnIndex)
-                : binaryTuple.byteValue(validateSchemaColumnType(columnIndex, ColumnType.INT8));
+        if (tuple != null) {
+            return tuple.byteValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.INT8);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.byteValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        return tuple != null
-                ? tuple.shortValue(columnName)
-                : binaryTuple.shortValue(validateSchemaColumnType(columnName, ColumnType.INT16));
+        if (tuple != null) {
+            return tuple.shortValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.INT16);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.shortValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return tuple != null
-                ? tuple.shortValue(columnIndex)
-                : binaryTuple.shortValue(validateSchemaColumnType(columnIndex, ColumnType.INT16));
+        if (tuple != null) {
+            return tuple.shortValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.INT16);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.shortValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        return tuple != null
-                ? tuple.intValue(columnName)
-                : binaryTuple.intValue(validateSchemaColumnType(columnName, ColumnType.INT32));
+        if (tuple != null) {
+            return tuple.intValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.INT32);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.intValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return tuple != null
-                ? tuple.intValue(columnIndex)
-                : binaryTuple.intValue(validateSchemaColumnType(columnIndex, ColumnType.INT32));
+        if (tuple != null) {
+            return tuple.intValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.INT32);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.intValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        return tuple != null
-                ? tuple.longValue(columnName)
-                : binaryTuple.longValue(validateSchemaColumnType(columnName, ColumnType.INT64));
+        if (tuple != null) {
+            return tuple.longValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.INT64);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.longValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return tuple != null
-                ? tuple.longValue(columnIndex)
-                : binaryTuple.longValue(validateSchemaColumnType(columnIndex, ColumnType.INT64));
+        if (tuple != null) {
+            return tuple.longValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.INT64);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.longValue(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        return tuple != null
-                ? tuple.floatValue(columnName)
-                : binaryTuple.floatValue(validateSchemaColumnType(columnName, ColumnType.FLOAT));
+        if (tuple != null) {
+            return tuple.floatValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.FLOAT);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.floatValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return tuple != null
-                ? tuple.floatValue(columnIndex)
-                : binaryTuple.floatValue(validateSchemaColumnType(columnIndex, ColumnType.FLOAT));
+        if (tuple != null) {
+            return tuple.floatValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.FLOAT);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.floatValue(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        return tuple != null
-                ? tuple.doubleValue(columnName)
-                : binaryTuple.doubleValue(validateSchemaColumnType(columnName, ColumnType.DOUBLE));
+        if (tuple != null) {
+            return tuple.doubleValue(columnName);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnName, ColumnType.DOUBLE);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnName);
+
+        return binaryTuple.doubleValue(fieldIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return tuple != null
-                ? tuple.doubleValue(columnIndex)
-                : binaryTuple.doubleValue(validateSchemaColumnType(columnIndex, ColumnType.DOUBLE));
+        if (tuple != null) {
+            return tuple.doubleValue(columnIndex);
+        }
+
+        int fieldIndex = validateSchemaColumnType(columnIndex, ColumnType.DOUBLE);
+
+        IgniteUtils.ensureNotNull(binaryTuple, fieldIndex, columnIndex);
+
+        return binaryTuple.doubleValue(columnIndex);
     }
 
     /** {@inheritDoc} */

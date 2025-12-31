@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,25 +29,35 @@ import java.time.Duration;
 import java.time.Period;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -339,6 +350,61 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 clientTuple.toString().replace("ClientTuple ", ""));
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessors")
+    @SuppressWarnings("ThrowableNotThrown")
+    void nullPointerWhenReadingNullAsPrimitive(
+            NativeType type,
+            BiConsumer<Tuple, Object> fieldAccessor
+    ) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("ID", INT32, false)},
+                new Column[]{new Column("VAL", type, true)}
+        );
+
+        ClientSchema clientSchema = new ClientSchema(
+                1,
+                new ClientColumn[] {
+                        new ClientColumn("ID", ColumnType.INT32, false, 0, -1, -1, 0),
+                        new ClientColumn("VAL", type.spec(), true, -1, 0, -1, 1),
+                },
+                marshallers
+        );
+
+        BinaryRow binaryRow = SchemaTestUtils.binaryRow(schema, 1, null);
+
+        Tuple row = new ClientTuple(clientSchema, TuplePart.KEY_AND_VAL, new BinaryTupleReader(schema.length(), binaryRow.tupleSlice()));
+
+        assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, 1),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
+        );
+
+        assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, "VAL"),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL")
+        );
+
+        row.set("NEW", null);
+
+        assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, 2),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
+
+        );
+
+        assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, "NEW"),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
+
+        );
+    }
+
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(getTuple());
@@ -438,5 +504,10 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         var binTuple = new BinaryTupleReader(binTupleColumnCount, binTupleBuf);
 
         return new ClientTuple(FULL_SCHEMA, part, binTuple);
+    }
+
+    private static Stream<Arguments> primitiveAccessors() {
+        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
+                .map(e -> Arguments.of(e.getKey(), e.getValue()));
     }
 }

@@ -29,12 +29,13 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility for access to binary tuple elements as typed values.
  */
-public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleParser.Sink {
+public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleParser.Sink, InternalTuple {
     /** Start offset of the current element. */
     private int begin = 0;
 
@@ -85,6 +86,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return {@code true} if this element contains a null value, {@code false} otherwise.
      */
+    @Override
     public boolean hasNullValue(int index) {
         seek(index);
         return begin == end;
@@ -96,6 +98,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public boolean booleanValue(int index) {
         seek(index);
 
@@ -108,6 +111,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Boolean booleanValueBoxed(int index) {
         seek(index);
 
@@ -124,8 +128,10 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public byte byteValue(int index) {
         seek(index);
+
         return byteValue(byteBufferAccessor, begin, end);
     }
 
@@ -135,6 +141,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Byte byteValueBoxed(int index) {
         seek(index);
         return begin == end ? null : byteValue(byteBufferAccessor, begin, end);
@@ -146,6 +153,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public short shortValue(int index) {
         seek(index);
         return shortValue(byteBufferAccessor, begin, end);
@@ -157,6 +165,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Short shortValueBoxed(int index) {
         seek(index);
         return begin == end ? null : shortValue(byteBufferAccessor, begin, end);
@@ -168,6 +177,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public int intValue(int index) {
         seek(index);
         return intValue(byteBufferAccessor, begin, end);
@@ -179,6 +189,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Integer intValueBoxed(int index) {
         seek(index);
         return begin == end ? null : intValue(byteBufferAccessor, begin,  end);
@@ -190,6 +201,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public long longValue(int index) {
         seek(index);
         return longValue(byteBufferAccessor, begin, end);
@@ -201,6 +213,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Long longValueBoxed(int index) {
         seek(index);
         return begin == end ? null : longValue(byteBufferAccessor, begin, end);
@@ -212,6 +225,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public float floatValue(int index) {
         seek(index);
         return floatValue(byteBufferAccessor, begin, end);
@@ -223,6 +237,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Float floatValueBoxed(int index) {
         seek(index);
         return begin == end ? null : floatValue(byteBufferAccessor, begin, end);
@@ -234,6 +249,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public double doubleValue(int index) {
         seek(index);
         return doubleValue(byteBufferAccessor, begin, end);
@@ -245,6 +261,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Double doubleValueBoxed(int index) {
         seek(index);
         return begin == end ? null : doubleValue(byteBufferAccessor, begin, end);
@@ -258,6 +275,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      *         stored in.
      * @return Element value.
      */
+    @Override
     public @Nullable BigDecimal decimalValue(int index, int scale) {
         seek(index);
         if (begin == end) {
@@ -277,6 +295,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable String stringValue(int index) {
         seek(index);
         return begin == end ? null : stringValue(begin, end);
@@ -288,6 +307,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public byte @Nullable [] bytesValue(int index) {
         seek(index);
         return begin == end ? null : bytesValue(begin, end);
@@ -310,6 +330,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable UUID uuidValue(int index) {
         seek(index);
         return begin == end ? null : uuidValue(begin, end);
@@ -321,6 +342,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable LocalDate dateValue(int index) {
         seek(index);
         return begin == end ? null : dateValue(byteBufferAccessor, begin, end);
@@ -332,6 +354,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable LocalTime timeValue(int index) {
         seek(index);
         return begin == end ? null : timeValue(byteBufferAccessor, begin, end);
@@ -343,6 +366,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable LocalDateTime dateTimeValue(int index) {
         seek(index);
         return begin == end ? null : dateTimeValue(byteBufferAccessor, begin, end);
@@ -354,6 +378,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Instant timestampValue(int index) {
         seek(index);
         return begin == end ? null : timestampValue(begin, end);
@@ -365,6 +390,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Duration durationValue(int index) {
         seek(index);
         return begin == end ? null : durationValue(begin, end);
@@ -376,6 +402,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Override
     public @Nullable Period periodValue(int index) {
         seek(index);
         return begin == end ? null : periodValue(begin, end);
