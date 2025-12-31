@@ -83,8 +83,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
@@ -222,7 +220,6 @@ public class DistributionZoneManager extends
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 metricManager,
                 lowWatermark
         );
@@ -240,7 +237,6 @@ public class DistributionZoneManager extends
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param clockService Clock service.
-     * @param nodeProperties Node properties.
      * @param metricManager Metric manager.
      * @param lowWatermark Low watermark manager.
      */
@@ -254,7 +250,6 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            NodeProperties nodeProperties,
             MetricManager metricManager,
             LowWatermark lowWatermark
     ) {

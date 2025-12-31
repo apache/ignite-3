@@ -1003,7 +1003,6 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                nodeProperties,
                 metricManager,
                 lowWatermark
         );
