@@ -38,4 +38,12 @@ public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) {
         ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        System.out.println(">>> ERR: " + cause.getMessage());
+
+        super.exceptionCaught(ctx, cause);
+    }
 }
