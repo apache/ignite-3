@@ -203,6 +203,7 @@ public class ConnectionTest extends AbstractClientTest {
              var client = IgniteClient.builder()
                      .addresses("localhost:" + server.port())
                      .heartbeatInterval(10)
+                     .backgroundReconnectInterval(10)
                      .build()) {
             client.tables().tables();
 
