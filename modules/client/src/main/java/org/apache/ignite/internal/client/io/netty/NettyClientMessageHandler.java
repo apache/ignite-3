@@ -26,16 +26,28 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 /**
  * Netty client message handler.
  */
+@SuppressWarnings("resource")
 public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuf) msg);
+        connection(ctx).onMessage((ByteBuf) msg);
     }
 
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
+        connection(ctx).onDisconnected(null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        connection(ctx).onDisconnected(cause);
+        ctx.channel().close();
+    }
+
+    private static NettyClientConnection connection(ChannelHandlerContext ctx) {
+        return ctx.channel().attr(ATTR_CONN).get();
     }
 }

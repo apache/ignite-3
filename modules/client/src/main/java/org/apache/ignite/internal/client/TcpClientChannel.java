@@ -212,7 +212,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 })
                 .whenComplete((res, err) -> {
                     if (err != null) {
-                        close();
+                        close(err, false);
                     }
                 })
                 .thenApplyAsync(unused -> {
@@ -258,6 +258,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void close(@Nullable Throwable cause, boolean graceful) {
         if (!closed.compareAndSet(false, true)) {
             return;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ", graceful=" + graceful + ", message="
+                    + (cause != null ? cause.getMessage() : "") + ']');
         }
 
         if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
@@ -316,11 +321,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void onDisconnected(@Nullable Exception e) {
-        if (log.isDebugEnabled()) {
-            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
-        }
-
+    public void onDisconnected(@Nullable Throwable e) {
         close(e, false);
     }
 
