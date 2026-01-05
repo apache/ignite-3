@@ -37,11 +37,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -59,7 +61,9 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
@@ -517,16 +521,18 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 new Column[]{new Column("VAL", type, true)}
         );
 
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1, new Column("NEW", type, true));
+
         Tuple tuple = Tuple.create().set("KEY", 1).set("VAL", null);
         TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
-        Tuple row = TableRow.tuple(marshaller.marshal(tuple));
+        Row binRow = marshaller.marshal(tuple);
+        Tuple row = TableRow.tuple(binRow);
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
                 () -> fieldAccessor.accept(row, 1),
                 IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
-
         );
 
         IgniteTestUtils.assertThrows(
@@ -549,7 +555,27 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 NullPointerException.class,
                 () -> fieldAccessor.accept(row, "NEW"),
                 IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
+        );
 
+        // Upgrade original row
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        Tuple upgradedRow = TableRow.tuple(schemaRegistry.resolve(binRow, schema2));
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(upgradedRow, 2),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
+
+        );
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(upgradedRow, "NEW"),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
         );
     }
 
@@ -604,5 +630,43 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     private static Stream<Arguments> primitiveAccessors() {
         return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
                 .map(e -> Arguments.of(e.getKey(), e.getValue()));
+    }
+
+    private static SchemaDescriptor applyAddingValueColumn(SchemaDescriptor desc, int position, Column newColumn) {
+        List<Column> columns = new ArrayList<>(desc.columns());
+        columns.add(position, newColumn);
+
+        SchemaDescriptor newSchema = new SchemaDescriptor(
+                desc.version() + 1,
+                columns,
+                desc.keyColumns().stream().map(Column::name).collect(Collectors.toList()),
+                desc.colocationColumns().stream().map(Column::name).collect(Collectors.toList())
+        );
+
+        int addedColumnIndex = newSchema.column(newColumn.name()).positionInRow();
+
+        newSchema.columnMapping(new ColumnMapper() {
+            @Override
+            public ColumnMapper add(Column col) {
+                return fail();
+            }
+
+            @Override
+            public ColumnMapper add(int from, int to) {
+                return fail();
+            }
+
+            @Override
+            public int map(int idx) {
+                return idx < addedColumnIndex ? idx : idx == addedColumnIndex ? -1 : idx - 1;
+            }
+
+            @Override
+            public Column mappedColumn(int idx) {
+                return idx == addedColumnIndex ? newSchema.column(idx) : null;
+            }
+        });
+
+        return newSchema;
     }
 }
