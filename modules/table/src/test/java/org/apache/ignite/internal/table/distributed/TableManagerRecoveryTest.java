@@ -82,7 +82,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -534,7 +533,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 topologyService,
                 lowWatermark,
                 failureProcessor,
-                new SystemPropertiesNodeProperties(),
                 ForkJoinPool.commonPool(),
                 mock(ScheduledExecutorService.class),
                 partitionOperationsExecutor,
@@ -586,7 +584,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new SystemPropertiesNodeProperties(),
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
