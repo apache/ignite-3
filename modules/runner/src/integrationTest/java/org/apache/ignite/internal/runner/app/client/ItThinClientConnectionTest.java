@@ -133,7 +133,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 .collect(Collectors.toList());
 
         assertThat(causes,
-                hasItem(containsString("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true")));
+                hasItem(containsString("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server")));
     }
 
     @Test

@@ -727,7 +727,7 @@ public class ClientInboundMessageHandler
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
         } else {
-            packer.packString("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true");
+            packer.packString("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server");
         }
 
         // Extensions.
