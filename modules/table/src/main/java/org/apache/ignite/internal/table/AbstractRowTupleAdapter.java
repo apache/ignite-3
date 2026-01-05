@@ -115,11 +115,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public boolean booleanValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.booleanValue(idx);
+        return row.booleanValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -127,11 +127,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public boolean booleanValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.booleanValue(idx);
+        return row.booleanValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -139,11 +139,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public byte byteValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.byteValue(idx);
+        return row.byteValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -151,11 +151,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public byte byteValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.byteValue(idx);
+        return row.byteValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -163,11 +163,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public short shortValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.shortValue(idx);
+        return row.shortValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -175,11 +175,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public short shortValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.shortValue(idx);
+        return row.shortValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -187,11 +187,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int intValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.intValue(idx);
+        return row.intValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -199,11 +199,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int intValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.intValue(idx);
+        return row.intValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -211,11 +211,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public long longValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.longValue(idx);
+        return row.longValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -223,11 +223,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public long longValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.longValue(idx);
+        return row.longValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -235,11 +235,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public float floatValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.floatValue(idx);
+        return row.floatValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -247,11 +247,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public float floatValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.floatValue(idx);
+        return row.floatValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -259,11 +259,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public double doubleValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnName);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnName);
 
-        return row.doubleValue(idx);
+        return row.doubleValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -271,11 +271,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public double doubleValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        int idx = correctIndex(col);
+        int binaryTupleIndex = correctIndex(col);
 
-        IgniteUtils.ensureNotNull(row, idx, columnIndex);
+        IgniteUtils.ensureNotNull(row, binaryTupleIndex, columnIndex);
 
-        return row.doubleValue(idx);
+        return row.doubleValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */

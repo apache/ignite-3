@@ -542,6 +542,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         );
 
+        // Modify row.
         row.set("NEW", null);
 
         IgniteTestUtils.assertThrows(

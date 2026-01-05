@@ -95,7 +95,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("primitiveAccessors")
+    @MethodSource("primitiveAccessorsUsingFieldIndex")
     void nullPointerWhenReadingNullAsPrimitive(Consumer<Tuple> fieldAccessor) {
         Tuple tuple = Tuple.create().set("VAL", null);
 
@@ -104,7 +104,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("primitiveAccessorsByName")
+    @MethodSource("primitiveAccessorsUsingFieldName")
     void nullPointerWhenReadingNullByNameAsPrimitive(Consumer<Tuple> fieldAccessor) {
         Tuple tuple = Tuple.create().set("VAL", null);
 
@@ -112,7 +112,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         assertEquals("The value of field 'VAL' is null and cannot be converted to a primitive data type.", err.getMessage());
     }
 
-    private static List<Arguments> primitiveAccessors() {
+    private static List<Arguments> primitiveAccessorsUsingFieldIndex() {
         return List.of(
                 Arguments.of(Named.of("boolean", (Consumer<Tuple>) tuple -> tuple.booleanValue(0))),
                 Arguments.of(Named.of("byte", (Consumer<Tuple>) tuple -> tuple.byteValue(0))),
@@ -124,7 +124,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         );
     }
 
-    private static List<Arguments> primitiveAccessorsByName() {
+    private static List<Arguments> primitiveAccessorsUsingFieldName() {
         return List.of(
                 Arguments.of(Named.of("boolean", (Consumer<Tuple>) tuple -> tuple.booleanValue("VAL"))),
                 Arguments.of(Named.of("byte", (Consumer<Tuple>) tuple -> tuple.byteValue("VAL"))),

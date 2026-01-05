@@ -373,7 +373,6 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         );
 
         BinaryRow binaryRow = SchemaTestUtils.binaryRow(schema, 1, null);
-
         Tuple row = new ClientTuple(clientSchema, TuplePart.KEY_AND_VAL, new BinaryTupleReader(schema.length(), binaryRow.tupleSlice()));
 
         assertThrows(
@@ -401,7 +400,6 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 NullPointerException.class,
                 () -> fieldAccessor.accept(row, "NEW"),
                 IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
-
         );
     }
 

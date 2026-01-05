@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.client.sql;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.IDENTITY_ROW_CONVERTER;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
 
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
-import org.apache.ignite.internal.sql.api.AsyncResultSetImpl.SqlRowImpl;
-import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
-import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
-import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -45,9 +43,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Ensures that reading a {@code null} value as primitive from the
- * {@link SqlRow} instance produces a {@link NullPointerException}.
+ * {@link ClientSqlRow} instance produces a {@link NullPointerException}.
  */
-public class SqlRowTest extends BaseIgniteAbstractTest {
+public class ClientSqlRowTest extends BaseIgniteAbstractTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("primitiveAccessors")
     @SuppressWarnings("ThrowableNotThrown")
@@ -55,19 +53,19 @@ public class SqlRowTest extends BaseIgniteAbstractTest {
             NativeType type,
             BiConsumer<Tuple, Object> fieldAccessor
     ) {
-        String columnName = "VAL";
-        Tuple row = createRow(columnName, type);
+        String valueColumn = "VAL";
+        Tuple row = createRow(valueColumn, type);
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> fieldAccessor.accept(row, 0),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 0)
+                () -> fieldAccessor.accept(row, 1),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
         );
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> fieldAccessor.accept(row, columnName),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, columnName)
+                () -> fieldAccessor.accept(row, valueColumn),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, valueColumn)
         );
 
         IgniteTestUtils.assertThrows(
@@ -78,19 +76,21 @@ public class SqlRowTest extends BaseIgniteAbstractTest {
     }
 
     private static Tuple createRow(String columnName, NativeType type) {
-        SqlRowHandler handler = SqlRowHandler.INSTANCE;
-        StructNativeType schema = NativeTypes.structBuilder()
-                .addField(columnName, type, true)
-                .build();
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("ID", INT32, false)},
+                new Column[]{new Column(columnName, type, true)}
+        );
 
-        RowFactory<RowWrapper> factory = handler.create(schema);
-        RowWrapper binaryTupleRow = factory.create(handler.toBinaryTuple(factory.create(new Object[]{null})));
+        BinaryRow binaryRow = SchemaTestUtils.binaryRow(schema, 1, null);
+        BinaryTupleReader binaryTuple = new BinaryTupleReader(2, binaryRow.tupleSlice());
 
-        InternalSqlRowImpl<RowWrapper> internalSqlRow =
-                new InternalSqlRowImpl<>(binaryTupleRow, handler, IDENTITY_ROW_CONVERTER);
+        ResultSetMetadata resultSetMetadata = new ResultSetMetadataImpl(List.of(
+                new ColumnMetadataImpl("ID", ColumnType.INT32, 0, 0, false, null),
+                new ColumnMetadataImpl(columnName, type.spec(), 0, 0, true, null)
+        ));
 
-        return new SqlRowImpl(internalSqlRow, new ResultSetMetadataImpl(List.of(
-                new ColumnMetadataImpl(columnName, type.spec(), 0, 0, true, null))));
+        return new ClientSqlRow(binaryTuple, resultSetMetadata);
     }
 
     private static Stream<Arguments> primitiveAccessors() {

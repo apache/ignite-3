@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -189,12 +188,7 @@ public class ClientHandlerTupleTests {
         );
 
         BinaryRow binaryRow = SchemaTestUtils.binaryRow(schema, 1, null);
-        ByteBuffer buffer = binaryRow.tupleSlice();
-
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-
-        Tuple row = ClientTableCommon.readTuple(null, bytes, false, schema);
+        Tuple row = new ClientHandlerTuple(schema, null, new BinaryTupleReader(2, binaryRow.tupleSlice()), false);
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
@@ -206,6 +200,12 @@ public class ClientHandlerTupleTests {
                 NullPointerException.class,
                 () -> fieldAccessor.accept(row, "VAL"),
                 IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL")
+        );
+
+        IgniteTestUtils.assertThrows(
+                UnsupportedOperationException.class,
+                () -> row.set("NEW", null),
+                null
         );
     }
 

@@ -101,7 +101,6 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     @Override
     public boolean booleanValue(int index) {
         seek(index);
-
         return booleanValue(byteBufferAccessor, begin, end);
     }
 
@@ -131,7 +130,6 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     @Override
     public byte byteValue(int index) {
         seek(index);
-
         return byteValue(byteBufferAccessor, begin, end);
     }
 
