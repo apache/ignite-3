@@ -547,12 +547,10 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
-                nodeProperties,
                 replicationConfiguration,
                 Runnable::run,
                 metricManager,
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
@@ -728,7 +726,6 @@ public class Node {
                 clusterService.topologyService(),
                 lowWatermark,
                 failureManager,
-                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -792,7 +789,6 @@ public class Node {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
-                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,

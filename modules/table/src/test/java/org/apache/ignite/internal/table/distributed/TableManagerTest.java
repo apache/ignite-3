@@ -68,13 +68,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -212,9 +210,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     private DataStorageManager dsm;
 
     private SchemaManager sm;
-
-    @Mock
-    private DistributionZoneManager distributionZoneManager;
 
     /** Test node. */
     private final InternalClusterNode node = new ClusterNodeImpl(
@@ -604,7 +599,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new SystemPropertiesNodeProperties(),
                 new MinimumRequiredTimeCollectorServiceImpl(),
                 systemDistributedConfiguration,
                 new NoOpMetricManager(),

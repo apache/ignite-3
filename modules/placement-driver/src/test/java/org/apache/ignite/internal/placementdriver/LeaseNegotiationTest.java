@@ -21,7 +21,6 @@ import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
@@ -54,7 +53,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -63,7 +61,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -81,9 +78,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -103,9 +98,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
-    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
-
-    private final PartitionGroupId groupId = replicationGroupId(0, 0);
+    private final ZonePartitionId groupId = replicationGroupId(0, 0);
 
     private static final String NODE_0_NAME = "node0";
     private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID(), NODE_0_NAME, mock(NetworkAddress.class));
@@ -135,8 +128,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.leaseAgreementAcceptanceTimeLimitMillis = 2000")
     private ReplicationConfiguration replicationConfiguration;
 
-    private PartitionGroupId replicationGroupId(int objectId, int partId) {
-        return enabledColocation ? new ZonePartitionId(objectId, partId) : new TablePartitionId(objectId, partId);
+    private static ZonePartitionId replicationGroupId(int objectId, int partId) {
+        return new ZonePartitionId(objectId, partId);
     }
 
     @BeforeEach
@@ -200,9 +193,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdClusterService.topologyService(),
                 clockService,
-                zoneId -> completedFuture(Set.of()),
-                id -> null,
-                new SystemPropertiesNodeProperties()
+                zoneId -> completedFuture(Set.of())
         );
 
         leaseTracker.startTrack(0L);
@@ -210,9 +201,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assignmentsTracker = new AssignmentsTracker(
                 metaStorageManager,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         assignmentsTracker.startTrack();
@@ -263,9 +252,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         lgmProcessed.complete(null);
     }
 
-    private ByteArray stableAssignmentsKey(PartitionGroupId groupId) {
-        return enabledColocation ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) groupId)
-                : stablePartAssignmentsKey((TablePartitionId) groupId);
+    private static ByteArray stableAssignmentsKey(ZonePartitionId groupId) {
+        return ZoneRebalanceUtil.stablePartAssignmentsKey(groupId);
     }
 
     @Test
@@ -394,8 +382,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     public void testAllLeasesAreProlongedIfOneIs() throws InterruptedException {
         leaseGrantedMessageHandler = (n, lgm) -> completedFuture(createLeaseGrantedMessageResponse(true));
 
-        PartitionGroupId groupId0 = replicationGroupId(1, 0);
-        PartitionGroupId groupId1 = replicationGroupId(1, 1);
+        ZonePartitionId groupId0 = replicationGroupId(1, 0);
+        ZonePartitionId groupId1 = replicationGroupId(1, 1);
 
         metaStorageManager.put(stableAssignmentsKey(groupId0), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
 
@@ -444,8 +432,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         CompletableFuture<?> timedOutGroupLgmReceived = new CompletableFuture<>();
         CompletableFuture<?> removedGroupLgmReceived = new CompletableFuture<>();
 
-        PartitionGroupId timedOutGroup = replicationGroupId(1, 1);
-        PartitionGroupId removedGroup = replicationGroupId(1, 2);
+        ZonePartitionId timedOutGroup = replicationGroupId(1, 1);
+        ZonePartitionId removedGroup = replicationGroupId(1, 2);
         byte[] assignmentBytes = Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp);
 
         leaseGrantedMessageHandler = (n, lgm) -> {
@@ -501,8 +489,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     public void testLeasesCleanupOfOneGroupFromMultiple() throws InterruptedException {
         leaseGrantedMessageHandler = (n, lgm) -> completedFuture(createLeaseGrantedMessageResponse(true));
 
-        PartitionGroupId groupId0 = replicationGroupId(0, 0);
-        PartitionGroupId groupId1 = replicationGroupId(0, 1);
+        ZonePartitionId groupId0 = replicationGroupId(0, 0);
+        ZonePartitionId groupId1 = replicationGroupId(0, 1);
 
         metaStorageManager.put(stableAssignmentsKey(groupId0), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
         metaStorageManager.put(stableAssignmentsKey(groupId1), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME)), assignmentsTimestamp));
