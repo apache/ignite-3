@@ -110,9 +110,9 @@ public class ItJdbcSslTest extends CliIntegrationTest {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Handshake error")
+                () -> assertErrOutputContains("Could not connect to node"),
+                () -> assertErrOutputContains("Check SSL configuration"),
+                () -> assertErrOutputContains("bad_certificate")
         );
     }
-
 }
