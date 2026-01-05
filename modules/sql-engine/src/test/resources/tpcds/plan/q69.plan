@@ -21,7 +21,7 @@ Sort
           CorrelatedNestedLoopJoin
               predicate: true
               type: left
-              correlates: [$cor5]
+              correlates: [$cor3]
               est: (rows=19018)
             Project
                 fieldNames: [C_CUSTOMER_SK, CD_GENDER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, CD_PURCHASE_ESTIMATE, CD_CREDIT_RATING]
@@ -33,12 +33,12 @@ Sort
                 CorrelatedNestedLoopJoin
                     predicate: true
                     type: left
-                    correlates: [$cor6]
+                    correlates: [$cor4]
                     est: (rows=76072)
                   CorrelatedNestedLoopJoin
                       predicate: true
                       type: inner
-                      correlates: [$cor7]
+                      correlates: [$cor5]
                       est: (rows=76072)
                     Exchange
                         distribution: single
@@ -107,7 +107,7 @@ Sort
                                     est: (rows=959175)
                                   TableScan
                                       table: PUBLIC.STORE_SALES
-                                      predicate: =($cor7.C_CUSTOMER_SK, SS_CUSTOMER_SK)
+                                      predicate: =($cor5.C_CUSTOMER_SK, SS_CUSTOMER_SK)
                                       fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK]
                                       est: (rows=959175)
                                 TableScan
@@ -141,7 +141,7 @@ Sort
                                 est: (rows=239555)
                               TableScan
                                   table: PUBLIC.WEB_SALES
-                                  predicate: =($cor6.C_CUSTOMER_SK, WS_BILL_CUSTOMER_SK)
+                                  predicate: =($cor4.C_CUSTOMER_SK, WS_BILL_CUSTOMER_SK)
                                   fieldNames: [WS_SOLD_DATE_SK, WS_BILL_CUSTOMER_SK]
                                   est: (rows=239555)
                             TableScan
@@ -175,7 +175,7 @@ Sort
                           est: (rows=480035)
                         TableScan
                             table: PUBLIC.CATALOG_SALES
-                            predicate: =($cor5.C_CUSTOMER_SK, CS_SHIP_CUSTOMER_SK)
+                            predicate: =($cor3.C_CUSTOMER_SK, CS_SHIP_CUSTOMER_SK)
                             fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_CUSTOMER_SK]
                             est: (rows=480035)
                       TableScan

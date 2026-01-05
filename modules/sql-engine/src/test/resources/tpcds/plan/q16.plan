@@ -27,7 +27,7 @@ Sort
             CorrelatedNestedLoopJoin
                 predicate: true
                 type: left
-                correlates: [$cor4]
+                correlates: [$cor3]
                 est: (rows=55274577712193)
               Project
                   fieldNames: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
@@ -36,7 +36,7 @@ Sort
                 CorrelatedNestedLoopJoin
                     predicate: true
                     type: inner
-                    correlates: [$cor5]
+                    correlates: [$cor4]
                     est: (rows=5760851647)
                   Sort
                       collation: [CS_ORDER_NUMBER ASC]
@@ -107,7 +107,7 @@ Sort
                             est: (rows=48004)
                           TableScan
                               table: PUBLIC.CATALOG_SALES
-                              predicate: AND(=($cor5.CS_ORDER_NUMBER, CS_ORDER_NUMBER), <>($cor5.CS_WAREHOUSE_SK, CS_WAREHOUSE_SK))
+                              predicate: AND(=($cor4.CS_ORDER_NUMBER, CS_ORDER_NUMBER), <>($cor4.CS_WAREHOUSE_SK, CS_WAREHOUSE_SK))
                               fieldNames: [i]
                               projection: [true]
                               est: (rows=240018)
@@ -126,7 +126,7 @@ Sort
                       est: (rows=9595)
                     TableScan
                         table: PUBLIC.CATALOG_RETURNS
-                        predicate: =($cor4.CS_ORDER_NUMBER, CR_ORDER_NUMBER)
+                        predicate: =($cor3.CS_ORDER_NUMBER, CR_ORDER_NUMBER)
                         fieldNames: [i]
                         projection: [true]
                         est: (rows=47974)
