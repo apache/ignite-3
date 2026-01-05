@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -139,12 +138,10 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 raftGroupServiceFactory,
                 new TestClockService(new HybridClockImpl()),
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
                 replicationConfiguration,
                 Runnable::run,
                 mock(MetricManager.class),
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         assertThat(placementDriverManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

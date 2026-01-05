@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.components;
+package org.apache.ignite.internal.sql.engine.expressions;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.TestOnly;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.validate.ListScope;
+import org.apache.calcite.sql.validate.SqlValidatorScope;
 
-/**
- * Implementation that ignores persistence and always takes property values from the system properties.
- *
- * <p>Should only be used for tests.
- */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22522 Consider to remove this class and its usages.
-@TestOnly
-public class SystemPropertiesNodeProperties implements NodeProperties {
+class RowBasedScope extends ListScope {
+    RowBasedScope(SqlValidatorScope parent) {
+        super(parent);
+    }
+
     @Override
-    public boolean colocationEnabled() {
-        return IgniteSystemProperties.colocationEnabled();
+    public SqlNode getNode() {
+        throw new AssertionError("Should not be called");
     }
 }

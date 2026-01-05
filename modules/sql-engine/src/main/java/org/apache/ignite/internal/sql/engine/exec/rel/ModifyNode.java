@@ -29,8 +29,8 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
@@ -77,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
 
-    private static final StructNativeType MODIFY_RESULT = NativeTypes.rowBuilder()
+    private static final StructNativeType MODIFY_RESULT = NativeTypes.structBuilder()
             .addField("UPDATE_COUNT", NativeTypes.INT64, false)
             .build();
 

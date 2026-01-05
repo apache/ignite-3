@@ -115,8 +115,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1221,8 +1219,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             vaultManager = createVault(dir);
 
-            NodeProperties nodeProperties = new SystemPropertiesNodeProperties();
-
             var clusterIdService = new ClusterIdHolder();
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
@@ -1544,7 +1540,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     lowWatermark,
                     failureManager,
-                    nodeProperties,
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.partitionOperationsExecutor(),
@@ -1596,7 +1591,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     indexMetaStorage,
                     logStorageFactory,
                     partitionReplicaLifecycleManager,
-                    nodeProperties,
                     minTimeCollectorService,
                     systemDistributedConfiguration,
                     metricManager,

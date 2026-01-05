@@ -56,6 +56,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -104,12 +105,12 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
 
-        cluster.transferLeadershipTo(2, cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
+        cluster.transferLeadershipTo(2, cluster.solePartitionId(ZONE_NAME));
 
         var closableResources = new ArrayList<ManuallyCloseable>();
 
         try {
-            ReplicationGroupId replicationGroup = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+            ZonePartitionId replicationGroup = cluster.solePartitionId(ZONE_NAME);
 
             TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, replicationGroup);
 
@@ -143,7 +144,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             startNodes(0, 1);
 
-            awaitMajority(cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
+            awaitMajority(cluster.solePartitionId(ZONE_NAME));
 
             startNode(2);
 
