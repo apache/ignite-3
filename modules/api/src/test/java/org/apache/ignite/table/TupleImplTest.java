@@ -100,7 +100,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         Tuple tuple = Tuple.create().set("VAL", null);
 
         var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple));
-        assertEquals("The field value is null and cannot be converted to a primitive data type.", err.getMessage());
+        assertEquals("The value of field at index 0 is null and cannot be converted to a primitive data type.", err.getMessage());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -109,7 +109,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         Tuple tuple = Tuple.create().set("VAL", null);
 
         var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple));
-        assertEquals("The field value is null and cannot be converted to a primitive data type.", err.getMessage());
+        assertEquals("The value of field 'VAL' is null and cannot be converted to a primitive data type.", err.getMessage());
     }
 
     private static List<Arguments> primitiveAccessors() {
