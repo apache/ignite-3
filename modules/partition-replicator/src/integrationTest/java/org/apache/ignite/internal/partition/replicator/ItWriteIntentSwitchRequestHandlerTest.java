@@ -40,16 +40,16 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
 
     @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
+        builder.clusterConfiguration(clusterConfig());
     }
 
-    protected static String aggressiveLowWatermarkIncreaseClusterConfig() {
+    private static String clusterConfig() {
         return "{\n"
                 + "  ignite.gc.lowWatermark {\n"
                 + "    dataAvailabilityTimeMillis: 1000,\n"
                 + "    updateIntervalMillis: 100\n"
                 + "  },\n"
-                // Default 60 seconds, and we need to retry write intent resolution during test.
+                // Default is 60 seconds, and we need to retry write intent resolution in some tests.
                 + "  ignite.replication.rpcTimeoutMillis: 1000\n"
                 + "}";
     }
