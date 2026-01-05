@@ -30,8 +30,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
