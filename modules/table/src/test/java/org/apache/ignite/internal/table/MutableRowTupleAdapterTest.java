@@ -568,7 +568,6 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 NullPointerException.class,
                 () -> fieldAccessor.accept(upgradedRow, 2),
                 IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
-
         );
 
         IgniteTestUtils.assertThrows(
