@@ -284,7 +284,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-        return binaryTuple.longValue(columnIndex);
+        return binaryTuple.longValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -312,7 +312,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-        return binaryTuple.floatValue(columnIndex);
+        return binaryTuple.floatValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -340,7 +340,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-        return binaryTuple.doubleValue(columnIndex);
+        return binaryTuple.doubleValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
