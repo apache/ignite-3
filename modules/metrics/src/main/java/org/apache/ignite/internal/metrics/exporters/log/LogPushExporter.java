@@ -20,12 +20,18 @@ package org.apache.ignite.internal.metrics.exporters.log;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
-import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
 
 import com.google.auto.service.AutoService;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
+import java.lang.management.OperatingSystemMXBean;
+import java.lang.management.RuntimeMXBean;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -41,13 +47,20 @@ import org.apache.ignite.internal.util.CollectionUtils;
 @AutoService(MetricExporter.class)
 public class LogPushExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "logPush";
-
-    /** Padding for individual metric output. */
-    private static final String PADDING = "  ";
-
-    private volatile boolean oneLinePerMetricSource;
+    private final RuntimeMXBean runtimeMxBean;
+    private final MemoryMXBean memoryMxBean;
+    private final OperatingSystemMXBean osMxBean;
 
     private volatile List<String> enabledMetrics;
+
+    /**
+     * Constructor.
+     */
+    public LogPushExporter() {
+        this.runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+        this.memoryMxBean = ManagementFactory.getMemoryMXBean();
+        this.osMxBean = ManagementFactory.getOperatingSystemMXBean();
+    }
 
     @Override
     protected long period(ExporterView exporterView) {
@@ -59,7 +72,6 @@ public class LogPushExporter extends PushMetricExporter {
         super.reconfigure(view);
 
         LogPushExporterView v = (LogPushExporterView) view;
-        oneLinePerMetricSource = v.oneLinePerMetricSource();
         enabledMetrics = Arrays.asList(v.enabledMetrics());
     }
 
@@ -71,51 +83,390 @@ public class LogPushExporter extends PushMetricExporter {
             return;
         }
 
-        var report = new StringBuilder("Metric report:");
+        var report = new StringBuilder("Metrics for local node: ");
+
+        appendNodeInfo(report, metricSets);
+
+        boolean initialized = isNodeInitialized(metricSets);
+        report.append(", state=").append(initialized ? "initialized" : "uninitialized");
+
+        UUID clusterId = clusterIdSupplier().get();
+        if (clusterId != null) {
+            report.append(", clusterId=").append(clusterId);
+        }
+
+        int nodeCount = getClusterNodeCount(metricSets);
+        if (nodeCount > 0) {
+            report.append(", topology=").append(nodeCount).append(" nodes");
+        }
+
+        appendNetworkInfo(report, metricSets);
+
+        appendCpuInfo(report);
+
+        appendHeapInfo(report);
 
         for (MetricSet metricSet : metricSets) {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                report.append('\n').append(metricSet.name()).append(oneLinePerMetricSource ? ' ' : ':');
-
-                appendMetrics(report, metricSet, hasMetricsWhiteList);
+                report.append(", ").append(metricSet.name()).append('=');
+                appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
             }
         }
+
+        appendThreadPoolMetrics(report, metricSets);
 
         log.info(report.toString());
     }
 
-    private void appendMetrics(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList) {
+    /**
+     * Formats uptime in HH:MM:SS.mmm format.
+     *
+     * @param uptimeMs Uptime in milliseconds.
+     * @return Formatted uptime string.
+     */
+    private static String formatUptimeHms(long uptimeMs) {
+        long milliseconds = uptimeMs % 1000;
+        long totalSeconds = uptimeMs / 1000;
+        long seconds = totalSeconds % 60;
+        long totalMinutes = totalSeconds / 60;
+        long minutes = totalMinutes % 60;
+        long hours = totalMinutes / 60;
+
+        return String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
+    }
+
+    /**
+     * Appends node information to the report.
+     *
+     * @param report Report string builder.
+     * @param metricSets Collection of metric sets.
+     */
+    private void appendNodeInfo(StringBuilder report, Collection<MetricSet> metricSets) {
+        String ephemeralId = getEphemeralNodeId(metricSets);
+        String nodeName = getNodeName(metricSets);
+        String version = getNodeVersion(metricSets);
+
+        long uptimeMs = runtimeMxBean.getUptime();
+
+        report.append("Node [");
+
+        boolean needComma = false;
+
+        if (ephemeralId != null && !ephemeralId.isEmpty()) {
+            report.append("id=").append(ephemeralId);
+            needComma = true;
+        }
+
+        if (nodeName != null && !nodeName.isEmpty()) {
+            if (needComma) {
+                report.append(", ");
+            }
+            report.append("name=").append(nodeName);
+            needComma = true;
+        }
+
+        if (version != null && !version.isEmpty()) {
+            if (needComma) {
+                report.append(", ");
+            }
+            report.append("version=").append(version);
+            needComma = true;
+        }
+
+        if (needComma) {
+            report.append(", ");
+        }
+        report.append("uptime=").append(formatUptimeHms(uptimeMs))
+                .append(']');
+    }
+
+    /**
+     * Formats bytes in a human-readable format.
+     *
+     * @param bytes Number of bytes.
+     * @return Formatted string.
+     */
+    private static String formatBytes(long bytes) {
+        if (bytes < 1024) {
+            return bytes + "B";
+        } else if (bytes < 1024 * 1024) {
+            return String.format("%.1fKB", bytes / 1024.0);
+        } else if (bytes < 1024 * 1024 * 1024) {
+            return String.format("%.1fMB", bytes / (1024.0 * 1024));
+        } else {
+            return String.format("%.1fGB", bytes / (1024.0 * 1024 * 1024));
+        }
+    }
+
+    /**
+     * Checks if the node is initialized based on the presence of key metrics.
+     *
+     * @param metricSets Collection of metric sets.
+     * @return True if the node is initialized, false otherwise.
+     */
+    private boolean isNodeInitialized(Collection<MetricSet> metricSets) {
+        boolean hasMetastorage = metricSets.stream().anyMatch(ms -> ms.name().startsWith("metastorage"));
+        boolean hasPlacementDriver = metricSets.stream().anyMatch(ms -> ms.name().startsWith("placement-driver"));
+        return hasMetastorage && hasPlacementDriver;
+    }
+
+    /**
+     * Gets the ephemeral node ID from topology metrics.
+     *
+     * @param metricSets Collection of metric sets.
+     * @return Ephemeral node ID or null if not available.
+     */
+    private String getEphemeralNodeId(Collection<MetricSet> metricSets) {
+        // Try to find node ID from topology.local metric source.
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("topology.local")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("NodeId")) {
+                        return metric.getValueAsString();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Gets the node name from topology metrics.
+     *
+     * @param metricSets Collection of metric sets.
+     * @return Node name or null if not available.
+     */
+    private String getNodeName(Collection<MetricSet> metricSets) {
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("topology.local")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("NodeName")) {
+                        return metric.getValueAsString();
+                    }
+                }
+            }
+        }
+        return nodeName();
+    }
+
+    /**
+     * Gets the node version from topology metrics.
+     *
+     * @param metricSets Collection of metric sets.
+     * @return Node version or null if not available.
+     */
+    private String getNodeVersion(Collection<MetricSet> metricSets) {
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("topology.local")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("NodeVersion")) {
+                        return metric.getValueAsString();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Gets the cluster node count from topology metrics.
+     *
+     * @param metricSets Collection of metric sets.
+     * @return Number of nodes in the cluster or -1 if not available.
+     */
+    private int getClusterNodeCount(Collection<MetricSet> metricSets) {
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("topology.cluster")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("TotalNodes")) {
+                        return Integer.parseInt(metric.getValueAsString());
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Appends network information to the report. Format: Network [addrs=[addr1, addr2, ...], commPort=YYYY].
+     *
+     * @param report Report string builder.
+     * @param metricSets Collection of metric sets.
+     */
+    private void appendNetworkInfo(StringBuilder report, Collection<MetricSet> metricSets) {
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("topology.local")) {
+                String address = null;
+                Integer port = null;
+
+                for (Metric metric : metricSet) {
+                    String metricName = metric.name();
+                    if (metricName.equals("NetworkAddress")) {
+                        address = metric.getValueAsString();
+                    } else if (metricName.equals("NetworkPort")) {
+                        port = Integer.parseInt(metric.getValueAsString());
+                    }
+                }
+
+                if (address != null && !address.isEmpty() && port != null && port > 0) {
+                    report.append(", Network [addrs=[").append(address).append(']')
+                            .append(", commPort=").append(port)
+                            .append(']');
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Appends CPU information. Format: CPU [CPUs=20, curLoad=38.57%, avgLoad=16.53%, GC=0%].
+     *
+     * @param report Report string builder.
+     */
+    private void appendCpuInfo(StringBuilder report) {
+        int cpuCount = Runtime.getRuntime().availableProcessors();
+
+        double curLoad = -1.0;
+        double avgLoad = -1.0;
+
+        if (osMxBean instanceof com.sun.management.OperatingSystemMXBean) {
+            com.sun.management.OperatingSystemMXBean sunOs = (com.sun.management.OperatingSystemMXBean) osMxBean;
+            curLoad = sunOs.getProcessCpuLoad();
+            avgLoad = sunOs.getSystemLoadAverage();
+        }
+
+        // Calculate GC percentage.
+        double gcPercent = calculateGcPercent();
+
+        report.append(", CPU [CPUs=").append(cpuCount);
+
+        if (curLoad >= 0) {
+            report.append(", curLoad=").append(String.format("%.2f%%", curLoad * 100));
+        }
+
+        if (avgLoad >= 0) {
+            report.append(", loadAvg=").append(String.format("%.2f", avgLoad));
+        }
+
+        report.append(", GC=").append(String.format("%.0f%%", gcPercent))
+                .append(']');
+    }
+
+    /**
+     * Appends Heap memory information. Format: Heap [used=6950MB, free=43.44%, comm=12288MB].
+     *
+     * @param report Report string builder.
+     */
+    private void appendHeapInfo(StringBuilder report) {
+        MemoryUsage heapUsage = memoryMxBean.getHeapMemoryUsage();
+
+        long used = heapUsage.getUsed();
+        long committed = heapUsage.getCommitted();
+        long max = heapUsage.getMax();
+
+        // Calculate free percentage based on max if available, otherwise committed.
+        double freePercent;
+        if (max > 0) {
+            freePercent = (Math.max(max - used, 0) * 100.0) / max;
+        } else if (committed > 0) {
+            freePercent = (Math.max(committed - used, 0) * 100.0) / (committed);
+        } else {
+            return;
+        }
+
+        report.append(", Heap [used=").append(formatBytes(used))
+                .append(", free=").append(String.format("%.2f%%", freePercent))
+                .append(", comm=").append(formatBytes(committed))
+                .append(']');
+    }
+
+    /**
+     * Calculates GC percentage.
+     *
+     * @return GC percentage.
+     */
+    private double calculateGcPercent() {
+        List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
+
+        long totalGcTime = 0;
+        for (GarbageCollectorMXBean gcBean : gcBeans) {
+            totalGcTime += Math.max(gcBean.getCollectionTime(), 0);
+        }
+
+        long uptime = runtimeMxBean.getUptime();
+        if (uptime > 0) {
+            return (totalGcTime * 100.0) / uptime;
+        }
+        return 0;
+    }
+
+    /**
+     * Appends metrics in one-line format.
+     *
+     * @param sb String builder.
+     * @param metricSet Metric set.
+     * @param hasMetricsWhiteList Whether metrics whitelist is present.
+     */
+    private void appendMetricsOneLine(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList) {
         List<Metric> metrics = StreamSupport.stream(metricSet.spliterator(), false)
                 .sorted(comparing(Metric::name))
                 .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
                 .collect(toList());
 
-        sb.append(metricSetPrefix());
-
-        forEachIndexed(metrics, (m, i) -> appendMetricWithValue(oneLinePerMetricSource, sb, m, i));
-
-        sb.append(metricSetPostfix());
+        sb.append('[');
+        for (int i = 0; i < metrics.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            Metric m = metrics.get(i);
+            sb.append(m.name()).append('=').append(m.getValueAsString());
+        }
+        sb.append(']');
     }
 
-    private static String commaInEnum(int i) {
-        return i == 0 ? "" : ", ";
-    }
+    /**
+     * Appends thread pool metrics to the report.
+     *
+     * @param report Report string builder.
+     * @param metricSets Collection of metric sets.
+     */
+    private void appendThreadPoolMetrics(StringBuilder report, Collection<MetricSet> metricSets) {
+        // Find thread pool metrics (extensible for other pools in the future).
+        boolean hasThreadPools = false;
 
-    private String metricSetPrefix() {
-        return oneLinePerMetricSource ? "[" : "";
-    }
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().startsWith("thread.pools.")) {
+                if (report.length() > 0 && hasThreadPools) {
+                    report.append(", ");
+                }
+                if (!hasThreadPools) {
+                    report.append("threadPools=[");
+                    hasThreadPools = true;
+                }
 
-    private String metricSetPostfix() {
-        return oneLinePerMetricSource ? "]" : "";
-    }
+                String poolName = metricSet.name().substring("thread.pools.".length());
+                report.append(poolName).append('(');
 
-    private static void appendMetricWithValue(boolean oneLinePerMetricSource, StringBuilder sb, Metric m, int index) {
-        if (oneLinePerMetricSource) {
-            sb.append(commaInEnum(index)).append(m.name()).append('=').append(m.getValueAsString());
-        } else {
-            sb.append('\n').append(PADDING).append(m.name()).append(": ").append(m.getValueAsString());
+                List<Metric> poolMetrics = StreamSupport.stream(metricSet.spliterator(), false)
+                        .sorted(comparing(Metric::name))
+                        .collect(toList());
+
+                for (int i = 0; i < poolMetrics.size(); i++) {
+                    if (i > 0) {
+                        report.append(", ");
+                    }
+                    Metric m = poolMetrics.get(i);
+                    report.append(m.name()).append('=').append(m.getValueAsString());
+                }
+
+                report.append(')');
+            }
+        }
+
+        if (hasThreadPools) {
+            report.append(']');
         }
     }
 
