@@ -155,8 +155,6 @@ public final class PlannerHelper {
 
             rel = RelOptUtil.propagateRelHints(rel, false);
 
-            rel = planner.replaceCorrelatesCollisions(rel);
-
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
             RelOptCluster cluster = rel.getCluster();
