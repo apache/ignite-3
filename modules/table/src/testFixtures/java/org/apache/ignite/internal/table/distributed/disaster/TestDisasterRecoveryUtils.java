@@ -18,59 +18,25 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptySet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Helper util class for disaster recovery tests.
  */
 public class TestDisasterRecoveryUtils {
-
     /**
-     * Reset partitions depending on {@link IgniteSystemProperties#colocationEnabled}.
-     *
-     * @param disasterRecoveryManager disaster recovery manager.
-     * @param zoneName zone name.
-     * @param schemaName schema name.
-     * @param tableName table name.
-     * @param partitionIds partition ids.
-     * @param manualUpdate manual update flag.
-     * @param triggerRevision trigger revision.
-     * @return future when reset is done.
-     */
-    public static CompletableFuture<Void> resetPartitions(
-            DisasterRecoveryManager disasterRecoveryManager,
-            String zoneName,
-            String schemaName,
-            String tableName,
-            Set<Integer> partitionIds,
-            boolean manualUpdate,
-            long triggerRevision
-    ) {
-        if (colocationEnabled()) {
-            return disasterRecoveryManager.resetPartitions(zoneName, partitionIds, manualUpdate, triggerRevision);
-        } else {
-            return disasterRecoveryManager
-                    .resetTablePartitions(zoneName, schemaName, tableName, partitionIds, manualUpdate, triggerRevision);
-        }
-    }
-
-    /**
-     * Return assignments based on states of partitions in the cluster depending on {@link IgniteSystemProperties#colocationEnabled}. It is
-     * possible that returned value contains nodes from stable and pending, for example, when rebalance is in progress.
+     * Return assignments based on states of partitions in the cluster.
+     * It is possible that returned value contains nodes from stable and pending, for example, when rebalance is in progress.
      *
      * @param disasterRecoveryManager disaster recovery manager.
      * @param zoneName zone name.
      * @param zoneId zone id.
-     * @param tableId table id.
      * @param partitionId partition id.
      * @return assignments.
      */
@@ -78,34 +44,9 @@ public class TestDisasterRecoveryUtils {
             DisasterRecoveryManager disasterRecoveryManager,
             String zoneName,
             int zoneId,
-            int tableId,
             int partitionId
     ) {
-        return colocationEnabled()
-                ? getZoneRealAssignments(disasterRecoveryManager, zoneName, new ZonePartitionId(zoneId, partitionId))
-                : getTableRealAssignments(disasterRecoveryManager, zoneName, new TablePartitionId(tableId, partitionId));
-    }
-
-    /**
-     * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes from stable and
-     * pending, for example, when rebalance is in progress.
-     */
-    private static Set<String> getTableRealAssignments(
-            DisasterRecoveryManager disasterRecoveryManager,
-            String zoneName,
-            TablePartitionId tablePartitionId
-    ) {
-        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> partitionStatesFut = disasterRecoveryManager
-                .localTablePartitionStates(Set.of(zoneName), Set.of(), Set.of());
-        assertThat(partitionStatesFut, willCompleteSuccessfully());
-
-        LocalTablePartitionStateByNode partitionStates = partitionStatesFut.join().get(tablePartitionId);
-
-        if (partitionStates == null) {
-            return emptySet();
-        }
-
-        return partitionStates.keySet();
+        return getZoneRealAssignments(disasterRecoveryManager, zoneName, new ZonePartitionId(zoneId, partitionId));
     }
 
     private static Set<String> getZoneRealAssignments(
@@ -125,5 +66,4 @@ public class TestDisasterRecoveryUtils {
 
         return partitionStates.keySet();
     }
-
 }

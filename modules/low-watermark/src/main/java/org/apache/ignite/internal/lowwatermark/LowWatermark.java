@@ -52,6 +52,17 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
     void updateLowWatermark(HybridTimestamp newLowWatermark);
 
     /**
+     * Sets the low watermark during node recovery.
+     *
+     * <p>This method sets the low watermark immediately and unconditionally, without checking if the new value is higher than
+     * the current one. Listeners are not notified about the change; even more, they must not be registered at this point.
+     * It is intended to be used only during node recovery.
+     *
+     * @param newLowWatermark New low watermark.
+     */
+    void setLowWatermarkOnRecovery(HybridTimestamp newLowWatermark);
+
+    /**
      * Locks the low watermark at the provided timestamp (prevents it from being updated to a value higher than the provided one).
      *
      * @param lockId ID of the transaction for which the low watermark should be locked.

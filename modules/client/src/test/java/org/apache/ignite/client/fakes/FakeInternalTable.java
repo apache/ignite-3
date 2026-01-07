@@ -60,7 +60,6 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
@@ -457,16 +456,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         if (dataAccessListener != null) {
             dataAccessListener.accept(operation, arg);
         }
-    }
-
-    @Override
-    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
-        return null;
-    }
-
-    @Override
-    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
-        return null;
     }
 
     @Override

@@ -296,3 +296,21 @@ Transaction metrics.
 | LocalUnrebalancedPartitionsCount | The number of partitions that should be moved to this node.
 | TotalUnrebalancedPartitionsCount | The total number of partitions that should be moved to a new owner.
 |=======================================================================
+
+== raft.snapshots
+
+Metrics related to Raft snapshots of partition replicas.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| IncomingSnapshots | The number of incoming Raft snapshots in progress.
+| IncomingSnapshotsLoadingMeta | The number of incoming Raft snapshots loading metadata.
+| IncomingSnapshotsWaitingCatalog | The number of incoming Raft snapshots waiting for catalog.
+| IncomingSnapshotsPreparingStorages | The number of incoming Raft snapshots preparing storages.
+| IncomingSnapshotsPreparingIndexForBuild | The number of incoming Raft snapshots preparing indexes for build.
+| IncomingSnapshotsLoadingMvData | The number of incoming Raft snapshots loading multi-versioned data.
+| IncomingSnapshotsLoadingTxMeta | The number of incoming Raft snapshots loading transaction metadata.
+| OutgoingSnapshots | The number of outgoing Raft snapshots in progress.
+|=======================================================================

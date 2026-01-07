@@ -187,7 +187,8 @@ public class PocoAllColumnsSqlNullableMapper : IMapper<PocoAllColumnsSqlNullable
                     break;
 
                 default:
-                    throw new InvalidOperationException("Unexpected column: " + col.Name);
+                    rowReader.Skip();
+                    break;
             }
         }
 

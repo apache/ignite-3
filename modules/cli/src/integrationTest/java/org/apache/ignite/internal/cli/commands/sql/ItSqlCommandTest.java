@@ -57,7 +57,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         execute("sql", "select id, name, salary, salary + 1 from person", "--jdbc-url", JDBC_URL);
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "SALARY + 1"),
+                () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "\"SALARY + 1\""),
                 this::assertErrOutputIsEmpty
         );
 

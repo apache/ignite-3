@@ -173,8 +173,8 @@ public class NativeTypes {
     }
 
     /** Returns builder to create structured type. */
-    public static RowTypeBuilder rowBuilder() {
-        return new RowTypeBuilder();
+    public static StructTypeBuilder structBuilder() {
+        return new StructTypeBuilder();
     }
 
     /**
@@ -272,8 +272,8 @@ public class NativeTypes {
     }
 
     /** A builder for constructing {@link StructNativeType} instances. */
-    public static class RowTypeBuilder {
-        private RowTypeBuilder() {
+    public static class StructTypeBuilder {
+        private StructTypeBuilder() {
         }
 
         private final List<Field> fields = new ArrayList<>();
@@ -289,7 +289,7 @@ public class NativeTypes {
          * @return This builder instance for method chaining.
          * @throws IllegalArgumentException If any argument violates provided constraints.
          */
-        public RowTypeBuilder addField(String name, NativeType type, boolean nullable) {
+        public StructTypeBuilder addField(String name, NativeType type, boolean nullable) {
             if (StringUtils.nullOrBlank(name)) {
                 throw new IllegalArgumentException("Name must not be null or blank: "
                         + (name == null ? "<null>" : "\"" + name + "\"") + ".");
@@ -313,7 +313,7 @@ public class NativeTypes {
          * @return This builder instance for method chaining.
          * @throws IllegalArgumentException If any argument violates provided constraints.
          */
-        public RowTypeBuilder addField(Field field) {
+        public StructTypeBuilder addField(Field field) {
             if (field == null) {
                 throw new IllegalArgumentException("Field must not be null.");
             }

@@ -57,6 +57,7 @@ dependencies {
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-compute')
     testImplementation project(':ignite-code-deployment')
+    testImplementation project(':ignite-code-deployment-classloader')
     testImplementation project(':ignite-eventlog')
     testImplementation testFixtures(project(':ignite-api'))
     testImplementation testFixtures(project(':ignite-core'))
@@ -69,6 +70,7 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
     testImplementation libs.jmh.core
+    testImplementation libs.awaitility
 }
 
 def archTestDir = "$buildDir/archtest"

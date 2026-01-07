@@ -98,10 +98,10 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
-import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
@@ -133,8 +133,8 @@ import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasS
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -144,7 +144,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
-import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -162,6 +161,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -189,6 +189,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
@@ -205,7 +206,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
-public class PartitionReplicaListener implements ReplicaListener, ReplicaTableProcessor {
+public class PartitionReplicaListener implements ReplicaTableProcessor {
     /**
      * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
      * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
@@ -256,9 +257,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     /** Versioned partition storage. */
     private final MvPartitionStorage mvDataStorage;
 
-    /** Raft client. */
-    private final RaftCommandRunner raftCommandRunner;
-
     /** Tx manager. */
     private final TxManager txManager;
 
@@ -296,6 +294,10 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private final CatalogService catalogService;
 
+    private final LeasePlacementDriver placementDriver;
+
+    private final InternalClusterNode localNode;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -316,7 +318,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private final TableMetricSource metrics;
 
-    private final ReplicaPrimacyEngine replicaPrimacyEngine;
     private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
@@ -340,7 +341,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param safeTime Safe time clock.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
-     * @param localNode Instance of the local node.
+     * @param validationSchemasSource Validation schemas source.
+     * @param localNode Local cluster node.
      * @param catalogService Catalog service.
      * @param placementDriver Placement driver.
      * @param clusterNodeResolver Node resolver.
@@ -377,7 +379,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TableMetricSource metrics
     ) {
         this.mvDataStorage = mvDataStorage;
-        this.raftCommandRunner = raftCommandRunner;
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;
@@ -390,6 +391,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.placementDriver = placementDriver;
+        this.localNode = localNode;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
         this.lowWatermark = lowWatermark;
@@ -398,13 +401,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.tableLockKey = new TablePartitionId(tableId, replicationGroupId.partitionId());
         this.metrics = metrics;
 
-        this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService);
 
-        replicaPrimacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, replicationGroupId, localNode);
-
-        this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
+        tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 schemaCompatValidator,
                 schemaSyncService
@@ -413,17 +414,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
-                indexMetaStorage,
-                indexBuildingProcessor.tracker(),
-                safeTime,
-                raftCommandApplicator);
-    }
-
-    @Override
-    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
-        return replicaPrimacyEngine.validatePrimacy(request)
-                .thenCompose(replicaPrimacy -> processRequestInContext(request, replicaPrimacy, senderId));
+        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator);
     }
 
     @Override
@@ -446,15 +437,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         } else {
             return new ReplicaResult(res, null);
         }
-    }
-
-    /** Returns Raft-client. */
-    @Override
-    public RaftCommandRunner raftClient() {
-        if (raftCommandRunner instanceof ExecutorInclinedRaftCommandRunner) {
-            return ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner();
-        }
-        return raftCommandRunner;
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
@@ -660,9 +642,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
-            }
+            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -676,7 +656,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         });
             }
 
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            throwsIfIndexIsNotSorted(indexStorage);
 
             return safeReadFuture
                     .thenCompose(unused -> scanSortedIndex(request, indexStorage))
@@ -991,17 +971,14 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
-            }
+            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return lookupIndex(request, indexStorage.storage(), request.coordinatorId());
             }
-
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            throwsIfIndexIsNotSorted(indexStorage);
 
             return scanSortedIndex(request, indexStorage);
         }
@@ -1013,6 +990,44 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.S)
                 .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), cursorId, batchCount));
+    }
+
+    /**
+     * Validates that the index storage exists for the given index ID.
+     *
+     * <p>This method checks if the provided index storage is {@code null}, which indicates that the index
+     * with the given ID does not exist in the partition's index storage map.
+     *
+     * @param indexId Index identifier. May be {@code null}.
+     * @param indexStorage Index storage retrieved from the partition's index storage map. May be {@code null}
+     *         if the index does not exist.
+     * @throws IllegalStateException If the index storage is {@code null}, indicating the index was not found.
+     */
+    private void throwsIfIndexNotFound(@Nullable Integer indexId, TableSchemaAwareIndexStorage indexStorage) {
+        if (indexStorage == null) {
+            throw new IllegalStateException(format("Index not found: [id={}].", indexId));
+        }
+    }
+
+    /**
+     * Validates that the index storage is a sorted index, not a hash index.
+     *
+     * <p>This method ensures that range scan operations are only performed on sorted indexes.
+     * Hash indexes do not support range scans because they are designed for exact key lookups only.
+     * Range scans require ordered traversal, which is only available with sorted indexes.
+     *
+     * <p>If the underlying storage is not a {@link SortedIndexStorage} (e.g., it's a {@link HashIndexStorage}),
+     * an exception is thrown to prevent invalid scan operations.
+     *
+     * @param indexStorage Index storage to validate. Must not be {@code null} (should be validated by
+     *         {@link #throwsIfIndexNotFound(Integer, TableSchemaAwareIndexStorage)} first).
+     * @throws IllegalStateException If the index storage is not a sorted index. The exception message
+     *         indicates that scans work only with sorted indexes.
+     */
+    private void throwsIfIndexIsNotSorted(TableSchemaAwareIndexStorage indexStorage) {
+        if (!(indexStorage.storage() instanceof SortedIndexStorage)) {
+            throw new IllegalStateException("Scan works only with sorted index.");
+        }
     }
 
     /**
@@ -3266,10 +3281,19 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
 
+        HybridTimestamp now = clockService.current();
+        ReplicaMeta replicaMeta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
+        Long currentConsistencyToken = (replicaMeta == null || !replicaMeta.getLeaseholderId().equals(localNode.id()))
+                ? null
+                : replicaMeta.getStartTime().longValue();
+
         return transactionStateResolver.resolveTxState(
                         txId,
                         new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
-                        timestamp)
+                        timestamp,
+                        currentConsistencyToken,
+                        replicationGroupId
+                )
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
@@ -3434,6 +3458,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         busyLock.block();
 
         indexBuildingProcessor.onShutdown();
+    }
+
+    @Override
+    public TableTxRwOperationTracker txRwOperationTracker() {
+        return indexBuildingProcessor.tracker();
     }
 
     private int partId() {

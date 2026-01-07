@@ -20,9 +20,9 @@ package org.apache.ignite.internal.compute.executor;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,7 +32,7 @@ public interface ComputeExecutor {
     JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
             String jobClassName,
-            JobClassLoader classLoader,
+            UnitsClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     );
@@ -40,7 +40,7 @@ public interface ComputeExecutor {
     <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            JobClassLoader classLoader,
+            UnitsClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable I arg
     );

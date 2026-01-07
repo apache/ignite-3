@@ -21,19 +21,19 @@ package org.apache.ignite.internal.storage.pagememory.mv;
  * Links to the neighbors of a {@link RowVersion} (which is a write intent) in the write intents list.
  */
 class WriteIntentLinks {
-    private final long nextWriteIntentLink;
     private final long prevWriteIntentLink;
+    private final long nextWriteIntentLink;
 
-    WriteIntentLinks(long nextWriteIntentLink, long prevWriteIntentLink) {
-        this.nextWriteIntentLink = nextWriteIntentLink;
+    WriteIntentLinks(long prevWriteIntentLink, long nextWriteIntentLink) {
         this.prevWriteIntentLink = prevWriteIntentLink;
-    }
-
-    long nextWriteIntentLink() {
-        return nextWriteIntentLink;
+        this.nextWriteIntentLink = nextWriteIntentLink;
     }
 
     long prevWriteIntentLink() {
         return prevWriteIntentLink;
+    }
+
+    long nextWriteIntentLink() {
+        return nextWriteIntentLink;
     }
 }

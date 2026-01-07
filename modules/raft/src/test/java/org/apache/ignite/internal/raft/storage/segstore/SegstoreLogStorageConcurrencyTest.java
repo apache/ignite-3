@@ -30,6 +30,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -51,6 +52,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
             @InjectConfiguration("mock.segmentFileSizeBytes=" + SEGMENT_SIZE)
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
@@ -59,6 +61,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
                 workDir,
                 1,
                 new NoOpFailureManager(),
+                raftConfiguration,
                 storageConfiguration
         );
 

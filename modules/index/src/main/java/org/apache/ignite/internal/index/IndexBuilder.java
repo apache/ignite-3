@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.Iterator;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -43,7 +45,9 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
 /**
  * Component that is responsible for building an index for a specific partition.
@@ -124,6 +128,8 @@ class IndexBuilder implements ManuallyCloseable {
      * @param indexId Index ID.
      * @param indexStorage Index storage to build.
      * @param partitionStorage Multi-versioned partition storage.
+     * @param partitionTxRwOperationTracker Partition transaction read-write operations tracker.
+     * @param partitionSafeTime Partition safe time tracker.
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
      *      to the replica.
@@ -135,6 +141,8 @@ class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
+            TableTxRwOperationTracker partitionTxRwOperationTracker,
+            PendingComparableValuesTracker<HybridTimestamp, Void> partitionSafeTime,
             InternalClusterNode node,
             long enlistmentConsistencyToken,
             HybridTimestamp initialOperationTimestamp
@@ -152,10 +160,13 @@ class IndexBuilder implements ManuallyCloseable {
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
-                    indexCreationActivationTs(indexId),
+                    indexCreationInfo(indexId),
+                    indexBuildingStateActivationTimestamp(indexId),
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    partitionTxRwOperationTracker,
+                    partitionSafeTime,
                     failureProcessor,
                     finalTransactionStateResolver,
                     executor,
@@ -193,6 +204,8 @@ class IndexBuilder implements ManuallyCloseable {
      * @param indexId Index ID.
      * @param indexStorage Index storage to build.
      * @param partitionStorage Multi-versioned partition storage.
+     * @param partitionTxRwOperationTracker Partition transaction read-write operations tracker.
+     * @param partitionSafeTime Partition safe time tracker.
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the
      *         message goes to the replica.
@@ -204,6 +217,8 @@ class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
+            TableTxRwOperationTracker partitionTxRwOperationTracker,
+            PendingComparableValuesTracker<HybridTimestamp, Void> partitionSafeTime,
             InternalClusterNode node,
             long enlistmentConsistencyToken,
             HybridTimestamp initialOperationTimestamp
@@ -217,10 +232,13 @@ class IndexBuilder implements ManuallyCloseable {
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
-                    indexCreationActivationTs(indexId),
+                    indexCreationInfo(indexId),
+                    indexBuildingStateActivationTimestamp(indexId),
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    partitionTxRwOperationTracker,
+                    partitionSafeTime,
                     failureProcessor,
                     finalTransactionStateResolver,
                     executor,
@@ -238,12 +256,19 @@ class IndexBuilder implements ManuallyCloseable {
         });
     }
 
-    private HybridTimestamp indexCreationActivationTs(int indexId) {
+    private MetaIndexStatusChange indexCreationInfo(int indexId) {
+        return requiredIndexMeta(indexId).statusChange(MetaIndexStatus.REGISTERED);
+    }
+
+    private IndexMeta requiredIndexMeta(int indexId) {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         assert indexMeta != null : "Index meta must be present for indexId=" + indexId;
+        return indexMeta;
+    }
 
-        long tsLong = indexMeta.statusChange(MetaIndexStatus.REGISTERED).activationTimestamp();
-        return HybridTimestamp.hybridTimestamp(tsLong);
+    private HybridTimestamp indexBuildingStateActivationTimestamp(int indexId) {
+        MetaIndexStatusChange statusChange = requiredIndexMeta(indexId).statusChange(MetaIndexStatus.BUILDING);
+        return hybridTimestamp(statusChange.activationTimestamp());
     }
 
     /**

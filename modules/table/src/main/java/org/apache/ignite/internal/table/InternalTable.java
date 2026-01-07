@@ -34,7 +34,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -408,20 +407,6 @@ public interface InternalTable extends ManuallyCloseable {
      */
     @Override
     void close();
-
-    /**
-     * Returns the partition safe time tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId);
-
-    /**
-     * Returns the partition storage index tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 
     /**
      * Gets the streamer flush executor service.

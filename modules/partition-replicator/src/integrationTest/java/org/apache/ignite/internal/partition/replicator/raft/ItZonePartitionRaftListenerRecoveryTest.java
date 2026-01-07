@@ -78,11 +78,12 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -304,14 +305,15 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         txStateStorage = new TxStateRocksDbStorage(PARTITION_ID.zoneId(), 10, sharedRockDbStorage);
 
         partitionSnapshotStorage = new PartitionSnapshotStorage(
-                new ZonePartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId()),
+                new PartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId()),
                 clusterService.topologyService(),
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId())),
                 catalogService,
                 failureProcessor,
                 executor,
-                new LogStorageAccessImpl(replicaManager)
+                new LogStorageAccessImpl(replicaManager),
+                new RaftSnapshotsMetricsSource()
         );
     }
 
@@ -382,7 +384,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 tableId,
                 mockStorage(tableId).storage,
                 outgoingSnapshotsManager,
-                new ZonePartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
+                new PartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
 
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
@@ -395,7 +397,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 txManager,
                 storage,
                 storageUpdateHandler,
-                new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 catalogService,
                 schemaRegistry,
                 indexMetaStorage,

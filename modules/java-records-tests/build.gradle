@@ -48,6 +48,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
 
     testImplementation project(':ignite-api')
+    testImplementation project(':ignite-marshaller-common')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':java-records-tests'))
 }

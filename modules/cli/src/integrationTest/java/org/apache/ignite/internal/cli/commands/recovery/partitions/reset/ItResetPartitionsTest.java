@@ -20,22 +20,17 @@ package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Base test class for Cluster Recovery reset partitions commands. */
 public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     private static final String ZONE = "first_ZONE";
 
     private static final String TABLE_NAME = "first_ZONE_table";
-
-    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -48,7 +43,6 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     @Test
     public void testResetAllPartitions() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE);
 
         assertErrOutputIsEmpty();
@@ -58,7 +52,6 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     @Test
     public void testResetSpecifiedPartitions() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2");
 
@@ -71,7 +64,6 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
         String unknownZone = "unknown_zone";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, unknownZone,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2");
 
@@ -80,24 +72,8 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
-    public void testResetPartitionTableNotFound() {
-        // This test in colocation mode is not relevant.
-
-        String unknownTable = "PUBLIC.unknown_table";
-
-        execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, unknownTable,
-                RECOVERY_ZONE_NAME_OPTION, ZONE);
-
-        assertErrOutputContains("The table does not exist [name=" + unknownTable.toUpperCase() + "]");
-        assertOutputIsEmpty();
-    }
-
-    @Test
     public void testResetPartitionsIllegalPartitionNegative() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "0,5,-10");
 
@@ -108,7 +84,6 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     @Test
     public void testResetPartitionsPartitionsOutOfRange() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, String.valueOf(DEFAULT_PARTITION_COUNT));
 
