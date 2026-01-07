@@ -45,13 +45,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
@@ -68,13 +67,11 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -509,52 +506,17 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("primitiveAccessors")
+    @MethodSource("primitiveAccessorsUsingFieldName")
     @SuppressWarnings("ThrowableNotThrown")
-    void nullPointerWhenReadingNullAsPrimitive(
-            NativeType type,
-            BiConsumer<Tuple, Object> fieldAccessor
+    void nullPointerWhenReadingNullByNameAsPrimitiveAfterUpgrade(
+            ColumnType type,
+            BiConsumer<Tuple, String> fieldAccessor
     ) {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("KEY", INT32, false)},
-                new Column[]{new Column("VAL", type, true)}
-        );
+        Row binRow = createNullValueBinaryRow(type);
 
-        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1, new Column("NEW", type, true));
-
-        Tuple tuple = Tuple.create().set("KEY", 1).set("VAL", null);
-        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
-
-        Row binRow = marshaller.marshal(tuple);
-        Tuple row = TableRow.tuple(binRow);
-
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> fieldAccessor.accept(row, 1),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
-        );
-
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> fieldAccessor.accept(row, "VAL"),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL")
-        );
-
-        // Modify row.
-        row.set("NEW", null);
-
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> fieldAccessor.accept(row, 2),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
-        );
-
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> fieldAccessor.accept(row, "NEW"),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
-        );
+        SchemaDescriptor schema = Objects.requireNonNull(binRow.schema());
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1,
+                new Column("NEW", SchemaTestUtils.specToType(type), true));
 
         // Upgrade original row
         var schemaRegistry = new SchemaRegistryImpl(
@@ -566,14 +528,35 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> fieldAccessor.accept(upgradedRow, 2),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
+                () -> fieldAccessor.accept(upgradedRow, "NEW"),
+                String.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
         );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldIndex")
+    @SuppressWarnings("ThrowableNotThrown")
+    void nullPointerWhenReadingNullAsPrimitiveAfterUpgrade(
+            ColumnType type,
+            BiConsumer<Tuple, Integer> fieldAccessor
+    ) {
+        Row binRow = createNullValueBinaryRow(type);
+
+        SchemaDescriptor schema = Objects.requireNonNull(binRow.schema());
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1,
+                new Column("NEW", SchemaTestUtils.specToType(type), true));
+
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        Tuple upgradedRow = TableRow.tuple(schemaRegistry.resolve(binRow, schema2));
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> fieldAccessor.accept(upgradedRow, "NEW"),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
+                () -> fieldAccessor.accept(upgradedRow, 2),
+                String.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
         );
     }
 
@@ -586,6 +569,11 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
+    }
+
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
+        return TableRow.tuple(createNullValueBinaryRow(valueType));
     }
 
     @Override
@@ -625,9 +613,17 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         return TableRow.tuple(marshaller.marshal(tuple));
     }
 
-    private static Stream<Arguments> primitiveAccessors() {
-        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
-                .map(e -> Arguments.of(e.getKey(), e.getValue()));
+    private static Row createNullValueBinaryRow(ColumnType valueType) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("KEY", INT32, false)},
+                new Column[]{new Column("VAL", SchemaTestUtils.specToType(valueType), true)}
+        );
+
+        Tuple tuple = Tuple.create().set("KEY", 1).set("VAL", null);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
+
+        return marshaller.marshal(tuple);
     }
 
     private static SchemaDescriptor applyAddingValueColumn(SchemaDescriptor desc, int position, Column newColumn) {

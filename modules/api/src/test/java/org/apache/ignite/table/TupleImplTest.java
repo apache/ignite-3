@@ -18,18 +18,11 @@
 package org.apache.ignite.table;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests server tuple builder implementation.
@@ -46,6 +39,11 @@ public class TupleImplTest extends AbstractMutableTupleTest {
     @Override
     protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
         return new TupleImpl().set(columnName, value);
+    }
+
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
+        return Tuple.create().set("ID", 1).set("VAL", null);
     }
 
     @Test
@@ -92,47 +90,5 @@ public class TupleImplTest extends AbstractMutableTupleTest {
 
         // must be found by non normalized name, regular method does normalization
         assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("primitiveAccessorsUsingFieldIndex")
-    void nullPointerWhenReadingNullAsPrimitive(Consumer<Tuple> fieldAccessor) {
-        Tuple tuple = Tuple.create().set("VAL", null);
-
-        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple));
-        assertEquals("The value of field at index 0 is null and cannot be converted to a primitive data type.", err.getMessage());
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("primitiveAccessorsUsingFieldName")
-    void nullPointerWhenReadingNullByNameAsPrimitive(Consumer<Tuple> fieldAccessor) {
-        Tuple tuple = Tuple.create().set("VAL", null);
-
-        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple));
-        assertEquals("The value of field 'VAL' is null and cannot be converted to a primitive data type.", err.getMessage());
-    }
-
-    private static List<Arguments> primitiveAccessorsUsingFieldIndex() {
-        return List.of(
-                Arguments.of(Named.of("boolean", (Consumer<Tuple>) tuple -> tuple.booleanValue(0))),
-                Arguments.of(Named.of("byte", (Consumer<Tuple>) tuple -> tuple.byteValue(0))),
-                Arguments.of(Named.of("short", (Consumer<Tuple>) tuple -> tuple.shortValue(0))),
-                Arguments.of(Named.of("int", (Consumer<Tuple>) tuple -> tuple.intValue(0))),
-                Arguments.of(Named.of("long", (Consumer<Tuple>) tuple -> tuple.longValue(0))),
-                Arguments.of(Named.of("float", (Consumer<Tuple>) tuple -> tuple.floatValue(0))),
-                Arguments.of(Named.of("double", (Consumer<Tuple>) tuple -> tuple.doubleValue(0)))
-        );
-    }
-
-    private static List<Arguments> primitiveAccessorsUsingFieldName() {
-        return List.of(
-                Arguments.of(Named.of("boolean", (Consumer<Tuple>) tuple -> tuple.booleanValue("VAL"))),
-                Arguments.of(Named.of("byte", (Consumer<Tuple>) tuple -> tuple.byteValue("VAL"))),
-                Arguments.of(Named.of("short", (Consumer<Tuple>) tuple -> tuple.shortValue("VAL"))),
-                Arguments.of(Named.of("int", (Consumer<Tuple>) tuple -> tuple.intValue("VAL"))),
-                Arguments.of(Named.of("long", (Consumer<Tuple>) tuple -> tuple.longValue("VAL"))),
-                Arguments.of(Named.of("float", (Consumer<Tuple>) tuple -> tuple.floatValue("VAL"))),
-                Arguments.of(Named.of("double", (Consumer<Tuple>) tuple -> tuple.doubleValue("VAL")))
-        );
     }
 }

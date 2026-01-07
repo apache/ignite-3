@@ -134,11 +134,11 @@ public class IgniteUtils {
     /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
     public static final String JMX_METRIC_GROUP_TYPE = "metrics";
 
-    /** The message that is output when trying to convert the {@code null} value to a primitive data type. */
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
     public static final String NULL_TO_PRIMITIVE_ERROR_MESSAGE =
             "The value of field at index {} is null and cannot be converted to a primitive data type.";
 
-    /** The message that is output when trying to convert the {@code null} value to a primitive data type. */
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
     public static final String NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE =
             "The value of field '{}' is null and cannot be converted to a primitive data type.";
 
