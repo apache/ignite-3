@@ -23,7 +23,7 @@ Once we have one connection, the client is fully functional, and we return the `
 
 ### Additional Connections
 
-TBD
+Additional connections are established in the background after the initial connection is made.
 
 ### Design Considerations
 * Iterate over the endpoints in the order they were provided. This allows users to prioritize certain addresses.
