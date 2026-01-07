@@ -39,7 +39,11 @@ import org.apache.ignite.internal.rest.api.deployment.UnitEntry.UnitFolder;
  * <p>The JSON representation includes a discriminator field "type" that can be either
  * "file" or "folder" to distinguish between the two implementations.
  */
-@Schema(description = "Unit content entry.")
+@Schema(
+        description = "Unit content entry.",
+        oneOf = {UnitFile.class, UnitFolder.class},
+        discriminatorProperty = "type"
+)
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
@@ -74,8 +78,11 @@ public interface UnitEntry {
      * <p>This nested class implements {@link UnitEntry} and is serialized with
      * a "type": "file" discriminator in JSON responses.
      */
-    @Schema(description = "Unit content file.")
+    @Schema(name = "UnitFile", description = "Unit content file.")
     public class UnitFile implements UnitEntry {
+        @Schema(description = "Entry type discriminator.", requiredMode = RequiredMode.REQUIRED, allowableValues = "file")
+        private final String type = "file";
+
         @Schema(description = "Unit content file name.", requiredMode = RequiredMode.REQUIRED)
         private final String name;
 
@@ -95,6 +102,16 @@ public interface UnitEntry {
         ) {
             this.name = name;
             this.size = size;
+        }
+
+        /**
+         * Returns the type discriminator.
+         *
+         * @return the type string "file"
+         */
+        @JsonGetter("type")
+        public String type() {
+            return type;
         }
 
         /**
@@ -130,13 +147,20 @@ public interface UnitEntry {
      *
      * <p>The size of a folder is calculated as the sum of all its children's sizes.
      */
-    @Schema(description = "Unit content folder.")
+    @Schema(name = "UnitFolder", description = "Unit content folder.")
     public class UnitFolder implements UnitEntry {
+        @Schema(description = "Entry type discriminator.", requiredMode = RequiredMode.REQUIRED, allowableValues = "folder")
+        private final String type = "folder";
+
         @Schema(description = "Unit content folder name.", requiredMode = RequiredMode.REQUIRED)
         private final String name;
 
         @Schema(description = "Unit content folder elements.", requiredMode = RequiredMode.REQUIRED)
         private final List<UnitEntry> children;
+
+        @Schema(description = "Total size of folder contents in bytes (computed as sum of all children).",
+                requiredMode = RequiredMode.REQUIRED, accessMode = Schema.AccessMode.READ_ONLY)
+        private final long size;
 
         /**
          * Creates a new folder entry for JSON deserialization.
@@ -151,6 +175,17 @@ public interface UnitEntry {
         ) {
             this.name = name;
             this.children = children;
+            this.size = children == null ? 0 : children.stream().mapToLong(UnitEntry::size).sum();
+        }
+
+        /**
+         * Returns the type discriminator.
+         *
+         * @return the type string "folder"
+         */
+        @JsonGetter("type")
+        public String type() {
+            return type;
         }
 
         /**
@@ -171,9 +206,10 @@ public interface UnitEntry {
          *
          * @return the total folder size in bytes
          */
+        @JsonGetter("size")
         @Override
         public long size() {
-            return children.stream().mapToLong(UnitEntry::size).sum();
+            return size;
         }
 
         /**
