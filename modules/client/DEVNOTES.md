@@ -44,7 +44,14 @@ TBD
 
 ### Choosing a Connection for an Operation
 
-TBD
+1. Is it a single-key operation (e.g., `get`, `put`, `remove`)?
+   - Yes: 
+     - Use partition awareness logic to find the target node name
+     - Active connection to that node exists?
+       - Yes: use it
+       - No: go to step 2
+   - No: go to step 2
+2. Pick any active connection with round-robin strategy.
 
 ### Design Considerations
 * Iterate over the endpoints in the order they were provided. This allows users to prioritize certain addresses.
