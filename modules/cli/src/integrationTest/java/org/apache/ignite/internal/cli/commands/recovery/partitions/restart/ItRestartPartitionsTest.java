@@ -51,7 +51,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartAllPartitions() {
+    public void testRestartAllPartitions() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAME_OPTION, ZONE
         );
@@ -61,7 +63,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartSpecifiedPartitions() {
+    public void testRestartSpecifiedPartitions() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2"
@@ -72,7 +76,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartPartitionsByNodes() {
+    public void testRestartPartitionsByNodes() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         String nodeNames = CLUSTER.runningNodes()
                 .limit(initialNodes() - 1)
                 .map(Ignite::name)
