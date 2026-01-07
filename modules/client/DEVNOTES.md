@@ -23,3 +23,16 @@ Once we have one connection, the client is fully functional, and we return the `
 
 ### Additional Connections
 
+TBD
+
+### Design Considerations
+* Iterate over the endpoints in the order they were provided. This allows users to prioritize certain addresses.
+* Return the client as soon as one connection is established. This minimizes startup time.
+
+##### Why Not Randomize the Endpoint Order?
+We can imagine a situation where the user app comes up and many client instances initialize at the same time, 
+flooding the first server in the list with connection attempts. We discussed and rejected the idea to randomize the endpoint order:
+
+* We want to allow users to prioritize certain addresses.
+* Connections are cheap and quick to establish. Secondary connections will be created shortly after the initial connection.
+
