@@ -13,12 +13,15 @@
 
 ### Overview
 
-Three distinct and independent concerns exist around connections:
+Three concerns exist around connections:
 1. Get server addresses
-2. Establish connections
-3. Choose a connection for an operation
+2. Establish connections (using addresses from 1)
+3. Choose a connection for an operation (using connections from 2)
 
-TBD continue.
+These concerns are processed concurrently:
+- Background executor refreshes server addresses (periodically and/or on certain events)
+- Background executor establishes new connections and maintains existing ones (reconnects if necessary)
+- Operation threads choose connections for operations
 
 ### Initial Connection
 
@@ -36,11 +39,17 @@ Additional connections are established in the background after the initial conne
 
 ### Maintaining Connections
 
-TBD
+Every connection exchanges periodic heartbeats with the server. If a heartbeat fails, the connection is considered broken and is closed. 
+A background task will try to re-establish the connection later.
 
 ### Discovering New Servers
 
-TBD
+New server addresses can be discovered in two ways:
+1. From the configured `IgniteClientConfiguration.addressesFinder`
+2. From DNS resolution of the provided addresses
+
+When new addresses are discovered, they are added to the list of known server endpoints.
+New connections will be established to these endpoints in the background.
 
 ### Choosing a Connection for an Operation
 
