@@ -31,7 +31,7 @@ These concerns are handled concurrently:
 
 ### Connection Lifecycle
 
-#### 1. Initial Connection
+#### Initial Connection
 
 When `IgniteClient.builder().addresses("foo:10800", "192.168.0.1").build()` is called:
 
@@ -43,18 +43,18 @@ When `IgniteClient.builder().addresses("foo:10800", "192.168.0.1").build()` is c
 
 Once the first connection is established, the client is fully functional and the `IgniteClient` instance is returned to the user.
 
-### Additional Connections
+#### Additional Connections
 
 Additional connections are established in the background after the initial connection is made. This provides redundancy and load distribution.
 
-#### 3. Connection Maintenance
+#### Connection Maintenance
 
 Each connection exchanges periodic heartbeats with the server:
 
 - If a heartbeat fails, the connection is considered broken and closed
 - A background task attempts to re-establish the connection
 
-#### 4. Server Discovery
+#### Server Discovery
 
 New server addresses can be discovered through two mechanisms:
 
