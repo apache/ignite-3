@@ -11,6 +11,15 @@
 
 ## Connection Management
 
+### Overview
+
+Three distinct and independent concerns exist around connections:
+1. Get server addresses
+2. Establish connections
+3. Choose a connection for an operation
+
+TBD continue.
+
 ### Initial Connection
 
 When we call `IgniteClient.builder().addresses("foo:10800", "192.168.0.1").build()`, the following happens:
