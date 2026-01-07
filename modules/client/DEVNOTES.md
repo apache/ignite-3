@@ -1,78 +1,106 @@
 # Client Internals
 
+This document describes the internal architecture and design decisions of the Apache Ignite 3 client.
+
 ## Glossary
 
-- **Node** or **Server** or **Server Node**: a single cluster member (see `IgniteImpl`)
+- **Node** / **Server** / **Server Node**: A single cluster member (see `IgniteImpl`)
   - Multiple nodes can run in a single JVM
-- **Cluster**: a group of interconnected **nodes**
-- **Client** (former "Thin Client"): a single instance of `IgniteClient` (see `TcpIgniteClient`)
-  - A **client** connects to one or more **servers**
-- **Channel** or **Connection**: a single TCP connection between a **client** and a **server** (see `TcpClientChannel`)
+- **Cluster**: A group of interconnected nodes
+- **Client** (formerly "Thin Client"): A single instance of `IgniteClient` (see `TcpIgniteClient`)
+  - A client connects to one or more servers
+- **Channel** / **Connection**: A single TCP connection between a client and a server (see `TcpClientChannel`)
+
+---
 
 ## Connection Management
 
 ### Overview
 
-Three concerns exist around connections:
-1. Get server addresses
-2. Establish connections (using addresses from 1)
-3. Choose a connection for an operation (using connections from 2)
+Connection management involves three primary concerns:
 
-These concerns are processed concurrently:
-- Background executor refreshes server addresses (periodically and/or on certain events)
+1. **Address Resolution**: Get server addresses
+2. **Connection Establishment**: Establish connections using resolved addresses
+3. **Connection Selection**: Choose an appropriate connection for each operation
+
+These concerns are handled concurrently:
+
+- Background executor refreshes server addresses (periodically and/or on specific events)
 - Background executor establishes new connections and maintains existing ones (reconnects if necessary)
-- Operation threads choose connections for operations
+- Operation threads select connections for operations
 
-### Initial Connection
+### Connection Lifecycle
 
-When we call `IgniteClient.builder().addresses("foo:10800", "192.168.0.1").build()`, the following happens:
-1. Build a list of **endpoints**. For each provided address:
-   - Extract port if present, use default otherwise
-   - Resolve DNS if necessary. A host name can resolve to one or more IP addresses.
-2. Iterate over the list of **endpoints** and try to connect to each one until a connection is successfully established.
+#### 1. Initial Connection
 
-Once we have one connection, the client is fully functional, and we return the `IgniteClient` instance to the user.
+When `IgniteClient.builder().addresses("foo:10800", "192.168.0.1").build()` is called:
+
+1. **Build endpoint list** - For each provided address:
+   - Extract port if present, otherwise use default port
+   - Resolve DNS if necessary (a hostname can resolve to multiple IP addresses)
+
+2. **Establish first connection** - Iterate over endpoints and attempt to connect to each one until successful
+
+Once the first connection is established, the client is fully functional and the `IgniteClient` instance is returned to the user.
 
 ### Additional Connections
 
-Additional connections are established in the background after the initial connection is made.
+Additional connections are established in the background after the initial connection is made. This provides redundancy and load distribution.
 
-### Maintaining Connections
+#### 3. Connection Maintenance
 
-Every connection exchanges periodic heartbeats with the server. If a heartbeat fails, the connection is considered broken and is closed. 
-A background task will try to re-establish the connection later.
+Each connection exchanges periodic heartbeats with the server:
 
-### Discovering New Servers
+- If a heartbeat fails, the connection is considered broken and closed
+- A background task attempts to re-establish the connection
 
-New server addresses can be discovered in two ways:
-1. From the configured `IgniteClientConfiguration.addressesFinder`
-2. From DNS resolution of the provided addresses
+#### 4. Server Discovery
 
-When new addresses are discovered, they are added to the list of known server endpoints.
-New connections will be established to these endpoints in the background.
+New server addresses can be discovered through two mechanisms:
 
-### Choosing a Connection for an Operation
+1. The configured `IgniteClientConfiguration.addressesFinder`
+2. DNS resolution of provided addresses
 
-1. Is it a single-key operation (e.g., `get`, `put`, `remove`)?
-   - No: go to step 2
-   - Yes: 
+When new addresses are discovered:
+
+- They are added to the list of known server endpoints
+- New connections are established to these endpoints in the background
+
+### Connection Selection Strategy
+
+For each operation, the client selects a connection using the following algorithm:
+
+1. **Check operation type**: Is it a single-key operation (e.g., `get`, `put`, `remove`)?
+   - **Yes**:
      - Use partition awareness logic to find the target node name
-     - Active connection to that node exists?
-       - Yes: use it
-       - No: go to step 2
-2. Pick an active connection with round-robin strategy.
-3. If no active connections exist, try to establish a new connection to one of the known server endpoints.
+     - If an active connection to that node exists, use it
+     - Otherwise, proceed to step 2
+   - **No**: Proceed to step 2
 
-### Design Considerations
-* Iterate over the endpoints in the order they were provided. This allows users to prioritize certain addresses.
-* Return the client as soon as one connection is established. This minimizes startup time.
-* Choose the most suitable connection for a given operation among the available active connections. 
-  * In other words, avoid establishing a new connection if an existing one can be used.
+2. **Round-robin selection**: Pick an active connection using round-robin strategy
 
-##### Why Not Randomize the Endpoint Order?
-We can imagine a situation where the user app comes up and many client instances initialize at the same time, 
-flooding the first server in the list with connection attempts. We discussed and rejected the idea to randomize the endpoint order:
+3. **Fallback**: If no active connections exist, attempt to establish a new connection to one of the known server endpoints
 
-* We want to allow users to prioritize certain addresses.
-* Connections are cheap and quick to establish. Secondary connections will be created shortly after the initial connection.
+---
+
+## Design Considerations
+
+### Connection Ordering
+
+**Endpoints are iterated in the order they were provided.** This design allows users to prioritize certain addresses (e.g., prefer local servers over remote ones).
+
+#### Why Not Randomize the Endpoint Order?
+
+In scenarios where many client instances initialize simultaneously (e.g., application startup), the first server in the list could be flooded with connection attempts. Despite this concern, endpoint randomization was rejected for the following reasons:
+
+- **User control**: Users should be able to prioritize certain addresses
+- **Performance**: Connections are cheap and quick to establish; secondary connections are created shortly after the initial connection
+
+### Startup Optimization
+
+**The client is returned as soon as one connection is established.** This minimizes startup time and allows applications to begin operations immediately.
+
+### Connection Reuse
+
+**The most suitable connection is chosen for each operation among available active connections.** The client avoids establishing new connections when existing ones can serve the operation.
 
