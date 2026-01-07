@@ -66,7 +66,8 @@ New connections will be established to these endpoints in the background.
 ### Design Considerations
 * Iterate over the endpoints in the order they were provided. This allows users to prioritize certain addresses.
 * Return the client as soon as one connection is established. This minimizes startup time.
-* Choose the most suitable connection for a given operation among the available active connections. In other words, avoid establishing a new connection if an existing one can be used.
+* Choose the most suitable connection for a given operation among the available active connections. 
+  * In other words, avoid establishing a new connection if an existing one can be used.
 
 ##### Why Not Randomize the Endpoint Order?
 We can imagine a situation where the user app comes up and many client instances initialize at the same time, 
