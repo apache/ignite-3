@@ -100,7 +100,7 @@ In scenarios where many client instances initialize simultaneously (e.g., applic
 
 **The client is returned as soon as one connection is established.** This minimizes startup time and allows applications to begin operations immediately.
 
-### Connection Reuse
+### Best Effort Partition Awareness
 
-**The most suitable connection is chosen for each operation among available active connections.** The client avoids establishing new connections when existing ones can serve the operation.
-
+It is fine to "miss" partition-aware routing occasionally (stale assignment, broken connection, etc). The server will redirect the request if necessary.
+We optimize for the happy path where the cluster is stable and connections are healthy.
