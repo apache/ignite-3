@@ -31,11 +31,6 @@ class StaleNodeHandlingParamsImpl implements StaleNodeHandlingParams {
     }
 
     @Override
-    public int physicalTopologySize() {
-        return topologyService.allMembers().size();
-    }
-
-    @Override
     public long topologyVersion() {
         return topologyService.logicalTopologyVersion();
     }

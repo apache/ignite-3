@@ -214,7 +214,6 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 .serverClusterId(clusterIdSupplier.clusterId())
                 .productName(productVersionSource.productName())
                 .productVersion(productVersionSource.productVersion().toString())
-                .physicalTopologySize(params.physicalTopologySize())
                 .topologyVersion(params.topologyVersion())
                 .build();
     }

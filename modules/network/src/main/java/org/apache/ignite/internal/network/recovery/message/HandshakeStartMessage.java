@@ -43,8 +43,5 @@ public interface HandshakeStartMessage extends StaleNodeHandlingParams, Internal
     String productVersion();
 
     @Override
-    int physicalTopologySize();
-
-    @Override
     long topologyVersion();
 }

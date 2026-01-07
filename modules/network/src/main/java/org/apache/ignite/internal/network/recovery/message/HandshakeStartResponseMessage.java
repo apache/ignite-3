@@ -45,8 +45,5 @@ public interface HandshakeStartResponseMessage extends StaleNodeHandlingParams, 
     long receivedCount();
 
     @Override
-    int physicalTopologySize();
-
-    @Override
     long topologyVersion();
 }

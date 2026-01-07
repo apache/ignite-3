@@ -101,14 +101,8 @@ class HandshakeManagerUtils {
         long localTopologyVersion = local.topologyVersion();
         long remoteTopologyVersion = remote.topologyVersion();
 
-        if (localTopologyVersion > remoteTopologyVersion) {
+        if (localTopologyVersion >= remoteTopologyVersion) {
             return;
-        }
-
-        if (localTopologyVersion == remoteTopologyVersion) {
-            if (local.physicalTopologySize() >= remote.physicalTopologySize()) {
-                return;
-            }
         }
 
         failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));

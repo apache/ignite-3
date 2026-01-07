@@ -512,7 +512,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 .clientNode(clusterNodeToMessage(localNode))
                 .receivedCount(descriptor.receivedCount())
                 .connectionId(connectionId)
-                .physicalTopologySize(params.physicalTopologySize())
                 .topologyVersion(params.topologyVersion())
                 .build();
     }
