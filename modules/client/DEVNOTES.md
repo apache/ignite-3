@@ -34,6 +34,18 @@ Once we have one connection, the client is fully functional, and we return the `
 
 Additional connections are established in the background after the initial connection is made.
 
+### Maintaining Connections
+
+TBD
+
+### Discovering New Servers
+
+TBD
+
+### Choosing a Connection for an Operation
+
+TBD
+
 ### Design Considerations
 * Iterate over the endpoints in the order they were provided. This allows users to prioritize certain addresses.
 * Return the client as soon as one connection is established. This minimizes startup time.
