@@ -45,7 +45,8 @@ Once the first connection is established, the client is fully functional and the
 
 #### Additional Connections
 
-Additional connections are established in the background after the initial connection is made. This provides redundancy and load distribution.
+Additional connections are established in the background after the initial connection is made. 
+This provides robustness, load balancing, and partition awareness.
 
 #### Connection Maintenance
 
