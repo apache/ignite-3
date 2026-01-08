@@ -241,16 +241,15 @@ public interface SortedIndexTreeIo {
 
         int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        ByteBuffer outerBuffer = rowKey.indexColumns().valueBuffer();
-        UnsafeByteBufferAccessor outerAccessor = new UnsafeByteBufferAccessor(outerBuffer);
-        UnsafeByteBufferAccessor innerAccessor;
+        UnsafeByteBufferAccessor outerAccessor = rowKey.myAccessor;
+        UnsafeByteBufferAccessor innerAccessor = rowKey.otherAccessor;
         int innerSize;
 
         if (indexColumnsSize == NOT_FULLY_INLINE) {
             innerSize = indexColumnsInlineSize();
-            innerAccessor = new UnsafeByteBufferAccessor(pageAddr + off + TUPLE_OFFSET, innerSize);
+            innerAccessor.reinit(pageAddr + off + TUPLE_OFFSET, innerSize);
 
-            int cmp = comparator.compare(outerAccessor, outerBuffer.capacity(), innerAccessor, innerSize);
+            int cmp = comparator.compare(outerAccessor, outerAccessor.capacity(), innerAccessor, innerSize);
 
             if (cmp != 0) {
                 return -cmp;
@@ -264,13 +263,13 @@ public interface SortedIndexTreeIo {
 
             byte[] innerBytes = indexColumnsTraversal.result();
             innerSize = innerBytes.length;
-            innerAccessor = new UnsafeByteBufferAccessor(innerBytes, 0, innerBytes.length);
+            innerAccessor.reinit(innerBytes, 0, innerBytes.length);
         } else {
             innerSize = indexColumnsSize;
-            innerAccessor = new UnsafeByteBufferAccessor(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+            innerAccessor.reinit(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
         }
 
-        int cmp = comparator.compare(outerAccessor, outerBuffer.capacity(), innerAccessor, innerSize);
+        int cmp = comparator.compare(outerAccessor, outerAccessor.capacity(), innerAccessor, innerSize);
 
         if (cmp != 0) {
             return -cmp;
