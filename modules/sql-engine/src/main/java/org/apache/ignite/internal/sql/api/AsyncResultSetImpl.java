@@ -216,9 +216,13 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public <T> T valueOrDefault(String columnName, T defaultValue) {
-            T ret = (T) row.get(columnIndexChecked(columnName));
+            int columnIndex = columnIndex(columnName);
 
-            return ret != null ? ret : defaultValue;
+            if (columnIndex == -1) {
+                return defaultValue;
+            }
+
+            return (T) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */

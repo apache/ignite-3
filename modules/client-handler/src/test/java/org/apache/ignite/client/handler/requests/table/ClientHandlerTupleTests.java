@@ -37,9 +37,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
+import java.util.IdentityHashMap;
 import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -235,7 +238,27 @@ public class ClientHandlerTupleTests {
     }
 
     private static Stream<Arguments> primitiveAccessors() {
-        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
+        IdentityHashMap<NativeType, BiConsumer<Tuple, Object>> map = new IdentityHashMap<>();
+
+        map.put(NativeTypes.BOOLEAN, (tuple, index) -> invoke(index, tuple::booleanValue, tuple::booleanValue));
+        map.put(NativeTypes.INT8, (tuple, index) -> invoke(index, tuple::byteValue, tuple::byteValue));
+        map.put(NativeTypes.INT16, (tuple, index) -> invoke(index, tuple::shortValue, tuple::shortValue));
+        map.put(NativeTypes.INT32, (tuple, index) -> invoke(index, tuple::intValue, tuple::intValue));
+        map.put(NativeTypes.INT64, (tuple, index) -> invoke(index, tuple::longValue, tuple::longValue));
+        map.put(NativeTypes.FLOAT, (tuple, index) -> invoke(index, tuple::floatValue, tuple::floatValue));
+        map.put(NativeTypes.DOUBLE, (tuple, index) -> invoke(index, tuple::doubleValue, tuple::doubleValue));
+
+        return map.entrySet().stream()
                 .map(e -> Arguments.of(e.getKey(), e.getValue()));
+    }
+
+    private static void invoke(Object index, IntConsumer intConsumer, Consumer<String> strConsumer) {
+        if (index instanceof Integer) {
+            intConsumer.accept((int) index);
+        } else {
+            assert index instanceof String : index.getClass();
+
+            strConsumer.accept((String) index);
+        }
     }
 }
