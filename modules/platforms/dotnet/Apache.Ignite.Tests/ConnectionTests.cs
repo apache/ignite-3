@@ -102,6 +102,7 @@ public class ConnectionTests
     [Timeout(5000)]
     public async Task TestDuplicateEndpoints()
     {
+        // TODO: Check what happens in Java
         using var server = new FakeServer
         {
             AllowMultipleConnections = true
