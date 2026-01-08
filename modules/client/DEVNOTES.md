@@ -62,6 +62,9 @@ New server addresses can be discovered through two mechanisms:
 1. The configured `IgniteClientConfiguration.addressesFinder`
 2. DNS resolution of provided addresses (see [IEP-142 Client DNS Resolution](https://cwiki.apache.org/confluence/display/IGNITE/IEP-142+Client+DNS+Resolution))
 
+Address discovery happens periodically (`IgniteClientConfiguration#backgroundReResolveAddressesInterval`) 
+and on specific events (connection loss, partition assignment change).
+
 When new addresses are discovered:
 
 - They are added to the list of known server endpoints
