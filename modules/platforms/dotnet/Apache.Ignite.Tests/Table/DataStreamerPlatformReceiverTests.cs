@@ -203,6 +203,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     }
 
     [Test]
+    [Category(TestUtils.CategoryIntensive)]
     public async Task TestEchoManyItems([Values(1, 3, 99, 100_000)] int pageSize)
     {
         const int count = 1_000;
