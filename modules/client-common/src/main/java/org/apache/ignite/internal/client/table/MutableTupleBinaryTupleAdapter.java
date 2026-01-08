@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readByteValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readDoubleValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readFloatValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readIntValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readLongValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readShortValue;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -97,7 +104,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.columnIndex(columnName);
         }
 
-        int binaryTupleIndex = binaryTupleIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName);
 
         return binaryTupleIndex < 0 ? -1 : publicIndex(binaryTupleIndex);
     }
@@ -109,7 +116,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        int binaryTupleIndex = binaryTupleIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName);
 
         return binaryTupleIndex < 0
                 || publicIndex(binaryTupleIndex) < 0
@@ -125,7 +132,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.value(columnName);
         }
 
-        int binaryTupleIndex = binaryTupleIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName);
 
         if (binaryTupleIndex < 0 || publicIndex(binaryTupleIndex) < 0) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
@@ -182,11 +189,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.byteValue(columnName);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.INT8);
+        int binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
-
-        return binaryTuple.byteValue(binaryTupleIndex);
+        return readByteValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
@@ -196,11 +202,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.byteValue(columnIndex);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.INT8);
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
-
-        return binaryTuple.byteValue(binaryTupleIndex);
+        return readByteValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -210,11 +216,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.shortValue(columnName);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.INT16);
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
-
-        return binaryTuple.shortValue(binaryTupleIndex);
+        return readShortValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
@@ -224,11 +229,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.shortValue(columnIndex);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.INT16);
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
-
-        return binaryTuple.shortValue(binaryTupleIndex);
+        return readShortValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -238,11 +243,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.intValue(columnName);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.INT32);
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
-
-        return binaryTuple.intValue(binaryTupleIndex);
+        return readIntValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
@@ -252,11 +256,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.intValue(columnIndex);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.INT32);
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
-
-        return binaryTuple.intValue(binaryTupleIndex);
+        return readIntValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -266,11 +270,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.longValue(columnName);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.INT64);
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
-
-        return binaryTuple.longValue(binaryTupleIndex);
+        return readLongValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
@@ -280,11 +283,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.longValue(columnIndex);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.INT64);
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
-
-        return binaryTuple.longValue(binaryTupleIndex);
+        return readLongValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -294,11 +297,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.floatValue(columnName);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.FLOAT);
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
-
-        return binaryTuple.floatValue(binaryTupleIndex);
+        return readFloatValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
@@ -308,11 +310,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.floatValue(columnIndex);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.FLOAT);
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
-
-        return binaryTuple.floatValue(binaryTupleIndex);
+        return readFloatValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -322,11 +324,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.doubleValue(columnName);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.DOUBLE);
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
-
-        return binaryTuple.doubleValue(binaryTupleIndex);
+        return readDoubleValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
@@ -336,11 +337,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.doubleValue(columnIndex);
         }
 
-        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.DOUBLE);
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
-        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
-
-        return binaryTuple.doubleValue(binaryTupleIndex);
+        return readDoubleValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -539,30 +540,20 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         return publicIndex;
     }
 
-    private int binaryTupleIndex(String columnName, @Nullable ColumnType type) {
-        var binaryTupleIndex = binaryTupleIndex(columnName);
+    private int validateSchemaColumnType(String columnName, ColumnType type) {
+        var index = binaryTupleIndex(columnName);
 
-        if (binaryTupleIndex < 0) {
-            return binaryTupleIndex;
+        if (index < 0) {
+            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
         if (type != null) {
-            ColumnType actualType = schemaColumnType(binaryTupleIndex);
+            ColumnType actualType = schemaColumnType(index);
 
             if (type != actualType) {
                 throw new ClassCastException("Column with name '" + columnName + "' has type " + actualType
                         + " but " + type + " was requested");
             }
-        }
-
-        return binaryTupleIndex;
-    }
-
-    private int validateSchemaColumnType(String columnName, ColumnType type) {
-        var index = binaryTupleIndex(columnName, type);
-
-        if (index < 0) {
-            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
         return index;
@@ -650,6 +641,16 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             default:
                 throw new IllegalStateException("Unsupported type: " + type);
         }
+    }
+
+    private int resolveBinaryTupleIndexByColumnName(String columnName) {
+        int binaryTupleIndex = binaryTupleIndex(columnName);
+
+        if (binaryTupleIndex < 0) {
+            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
+        }
+
+        return binaryTupleIndex;
     }
 
     @Override
