@@ -40,11 +40,13 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
+import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.comparator.JitComparator;
 
 /**
  * Interface for {@link SortedIndexRow} B+Tree-related IO.
@@ -210,13 +212,80 @@ public interface SortedIndexTreeIo {
             return cmp;
         }
 
-        assert rowKey instanceof SortedIndexRow : rowKey;
+        return compareRowId(pageAddr, rowKey, off);
+    }
+
+    /**
+     * Compare the {@link SortedIndexRowKey} from the page with passed {@link SortedIndexRowKey}. This method is very similar to
+     * {@link #compare(DataPageReader, Comparator, PartialBinaryTupleMatcher, int, long, int, SortedIndexRowKey)}. Combining them into a
+     * single method would make it too bloated and hard to follow, assuming an optimal implementation of both methods.
+     *
+     * @param dataPageReader Data page reader.
+     * @param comparator Comparator.
+     * @param partitionId Partition ID.
+     * @param pageAddr Page address.
+     * @param idx Element's index.
+     * @param rowKey Lookup index row key.
+     * @return Comparison result.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    default int compare(
+            DataPageReader dataPageReader,
+            JitComparator comparator,
+            int partitionId,
+            long pageAddr,
+            int idx,
+            SortedIndexRowKey rowKey
+    ) throws IgniteInternalCheckedException {
+        int off = offset(idx);
+
+        int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
+
+        UnsafeByteBufferAccessor outerAccessor = rowKey.myAccessor;
+        UnsafeByteBufferAccessor innerAccessor = rowKey.otherAccessor;
+        int innerSize;
+
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
+            innerSize = indexColumnsInlineSize();
+            innerAccessor.reinit(pageAddr + off + TUPLE_OFFSET, innerSize);
+
+            int cmp = comparator.compare(outerAccessor, outerAccessor.capacity(), innerAccessor, innerSize);
+
+            if (cmp != 0) {
+                return -cmp;
+            }
+
+            long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
+
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            byte[] innerBytes = indexColumnsTraversal.result();
+            innerSize = innerBytes.length;
+            innerAccessor.reinit(innerBytes, 0, innerBytes.length);
+        } else {
+            innerSize = indexColumnsSize;
+            innerAccessor.reinit(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+        }
+
+        int cmp = comparator.compare(outerAccessor, outerAccessor.capacity(), innerAccessor, innerSize);
+
+        if (cmp != 0) {
+            return -cmp;
+        }
+
+        return compareRowId(pageAddr, rowKey, off);
+    }
+
+    private int compareRowId(long pageAddr, SortedIndexRowKey rowKey, int off) {
+        assert rowKey instanceof SortedIndexRow : "Comparison with a binary tuple prefix returned 0. [rowKey=" + rowKey.getClass() + "]";
 
         SortedIndexRow row = (SortedIndexRow) rowKey;
 
         long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
 
-        cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
+        int cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
 
         if (cmp != 0) {
             return cmp;

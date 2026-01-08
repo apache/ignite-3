@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
+import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
 import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 
@@ -33,10 +34,18 @@ public class SortedIndexRowKey implements IndexRowKey {
      */
     SortedIndexRowKey(IndexColumns indexColumns) {
         this.indexColumns = indexColumns;
+        this.myAccessor = new UnsafeByteBufferAccessor(indexColumns.valueBuffer());
+        this.otherAccessor = new UnsafeByteBufferAccessor(0, 0);
     }
 
     @Override
     public IndexColumns indexColumns() {
         return indexColumns;
     }
+
+    /** Cached accessor instance for the {@link #indexColumns}. Used to avoid constant reallocations. */
+    public final UnsafeByteBufferAccessor myAccessor;
+
+    /** Cached accessor instance for the arbitrary buffer. Used to avoid reallocations. */
+    public final UnsafeByteBufferAccessor otherAccessor;
 }

@@ -266,6 +266,12 @@
     <Bug pattern="SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR"/>
     <Class name="org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff"/>
   </Match>
+  <Match>
+    <!-- Done that way on purpose. -->
+    <Bug pattern="RV_NEGATING_RESULT_OF_COMPARETO"/>
+    <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo"/>
+    <Method name="compare"/>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 
