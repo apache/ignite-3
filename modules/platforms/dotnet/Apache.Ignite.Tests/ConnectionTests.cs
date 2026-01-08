@@ -102,7 +102,11 @@ public class ConnectionTests
     [Timeout(5000)]
     public async Task TestDuplicateEndpoints()
     {
-        using var server = new FakeServer();
+        using var server = new FakeServer
+        {
+            AllowMultipleConnections = true
+        };
+
         using var logger = new ConsoleLogger(LogLevel.Trace);
 
         var cfg = new IgniteClientConfiguration($"127.0.0.1:{server.Port}", $"localhost:{server.Port}")
@@ -116,9 +120,6 @@ public class ConnectionTests
 
         await Task.Delay(500);
         Assert.AreEqual(1, client.GetConnections().Count);
-
-        // TODO: What happens here? Why does the test hang?
-        // client.WaitForConnections(2, 3000);
     }
 
     private static async Task TestGetClusterNodes(EndPoint endpoint)
