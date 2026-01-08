@@ -96,6 +96,17 @@ public class ConnectionTests
         [Values("1.2.3.4:5678", "[2001:db8::1]:8080")] string ipString) =>
         await TestGetClusterNodes(IPEndPoint.Parse(ipString));
 
+    [Test]
+    public async Task TestDuplicateEndpoints()
+    {
+        using var server = new FakeServer();
+
+        var endpoints = new[] { $"127.0.0.100:{server.Port}", $"localhost:{server.Port}" };
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoints));
+
+        client.WaitForConnections(2);
+    }
+
     private static async Task TestGetClusterNodes(EndPoint endpoint)
     {
         var clusterNode = new ClusterNode(
