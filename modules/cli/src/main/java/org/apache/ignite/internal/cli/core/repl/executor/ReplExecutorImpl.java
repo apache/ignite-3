@@ -89,41 +89,37 @@ public class ReplExecutorImpl implements ReplExecutor {
         this.pagerSupport = new PagerSupport(terminal, configManagerProvider);
     }
 
+    private TailTipWidgets tailTipWidgets;
+
     private void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
-        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
+        tailTipWidgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                 TailTipWidgets.TipType.COMPLETER);
-        widgets.enable();
+        tailTipWidgets.enable();
         // Workaround for the scroll truncation issue in windows terminal
         // Turn off tailtip widgets before printing to the output
-        // Also pipe large outputs through pager if enabled
         CommandLineContextProvider.setPrintWrapper(printer -> {
-            widgets.disable();
-            printWithPager(printer);
-            widgets.enable();
+            tailTipWidgets.disable();
+            printer.run();
+            tailTipWidgets.enable();
         });
         // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
         registry.setScriptDescription(cmdLine -> null);
     }
 
-    private void printWithPager(Runnable printer) {
-        // Capture output to check if pager is needed
-        StringWriter sw = new StringWriter();
-        PrintWriter captured = new PrintWriter(sw);
-        PrintWriter original = CommandLineContextProvider.getContext().out();
-
-        // Temporarily redirect output to capture it
-        CommandLineContextProvider.setWriters(captured, CommandLineContextProvider.getContext().err());
-        printer.run();
-        captured.flush();
-        CommandLineContextProvider.setWriters(original, CommandLineContextProvider.getContext().err());
-
-        String output = sw.toString();
+    private void outputWithPager(String output) {
+        if (tailTipWidgets != null) {
+            tailTipWidgets.disable();
+        }
 
         if (pagerSupport.shouldUsePager(output)) {
             pagerSupport.pipeToPage(output);
         } else {
-            original.print(output);
-            original.flush();
+            terminal.writer().print(output);
+            terminal.writer().flush();
+        }
+
+        if (tailTipWidgets != null) {
+            tailTipWidgets.enable();
         }
     }
 
@@ -179,7 +175,22 @@ public class ReplExecutorImpl implements ReplExecutor {
                         continue;
                     }
 
+                    // Capture output during command execution for pager support
+                    StringWriter capturedOutput = new StringWriter();
+                    PrintWriter capturedWriter = new PrintWriter(capturedOutput);
+                    picocliCommands.getCmd().setOut(capturedWriter);
+
                     repl.getPipeline(executor, exceptionHandlers, line).runPipeline();
+
+                    // Output with pager if needed
+                    capturedWriter.flush();
+                    String output = capturedOutput.toString();
+                    if (!output.isEmpty()) {
+                        outputWithPager(output);
+                    }
+
+                    // Restore original writer
+                    picocliCommands.getCmd().setOut(terminal.writer());
                 } catch (Throwable t) {
                     exceptionHandlers.handleException(System.err::println, t);
                 }
@@ -192,16 +203,10 @@ public class ReplExecutorImpl implements ReplExecutor {
 
     private void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
         if (repl.isTailTipWidgetsEnabled()) {
-            // TailTipWidgets setup includes pager wrapper
             createTailTipWidgets(registry, reader);
-        } else {
-            // Set up pager wrapper for cases when TailTipWidgets are not used
-            CommandLineContextProvider.setPrintWrapper(this::printWithPager);
-
-            if (repl.isAutosuggestionsWidgetsEnabled()) {
-                AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
-                widgets.enable();
-            }
+        } else if (repl.isAutosuggestionsWidgetsEnabled()) {
+            AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
+            widgets.enable();
         }
     }
 
