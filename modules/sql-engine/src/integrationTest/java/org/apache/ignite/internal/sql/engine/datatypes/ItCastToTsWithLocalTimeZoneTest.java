@@ -351,7 +351,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
         assertQuery(expression)
                 .withParam(TIMESTAMP_MAX)
                 .withTimeZoneId(ZoneOffset.MAX)
-                .returns("9999-12-31 23:59:59.999 GMT+18:00")
+                .returns("9999-12-31 23:59:59.999000000 GMT+18:00")
                 .check();
 
         expectTsLtzOutOfRangeException(
@@ -364,7 +364,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
         assertQuery(expression)
                 .withParam(TIMESTAMP_MIN)
                 .withTimeZoneId(ZoneOffset.MIN)
-                .returns("0001-01-01 00:00:00 GMT-18:00")
+                .returns("0001-01-01 00:00:00.000000000 GMT-18:00")
                 .check();
 
         expectTsLtzOutOfRangeException(
@@ -419,24 +419,24 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
             assertQuery("SELECT val::VARCHAR, val FROM test")
                     .withTimeZoneId(ZoneOffset.MAX)
-                    .returns("9999-12-31 23:59:59.999 GMT+18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
-                    .returns("9999-12-31 23:59:59.999 GMT+18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
-                    .returns("9999-12-31 12:00:00 GMT+18:00", Instant.parse("9999-12-30T18:00:00Z"))
+                    .returns("9999-12-31 23:59:59.999000 GMT+18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
+                    .returns("9999-12-31 23:59:59.999000 GMT+18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
+                    .returns("9999-12-31 12:00:00.000000 GMT+18:00", Instant.parse("9999-12-30T18:00:00Z"))
 
-                    .returns("0001-01-02 12:00:00 GMT+18:00", TIMESTAMP_MIN)
-                    .returns("0001-01-02 12:00:00 GMT+18:00", TIMESTAMP_MIN)
-                    .returns("0001-01-03 00:00:00 GMT+18:00", Instant.parse("0001-01-02T06:00:00Z"))
+                    .returns("0001-01-02 12:00:00.000000 GMT+18:00", TIMESTAMP_MIN)
+                    .returns("0001-01-02 12:00:00.000000 GMT+18:00", TIMESTAMP_MIN)
+                    .returns("0001-01-03 00:00:00.000000 GMT+18:00", Instant.parse("0001-01-02T06:00:00Z"))
                     .check();
 
             assertQuery("SELECT val::VARCHAR, val FROM test")
                     .withTimeZoneId(ZoneOffset.MIN)
-                    .returns("9999-12-30 11:59:59.999 GMT-18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
-                    .returns("9999-12-30 11:59:59.999 GMT-18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
-                    .returns("9999-12-30 00:00:00 GMT-18:00", Instant.parse("9999-12-30T18:00:00Z"))
+                    .returns("9999-12-30 11:59:59.999000 GMT-18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
+                    .returns("9999-12-30 11:59:59.999000 GMT-18:00", TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS))
+                    .returns("9999-12-30 00:00:00.000000 GMT-18:00", Instant.parse("9999-12-30T18:00:00Z"))
 
-                    .returns("0001-01-01 00:00:00 GMT-18:00", TIMESTAMP_MIN)
-                    .returns("0001-01-01 00:00:00 GMT-18:00", TIMESTAMP_MIN)
-                    .returns("0001-01-01 12:00:00 GMT-18:00", Instant.parse("0001-01-02T06:00:00Z"))
+                    .returns("0001-01-01 00:00:00.000000 GMT-18:00", TIMESTAMP_MIN)
+                    .returns("0001-01-01 00:00:00.000000 GMT-18:00", TIMESTAMP_MIN)
+                    .returns("0001-01-01 12:00:00.000000 GMT-18:00", Instant.parse("0001-01-02T06:00:00Z"))
                     .check();
         }
 
@@ -478,14 +478,16 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
             assertQuery("SELECT val::VARCHAR, val FROM test")
                     .withTimeZoneId(ZoneOffset.MAX)
-                    .returns("9999-12-31 23:00:00 GMT+18:00", TIMESTAMP_MAX.minusSeconds(59 * 60 + 59).truncatedTo(ChronoUnit.SECONDS))
-                    .returns("0001-01-02 12:59:59 GMT+18:00", TIMESTAMP_MIN.plusSeconds(59 * 60 + 59))
+                    .returns("9999-12-31 23:00:00.000000 GMT+18:00",
+                            TIMESTAMP_MAX.minusSeconds(59 * 60 + 59).truncatedTo(ChronoUnit.SECONDS))
+                    .returns("0001-01-02 12:59:59.000000 GMT+18:00", TIMESTAMP_MIN.plusSeconds(59 * 60 + 59))
                     .check();
 
             assertQuery("SELECT val::VARCHAR, val FROM test")
                     .withTimeZoneId(ZoneOffset.MIN)
-                    .returns("9999-12-30 11:00:00 GMT-18:00", TIMESTAMP_MAX.minusSeconds(59 * 60 + 59).truncatedTo(ChronoUnit.SECONDS))
-                    .returns("0001-01-01 00:59:59 GMT-18:00", TIMESTAMP_MIN.plusSeconds(59 * 60 + 59))
+                    .returns("9999-12-30 11:00:00.000000 GMT-18:00",
+                            TIMESTAMP_MAX.minusSeconds(59 * 60 + 59).truncatedTo(ChronoUnit.SECONDS))
+                    .returns("0001-01-01 00:59:59.000000 GMT-18:00", TIMESTAMP_MIN.plusSeconds(59 * 60 + 59))
                     .check();
         }
     }

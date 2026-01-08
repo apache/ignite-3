@@ -617,13 +617,13 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
                     List<List<Object>> res = sql(0, null, ZoneOffset.UTC, query, new Object[]{1});
 
                     assertEquals(SchemaUtils.TIMESTAMP_MIN, res.get(0).get(0));
-                    assertEquals("0001-01-01 18:00:00 UTC", res.get(0).get(1));
+                    assertEquals("0001-01-01 18:00:00.000000 UTC", res.get(0).get(1));
                 }
                 {
                     List<List<Object>> res = sql(0, null, ZoneOffset.UTC, query, new Object[]{2});
 
                     assertEquals(SchemaUtils.TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS), res.get(0).get(0));
-                    assertEquals("9999-12-31 05:59:59.999 UTC", res.get(0).get(1));
+                    assertEquals("9999-12-31 05:59:59.999000 UTC", res.get(0).get(1));
                 }
             }
 
@@ -671,13 +671,13 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
                     List<List<Object>> res = sql(query, 1);
 
                     assertEquals(SchemaUtils.DATETIME_MIN, res.get(0).get(0));
-                    assertEquals("0001-01-01 18:00:00", res.get(0).get(1));
+                    assertEquals("0001-01-01 18:00:00.000000", res.get(0).get(1));
                 }
                 {
                     List<List<Object>> res = sql(query, 2);
 
                     assertEquals(SchemaUtils.DATETIME_MAX.truncatedTo(ChronoUnit.MILLIS), res.get(0).get(0));
-                    assertEquals("9999-12-31 05:59:59.999", res.get(0).get(1));
+                    assertEquals("9999-12-31 05:59:59.999000", res.get(0).get(1));
                 }
             }
 

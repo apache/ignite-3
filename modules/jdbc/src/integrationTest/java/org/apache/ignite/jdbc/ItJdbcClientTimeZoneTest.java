@@ -97,7 +97,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
             ));
 
             validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
-                    "1970-01-01 00:00:00", "1970-01-01 00:00:00 GMT+02:00");
+                    "1970-01-01 00:00:00.000000", "1970-01-01 00:00:00.000000 GMT+02:00");
         });
 
         TimeZone.setDefault(TimeZone.getTimeZone("GMT+03:00"));
@@ -107,7 +107,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
             TimeZone.setDefault(TimeZone.getTimeZone(serverTimezone));
 
             validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
-                    "1970-01-01 00:00:00", "1970-01-01 01:00:00 GMT+03:00");
+                    "1970-01-01 00:00:00.000000", "1970-01-01 01:00:00.000000 GMT+03:00");
         });
     }
 
@@ -128,7 +128,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
                 ));
 
                 validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
-                        "1970-01-01 00:00:00", "1970-01-01 00:00:00 " + timeZone);
+                        "1970-01-01 00:00:00.000000", "1970-01-01 00:00:00.000000 " + timeZone);
             });
         }
 
@@ -137,7 +137,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
 
             withNewConnection(URL + "?connectionTimeZone=" + timeZone, stmt -> {
                 validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
-                        "1970-01-01 00:00:00", "1970-01-01 01:00:00 " + timeZone);
+                        "1970-01-01 00:00:00.000000", "1970-01-01 01:00:00.000000 " + timeZone);
             });
         }
 
@@ -249,7 +249,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
 
             withNewConnection(URL + "?connectionTimeZone=" + timeZone, stmt -> {
                 validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
-                        "1970-01-01 00:00:00", "1970-01-01 00:00:00 " + timeZone);
+                        "1970-01-01 00:00:00.000000", "1970-01-01 00:00:00.000000 " + timeZone);
             });
         }
     }

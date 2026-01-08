@@ -801,17 +801,17 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
                 // TIMESTAMP
                 arguments(ColumnType.DATETIME, "SELECT ?, ?::VARCHAR",
-                        DATETIME_MAX, DATETIME_MAX.truncatedTo(ChronoUnit.MILLIS), "9999-12-31 05:59:59.999"),
+                        DATETIME_MAX, DATETIME_MAX.truncatedTo(ChronoUnit.MILLIS), "9999-12-31 05:59:59.999000000"),
 
                 arguments(ColumnType.DATETIME, "SELECT ?, ?::VARCHAR",
-                        DATETIME_MIN, DATETIME_MIN, "0001-01-01 18:00:00"),
+                        DATETIME_MIN, DATETIME_MIN, "0001-01-01 18:00:00.000000000"),
 
                 // TIMESTAMP WITH LOCAL TIME ZONE
                 arguments(ColumnType.TIMESTAMP, "SELECT ?, ?::VARCHAR",
-                        TIMESTAMP_MAX, TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS), "9999-12-31 05:59:59.999 UTC"),
+                        TIMESTAMP_MAX, TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS), "9999-12-31 05:59:59.999000000 UTC"),
 
                 arguments(ColumnType.TIMESTAMP, "SELECT ?, ?::VARCHAR",
-                        TIMESTAMP_MIN, TIMESTAMP_MIN, "0001-01-01 18:00:00 UTC")
+                        TIMESTAMP_MIN, TIMESTAMP_MIN, "0001-01-01 18:00:00.000000000 UTC")
         );
     }
 

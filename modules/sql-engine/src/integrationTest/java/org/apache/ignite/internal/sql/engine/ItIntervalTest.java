@@ -540,11 +540,11 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
         assertQuery(format("SELECT ({} '2021-11-06 02:30:00' + interval '23' hours)::varchar", typeName))
                 .withTimeZoneId(zoneId)
-                .returns("2021-11-07 01:30:00" + tzSuffix).check();
+                .returns("2021-11-07 01:30:00.000000" + tzSuffix).check();
 
         assertQuery(format("SELECT ({} '2021-11-06 01:30:00' + interval '24' hours)::varchar", typeName))
                 .withTimeZoneId(zoneId)
-                .returns("2021-11-07 01:30:00" + tzSuffix).check();
+                .returns("2021-11-07 01:30:00.000000" + tzSuffix).check();
 
         // Timestamp - interval.
         BiConsumer<String, String> timestampChecker = (expression, expected) -> {
