@@ -245,7 +245,11 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                 false
         );
 
-        SuperRoot superRoot = new SuperRoot(s -> new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass)));
+        SuperRoot superRoot = new SuperRoot(s ->
+                s.equals(rootKey.key())
+                        ? new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass))
+                        : null
+        );
 
         ConfigObject hoconCfg = ConfigFactory.parseString(annotation.value()).root();
 
