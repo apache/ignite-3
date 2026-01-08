@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,8 +38,12 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -337,6 +342,29 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(
                 tupleImpl.toString().replace("TupleImpl ", ""),
                 clientTuple.toString().replace("ClientTuple ", ""));
+    }
+
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("ID", INT32, false)},
+                new Column[]{new Column("VAL", SchemaTestUtils.specToType(valueType), true)}
+        );
+
+        ClientSchema clientSchema = new ClientSchema(
+                1,
+                new ClientColumn[] {
+                        new ClientColumn("ID", ColumnType.INT32, false, 0, -1, -1, 0),
+                        new ClientColumn("VAL", valueType, true, -1, 0, -1, 1),
+                },
+                marshallers
+        );
+
+        BinaryRow row = SchemaTestUtils.binaryRow(schema, 1, null);
+        BinaryTupleReader binaryTuple = new BinaryTupleReader(schema.length(), row.tupleSlice());
+
+        return new ClientTuple(clientSchema, TuplePart.KEY_AND_VAL, binaryTuple);
     }
 
     @Override
