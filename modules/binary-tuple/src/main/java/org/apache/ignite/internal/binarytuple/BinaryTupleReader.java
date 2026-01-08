@@ -113,12 +113,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     @Override
     public @Nullable Boolean booleanValueBoxed(int index) {
         seek(index);
-
-        if (begin == end) {
-            return null;
-        }
-
-        return booleanValue(byteBufferAccessor, begin, end);
+        return begin == end ? null : booleanValue(byteBufferAccessor, begin, end);
     }
 
     /**
