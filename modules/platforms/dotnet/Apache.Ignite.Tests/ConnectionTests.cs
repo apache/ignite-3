@@ -22,7 +22,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Common;
 using Internal.Network;
+using Microsoft.Extensions.Logging;
 using Network;
 using NUnit.Framework;
 
@@ -100,9 +102,14 @@ public class ConnectionTests
     public async Task TestDuplicateEndpoints()
     {
         using var server = new FakeServer();
+        using var logger = new ConsoleLogger(LogLevel.Trace);
 
-        var endpoints = new[] { $"127.0.0.100:{server.Port}", $"localhost:{server.Port}" };
-        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoints));
+        var cfg = new IgniteClientConfiguration($"127.0.0.100:{server.Port}", $"localhost:{server.Port}")
+        {
+            LoggerFactory = logger
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
 
         client.WaitForConnections(2);
     }
