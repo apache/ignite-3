@@ -83,7 +83,8 @@ For each operation, the client selects a connection using the following algorith
 
 2. **Round-robin selection**: Pick an active connection using round-robin strategy
 
-3. **Fallback**: If no active connections exist, attempt to establish a new connection to one of the known server endpoints
+3. **Fallback**: If no active connections exist, attempt to establish a new connection to one of the known server endpoints.
+   `connectTimeout` and `retryPolicy` configuration properties control the behavior of this attempt.
 
 ---
 
