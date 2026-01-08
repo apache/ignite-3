@@ -33,11 +33,15 @@ import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Deployment unit failover.
  */
 public class DeploymentUnitFailover {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitFailover.class);
+
     private final LogicalTopologyService logicalTopology;
 
     private final DeploymentUnitStore deploymentUnitStore;
@@ -89,6 +93,8 @@ public class DeploymentUnitFailover {
     }
 
     private void processStatus(UnitClusterStatus unitClusterStatus, UnitNodeStatus unitNodeStatus, NodeEventCallback nodeEventCallback) {
+        LOG.info("Processing unit status, cluster {}, node {}.", unitClusterStatus, unitNodeStatus);
+
         String id = unitNodeStatus.id();
         Version version = unitNodeStatus.version();
 

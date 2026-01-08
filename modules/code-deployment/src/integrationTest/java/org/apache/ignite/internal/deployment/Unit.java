@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.deployment;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -33,7 +35,9 @@ import java.util.zip.ZipInputStream;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
-import org.hamcrest.Matchers;
+import org.apache.ignite.internal.deployunit.structure.UnitEntry;
+import org.apache.ignite.internal.deployunit.structure.UnitFile;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 
 class Unit {
     private final IgniteImpl deployedNode;
@@ -44,11 +48,8 @@ class Unit {
 
     private final List<DeployFile> files;
 
-    private final Path workDir;
-
-    Unit(IgniteImpl deployedNode, Path workDir, String id, Version version, List<DeployFile> files) {
+    Unit(IgniteImpl deployedNode, String id, Version version, List<DeployFile> files) {
         this.deployedNode = deployedNode;
-        this.workDir = workDir;
         this.id = id;
         this.version = version;
         this.files = files;
@@ -143,10 +144,42 @@ class Unit {
             try {
                 Path filePath = nodeUnitDirectory.resolve(file.file().getFileName());
                 assertTrue(Files.exists(filePath));
-                assertThat(Files.size(filePath), Matchers.is(file.expectedSize()));
+                assertThat(Files.size(filePath), is(file.expectedSize()));
             } catch (IOException e) {
                 fail(e);
             }
+        }
+    }
+
+    void verifyByRest(IgniteImpl entryNode) {
+        Path currentDir = getNodeUnitDirectory(entryNode);
+
+        CompletableFuture<Void> result = entryNode.deployment().nodeUnitFileStructure(id, version).thenAccept(folder -> {
+            try {
+                for (UnitEntry child : folder.children()) {
+                    processEntry(child, currentDir);
+                }
+            } catch (IOException e) {
+                fail(e);
+            }
+        });
+
+        assertThat(result, willCompleteSuccessfully());
+    }
+
+    private static void processEntry(UnitEntry entry, Path currentDir) throws IOException {
+        if (entry instanceof UnitFile) {
+            UnitFile file = (UnitFile) entry;
+            Path filePath = currentDir.resolve(file.name());
+            assertTrue(Files.exists(filePath));
+            assertThat(Files.size(filePath), is(file.size()));
+        } else if (entry instanceof UnitFolder) {
+            Path dir = currentDir.resolve(entry.name());
+            for (UnitEntry child : ((UnitFolder) entry).children()) {
+                processEntry(child, dir);
+            }
+        } else {
+            fail(new IllegalStateException("Unit entry type not supported."));
         }
     }
 }

@@ -11,6 +11,7 @@
         <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <WarningsAsErrors>$(WarningsAsErrors);IL3050</WarningsAsErrors>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>

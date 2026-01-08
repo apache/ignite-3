@@ -71,7 +71,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
         CompletableFuture<Lock> overflowLockFut = lockManager.acquire(overflowTx, new LockKey(overflowTx, overflowTx), LockMode.S);
 
         assertThat(overflowLockFut, willThrowWithCauseOrSuppressed(
-                LockException.class,
+                LockTableOverflowException.class,
                 "Failed to acquire a lock due to lock table overflow"
         ));
 
@@ -107,7 +107,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
             CompletableFuture<Lock> overflowLockFut = lockManager.acquire(txId, new LockKey(i, i), LockMode.S);
 
             assertThat(overflowLockFut, willThrowWithCauseOrSuppressed(
-                    LockException.class,
+                    LockTableOverflowException.class,
                     "Failed to acquire a lock due to lock table overflow"
             ));
         }

@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-table')
     implementation project(':ignite-schema')
     implementation project(':ignite-transactions')
+    implementation project(':ignite-low-watermark')
 
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
@@ -47,6 +48,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-catalog'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation libs.awaitility
 
     integrationTestImplementation libs.fastutil.core
@@ -62,6 +64,8 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-vault')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))

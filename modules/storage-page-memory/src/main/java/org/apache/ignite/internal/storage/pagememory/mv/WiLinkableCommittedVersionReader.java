@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,14 +29,19 @@ class WiLinkableCommittedVersionReader extends WiLinkableRowVersionReader {
 
     @Override
     public WiLinkableRowVersion createRowVersion(int valueSize, @Nullable BinaryRow value) {
+        assert prevWiLink == NULL_LINK : "prevWiLink must be 0 on a committed row version [link=" + link + "], prevWiLink="
+                + prevWiLink + "]";
+        assert nextWiLink == NULL_LINK : "nextWiLink must be 0 on a committed row version [link=" + link + "], nextWiLink="
+                + nextWiLink + "]";
+
         return new WiLinkableRowVersion(
                 null,
                 partitionId,
                 link,
                 timestamp,
                 nextLink,
-                prevWiLink,
-                nextWiLink,
+                NULL_LINK,
+                NULL_LINK,
                 valueSize,
                 value
         );

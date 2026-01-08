@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZip
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -59,6 +60,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry.UnitFile;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry.UnitFolder;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.junit.jupiter.api.AfterEach;
@@ -150,6 +154,25 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         assertThat(deploy(id, version, false, bigFile), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
+    }
+
+    @Test
+    public void versions() {
+        // Pass multiple files to test discarding in the error handler in the controller.
+        assertThrowsProblem(
+                () -> deploy(UNIT_ID, "1.1.1.1-foo_", false, smallFile, smallFile, smallFile, smallFile, smallFile),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Invalid version format of provided version: 1.1.1.1-foo_")
+        );
+
+        String version = "1.1.1.1-foo";
+
+        assertThat(deploy(UNIT_ID, version, false, smallFile), hasStatus(OK));
+
+        awaitDeployedStatus(UNIT_ID, version);
+
+        assertThat(list(UNIT_ID), contains(new UnitStatus(UNIT_ID, List.of(new UnitVersionStatus(version, DEPLOYED)))));
+
+        assertThat(undeploy(UNIT_ID, version), hasStatus(OK));
     }
 
     @Test
@@ -283,6 +306,45 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         );
     }
 
+    @Test
+    public void testUnitContent() {
+        String id = UNIT_ID;
+        String version = "1.1.1";
+
+        assertThat(deploy(id, version, false, smallFile, zipFile), hasStatus(OK));
+
+        awaitDeployedStatus(id, version);
+
+        UnitFolder folder = folder(id, version);
+
+        Path workDir0 = CLUSTER.nodeWorkDir(0);
+        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
+
+        for (UnitEntry child : folder.children()) {
+            verifyEntry(child, nodeUnitDirectory);
+        }
+    }
+
+    private static void verifyEntry(UnitEntry entry, Path currentDir) {
+        try {
+            if (entry instanceof UnitFile) {
+                UnitFile file = (UnitFile) entry;
+                Path filePath = currentDir.resolve(file.name());
+                assertTrue(Files.exists(filePath));
+                assertThat(Files.size(filePath), is(file.size()));
+            } else if (entry instanceof UnitFolder) {
+                Path dir = currentDir.resolve(entry.name());
+                for (UnitEntry child : ((UnitFolder) entry).children()) {
+                    verifyEntry(child, dir);
+                }
+            } else {
+                fail(new IllegalStateException("Unit entry type not supported."));
+            }
+        } catch (IOException e) {
+            fail(e);
+        }
+    }
+
     private void awaitDeployedStatus(String id, String... versions) {
         await().untilAsserted(() -> {
             MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
@@ -335,5 +397,11 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units/" + id);
 
         return client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
+    }
+
+    private UnitFolder folder(String id, String version) {
+        MutableHttpRequest<Object> get = HttpRequest.GET("node/units/structure/" + id + "/" + version);
+
+        return client.toBlocking().retrieve(get, UnitFolder.class);
     }
 }

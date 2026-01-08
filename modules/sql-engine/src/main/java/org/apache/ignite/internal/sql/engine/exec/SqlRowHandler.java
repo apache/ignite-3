@@ -34,7 +34,9 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -61,7 +63,7 @@ import org.jetbrains.annotations.Nullable;
 public class SqlRowHandler implements RowHandler<RowWrapper>, RowFactoryFactory<RowWrapper> {
     public static final SqlRowHandler INSTANCE = new SqlRowHandler();
 
-    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.rowBuilder().build(), new Object[0]);
+    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.structBuilder().build(), new Object[0]);
 
     private SqlRowHandler() {
     }

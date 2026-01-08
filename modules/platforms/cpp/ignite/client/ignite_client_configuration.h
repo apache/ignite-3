@@ -204,8 +204,7 @@ public:
      * This configuration only applies to each of those requests separately but not to its combination therefore real
      * execution times of compute jobs could be greater than operation timeout.
      *
-     * @return Operation timeout
-     * .
+     * @return Operation timeout.
      */
     [[nodiscard]] std::chrono::milliseconds get_operation_timeout() const { return m_operation_timeout; }
 

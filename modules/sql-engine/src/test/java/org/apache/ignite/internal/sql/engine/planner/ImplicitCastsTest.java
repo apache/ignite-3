@@ -112,6 +112,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     private static Stream<Arguments> joinColumnTypes() {
 
         List<RelDataType> numericTypes = SqlTypeName.NUMERIC_TYPES.stream()
+                .filter(t -> !SqlTypeName.UNSIGNED_TYPES.contains(t))
                 // Real/Float got mixed up.
                 .filter(t -> t != SqlTypeName.FLOAT)
                 .map(TYPE_FACTORY::createSqlType)

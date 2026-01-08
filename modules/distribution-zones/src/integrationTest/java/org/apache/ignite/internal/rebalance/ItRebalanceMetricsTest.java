@@ -48,12 +48,10 @@ import org.apache.ignite.internal.metrics.IntMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 /**
  * Tests rebalance metrics.
  */
-@EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
 public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
     private static final String ZONE_NAME_TO_RENAME = "TEST_ZONE_TO_RENAME";

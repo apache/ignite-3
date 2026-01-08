@@ -51,7 +51,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
@@ -152,6 +151,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final ClientConnectorConfiguration clientConnectorConfiguration;
 
+    private final Supplier<Boolean> ddlBatchingSuggestionEnabled;
+
     private final Executor partitionOperationsExecutor;
 
     private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
@@ -176,6 +177,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param clientConnectorConfiguration Configuration of the connector.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
+     * @param ddlBatchingSuggestionEnabled Boolean supplier indicates whether the suggestion related DDL batching is enabled.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -194,8 +196,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
-            NodeProperties nodeProperties,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            Supplier<Boolean> ddlBatchingSuggestionEnabled
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -212,8 +214,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert catalogService != null;
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
+        assert ddlBatchingSuggestionEnabled != null;
         assert lowWatermark != null;
-        assert nodeProperties != null;
         assert partitionOperationsExecutor != null;
 
         this.queryProcessor = queryProcessor;
@@ -229,9 +231,14 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
-                lowWatermark, nodeProperties);
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(
+                placementDriver,
+                catalogService,
+                clockService,
+                schemaSyncService,
+                lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
+        this.ddlBatchingSuggestionEnabled = ddlBatchingSuggestionEnabled;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
@@ -455,7 +462,10 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 SUPPORTED_FEATURES,
                 Map.of(),
                 computeExecutors::remove,
-                handshakeEventLoopSwitcher
+                handshakeEventLoopSwitcher,
+                ddlBatchingSuggestionEnabled.get()
+                        ? new DdlBatchingSuggester()
+                        : ignore -> {}
         );
     }
 

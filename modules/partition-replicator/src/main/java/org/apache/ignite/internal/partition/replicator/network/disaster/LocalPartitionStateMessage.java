@@ -31,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public interface LocalPartitionStateMessage extends NetworkMessage {
     /** Table Partition ID. */
     @Nullable
+    @Deprecated(forRemoval = true)
     TablePartitionIdMessage partitionId();
 
     /** Zone Partition ID. */

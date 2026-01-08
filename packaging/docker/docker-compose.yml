@@ -19,7 +19,7 @@ name: ignite3
 
 x-ignite-def:
   &ignite-def
-  image: apacheignite/ignite:${IGNITE3_VERSION:-3.0.0}
+  image: apacheignite/ignite:${IGNITE3_VERSION:-3.2.0-SNAPSHOT}
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"

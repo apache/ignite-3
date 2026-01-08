@@ -42,11 +42,11 @@ import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
@@ -64,7 +64,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -164,7 +164,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
 
-        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
+        StructNativeType schema = NativeTypes.structBuilder().addField("C1", NativeTypes.INT32, false).build();
         RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         TableDescriptor tableDescriptor = createTableDescriptor(columns);
@@ -273,7 +273,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     private static IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex indexDescriptor,
             TableDescriptor tableDescriptor, TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
-        RowTypeBuilder rowSchemaBuilder = NativeTypes.rowBuilder();
+        StructTypeBuilder rowSchemaBuilder = NativeTypes.structBuilder();
 
         int idx = 0;
         for (RelFieldCollation ignored : indexDescriptor.collation().getFieldCollations()) {

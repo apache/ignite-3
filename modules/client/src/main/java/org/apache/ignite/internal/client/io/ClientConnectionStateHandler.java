@@ -28,5 +28,5 @@ public interface ClientConnectionStateHandler {
      *
      * @param e Exception that caused the disconnect, can be null.
      */
-    void onDisconnected(@Nullable Exception e);
+    void onDisconnected(@Nullable Throwable e);
 }

@@ -30,7 +30,8 @@ public class IgniteDbConnectionStringBuilderTests
     {
         var connStr =
             "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000;" +
-            "HeartbeatInterval=00:00:01.3640000;ReconnectInterval=00:00:00.5432100;SslEnabled=True;Username=user1;Password=hunter2";
+            "HeartbeatInterval=00:00:01.3640000;ReconnectInterval=00:00:00.5432100;SslEnabled=True;Username=user1;Password=hunter2;" +
+            "ReResolveAddressesInterval=11:22:33";
 
         var builder = new IgniteDbConnectionStringBuilder(connStr);
 
@@ -39,6 +40,7 @@ public class IgniteDbConnectionStringBuilderTests
         Assert.AreEqual(TimeSpan.FromMinutes(1.2345), builder.OperationTimeout);
         Assert.AreEqual(TimeSpan.FromSeconds(1.364), builder.HeartbeatInterval);
         Assert.AreEqual(TimeSpan.FromSeconds(0.54321), builder.ReconnectInterval);
+        Assert.AreEqual(new TimeSpan(0, 11, 22, 33), builder.ReResolveAddressesInterval);
         Assert.IsTrue(builder.SslEnabled);
         Assert.AreEqual("user1", builder.Username);
         Assert.AreEqual("hunter2", builder.Password);
@@ -52,6 +54,7 @@ public class IgniteDbConnectionStringBuilderTests
         Assert.AreEqual(TimeSpan.FromMinutes(1.2345), clientConfig.OperationTimeout);
         Assert.AreEqual(TimeSpan.FromSeconds(1.364), clientConfig.HeartbeatInterval);
         Assert.AreEqual(TimeSpan.FromSeconds(0.54321), clientConfig.ReconnectInterval);
+        Assert.AreEqual(new TimeSpan(0, 11, 22, 33), clientConfig.ReResolveAddressesInterval);
         Assert.IsNotNull(clientConfig.SslStreamFactory);
         Assert.AreEqual("user1", ((BasicAuthenticator)clientConfig.Authenticator!).Username);
         Assert.AreEqual("hunter2", ((BasicAuthenticator)clientConfig.Authenticator!).Password);
@@ -69,6 +72,7 @@ public class IgniteDbConnectionStringBuilderTests
         Assert.AreEqual(IgniteClientConfiguration.DefaultOperationTimeout, builder.OperationTimeout);
         Assert.AreEqual(IgniteClientConfiguration.DefaultHeartbeatInterval, builder.HeartbeatInterval);
         Assert.AreEqual(IgniteClientConfiguration.DefaultReconnectInterval, builder.ReconnectInterval);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultReResolveAddressesInterval, builder.ReResolveAddressesInterval);
         Assert.IsFalse(builder.SslEnabled);
         Assert.IsNull(builder.Username);
         Assert.IsNull(builder.Password);
@@ -82,6 +86,7 @@ public class IgniteDbConnectionStringBuilderTests
         Assert.AreEqual(IgniteClientConfiguration.DefaultOperationTimeout, clientConfig.OperationTimeout);
         Assert.AreEqual(IgniteClientConfiguration.DefaultHeartbeatInterval, clientConfig.HeartbeatInterval);
         Assert.AreEqual(IgniteClientConfiguration.DefaultReconnectInterval, clientConfig.ReconnectInterval);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultReResolveAddressesInterval, clientConfig.ReResolveAddressesInterval);
         Assert.IsNull(clientConfig.SslStreamFactory);
         Assert.IsNull(clientConfig.Authenticator);
     }

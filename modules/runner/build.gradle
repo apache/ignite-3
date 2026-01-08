@@ -81,6 +81,7 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-code-deployment-classloader')
     implementation project(':ignite-security-api')
     implementation project(':ignite-security')
     implementation project(':ignite-catalog')

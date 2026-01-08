@@ -19,7 +19,7 @@ object Project : Project({
 
     buildType(
         ApacheIgnite3CustomBuildType.Builder(ApacheIgnite3)
-            .ignite3VCS()
+            .ignite3VCS().setupMavenProxy()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
