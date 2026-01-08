@@ -109,10 +109,6 @@ foreach(_target_lib IN LISTS _target_libs)
     set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
     set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
-    if (WIN32)
-        set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-    endif()
-
     target_link_libraries(${_target_lib} ${LIBRARIES})
 endforeach()
 unset(_target_libs)
