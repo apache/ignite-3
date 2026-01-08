@@ -510,7 +510,7 @@ public class JraftServerImpl implements RaftServer {
             }
 
             nodeOptions.setFsm(
-                    new DelegatingStateMachine(nodeId.groupId().toString(), lsnr, nodeOptions.getCommandsMarshaller(), failureManager));
+                    new DelegatingStateMachine(nodeId, lsnr, nodeOptions, failureManager));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
@@ -837,18 +837,24 @@ public class JraftServerImpl implements RaftServer {
 
         private final FailureManager failureManager;
 
+        private final RaftNodeId nodeId;
+
+        private final @Nullable RaftMetricSource raftMetrics;
+
         /**
          * Constructor.
          *
-         * @param label State machine label.
+         * @param nodeId Node ID.
          * @param listener The listener.
-         * @param marshaller Marshaller.
+         * @param opts Node options.
          * @param failureManager Failure processor that is used to handle critical errors.
          */
-        public DelegatingStateMachine(String label, RaftGroupListener listener, Marshaller marshaller, FailureManager failureManager) {
-            super(label);
+        public DelegatingStateMachine(RaftNodeId nodeId, RaftGroupListener listener, NodeOptions opts, FailureManager failureManager) {
+            super(nodeId.groupId().toString());
+            this.nodeId = nodeId;
             this.listener = listener;
-            this.marshaller = marshaller;
+            this.marshaller = opts.getCommandsMarshaller();
+            this.raftMetrics = opts.getRaftMetrics();
             this.failureManager = failureManager;
         }
 
@@ -957,6 +963,10 @@ public class JraftServerImpl implements RaftServer {
         /** {@inheritDoc} */
         @Override
         public void onShutdown() {
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStopped(nodeId);
+            }
+
             listener.onShutdown();
         }
 
@@ -964,12 +974,20 @@ public class JraftServerImpl implements RaftServer {
         public void onLeaderStart(long term) {
             super.onLeaderStart(term);
 
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStarted(nodeId);
+            }
+
             listener.onLeaderStart();
         }
 
         @Override
         public void onLeaderStop(Status status) {
             super.onLeaderStop(status);
+
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStopped(nodeId);
+            }
 
             listener.onLeaderStop();
         }
