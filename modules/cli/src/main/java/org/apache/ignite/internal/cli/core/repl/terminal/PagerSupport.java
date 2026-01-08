@@ -25,7 +25,7 @@ import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.jline.terminal.Terminal;
 
 /**
- * Utility class for pager support in CLI REPL mode.
+ * Handles pager support in CLI REPL mode.
  *
  * <p>Provides functionality to pipe large outputs through a pager (like `less` or `more`)
  * when the output exceeds the terminal height.
@@ -62,12 +62,13 @@ public class PagerSupport {
     /**
      * Creates PagerSupport for testing.
      *
+     * @param terminal JLine terminal (can be null for testing)
      * @param terminalHeight terminal height in lines
      * @param pagerEnabled whether pager is enabled
      * @param pagerCommand pager command (null for default)
      */
-    PagerSupport(int terminalHeight, boolean pagerEnabled, String pagerCommand) {
-        this.terminal = null;
+    PagerSupport(Terminal terminal, int terminalHeight, boolean pagerEnabled, String pagerCommand) {
+        this.terminal = terminal;
         this.terminalHeight = terminalHeight;
         this.pagerEnabled = pagerEnabled;
         this.pagerCommand = resolveCommand(pagerCommand);
@@ -140,7 +141,7 @@ public class PagerSupport {
      * @param output the output to count lines in
      * @return the number of lines
      */
-    public static int countLines(String output) {
+    int countLines(String output) {
         if (output == null || output.isEmpty()) {
             return 0;
         }
@@ -174,20 +175,20 @@ public class PagerSupport {
         return pb;
     }
 
-    private static boolean readPagerEnabled(ConfigManagerProvider configManagerProvider) {
+    private boolean readPagerEnabled(ConfigManagerProvider configManagerProvider) {
         String value = configManagerProvider.get()
                 .getCurrentProperty(CliConfigKeys.PAGER_ENABLED.value());
         // Default to true if not set
         return value == null || value.isEmpty() || Boolean.parseBoolean(value);
     }
 
-    private static String readPagerCommand(ConfigManagerProvider configManagerProvider) {
+    private String readPagerCommand(ConfigManagerProvider configManagerProvider) {
         String configured = configManagerProvider.get()
                 .getCurrentProperty(CliConfigKeys.PAGER_COMMAND.value());
         return resolveCommand(configured);
     }
 
-    private static String resolveCommand(String configured) {
+    private String resolveCommand(String configured) {
         // Priority: configured > $PAGER env > default
         if (configured != null && !configured.isEmpty()) {
             return configured;
@@ -201,7 +202,7 @@ public class PagerSupport {
         return isWindows() ? DEFAULT_PAGER_WINDOWS : DEFAULT_PAGER;
     }
 
-    private static boolean isWindows() {
+    private boolean isWindows() {
         return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 }

@@ -33,54 +33,56 @@ class PagerSupportTest {
     @DisplayName("countLines")
     class CountLinesTest {
 
+        private final PagerSupport pager = createPagerSupport(24, true, "less");
+
         @Test
         @DisplayName("returns 0 for null input")
         void nullInput() {
-            assertThat(PagerSupport.countLines(null), is(0));
+            assertThat(pager.countLines(null), is(0));
         }
 
         @Test
         @DisplayName("returns 0 for empty string")
         void emptyString() {
-            assertThat(PagerSupport.countLines(""), is(0));
+            assertThat(pager.countLines(""), is(0));
         }
 
         @Test
         @DisplayName("returns 1 for single line without newline")
         void singleLineNoNewline() {
-            assertThat(PagerSupport.countLines("hello"), is(1));
+            assertThat(pager.countLines("hello"), is(1));
         }
 
         @Test
         @DisplayName("returns 1 for single line with trailing newline")
         void singleLineWithNewline() {
-            assertThat(PagerSupport.countLines("hello\n"), is(1));
+            assertThat(pager.countLines("hello\n"), is(1));
         }
 
         @Test
         @DisplayName("returns 2 for two lines")
         void twoLines() {
-            assertThat(PagerSupport.countLines("hello\nworld"), is(2));
+            assertThat(pager.countLines("hello\nworld"), is(2));
         }
 
         @Test
         @DisplayName("returns 2 for two lines with trailing newline")
         void twoLinesWithTrailingNewline() {
-            assertThat(PagerSupport.countLines("hello\nworld\n"), is(2));
+            assertThat(pager.countLines("hello\nworld\n"), is(2));
         }
 
         @Test
         @DisplayName("counts multiple lines correctly")
         void multipleLines() {
             String output = "line1\nline2\nline3\nline4\nline5";
-            assertThat(PagerSupport.countLines(output), is(5));
+            assertThat(pager.countLines(output), is(5));
         }
 
         @Test
         @DisplayName("handles empty lines in the middle")
         void emptyLinesInMiddle() {
             String output = "line1\n\nline3";
-            assertThat(PagerSupport.countLines(output), is(3));
+            assertThat(pager.countLines(output), is(3));
         }
     }
 
@@ -199,7 +201,7 @@ class PagerSupportTest {
      * @return configured PagerSupport instance
      */
     private static PagerSupport createPagerSupport(int terminalHeight, boolean pagerEnabled, String pagerCommand) {
-        return new PagerSupport(terminalHeight, pagerEnabled, pagerCommand);
+        return new PagerSupport(null, terminalHeight, pagerEnabled, pagerCommand);
     }
 
     /**
