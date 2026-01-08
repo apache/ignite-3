@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.decorators.DefaultDecoratorRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 
@@ -95,7 +96,14 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
 
         if (!callOutput.isEmpty()) {
             TerminalOutput decoratedOutput = decorate(callOutput.body());
-            output.println(decoratedOutput.toTerminalString());
+            // Use print wrapper to enable pager support in REPL mode
+            // Must use context's writer (not pipeline's output) so pager can capture it
+            CommandLineContextProvider.print(() -> {
+                PrintWriter out = CommandLineContextProvider.getContext() != null
+                        ? CommandLineContextProvider.getContext().out()
+                        : output;
+                out.println(decoratedOutput.toTerminalString());
+            });
         }
 
         return 0;
