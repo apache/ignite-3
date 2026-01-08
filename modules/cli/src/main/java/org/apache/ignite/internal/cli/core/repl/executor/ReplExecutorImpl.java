@@ -74,18 +74,22 @@ public class ReplExecutorImpl implements ReplExecutor {
 
     private final Terminal terminal;
 
+    private final PagerSupport pagerSupport;
+
     /**
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
      * @param terminal terminal instance.
+     * @param configManagerProvider configuration manager provider for pager settings.
      */
-    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal) {
+    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal, ConfigManagerProvider configManagerProvider) {
         this.factory = commandsFactory;
         this.terminal = terminal;
+        this.pagerSupport = new PagerSupport(terminal, configManagerProvider);
     }
 
-    private static void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader, PagerSupport pagerSupport) {
+    private void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
         TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                 TailTipWidgets.TipType.COMPLETER);
         widgets.enable();
@@ -94,14 +98,14 @@ public class ReplExecutorImpl implements ReplExecutor {
         // Also pipe large outputs through pager if enabled
         CommandLineContextProvider.setPrintWrapper(printer -> {
             widgets.disable();
-            printWithPager(printer, pagerSupport);
+            printWithPager(printer);
             widgets.enable();
         });
         // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
         registry.setScriptDescription(cmdLine -> null);
     }
 
-    private static void printWithPager(Runnable printer, PagerSupport pagerSupport) {
+    private void printWithPager(Runnable printer) {
         // Capture output to check if pager is needed
         StringWriter sw = new StringWriter();
         PrintWriter captured = new PrintWriter(sw);
@@ -162,11 +166,7 @@ public class ReplExecutorImpl implements ReplExecutor {
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
 
-            // Create pager support for large output handling
-            ConfigManagerProvider configManagerProvider = factory.create(ConfigManagerProvider.class);
-            PagerSupport pagerSupport = new PagerSupport(terminal, configManagerProvider);
-
-            setupWidgets(repl, registry, reader, pagerSupport);
+            setupWidgets(repl, registry, reader);
 
             repl.onStart();
 
@@ -190,13 +190,13 @@ public class ReplExecutorImpl implements ReplExecutor {
         }
     }
 
-    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader, PagerSupport pagerSupport) {
+    private void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
         if (repl.isTailTipWidgetsEnabled()) {
             // TailTipWidgets setup includes pager wrapper
-            createTailTipWidgets(registry, reader, pagerSupport);
+            createTailTipWidgets(registry, reader);
         } else {
             // Set up pager wrapper for cases when TailTipWidgets are not used
-            CommandLineContextProvider.setPrintWrapper(printer -> printWithPager(printer, pagerSupport));
+            CommandLineContextProvider.setPrintWrapper(this::printWithPager);
 
             if (repl.isAutosuggestionsWidgetsEnabled()) {
                 AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
