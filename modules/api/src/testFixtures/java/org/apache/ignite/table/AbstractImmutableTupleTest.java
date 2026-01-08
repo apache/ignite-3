@@ -380,8 +380,6 @@ public abstract class AbstractImmutableTupleTest {
             short value = Byte.MAX_VALUE + 1;
             Tuple tuple = createTupleOfSingleColumn(ColumnType.INT16, columnName, value);
 
-            tuple.set(columnName, value);
-
             ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
             assertThat(ex0.getMessage(), equalTo("Byte value overflow"));
 
