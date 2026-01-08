@@ -21,11 +21,15 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,6 +59,9 @@ public class RaftMetricSource implements MetricSource {
     /** Metric set. */
     private final Map<String, Metric> metrics;
 
+    /** Set of raft nodes where this node is leader. */
+    private final Set<RaftNodeId> leaderNodeIds = ConcurrentHashMap.newKeySet();
+
     /**
      * Constructor.
      *
@@ -66,6 +73,22 @@ public class RaftMetricSource implements MetricSource {
         this.logStripeCount = logStripeCount;
 
         this.metrics = createMetrics();
+    }
+
+    /** Called when the node becomes leader for a partition.
+     *
+     * @param raftNodeId Raft node ID.
+     */
+    public void onLeaderStarted(RaftNodeId raftNodeId) {
+        leaderNodeIds.add(raftNodeId);
+    }
+
+    /** Called when the node steps down as leader for a partition or is shutdown.
+     *
+     * @param raftNodeId Raft node ID.
+     */
+    public void onLeaderStopped(RaftNodeId raftNodeId) {
+        leaderNodeIds.remove(raftNodeId);
     }
 
     @Override
@@ -141,6 +164,12 @@ public class RaftMetricSource implements MetricSource {
                         "raft.logmanager.disruptor.Stripes",
                         "The histogram of distribution data by stripes in the log for partitions",
                         LongStream.range(0, logStripeCount).toArray()
+                ));
+
+        metrics.put("raft.group.leaders",
+                new IntGauge("Number of raft groups node is a leader of",
+                        "Number of raft groups where this node is the leader",
+                        leaderNodeIds::size
                 ));
 
         return metrics;
