@@ -120,7 +120,11 @@ class Program<ResultT> {
                     break;
                 }
             }
-        } while (advanceQuery(query, state));
+
+            if (!advanceQuery(query, state)) {
+                break;
+            }
+        } while (true);
     }
 
     private boolean shouldRetry(Query query, Throwable th) {
