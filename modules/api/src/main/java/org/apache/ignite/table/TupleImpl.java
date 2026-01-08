@@ -196,73 +196,97 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        return valueNotNull(columnName);
+        Number number = valueNotNull(columnName);
+
+        return castToByte(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Number number = valueNotNull(columnIndex);
+
+        return castToByte(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        return valueNotNull(columnName);
+        Number number = valueNotNull(columnName);
+
+        return castToShort(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Number number = valueNotNull(columnIndex);
+
+        return castToShort(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        return valueNotNull(columnName);
+        Number number = valueNotNull(columnName);
+
+        return castToInt(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Number number = valueNotNull(columnIndex);
+
+        return castToInt(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        return valueNotNull(columnName);
+        Number number = valueNotNull(columnName);
+
+        return castToLong(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Number number = valueNotNull(columnIndex);
+
+        return castToLong(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        return valueNotNull(columnName);
+        Number number = valueNotNull(columnName);
+
+        return castToFloat(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Number number = valueNotNull(columnIndex);
+
+        return castToFloat(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        return valueNotNull(columnName);
+        Number number = valueNotNull(columnName);
+
+        return castToDouble(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Number number = valueNotNull(columnIndex);
+
+        return castToDouble(number);
     }
 
     /** {@inheritDoc} */
@@ -458,5 +482,90 @@ class TupleImpl implements Tuple, Serializable {
         }
 
         return value;
+    }
+
+    private static byte castToByte(Number number) {
+        Class<? extends Number> cls = number.getClass();
+
+        if (cls == Long.class || cls == Integer.class || cls == Short.class) {
+            long longVal = number.longValue();
+            byte byteVal = number.byteValue();
+
+            if (longVal == byteVal) {
+                return byteVal;
+            }
+
+            throw new ArithmeticException("Byte value overflow");
+        }
+
+        return (byte) number;
+    }
+
+    private static short castToShort(Number number) {
+        Class<? extends Number> cls = number.getClass();
+
+        if (cls == Long.class || cls == Integer.class || cls == Byte.class) {
+            long longVal = number.longValue();
+            short shortVal = number.shortValue();
+
+            if (longVal == shortVal) {
+                return shortVal;
+            }
+
+            throw new ArithmeticException("Short value overflow");
+        }
+
+        return (short) number;
+    }
+
+    private static int castToInt(Number number) {
+        Class<? extends Number> cls = number.getClass();
+
+        if (cls == Long.class || cls == Short.class || cls == Byte.class) {
+            long longVal = number.longValue();
+            int intVal = number.intValue();
+
+            if (longVal == intVal) {
+                return intVal;
+            }
+
+            throw new ArithmeticException("Int value overflow");
+        }
+
+        return (int) number;
+    }
+
+    private static long castToLong(Number number) {
+        Class<? extends Number> cls = number.getClass();
+
+        if (cls == Integer.class || cls == Short.class || cls == Byte.class) {
+            return number.longValue();
+        }
+
+        return (long) number;
+    }
+
+    private static float castToFloat(Number number) {
+        if (number.getClass() == Double.class) {
+            double doubleVal = number.doubleValue();
+            float floatVal = number.floatValue();
+
+            //noinspection FloatingPointEquality
+            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
+                return floatVal;
+            }
+
+            throw new ArithmeticException("Float value overflow");
+        }
+
+        return (float) number;
+    }
+
+    private static double castToDouble(Number number) {
+        if (number.getClass() == Float.class) {
+            return number.doubleValue();
+        }
+
+        return (double) number;
     }
 }

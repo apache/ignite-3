@@ -17,69 +17,105 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.stream.Stream;
+import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.table.AbstractImmutableTupleTest;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 /**
- * Ensures that reading a {@code null} value as primitive from the
- * {@link ClientSqlRow} instance produces a {@link NullPointerException}.
+ * Tests {@link ClientSqlRow} tuple implementation.
  */
-public class ClientSqlRowTest extends BaseIgniteAbstractTest {
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("primitiveAccessors")
-    @SuppressWarnings("ThrowableNotThrown")
-    void nullPointerWhenReadingNullAsPrimitive(
-            NativeType type,
-            BiConsumer<Tuple, Object> fieldAccessor
-    ) {
-        String valueColumn = "VAL";
-        Tuple row = createRow(valueColumn, type);
+public class ClientSqlRowTest extends AbstractImmutableTupleTest {
+    /** Schema descriptor for default test tuple. */
+    private final SchemaDescriptor schema = new SchemaDescriptor(
+            42,
+            List.of(
+                    new Column("ID", INT64, false),
+                    new Column("SIMPLENAME", STRING, true),
+                    new Column("QuotedName", STRING, true),
+                    new Column("NOVALUE", STRING, true)
+            ),
+            List.of("ID"),
+            null
+    );
 
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> fieldAccessor.accept(row, 1),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
-        );
+    /** Schema descriptor for tuple with columns of all the supported types. */
+    private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
+            List.of(
+                    new Column("valBoolCol".toUpperCase(), BOOLEAN, true),
+                    new Column("valByteCol".toUpperCase(), INT8, true),
+                    new Column("valShortCol".toUpperCase(), INT16, true),
+                    new Column("valIntCol".toUpperCase(), INT32, true),
+                    new Column("valLongCol".toUpperCase(), INT64, true),
+                    new Column("valFloatCol".toUpperCase(), FLOAT, true),
+                    new Column("valDoubleCol".toUpperCase(), DOUBLE, true),
+                    new Column("valDateCol".toUpperCase(), DATE, true),
+                    new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false),
+                    new Column("valUuidCol".toUpperCase(), NativeTypes.UUID, false),
+                    new Column("valTimeCol".toUpperCase(), time(TIME_PRECISION), true),
+                    new Column("valDateTimeCol".toUpperCase(), datetime(TIMESTAMP_PRECISION), true),
+                    new Column("valTimeStampCol".toUpperCase(), timestamp(TIMESTAMP_PRECISION), true),
+                    new Column("valBytesCol".toUpperCase(), BYTES, false),
+                    new Column("valStringCol".toUpperCase(), STRING, false),
+                    new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false)
+            ),
+            List.of("keyUuidCol".toUpperCase()),
+            null
+    );
 
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> fieldAccessor.accept(row, valueColumn),
-                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, valueColumn)
-        );
-
-        IgniteTestUtils.assertThrows(
-                UnsupportedOperationException.class,
-                () -> row.set("NEW", null),
-                null
-        );
+    @Test
+    @Override
+    public void testSerialization() {
+        Assumptions.abort(ClientSqlRow.class.getSimpleName() + " is not serializable.");
     }
 
-    private static Tuple createRow(String columnName, NativeType type) {
+    @Override
+    protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
+        Tuple tuple = Tuple.create().set("ID", 1L);
+
+        tuple = transformer.apply(tuple);
+
+        return createClientSqlRow(schema, tuple);
+    }
+
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("ID", INT32, false)},
-                new Column[]{new Column(columnName, type, true)}
+                new Column[]{new Column("VAL", SchemaTestUtils.specToType(valueType), true)}
         );
 
         BinaryRow binaryRow = SchemaTestUtils.binaryRow(schema, 1, null);
@@ -87,14 +123,59 @@ public class ClientSqlRowTest extends BaseIgniteAbstractTest {
 
         ResultSetMetadata resultSetMetadata = new ResultSetMetadataImpl(List.of(
                 new ColumnMetadataImpl("ID", ColumnType.INT32, 0, 0, false, null),
-                new ColumnMetadataImpl(columnName, type.spec(), 0, 0, true, null)
+                new ColumnMetadataImpl("VAL", valueType, 0, 0, true, null)
         ));
 
         return new ClientSqlRow(binaryTuple, resultSetMetadata);
     }
 
-    private static Stream<Arguments> primitiveAccessors() {
-        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
-                .map(e -> Arguments.of(e.getKey(), e.getValue()));
+    @Override
+    protected Tuple getTuple() {
+        Tuple tuple = Tuple.create();
+
+        tuple = addColumnsForDefaultSchema(tuple);
+
+        return createClientSqlRow(schema, tuple);
+    }
+
+    @Override
+    protected Tuple getTupleWithColumnOfAllTypes() {
+        Tuple tuple = Tuple.create().set("keyUuidCol", UUID_VALUE);
+
+        tuple = addColumnOfAllTypes(tuple);
+
+        return createClientSqlRow(fullSchema, tuple);
+    }
+
+    @Override
+    protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
+        NativeType nativeType = NativeTypes.fromObject(value);
+        SchemaDescriptor schema = new SchemaDescriptor(42,
+                new Column[]{new Column(columnName.toUpperCase(), nativeType, false)},
+                new Column[]{}
+        );
+
+        Tuple tuple = Tuple.create().set(columnName, value);
+
+        return createClientSqlRow(schema, tuple);
+    }
+
+    private static Tuple createClientSqlRow(SchemaDescriptor schema, Tuple valuesTuple) {
+        List<ColumnMetadata> columnsMeta = new ArrayList<>(valuesTuple.columnCount());
+        BinaryTupleBuilder binaryTupleBuilder = new BinaryTupleBuilder(valuesTuple.columnCount());
+        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createRowSchema(schema);
+
+        for (int i = 0; i < valuesTuple.columnCount(); i++) {
+            Column field = schema.columns().get(i);
+            Object value = valuesTuple.value(IgniteNameUtils.quoteIfNeeded(field.name()));
+
+            binaryTupleSchema.appendValue(binaryTupleBuilder, i, value);
+
+            columnsMeta.add(new ColumnMetadataImpl(field.name(), field.type().spec(), -1, -1, field.nullable(), null));
+        }
+
+        BinaryTupleReader binaryTuple = new BinaryTupleReader(valuesTuple.columnCount(), binaryTupleBuilder.build());
+
+        return new ClientSqlRow(binaryTuple, new ResultSetMetadataImpl(columnsMeta));
     }
 }
