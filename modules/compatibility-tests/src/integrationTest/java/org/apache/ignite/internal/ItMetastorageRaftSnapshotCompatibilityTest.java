@@ -69,13 +69,14 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
 
         awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
 
+        noActiveRebalance();
         checkMetastorage();
 
         MetaStorageManager newNodeMetastorage = unwrapIgniteImpl(cluster.node(1)).metaStorageManager();
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
 
         // Assert that new node got all log entries from old one.
-        await().atMost(20, SECONDS).until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
+        await().atMost(10, SECONDS).until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
     }
 
     private void checkMetastorage() {
