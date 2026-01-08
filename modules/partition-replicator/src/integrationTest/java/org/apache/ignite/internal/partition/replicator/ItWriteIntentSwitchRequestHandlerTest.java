@@ -29,7 +29,7 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestHandler;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 /** Tests for {@link WriteIntentSwitchRequestHandler}. */
 public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrationTest {
@@ -54,18 +54,7 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
                 + "}";
     }
 
-    protected static String aggressiveLowWatermarkIncreaseClusterConfig() {
-        return "{\n"
-                + "  ignite.gc.lowWatermark {\n"
-                + "    dataAvailabilityTimeMillis: 1000,\n"
-                + "    updateIntervalMillis: 100\n"
-                + "  },\n"
-                // Default 60 seconds, and we need to retry write intent resolution during test.
-                + "  ignite.replication.rpcTimeoutMillis: 1000\n"
-                + "}";
-    }
-
-    @Test
+    @RepeatedTest(50)
     void testWriteIntentResolutionAfterTableAlreadyDestroyed() {
         String tableName = "test";
 
