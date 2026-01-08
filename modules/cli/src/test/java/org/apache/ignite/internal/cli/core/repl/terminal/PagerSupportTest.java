@@ -212,7 +212,7 @@ class PagerSupportTest {
         for (int i = 1; i <= count; i++) {
             sb.append("Line ").append(i);
             if (i < count) {
-                sb.append("\n");
+                sb.append('\n');
             }
         }
         return sb.toString();
