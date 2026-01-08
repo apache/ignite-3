@@ -763,7 +763,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Timeout object wrapper for the completable future.
      */
-    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<NetworkMessage>> {
+    private static class TimeoutObjectImpl implements TimeoutObject<NetworkMessage> {
         /** End time (milliseconds since Unix epoch). */
         private final long endTime;
 
