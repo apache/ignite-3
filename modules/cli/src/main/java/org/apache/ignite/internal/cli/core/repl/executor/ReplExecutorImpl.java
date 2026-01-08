@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
+import org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.ReplExceptionHandlers;
@@ -81,19 +85,42 @@ public class ReplExecutorImpl implements ReplExecutor {
         this.terminal = terminal;
     }
 
-    private static void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
+    private static void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader, PagerSupport pagerSupport) {
         TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                 TailTipWidgets.TipType.COMPLETER);
         widgets.enable();
         // Workaround for the scroll truncation issue in windows terminal
         // Turn off tailtip widgets before printing to the output
+        // Also pipe large outputs through pager if enabled
         CommandLineContextProvider.setPrintWrapper(printer -> {
             widgets.disable();
-            printer.run();
+            printWithPager(printer, pagerSupport);
             widgets.enable();
         });
         // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
         registry.setScriptDescription(cmdLine -> null);
+    }
+
+    private static void printWithPager(Runnable printer, PagerSupport pagerSupport) {
+        // Capture output to check if pager is needed
+        StringWriter sw = new StringWriter();
+        PrintWriter captured = new PrintWriter(sw);
+        PrintWriter original = CommandLineContextProvider.getContext().out();
+
+        // Temporarily redirect output to capture it
+        CommandLineContextProvider.setWriters(captured, CommandLineContextProvider.getContext().err());
+        printer.run();
+        captured.flush();
+        CommandLineContextProvider.setWriters(original, CommandLineContextProvider.getContext().err());
+
+        String output = sw.toString();
+
+        if (pagerSupport.shouldUsePager(output)) {
+            pagerSupport.pipeToPage(output);
+        } else {
+            original.print(output);
+            original.flush();
+        }
     }
 
     /**
@@ -135,7 +162,11 @@ public class ReplExecutorImpl implements ReplExecutor {
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
 
-            setupWidgets(repl, registry, reader);
+            // Create pager support for large output handling
+            ConfigManagerProvider configManagerProvider = factory.create(ConfigManagerProvider.class);
+            PagerSupport pagerSupport = new PagerSupport(terminal, configManagerProvider);
+
+            setupWidgets(repl, registry, reader, pagerSupport);
 
             repl.onStart();
 
@@ -159,12 +190,18 @@ public class ReplExecutorImpl implements ReplExecutor {
         }
     }
 
-    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
+    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader, PagerSupport pagerSupport) {
         if (repl.isTailTipWidgetsEnabled()) {
-            createTailTipWidgets(registry, reader);
-        } else if (repl.isAutosuggestionsWidgetsEnabled()) {
-            AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
-            widgets.enable();
+            // TailTipWidgets setup includes pager wrapper
+            createTailTipWidgets(registry, reader, pagerSupport);
+        } else {
+            // Set up pager wrapper for cases when TailTipWidgets are not used
+            CommandLineContextProvider.setPrintWrapper(printer -> printWithPager(printer, pagerSupport));
+
+            if (repl.isAutosuggestionsWidgetsEnabled()) {
+                AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
+                widgets.enable();
+            }
         }
     }
 
