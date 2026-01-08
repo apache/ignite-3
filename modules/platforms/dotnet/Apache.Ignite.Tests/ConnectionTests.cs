@@ -99,6 +99,7 @@ public class ConnectionTests
         await TestGetClusterNodes(IPEndPoint.Parse(ipString));
 
     [Test]
+    [Timeout(5000)]
     public async Task TestDuplicateEndpoints()
     {
         using var server = new FakeServer();
@@ -111,7 +112,7 @@ public class ConnectionTests
 
         using var client = await IgniteClient.StartAsync(cfg);
 
-        client.WaitForConnections(2, 5000);
+        client.WaitForConnections(2, 3000);
     }
 
     private static async Task TestGetClusterNodes(EndPoint endpoint)
