@@ -104,14 +104,14 @@ public class ConnectionTests
         using var server = new FakeServer();
         using var logger = new ConsoleLogger(LogLevel.Trace);
 
-        var cfg = new IgniteClientConfiguration($"127.0.0.100:{server.Port}", $"localhost:{server.Port}")
+        var cfg = new IgniteClientConfiguration($"127.0.0.1:{server.Port}", $"localhost:{server.Port}")
         {
             LoggerFactory = logger
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
 
-        client.WaitForConnections(2);
+        client.WaitForConnections(2, 5000);
     }
 
     private static async Task TestGetClusterNodes(EndPoint endpoint)
