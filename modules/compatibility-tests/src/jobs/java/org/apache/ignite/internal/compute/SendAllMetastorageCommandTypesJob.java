@@ -72,7 +72,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
 
         return sendCommandsFuture
                 // Send compaction command after other commands have been applied to guarantee a non-zero applied index.
-                .thenCompose(v -> sendCompactionCommand(metastorage))
+//                .thenCompose(v -> sendCompactionCommand(metastorage))
                 .thenCompose(v -> metastorage.storage().flush());
     }
 
