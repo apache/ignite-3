@@ -37,7 +37,7 @@ When `IgniteClient.builder().addresses("foo:10800", "192.168.0.1").build()` is c
 
 1. **Build endpoint list** - For each provided address:
    - Extract port if present, otherwise use default port
-   - Resolve DNS if necessary (a hostname can resolve to multiple IP addresses)
+   - Resolve DNS if necessary (a hostname can resolve to multiple IP addresses, every address is added to the endpoint list)
 
 2. **Establish first connection** - Iterate over endpoints and attempt to connect to each one until successful
 
@@ -59,7 +59,7 @@ Each connection exchanges periodic heartbeats with the server:
 New server addresses can be discovered through two mechanisms:
 
 1. The configured `IgniteClientConfiguration.addressesFinder`
-2. DNS resolution of provided addresses
+2. DNS resolution of provided addresses (see [IEP-142 Client DNS Resolution](https://cwiki.apache.org/confluence/display/IGNITE/IEP-142+Client+DNS+Resolution))
 
 When new addresses are discovered:
 
