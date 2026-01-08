@@ -53,7 +53,7 @@ This provides robustness, load balancing, and partition awareness.
 Each connection exchanges periodic heartbeats with the server:
 
 - If a heartbeat fails, the connection is considered broken and closed
-- A background task attempts to re-establish the connection
+- A background executor attempts to re-establish the connection periodically
 
 #### Server Discovery
 
