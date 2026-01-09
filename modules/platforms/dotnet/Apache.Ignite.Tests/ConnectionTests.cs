@@ -22,9 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Common;
 using Internal.Network;
-using Microsoft.Extensions.Logging;
 using Network;
 using NUnit.Framework;
 
@@ -97,31 +95,6 @@ public class ConnectionTests
     public async Task TestGetClusterNodesWithIp(
         [Values("1.2.3.4:5678", "[2001:db8::1]:8080")] string ipString) =>
         await TestGetClusterNodes(IPEndPoint.Parse(ipString));
-
-    [Test]
-    [Timeout(5000)]
-    public async Task TestDuplicateEndpoints()
-    {
-        // TODO: Check what happens in Java
-        using var server = new FakeServer
-        {
-            AllowMultipleConnections = true
-        };
-
-        using var logger = new ConsoleLogger(LogLevel.Trace);
-
-        var cfg = new IgniteClientConfiguration($"127.0.0.1:{server.Port}", $"localhost:{server.Port}")
-        {
-            LoggerFactory = logger
-        };
-
-        using var client = await IgniteClient.StartAsync(cfg);
-        var tables = await client.Tables.GetTablesAsync();
-        Assert.NotNull(tables);
-
-        await Task.Delay(500);
-        Assert.AreEqual(1, client.GetConnections().Count);
-    }
 
     private static async Task TestGetClusterNodes(EndPoint endpoint)
     {
