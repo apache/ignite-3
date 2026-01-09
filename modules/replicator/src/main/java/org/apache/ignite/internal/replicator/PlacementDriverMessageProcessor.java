@@ -259,18 +259,51 @@ public class PlacementDriverMessageProcessor {
      * @return Future that is completed when local storage catches up the index that is actual for leader on the moment of request.
      */
     private CompletableFuture<Void> waitForActualState(HybridTimestamp startTime, long expirationTime) {
-        LOG.info("Waiting for actual storage state, group=" + groupId);
+        long timeout = expirationTime - currentTimeMillis();
+
+        LOG.info("Waiting for actual storage state [groupId={}, leaseStartTime={},"
+                        + " expirationTime={}, timeoutMs={}]",
+                groupId, startTime, expirationTime, timeout);
 
         replicaReservationClosure.accept(groupId, startTime);
 
-        long timeout = expirationTime - currentTimeMillis();
         if (timeout <= 0) {
-            return failedFuture(new TimeoutException());
+            LOG.warn("Timeout already expired before starting wait [groupId={}, expirationTime={}, currentTime={}]",
+                    groupId, expirationTime, currentTimeMillis());
+            return failedFuture(new TimeoutException("Timeout expired before starting wait"));
         }
 
+        long readIndexStartTime = currentTimeMillis();
+
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
-                .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(storageIndexTracker::waitFor);
+                .whenComplete((raftIndex, readIndexError) -> {
+                    long readIndexDuration = currentTimeMillis() - readIndexStartTime;
+
+                    if (readIndexError != null) {
+                        LOG.warn("Failed to read index from raft leader [groupId={}, durationMs={}, error={}]",
+                                groupId, readIndexDuration, readIndexError);
+                    }
+                })
+                .thenCompose(raftIndex -> {
+                    // Recalculate remaining time after readIndex completes.
+                    long storageIndexUpdateStartTime = currentTimeMillis();
+                    long remainingTime = expirationTime - storageIndexUpdateStartTime;
+                    if (remainingTime <= 0) {
+                        return failedFuture(new TimeoutException("No time left for storage wait"));
+                    }
+
+                    return storageIndexTracker.waitFor(raftIndex)
+                            .orTimeout(remainingTime, TimeUnit.MILLISECONDS)
+                            .whenComplete((v, storageIndexTrackerError) -> {
+                                long trackingDuration = currentTimeMillis() - storageIndexUpdateStartTime;
+
+                                if (storageIndexTrackerError != null) {
+                                    LOG.warn("Failed to wait for storage index to reach raft leader"
+                                                    + " [groupId={}, durationMs={}, error={}]",
+                                            groupId, trackingDuration, storageIndexTrackerError);
+                                }
+                            });
+                });
     }
 
     private void onLeaderElected(InternalClusterNode clusterNode, long term) {
