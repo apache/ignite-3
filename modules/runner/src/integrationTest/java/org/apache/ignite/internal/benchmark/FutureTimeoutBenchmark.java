@@ -175,7 +175,7 @@ public class FutureTimeoutBenchmark {
     /**
      * Timeout object wrapper for the completable future.
      */
-    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<Void>> {
+    private static class TimeoutObjectImpl implements TimeoutObject<Void> {
         /** End time (milliseconds since Unix epoch). */
         private final long endTime;
 
