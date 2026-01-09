@@ -139,7 +139,7 @@ class MarshallerTest extends BaseIgniteAbstractTest {
 
     @Test
     void noDefaultConstructorThrowsException() {
-        String msgSubstring = "Could not find default (no-args) or canonical (record) constructor for class";
+        String msgSubstring = "Class must have default constructor";
         // recordView
         assertMarshallerThrows(IllegalArgumentException.class, msgSubstring, new NoDefaultConstructor.Class(1, "a"));
 
