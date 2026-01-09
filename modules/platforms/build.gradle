@@ -69,7 +69,7 @@ def docfx = tasks.register('docfx', Exec) {
 
     commandLine "dotnet", "docfx",
             "docs/docfx.json",
-            "-m", "_appFooter=\"Ignite ver. <b>${project.version}</b> | Copyright ${currentYear} The Apache Software Foundation\""
+            "-m", "_appFooter=\"Ignite ver. <b>${project.version}</b> | Copyright ${new Date().format("yyyy")} The Apache Software Foundation\""
 }
 
 def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
