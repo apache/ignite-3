@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
@@ -152,7 +153,7 @@ public class TxCleanupRecoveryRequestHandler {
                 txMeta.commitTimestamp(),
                 txId
         ).exceptionally(throwable -> {
-            LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+            LOG.warn("Failed to cleanup transaction [{}].", throwable, TransactionLogUtils.formatTxInfo(txId, txManager));
 
             return null;
         });
