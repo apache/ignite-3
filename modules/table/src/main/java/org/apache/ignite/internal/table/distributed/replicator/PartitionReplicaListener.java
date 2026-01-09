@@ -2513,7 +2513,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                 if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
-                    throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
+                    throw new PrimaryReplicaMissException(
+                            txId, 
+                            cmd.leaseStartTime(), 
+                            updateCommandResult.currentLeaseStartTime(),
+                            replicationGroupId
+                    );
                 }
 
                 if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
@@ -2654,7 +2659,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     throw new PrimaryReplicaMissException(
                             cmd.txId(),
                             cmd.leaseStartTime(),
-                            updateCommandResult.currentLeaseStartTime()
+                            updateCommandResult.currentLeaseStartTime(),
+                            replicationGroupId
                     );
                 }
                 if (updateCommandResult.isPrimaryInPeersAndLearners()) {
