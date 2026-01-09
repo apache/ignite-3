@@ -108,4 +108,86 @@ public class ClientFutureUtilsTest {
         var ex = assertThrows(CompletionException.class, fut::join);
         assertEquals("fail1", ex.getCause().getMessage());
     }
+
+    @Test
+    public void testDoWithRetryAsyncPreventsSelfReferenceInSuppressedExceptions() {
+        var sameException = new Exception("same");
+        var counter = new AtomicInteger();
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+                () -> CompletableFuture.failedFuture(sameException),
+                ctx -> counter.incrementAndGet() < 3
+        );
+
+        var completionEx = assertThrows(CompletionException.class, fut::join);
+        var ex = (Exception) completionEx.getCause();
+
+        // Should be the same exception instance.
+        assertEquals(sameException, ex);
+        // Should not have added itself as suppressed (would create self-reference).
+        assertEquals(0, ex.getSuppressed().length);
+    }
+
+    @Test
+    public void testDoWithRetryAsyncPreventsCircularReferenceInSuppressedChain() {
+        var ex1 = new Exception("ex1");
+        var ex2 = new Exception("ex2");
+        var ex3 = new Exception("ex3");
+
+        // Create a potential circular reference: ex3 has ex1 as suppressed.
+        ex3.addSuppressed(ex1);
+
+        var counter = new AtomicInteger();
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+                () -> {
+                    int attempt = counter.getAndIncrement();
+                    if (attempt == 0) {
+                        return CompletableFuture.failedFuture(ex1);
+                    } else if (attempt == 1) {
+                        return CompletableFuture.failedFuture(ex2);
+                    } else {
+                        return CompletableFuture.failedFuture(ex3);
+                    }
+                },
+                ctx -> counter.get() < 3
+        );
+
+        var completionEx = assertThrows(CompletionException.class, fut::join);
+        var resultEx = (Exception) completionEx.getCause();
+
+        // Result should be ex1 with ex2 added as suppressed.
+        assertEquals("ex1", resultEx.getMessage());
+        assertEquals(1, resultEx.getSuppressed().length);
+        assertEquals("ex2", resultEx.getSuppressed()[0].getMessage());
+        // ex3 should NOT be added because it would create a circular reference (ex3 already has ex1 suppressed).
+    }
+
+    @Test
+    public void testDoWithRetryAsyncPreventsCircularReferenceInCauseChain() {
+        var ex1 = new Exception("ex1");
+        var ex2 = new Exception("ex2", ex1); // ex2's cause is ex1
+
+        var counter = new AtomicInteger();
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+                () -> {
+                    int attempt = counter.getAndIncrement();
+                    if (attempt == 0) {
+                        return CompletableFuture.failedFuture(ex1);
+                    } else {
+                        return CompletableFuture.failedFuture(ex2);
+                    }
+                },
+                ctx -> counter.get() < 2
+        );
+
+        var completionEx = assertThrows(CompletionException.class, fut::join);
+        var resultEx = (Exception) completionEx.getCause();
+
+        // Result should be ex1.
+        assertEquals("ex1", resultEx.getMessage());
+        // ex2 should NOT be added as suppressed because it would create a circular reference (ex2's cause is ex1).
+        assertEquals(0, resultEx.getSuppressed().length);
+    }
 }

@@ -75,7 +75,7 @@ class ClientFutureUtils {
                         resErr = ctx.errors.get(0);
 
                         for (int i = 1; i < ctx.errors.size(); i++) {
-                            resErr.addSuppressed(ctx.errors.get(i));
+                            addSuppressedSafe(resErr, ctx.errors.get(i));
                         }
                     }
                 }
@@ -89,6 +89,61 @@ class ClientFutureUtils {
                 resFut.completeExceptionally(t);
             }
         });
+    }
+
+    /**
+     * Safely adds a suppressed exception, avoiding circular references.
+     *
+     * @param target Target exception.
+     * @param suppressed Exception to add as suppressed.
+     */
+    private static void addSuppressedSafe(Throwable target, Throwable suppressed) {
+        // Avoid self-reference.
+        if (target == suppressed) {
+            return;
+        }
+
+        // Check if suppressed is already in target's suppressed array.
+        for (Throwable existing : target.getSuppressed()) {
+            if (existing == suppressed) {
+                return;
+            }
+        }
+
+        // Check if target would create a circular reference by being already present
+        // in suppressed's cause chain or suppressed array.
+        if (wouldCreateCircularReference(target, suppressed)) {
+            return;
+        }
+
+        target.addSuppressed(suppressed);
+    }
+
+    /**
+     * Checks if adding target to suppressed's chain would create a circular reference.
+     *
+     * @param target Target exception.
+     * @param suppressed Exception being checked.
+     * @return True if circular reference would be created.
+     */
+    private static boolean wouldCreateCircularReference(Throwable target, Throwable suppressed) {
+        // Check cause chain.
+        Throwable cause = suppressed.getCause();
+        while (cause != null) {
+            if (cause == target) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+
+        // Check suppressed exceptions recursively.
+        for (Throwable t : suppressed.getSuppressed()) {
+            if (t == target || wouldCreateCircularReference(target, t)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static class RetryContext {
