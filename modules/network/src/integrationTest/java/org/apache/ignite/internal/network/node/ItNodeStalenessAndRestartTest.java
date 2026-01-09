@@ -81,7 +81,8 @@ class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
         LogInspector logInspector = new LogInspector(
                 FailureManager.class.getName(),
                 evt -> evt.getLevel() == Level.ERROR
-                        && evt.getMessage().getFormattedMessage().contains(FAILURE_MESSAGE)
+                        && evt.getThrown() != null
+                        && evt.getThrown().getMessage().contains(FAILURE_MESSAGE)
                         && Thread.currentThread().getName().contains(cluster.nodeName(1))
         );
 
