@@ -67,7 +67,9 @@ def docfx = tasks.register('docfx', Exec) {
     dependsOn restoreTool
     workingDir "$rootDir/modules/platforms/dotnet"
 
-    commandLine "dotnet", "docfx", "docs/docfx.json", "--globalMetadata", "version=${project.version}"
+    commandLine "dotnet", "docfx",
+            "docs/docfx.json",
+            "-m", "_appFooter=\"Ignite ver. <b>${project.version}</b> | Copyright ${currentYear} The Apache Software Foundation\""
 }
 
 def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
