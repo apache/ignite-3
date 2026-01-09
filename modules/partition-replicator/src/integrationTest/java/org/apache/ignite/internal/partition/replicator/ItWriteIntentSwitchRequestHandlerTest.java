@@ -26,6 +26,8 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestHandler;
@@ -33,6 +35,8 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for {@link WriteIntentSwitchRequestHandler}. */
 public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItWriteIntentSwitchRequestHandlerTest.class);
+
     @Override
     protected int initialNodes() {
         return 2;
@@ -71,16 +75,23 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
 
         failIntentSwitchUntilTableIsDestroyed(senderNode, tableDestroyedFut);
 
+        LOG.info("Running transactions");
         receiverNode.transactions().runInTransaction((tx) -> {
             for (int i = 0; i < 10; i++) {
                 executeSql(receiverNodeIndex, tx, "INSERT INTO " + tableName + " (id, val) VALUES (?, ?)", i, i);
             }
         });
 
+        LOG.info("Finished running transactions");
+
         executeSql("DROP TABLE " + tableName);
+
+        LOG.info("Dropped table)");
 
         // Await real table destruction.
         await().until(() -> receiverNode.distributedTableManager().cachedTable(tableName) == null);
+
+        LOG.info("Completed real table destruction");
 
         LogInspector logInspector = new LogInspector(
                 TxCleanupRequestHandler.class.getName(),
@@ -100,7 +111,12 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
     }
 
     private static void failIntentSwitchUntilTableIsDestroyed(IgniteImpl node0, CompletableFuture<Void> tableDroppedFut) {
-        node0.dropMessages((recipientId, message) ->
-                message.getClass().getName().contains("WriteIntentSwitchReplicaRequest") && !tableDroppedFut.isDone());
+        node0.dropMessages((recipientId, message) -> {
+            if (message.getClass().getName().contains("WriteIntentSwitchReplicaRequest") && !tableDroppedFut.isDone()) {
+                LOG.info("Dropping write intent switch request");
+                return true;
+            }
+            return false;
+        });
     }
 }
