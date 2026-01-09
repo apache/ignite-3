@@ -198,6 +198,10 @@ public class RaftMetricSource implements MetricSource {
         return enabled;
     }
 
+    public int leaderMetric() {
+        return ((IntGauge) metrics.get("raft.group.leaders")).value();
+    }
+
     /**
      * Striped disruptor metrics.
      */
