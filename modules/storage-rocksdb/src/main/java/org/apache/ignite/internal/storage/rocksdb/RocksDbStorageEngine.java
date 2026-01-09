@@ -251,6 +251,13 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return storageByProfileName.values().stream()
+                .mapToLong(storage -> storage.profile.sizeBytes())
+                .sum();
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         return storageByProfileName.values().stream()
                 .flatMap(storage -> storage.rocksDbInstance.tableIdsOnDisk().stream())

@@ -106,17 +106,9 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
     private static VolatileDataRegionConfiguration regionConfiguration(VolatilePageMemoryProfileConfiguration cfg, int pageSize) {
         var cfgView = (VolatilePageMemoryProfileView) cfg.value();
 
+        long maxSize = maxSize(cfg);
+
         long initSize = cfgView.initSizeBytes();
-        long maxSize = cfgView.maxSizeBytes();
-
-        if (maxSize == UNSPECIFIED_SIZE) {
-            maxSize = StorageEngine.defaultDataRegionSize();
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    cfg.name().value(), cfg.maxSizeBytes().key(), maxSize
-            );
-        }
 
         if (initSize == UNSPECIFIED_SIZE) {
             initSize = maxSize;
@@ -191,5 +183,27 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         if (pageMemory == null) {
             throw new StorageException("Data region not started");
         }
+    }
+
+    @Override
+    public long regionSize() {
+        return maxSize(cfg);
+    }
+
+    private static long maxSize(VolatilePageMemoryProfileConfiguration cfg) {
+        var cfgView = (VolatilePageMemoryProfileView) cfg.value();
+
+        long maxSize = cfgView.maxSizeBytes();
+
+        if (maxSize == UNSPECIFIED_SIZE) {
+            maxSize = StorageEngine.defaultDataRegionSize();
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    cfg.name().value(), cfg.maxSizeBytes().key(), maxSize
+            );
+        }
+
+        return maxSize;
     }
 }

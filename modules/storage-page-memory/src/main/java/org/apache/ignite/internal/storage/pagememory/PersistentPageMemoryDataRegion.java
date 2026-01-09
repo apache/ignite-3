@@ -156,15 +156,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     public void start() {
         var dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
-        long sizeBytes = dataRegionConfigView.sizeBytes();
-        if (sizeBytes == UNSPECIFIED_SIZE) {
-            sizeBytes = StorageEngine.defaultDataRegionSize();
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    cfg.name().value(), cfg.sizeBytes().key(), sizeBytes
-            );
-        }
+        long sizeBytes = regionSize();
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
@@ -515,5 +507,22 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         FilePageStore store = filePageStoreManager.getStore(new GroupPartitionId(tableId, partitionId));
 
         return store == null ? 0 : store.pages();
+    }
+
+    @Override
+    public long regionSize() {
+        var dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
+
+        long sizeBytes = dataRegionConfigView.sizeBytes();
+        if (sizeBytes == UNSPECIFIED_SIZE) {
+            sizeBytes = StorageEngine.defaultDataRegionSize();
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    cfg.name().value(), cfg.sizeBytes().key(), sizeBytes
+            );
+        }
+
+        return sizeBytes;
     }
 }

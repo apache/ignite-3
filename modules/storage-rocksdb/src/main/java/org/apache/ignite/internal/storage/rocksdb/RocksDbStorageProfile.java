@@ -67,7 +67,7 @@ public class RocksDbStorageProfile {
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }
 
-    private long sizeBytes() {
+    long sizeBytes() {
         var storageProfileConfigView = (RocksDbProfileView) storageProfileConfig.value();
         long dataRegionSize = storageProfileConfigView.sizeBytes();
 
