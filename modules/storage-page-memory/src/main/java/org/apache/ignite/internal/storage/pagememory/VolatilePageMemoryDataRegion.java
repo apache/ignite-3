@@ -54,11 +54,11 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private final VolatilePageMemoryProfileConfiguration cfg;
 
+    private volatile VolatileDataRegionConfiguration regionConfiguration;
+
     private final PageIoRegistry ioRegistry;
 
     private final int pageSize;
-
-    private long regionSizeBytes;
 
     private volatile VolatilePageMemory pageMemory;
 
@@ -91,8 +91,8 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
         );
 
-        VolatileDataRegionConfiguration cfg = regionConfiguration(this.cfg, pageSize);
-        var pageMemory = new VolatilePageMemory(cfg, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
+        regionConfiguration = regionConfiguration(this.cfg, pageSize);
+        var pageMemory = new VolatilePageMemory(regionConfiguration, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
 
         pageMemory.start();
 
@@ -105,7 +105,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         this.pageMemory = pageMemory;
     }
 
-    private VolatileDataRegionConfiguration regionConfiguration(VolatilePageMemoryProfileConfiguration cfg, int pageSize) {
+    private static VolatileDataRegionConfiguration regionConfiguration(VolatilePageMemoryProfileConfiguration cfg, int pageSize) {
         var cfgView = (VolatilePageMemoryProfileView) cfg.value();
 
         long initSize = cfgView.initSizeBytes();
@@ -119,8 +119,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                     cfg.name().value(), cfg.maxSizeBytes().key(), maxSize
             );
         }
-
-        regionSizeBytes = maxSize;
 
         if (initSize == UNSPECIFIED_SIZE) {
             initSize = maxSize;
@@ -199,6 +197,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     @Override
     public long regionSize() {
-        return regionSizeBytes;
+        return regionConfiguration != null ? regionConfiguration.maxSizeBytes() : 0;
     }
 }

@@ -101,7 +101,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     private final int pageSize;
 
-    private long regionSizeBytes;
+    private volatile long regionSize;
 
     private final FilePageStoreManager filePageStoreManager;
 
@@ -168,7 +168,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
             );
         }
 
-        this.regionSizeBytes = sizeBytes;
+        this.regionSize = sizeBytes;
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
@@ -523,6 +523,6 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     @Override
     public long regionSize() {
-        return regionSizeBytes;
+        return regionSize;
     }
 }

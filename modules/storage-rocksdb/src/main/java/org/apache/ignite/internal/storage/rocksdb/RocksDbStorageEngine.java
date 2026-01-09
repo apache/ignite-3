@@ -253,7 +253,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public long requiredOffHeapMemorySize() {
         return storageByProfileName.values().stream()
-                .mapToLong(storage -> storage.profile.dataRegionSize())
+                .mapToLong(storage -> storage.profile.regionSize())
                 .sum();
     }
 
