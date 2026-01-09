@@ -75,6 +75,7 @@ class ClientFutureUtils {
                         resErr = ctx.errors.get(0);
 
                         for (int i = 1; i < ctx.errors.size(); i++) {
+                            // TODO: ctx.errors can have non-unique items that lead to circular references.
                             addSuppressedSafe(resErr, ctx.errors.get(i));
                         }
                     }
