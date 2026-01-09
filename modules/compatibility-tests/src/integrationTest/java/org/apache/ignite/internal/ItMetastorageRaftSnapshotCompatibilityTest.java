@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -63,20 +63,20 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27185")
     void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
         cluster.startEmbedded(2);
 
         awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
 
+        noActiveRebalance();
         checkMetastorage();
 
         MetaStorageManager newNodeMetastorage = unwrapIgniteImpl(cluster.node(1)).metaStorageManager();
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
 
         // Assert that new node got all log entries from old one.
-        await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
+        await().atMost(10, SECONDS).until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
     }
 
     private void checkMetastorage() {

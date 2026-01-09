@@ -261,7 +261,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      *
      * @return {@code true} if there are no pending assignments in the metastorage.
      */
-    private CompletableFuture<Boolean> noActiveRebalance() {
+    CompletableFuture<Boolean> noActiveRebalance() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
         ByteArray prefix = pendingAssignmentsQueuePrefix();
@@ -270,7 +270,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
                 .thenApply(List::isEmpty);
     }
 
-    private static ByteArray pendingAssignmentsQueuePrefix() {
+    static ByteArray pendingAssignmentsQueuePrefix() {
         return new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
     }
 }
