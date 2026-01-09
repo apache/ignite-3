@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.clusterNodeToMessage;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.maybeFailOnStaleNodeDetection;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -117,11 +118,9 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private RecoveryDescriptor recoveryDescriptor;
 
     /** Cluster topology service. */
-    @SuppressWarnings("FieldCanBeLocal")
     private final TopologyService topologyService;
 
     /** Failure processor. */
-    @SuppressWarnings("FieldCanBeLocal")
     private final FailureProcessor failureProcessor;
 
     /**
@@ -324,12 +323,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             return true;
         }
 
-        if (staleIdDetector.isIdStale(message.serverNode().id())) {
-            handleStaleAcceptorId(message);
-
-            return true;
-        }
-
         if (clusterIdMismatch(message.serverClusterId(), clusterIdSupplier.clusterId())) {
             handleClusterIdMismatch(message);
 
@@ -350,6 +343,12 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
         if (stopping.getAsBoolean()) {
             handleRefusalToEstablishConnectionDueToStopping(message);
+
+            return true;
+        }
+
+        if (staleIdDetector.isIdStale(message.serverNode().id())) {
+            handleStaleAcceptorId(message);
 
             return true;
         }
@@ -389,6 +388,8 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 HandshakeRejectionReason.STALE_LAUNCH_ID,
                 unused -> new RecipientLeftException("Recipient is stale: " + msg.serverNode().id())
         );
+
+        maybeFailOnStaleNodeDetection(failureProcessor, new StaleNodeHandlingParametersImpl(topologyService), msg, msg.serverNode());
     }
 
     private void handleClusterIdMismatch(HandshakeStartMessage msg) {
@@ -491,11 +492,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private void handshake(RecoveryDescriptor descriptor) {
         PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
 
-        HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
-                .clientNode(clusterNodeToMessage(localNode))
-                .receivedCount(descriptor.receivedCount())
-                .connectionId(connectionId)
-                .build();
+        HandshakeStartResponseMessage response = createHandshakeStartResponseMessage(descriptor);
 
         ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList()));
 
@@ -506,6 +503,15 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 );
             }
         });
+    }
+
+    protected HandshakeStartResponseMessage createHandshakeStartResponseMessage(RecoveryDescriptor descriptor) {
+        return MESSAGE_FACTORY.handshakeStartResponseMessage()
+                .clientNode(clusterNodeToMessage(localNode))
+                .receivedCount(descriptor.receivedCount())
+                .connectionId(connectionId)
+                .topologyVersion(topologyService.logicalTopologyVersion())
+                .build();
     }
 
     /**
