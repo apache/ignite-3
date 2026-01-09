@@ -147,6 +147,8 @@ public class TxCleanupRequestHandler {
             );
 
             for (EnlistedPartitionGroup partition : partitions) {
+                LOG.info("Switching write intents for partition {}", partition.groupId());
+
                 CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
                         partition,
                         txCleanupMessage.txId(),
@@ -167,10 +169,12 @@ public class TxCleanupRequestHandler {
 
                     NetworkMessage msg;
                     if (ex == null) {
+                        LOG.info("Switched all write intents successfully");
                         msg = prepareResponse();
                     } else {
                         msg = prepareErrorResponse(txCleanupMessage.txId(), ex);
 
+                        LOG.info("Running second cleanup attempt");
                         // Run durable cleanup for the partitions that we failed to cleanup properly.
                         // No need to wait on this future.
                         writeIntentSwitches.forEach((groupId, future) -> {
@@ -247,6 +251,8 @@ public class TxCleanupRequestHandler {
         if (result == null) {
             return;
         }
+
+        LOG.info("Got write intent switch response for partition {}", result.partitionId());
 
         writeIntentSwitchReplicated(result);
     }
