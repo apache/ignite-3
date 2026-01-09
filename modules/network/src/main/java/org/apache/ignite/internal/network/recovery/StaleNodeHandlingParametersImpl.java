@@ -15,12 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.network.recovery;
+
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParameters;
 
 /**
- * Parameters required for handling stale state of the node.
+ * Basic implementation of {@link StaleNodeHandlingParameters}. Exists only to simplify the code and avoid code duplication.
  */
-public interface StaleNodeHandlingParams {
-    /** Returns the logical topology version. */
-    long topologyVersion();
+class StaleNodeHandlingParametersImpl implements StaleNodeHandlingParameters {
+    private final TopologyService topologyService;
+
+    StaleNodeHandlingParametersImpl(TopologyService topologyService) {
+        this.topologyService = topologyService;
+    }
+
+    @Override
+    public long topologyVersion() {
+        return topologyService.logicalTopologyVersion();
+    }
 }

@@ -206,15 +206,13 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         });
     }
 
-    protected HandshakeStartMessage createHandshakeStartMessage() {
-        StaleNodeHandlingParamsImpl params = new StaleNodeHandlingParamsImpl(topologyService);
-
+    private HandshakeStartMessage createHandshakeStartMessage() {
         return messageFactory.handshakeStartMessage()
                 .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
                 .serverClusterId(clusterIdSupplier.clusterId())
                 .productName(productVersionSource.productName())
                 .productVersion(productVersionSource.productVersion().toString())
-                .topologyVersion(params.topologyVersion())
+                .topologyVersion(topologyService.logicalTopologyVersion())
                 .build();
     }
 
@@ -283,13 +281,13 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleInitiatorId(HandshakeStartResponseMessage msg) {
-        maybeFailOnStaleNodeDetection(failureProcessor, new StaleNodeHandlingParamsImpl(topologyService), msg);
-
         String message = String.format("%s:%s is stale, it should be restarted to be allowed to connect",
                 msg.clientNode().name(), msg.clientNode().id()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
+
+        maybeFailOnStaleNodeDetection(failureProcessor, new StaleNodeHandlingParametersImpl(topologyService), msg, msg.clientNode());
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {

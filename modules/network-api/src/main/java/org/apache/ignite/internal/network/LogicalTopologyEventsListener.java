@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery;
-
-import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParams;
+package org.apache.ignite.internal.network;
 
 /**
- * Basic implementation of {@link StaleNodeHandlingParams}. Exists only to simplify the code and avoid code duplication.
+ * Allows reacting to logical topology changes.
  */
-class StaleNodeHandlingParamsImpl implements StaleNodeHandlingParams {
-    private final TopologyService topologyService;
+public interface LogicalTopologyEventsListener {
 
-    StaleNodeHandlingParamsImpl(TopologyService topologyService) {
-        this.topologyService = topologyService;
-    }
+    /**
+     * Called when the node joins logical topology.
+     *
+     * @param node Node.
+     * @param topologyVersion Logical topology version.
+     */
+    void onJoined(InternalClusterNode node, long topologyVersion);
 
-    @Override
-    public long topologyVersion() {
-        return topologyService.logicalTopologyVersion();
-    }
+    /**
+     * Called when the node leaves logical topology.
+     *
+     * @param node Node.
+     * @param topologyVersion Logical topology version.
+     */
+    void onLeft(InternalClusterNode node, long topologyVersion);
 }

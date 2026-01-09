@@ -42,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(FailureManagerExtension.class)
 class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
 
-    private static final String FAILURE_MESSAGE = "Ignite node is in invalid state due to a critical failure.";
+    private static final String FAILURE_MESSAGE = "Cluster segmentation detected, current node will be shut down";
 
     @Override
     protected int initialNodes() {

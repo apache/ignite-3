@@ -38,7 +38,8 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
-import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParams;
+import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParameters;
+import org.apache.ignite.internal.tostring.S;
 
 class HandshakeManagerUtils {
     private static final IgniteLogger LOG = Loggers.forClass(HandshakeManagerUtils.class);
@@ -95,8 +96,9 @@ class HandshakeManagerUtils {
 
     static void maybeFailOnStaleNodeDetection(
             FailureProcessor failureProcessor,
-            StaleNodeHandlingParams local,
-            StaleNodeHandlingParams remote
+            StaleNodeHandlingParameters local,
+            StaleNodeHandlingParameters remote,
+            ClusterNodeMessage remoteNode
     ) {
         long localTopologyVersion = local.topologyVersion();
         long remoteTopologyVersion = remote.topologyVersion();
@@ -105,6 +107,14 @@ class HandshakeManagerUtils {
             return;
         }
 
-        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, "Node is segmented."));
+        String message = S.toString(
+                "Cluster segmentation detected, current node will be shut down",
+                "logicalTopologyVersion", localTopologyVersion, false,
+                "remoteLogicalTopologyVersion", remoteTopologyVersion, false,
+                "remoteNodeId", remoteNode.id(), false,
+                "remoteNodeName", remoteNode.name(), false
+        );
+
+        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, message));
     }
 }

@@ -45,6 +45,11 @@ public class TestTopologyService extends AbstractTopologyService {
     }
 
     @Override
+    public long logicalTopologyVersion() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public @Nullable InternalClusterNode getByAddress(NetworkAddress addr) {
         throw new UnsupportedOperationException();
     }

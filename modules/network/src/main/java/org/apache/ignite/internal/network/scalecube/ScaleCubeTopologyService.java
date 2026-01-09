@@ -59,6 +59,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      */
     private volatile Cluster cluster;
 
+    private volatile long topologyVersion;
+
     /** Topology members from the network address to the cluster node.. */
     private final ConcurrentMap<NetworkAddress, InternalClusterNode> members = new ConcurrentHashMap<>();
 
@@ -70,6 +72,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /** Topology members map from the id to the cluster node. */
     private final ConcurrentMap<UUID, InternalClusterNode> idToMemberMap = new ConcurrentHashMap<>();
+
+    @Override
+    public long logicalTopologyVersion() {
+        return topologyVersion;
+    }
 
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.

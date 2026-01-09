@@ -28,8 +28,6 @@ public abstract class AbstractTopologyService implements TopologyService {
     /** Registered event handlers. */
     private final Collection<TopologyEventHandler> eventHandlers = new CopyOnWriteArrayList<>();
 
-    protected long topologyVersion;
-
     /** {@inheritDoc} */
     @Override
     public void addEventHandler(TopologyEventHandler handler) {
@@ -39,11 +37,6 @@ public abstract class AbstractTopologyService implements TopologyService {
     @Override
     public void removeEventHandler(TopologyEventHandler handler) {
         eventHandlers.remove(handler);
-    }
-
-    @Override
-    public long logicalTopologyVersion() {
-        return topologyVersion;
     }
 
     /**
