@@ -96,6 +96,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -178,12 +179,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         transactionInflights = new TransactionInflights(placementDriver, clockService);
 
+        VolatileTxStateMetaStorage volatileTxStateMetaStorage = new VolatileTxStateMetaStorage();
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,
                 clusterService,
                 replicaService,
-                lockManager(),
+                lockManager(volatileTxStateMetaStorage),
+                volatileTxStateMetaStorage,
                 clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -199,8 +202,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
-    private LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+    private LockManager lockManager(VolatileTxStateMetaStorage volatileTxStateMetaStorage) {
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, volatileTxStateMetaStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

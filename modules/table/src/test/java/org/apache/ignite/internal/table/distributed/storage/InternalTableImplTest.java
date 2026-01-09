@@ -48,8 +48,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,10 +63,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -99,7 +103,9 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.IndexScanCriteria.Range;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -841,6 +847,266 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Error code should be TX_FAILED_READ_WRITE_OPERATION_ERR",
                         e.code(), is(TX_FAILED_READ_WRITE_OPERATION_ERR));
             }
+        }
+    }
+
+    /**
+     * Tests for label propagation from OperationContext to TxStateMeta.
+     */
+    @Nested
+    class LabelPropagationTest {
+        @Test
+        void testReadOnlyScanSavesLabelToTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            HybridTimestamp readTimestamp = clock.now();
+            String label = "TEST-RO-LABEL";
+
+            TxContext.ReadOnly txContext = (TxContext.ReadOnly) TxContext.readOnly(
+                    txId,
+                    coordinatorId,
+                    readTimestamp,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+            assertThat(newMeta.txCoordinatorId(), is(coordinatorId));
+            assertThat(newMeta.txState(), is(TxState.PENDING));
+        }
+
+        @Test
+        void testReadWriteScanSavesLabelToTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            ZonePartitionId commitPartition = new ZonePartitionId(ZONE_ID, 0);
+            long enlistmentConsistencyToken = 1L;
+            String label = "TEST-RW-LABEL";
+
+            TxContext.ReadWrite txContext = (TxContext.ReadWrite) TxContext.readWrite(
+                    txId,
+                    coordinatorId,
+                    commitPartition,
+                    enlistmentConsistencyToken,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+            assertThat(newMeta.txCoordinatorId(), is(coordinatorId));
+            assertThat(newMeta.commitPartitionId(), is(commitPartition));
+            assertThat(newMeta.txState(), is(TxState.PENDING));
+        }
+
+        @Test
+        void testReadOnlyScanWithIndexSavesLabelToTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            HybridTimestamp readTimestamp = clock.now();
+            String label = "TEST-RO-INDEX-LABEL";
+            int indexId = 1;
+
+            TxContext.ReadOnly txContext = (TxContext.ReadOnly) TxContext.readOnly(
+                    txId,
+                    coordinatorId,
+                    readTimestamp,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+            IndexScanCriteria criteria = IndexScanCriteria.unbounded();
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, indexId, criteria, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+        }
+
+        @Test
+        void testReadWriteScanWithIndexSavesLabelToTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            ZonePartitionId commitPartition = new ZonePartitionId(ZONE_ID, 0);
+            long enlistmentConsistencyToken = 1L;
+            String label = "TEST-RW-INDEX-LABEL";
+            int indexId = 1;
+
+            TxContext.ReadWrite txContext = (TxContext.ReadWrite) TxContext.readWrite(
+                    txId,
+                    coordinatorId,
+                    commitPartition,
+                    enlistmentConsistencyToken,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+            IndexScanCriteria criteria = IndexScanCriteria.unbounded();
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, indexId, criteria, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+            assertThat(newMeta.commitPartitionId(), is(commitPartition));
+        }
+
+        @Test
+        void testScanWithoutLabelDoesNotUpdateTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            HybridTimestamp readTimestamp = clock.now();
+
+            TxContext.ReadOnly txContext = (TxContext.ReadOnly) TxContext.readOnly(
+                    txId,
+                    coordinatorId,
+                    readTimestamp,
+                    null
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            verify(txManager, never()).updateTxMeta(any(), any());
+        }
+
+        @Test
+        void testReadOnlyScanSavesLabelToTxStateMetaWithStateMap() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            HybridTimestamp readTimestamp = clock.now();
+            String label = "TEST-RO-LABEL-MAP";
+
+            TxContext.ReadOnly txContext = (TxContext.ReadOnly) TxContext.readOnly(
+                    txId,
+                    coordinatorId,
+                    readTimestamp,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            Map<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+
+            doAnswer(invocation -> txStateMap.get(invocation.getArgument(0)))
+                    .when(txManager).stateMeta(any());
+
+            doAnswer(invocation -> {
+                UUID txIdArg = invocation.getArgument(0);
+                Function<TxStateMeta, TxStateMeta> updater = invocation.getArgument(1);
+                txStateMap.compute(txIdArg, (k, oldMeta) -> updater.apply(oldMeta));
+                return null;
+            }).when(txManager).updateTxMeta(any(), any());
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+
+            TxStateMeta txMeta = txManager.stateMeta(txId);
+            assertThat(txMeta, is(notNullValue()));
+            assertThat(txMeta.txLabel(), is(label));
+            assertThat(txMeta.txCoordinatorId(), is(coordinatorId));
+        }
+
+        @Test
+        void testReadWriteScanSavesLabelToTxStateMetaWithStateMap() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            ZonePartitionId commitPartition = new ZonePartitionId(ZONE_ID, 0);
+            long enlistmentConsistencyToken = 1L;
+            String label = "TEST-RW-LABEL-MAP";
+
+            TxContext.ReadWrite txContext = (TxContext.ReadWrite) TxContext.readWrite(
+                    txId,
+                    coordinatorId,
+                    commitPartition,
+                    enlistmentConsistencyToken,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            Map<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+
+            doAnswer(invocation -> txStateMap.get(invocation.getArgument(0)))
+                    .when(txManager).stateMeta(any());
+
+            doAnswer(invocation -> {
+                UUID txIdArg = invocation.getArgument(0);
+                Function<TxStateMeta, TxStateMeta> updater = invocation.getArgument(1);
+                txStateMap.compute(txIdArg, (k, oldMeta) -> updater.apply(oldMeta));
+                return null;
+            }).when(txManager).updateTxMeta(any(), any());
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            TxStateMeta txMeta = txManager.stateMeta(txId);
+            assertThat(txMeta, is(notNullValue()));
+            assertThat(txMeta.txLabel(), is(label));
+            assertThat(txMeta.txCoordinatorId(), is(coordinatorId));
+            assertThat(txMeta.commitPartitionId(), is(commitPartition));
         }
     }
 }
