@@ -95,6 +95,11 @@ public interface StorageEngine {
     }
 
     /**
+     * Returns the size of required off-heap memory by the engine in bytes.
+     */
+    long requiredOffHeapMemorySize();
+
+    /**
      * Returns IDs of tables for which there are MV partition storages on disk. Those were created and flushed to disk; either
      * destruction was not started for them, or it failed.
      *

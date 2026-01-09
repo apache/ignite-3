@@ -390,6 +390,13 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return regions.values().stream()
+                .mapToLong(PersistentPageMemoryDataRegion::regionSize)
+                .sum();
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         return requireNonNull(filePageStoreManager, "Not started").allGroupIdsOnFs();
     }

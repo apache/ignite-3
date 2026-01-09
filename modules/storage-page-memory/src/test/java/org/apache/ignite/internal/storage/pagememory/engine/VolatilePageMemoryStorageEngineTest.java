@@ -72,5 +72,7 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
             assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(123000L));
             assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
         }
+
+        assertThat(anotherEngine.requiredOffHeapMemorySize(), is(12345000L));
     }
 }
