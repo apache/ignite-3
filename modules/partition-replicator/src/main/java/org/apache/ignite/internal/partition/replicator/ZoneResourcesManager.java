@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
@@ -31,9 +32,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -124,7 +125,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         );
 
         var snapshotStorage = new PartitionSnapshotStorage(
-                new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStatePartitionStorage),
@@ -209,6 +210,24 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
                     return resources.snapshotStorage().removeMvPartition(tableId);
                 });
+    }
+
+    /**
+     *  Returns future of true if there are no corresponding table-related resources, otherwise awaits replicaListenerFuture
+     *  and checks whether table replica processors, table raft processors and partition snapshot storages are present.
+     *  if any is present, returns false, otherwise returns true.
+     */
+    CompletableFuture<Boolean> areTableResourcesEmpty(ZonePartitionId zonePartitionId) {
+        ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
+
+        if (resources == null) {
+            return trueCompletedFuture();
+        }
+
+        return resources.replicaListenerFuture
+                .thenApply(zoneReplicaListener -> zoneReplicaListener.areTableReplicaProcessorsEmpty()
+                        && resources.raftListener().areTableRaftProcessorsEmpty()
+                        && resources.snapshotStorage().arePartitionSnapshotStoragesEmpty());
     }
 
     @TestOnly

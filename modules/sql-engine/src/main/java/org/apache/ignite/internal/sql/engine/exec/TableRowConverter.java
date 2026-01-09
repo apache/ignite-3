@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 
 /**
  * Converts rows between storage and execution engine representation.

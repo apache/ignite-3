@@ -352,7 +352,7 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            compactor.pause();
+            compactor.notifyCheckpointStart();
 
             var tracker = new CheckpointMetricsTracker();
 
@@ -470,7 +470,7 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             currentCheckpointProgressForThrottling = null;
 
-            compactor.resume();
+            compactor.notifyCheckpointFinish();
         }
     }
 

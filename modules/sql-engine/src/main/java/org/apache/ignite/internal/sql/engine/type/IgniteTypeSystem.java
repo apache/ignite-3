@@ -275,4 +275,9 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
 
         return null;
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean shouldConvertRaggedUnionTypesToVarying() {
+        return true;
+    }
 }

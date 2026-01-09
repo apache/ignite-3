@@ -452,7 +452,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                 .add("f2", TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER), true))
                 .build();
 
-        StructNativeType expected1 = NativeTypes.rowBuilder()
+        StructNativeType expected1 = NativeTypes.structBuilder()
                 .addField("f1", BOOLEAN, false)
                 .addField("f2", INT32, true)
                 .build();
@@ -473,12 +473,12 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                 )
                 .build();
 
-        StructNativeType expected2 = NativeTypes.rowBuilder()
+        StructNativeType expected2 = NativeTypes.structBuilder()
                 .addField("f1", BOOLEAN, false)
                 .addField("f2", INT32, true)
                 .addField(
                         "f3",
-                        NativeTypes.rowBuilder()
+                        NativeTypes.structBuilder()
                                 .addField("f3_f1", INT64, true)
                                 .addField("f3_f2", STRING, false)
                                 .build(),

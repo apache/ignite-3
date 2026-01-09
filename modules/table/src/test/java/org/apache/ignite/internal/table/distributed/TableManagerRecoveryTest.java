@@ -82,7 +82,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -132,6 +131,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
@@ -533,7 +533,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 topologyService,
                 lowWatermark,
                 failureProcessor,
-                new SystemPropertiesNodeProperties(),
                 ForkJoinPool.commonPool(),
                 mock(ScheduledExecutorService.class),
                 partitionOperationsExecutor,
@@ -546,7 +545,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sm,
                 dsm,
                 outgoingSnapshotManager,
-                metricManager
+                metricManager,
+                clusterService.messagingService(),
+                mock(ReplicaService.class)
         ));
 
         tableManager = new TableManager(
@@ -583,7 +584,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new SystemPropertiesNodeProperties(),
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,

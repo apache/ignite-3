@@ -54,7 +54,7 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID_2 = 2;
 
     private final PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
-            new ZonePartitionKey(1, 1),
+            new PartitionKey(1, 1),
             mock(TopologyService.class),
             mock(OutgoingSnapshotsManager.class),
             mock(PartitionTxStateAccess.class),

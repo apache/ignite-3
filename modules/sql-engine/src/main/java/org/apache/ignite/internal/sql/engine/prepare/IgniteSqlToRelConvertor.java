@@ -60,6 +60,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
@@ -137,6 +138,30 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
     @Override
     public SqlNode validateExpression(RelDataType rowType, SqlNode expr) {
         throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /**
+     * Converts given AST representing expression to a {@link RexNode relational expression tree}.
+     *
+     * @param node The AST root to convert.
+     * @param scope The scope to use to resolve column reference, if any.
+     * @param inputRowType The input row type. Should be provided if expression contains any column references.
+     * @return A converted expression tree.
+     */
+    public RexNode convertExpressionExt(SqlNode node, SqlValidatorScope scope, @Nullable RelDataType inputRowType) {
+        Blackboard bb = createBlackboard(scope, null, false);
+
+        if (inputRowType != null) {
+            bb.setRoot(relBuilder.values(inputRowType).build(), true);
+        }
+
+        try {
+            REPLACE_SUB_QUERIES.invoke(this, bb, node, RelOptUtil.Logic.TRUE_FALSE_UNKNOWN);
+        } catch (Throwable throwable) {
+            ExceptionUtils.sneakyThrow(throwable);
+        }
+
+        return bb.convertExpression(node);
     }
 
     @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {

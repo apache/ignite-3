@@ -94,6 +94,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
@@ -131,6 +132,8 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
@@ -158,6 +161,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -185,6 +189,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
@@ -289,6 +294,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private final CatalogService catalogService;
 
+    private final LeasePlacementDriver placementDriver;
+
+    private final InternalClusterNode localNode;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -332,7 +341,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @param safeTime Safe time clock.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
+     * @param validationSchemasSource Validation schemas source.
+     * @param localNode Local cluster node.
      * @param catalogService Catalog service.
+     * @param placementDriver Placement driver.
      * @param clusterNodeResolver Node resolver.
      * @param remotelyTriggeredResourceRegistry Resource registry.
      * @param indexMetaStorage Index meta storage.
@@ -354,8 +366,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
+            InternalClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            LeasePlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             SchemaRegistry schemaRegistry,
@@ -377,6 +391,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.placementDriver = placementDriver;
+        this.localNode = localNode;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
         this.lowWatermark = lowWatermark;
@@ -626,9 +642,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
-            }
+            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -642,7 +656,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         });
             }
 
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            throwsIfIndexIsNotSorted(indexStorage);
 
             return safeReadFuture
                     .thenCompose(unused -> scanSortedIndex(request, indexStorage))
@@ -957,17 +971,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage == null) {
-                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
-            }
+            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return lookupIndex(request, indexStorage.storage(), request.coordinatorId());
             }
-
-            assert indexStorage.storage() instanceof SortedIndexStorage;
+            throwsIfIndexIsNotSorted(indexStorage);
 
             return scanSortedIndex(request, indexStorage);
         }
@@ -979,6 +990,44 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.S)
                 .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), cursorId, batchCount));
+    }
+
+    /**
+     * Validates that the index storage exists for the given index ID.
+     *
+     * <p>This method checks if the provided index storage is {@code null}, which indicates that the index
+     * with the given ID does not exist in the partition's index storage map.
+     *
+     * @param indexId Index identifier. May be {@code null}.
+     * @param indexStorage Index storage retrieved from the partition's index storage map. May be {@code null}
+     *         if the index does not exist.
+     * @throws IllegalStateException If the index storage is {@code null}, indicating the index was not found.
+     */
+    private void throwsIfIndexNotFound(@Nullable Integer indexId, TableSchemaAwareIndexStorage indexStorage) {
+        if (indexStorage == null) {
+            throw new IllegalStateException(format("Index not found: [id={}].", indexId));
+        }
+    }
+
+    /**
+     * Validates that the index storage is a sorted index, not a hash index.
+     *
+     * <p>This method ensures that range scan operations are only performed on sorted indexes.
+     * Hash indexes do not support range scans because they are designed for exact key lookups only.
+     * Range scans require ordered traversal, which is only available with sorted indexes.
+     *
+     * <p>If the underlying storage is not a {@link SortedIndexStorage} (e.g., it's a {@link HashIndexStorage}),
+     * an exception is thrown to prevent invalid scan operations.
+     *
+     * @param indexStorage Index storage to validate. Must not be {@code null} (should be validated by
+     *         {@link #throwsIfIndexNotFound(Integer, TableSchemaAwareIndexStorage)} first).
+     * @throws IllegalStateException If the index storage is not a sorted index. The exception message
+     *         indicates that scans work only with sorted indexes.
+     */
+    private void throwsIfIndexIsNotSorted(TableSchemaAwareIndexStorage indexStorage) {
+        if (!(indexStorage.storage() instanceof SortedIndexStorage)) {
+            throw new IllegalStateException("Scan works only with sorted index.");
+        }
     }
 
     /**
@@ -3232,10 +3281,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
 
+        HybridTimestamp now = clockService.current();
+        ReplicaMeta replicaMeta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
+        Long currentConsistencyToken = (replicaMeta == null || !replicaMeta.getLeaseholderId().equals(localNode.id()))
+                ? null
+                : replicaMeta.getStartTime().longValue();
+
         return transactionStateResolver.resolveTxState(
                         txId,
                         new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
-                        timestamp)
+                        timestamp,
+                        currentConsistencyToken,
+                        replicationGroupId
+                )
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
