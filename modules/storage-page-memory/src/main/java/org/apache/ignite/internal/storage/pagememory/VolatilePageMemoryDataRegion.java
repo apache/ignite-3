@@ -54,7 +54,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private final VolatilePageMemoryProfileConfiguration cfg;
 
-    private volatile VolatileDataRegionConfiguration regionConfiguration;
+    private volatile long regionSize;
 
     private final PageIoRegistry ioRegistry;
 
@@ -91,7 +91,10 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
         );
 
-        regionConfiguration = regionConfiguration(this.cfg, pageSize);
+        VolatileDataRegionConfiguration regionConfiguration = regionConfiguration(this.cfg, pageSize);
+
+        this.regionSize = regionConfiguration.maxSizeBytes();
+
         var pageMemory = new VolatilePageMemory(regionConfiguration, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
 
         pageMemory.start();
@@ -197,6 +200,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     @Override
     public long regionSize() {
-        return regionConfiguration != null ? regionConfiguration.maxSizeBytes() : 0;
+        return regionSize;
     }
 }
