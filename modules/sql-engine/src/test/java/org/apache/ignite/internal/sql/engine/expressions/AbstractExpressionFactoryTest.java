@@ -25,11 +25,70 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.EnumSet;
+import org.apache.ignite.internal.sql.engine.api.expressions.EvaluationContext;
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 abstract class AbstractExpressionFactoryTest {
+    protected final ExpressionFactory factory = new SqlExpressionFactoryAdapter(
+            new SqlExpressionFactoryImpl(
+                    Commons.typeFactory(), 0, EmptyCacheFactory.INSTANCE
+            )
+    );
+
+    protected EvaluationContext<Object[]> context() {
+        return factory.<Object[]>contextBuilder()
+                .rowAccessor(ObjectArrayAccessor.INSTANCE)
+                .build();
+    }
+
+    protected EvaluationContext<Object[]> context(Instant currentTime) {
+        return factory.<Object[]>contextBuilder()
+                .rowAccessor(ObjectArrayAccessor.INSTANCE)
+                .timeProvider(currentTime::toEpochMilli)
+                .build();
+    }
+
+    protected static StructNativeType singleColumnType(NativeType type) {
+        return NativeTypes.structBuilder()
+                .addField("VAL", type, true)
+                .build();
+    }
+
+    protected static @Nullable Object[] row(@Nullable Object value) {
+        return new Object[] {value};
+    }
+
+    protected static class ObjectArrayAccessor implements RowAccessor<Object[]> {
+        private static final ObjectArrayAccessor INSTANCE = new ObjectArrayAccessor();
+
+        @Override
+        public @Nullable Object get(int field, Object[] row) {
+            return row[field];
+        }
+
+        @Override
+        public int columnsCount(Object[] row) {
+            return row.length;
+        }
+
+        @Override
+        public boolean isNull(int field, Object[] row) {
+            return row[field] == null;
+        }
+    }
+
     @Test
     void ensureAllMarshallableEntryTypesAreCovered() {
         EnumSet<ColumnType> typesToExclude = EnumSet.of(
