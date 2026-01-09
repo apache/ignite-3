@@ -27,8 +27,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -166,11 +168,10 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         ClusterTime clusterTime = ignite.metaStorageManager().clusterTime();
         HybridTimestamp started = clusterTime.currentSafeTime();
 
-        assertTrue(
-                waitForCondition(() -> clusterTime.currentSafeTime().longValue() > started.longValue(), SECONDS.toMillis(10)),
-                () -> "Did not see " + ignite.name() + " to receive Metastorage SafeTime updates; current SafeTime is "
-                        + clusterTime.currentSafeTime()
-        );
+        await("Expected Metastorage SafeTime to advance")
+                .untilAsserted(() -> {
+                    assertThat(clusterTime.currentSafeTime().longValue(), greaterThan(started.longValue()));
+                });
     }
 
     @Test
