@@ -67,7 +67,7 @@ def docfx = tasks.register('docfx', Exec) {
     dependsOn restoreTool
     workingDir "$rootDir/modules/platforms/dotnet"
 
-    commandLine "dotnet", "docfx", "docs/docfx.json"
+    commandLine "dotnet", "docfx", "docs/docfx.json", "--globalMetadata", "version=${project.version}"
 }
 
 def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
