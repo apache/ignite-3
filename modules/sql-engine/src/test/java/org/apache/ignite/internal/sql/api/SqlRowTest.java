@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.IDENTITY_ROW_CONVERTER;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -194,7 +194,8 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         RowWrapper binaryTupleRow = factory.create(binaryTuple);
 
         InternalSqlRowImpl<RowWrapper> internalSqlRow =
-                new InternalSqlRowImpl<>(binaryTupleRow, SqlRowHandler.INSTANCE, IDENTITY_ROW_CONVERTER);
+                new InternalSqlRowImpl<>(binaryTupleRow, SqlRowHandler.INSTANCE, (index, val) ->
+                        val == null ? null : TypeUtils.fromInternal(val, descriptor.column(index).type().spec()));
 
         return new SqlRowImpl(internalSqlRow, new ResultSetMetadataImpl(columnsMeta));
     }
