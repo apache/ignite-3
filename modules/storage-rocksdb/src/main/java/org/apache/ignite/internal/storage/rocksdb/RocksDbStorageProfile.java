@@ -45,6 +45,8 @@ public class RocksDbStorageProfile {
     /** Write buffer manager instance. */
     private WriteBufferManager writeBufferManager;
 
+    private long dataRegionSize;
+
     /**
      * Constructor.
      *
@@ -67,9 +69,9 @@ public class RocksDbStorageProfile {
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }
 
-    long sizeBytes() {
+    private long sizeBytes() {
         var storageProfileConfigView = (RocksDbProfileView) storageProfileConfig.value();
-        long dataRegionSize = storageProfileConfigView.sizeBytes();
+        dataRegionSize = storageProfileConfigView.sizeBytes();
 
         if (dataRegionSize == UNSPECIFIED_SIZE) {
             dataRegionSize = StorageEngine.defaultDataRegionSize();
@@ -80,6 +82,10 @@ public class RocksDbStorageProfile {
             );
         }
 
+        return dataRegionSize;
+    }
+
+    long dataRegionSize() {
         return dataRegionSize;
     }
 
