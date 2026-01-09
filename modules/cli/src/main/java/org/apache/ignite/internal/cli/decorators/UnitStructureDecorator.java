@@ -47,7 +47,7 @@ public class UnitStructureDecorator implements Decorator<UnitFolder, TerminalOut
         if (plain) {
             renderPlain(data, sb, "");
         } else {
-            sb.append(data.getName()).append("\n");
+            sb.append(data.getName()).append('\n');
             renderTree(data.getChildren(), sb, "");
         }
 
@@ -73,12 +73,12 @@ public class UnitStructureDecorator implements Decorator<UnitFolder, TerminalOut
 
             if (actualInstance instanceof UnitFile) {
                 UnitFile file = (UnitFile) actualInstance;
-                sb.append(prefix).append(connector).append(file.getName());
-                sb.append(" (").append(readableSize(file.getSize(), false)).append(")");
-                sb.append("\n");
+                sb.append(prefix).append(connector).append(file.getName())
+                        .append(" (").append(readableSize(file.getSize(), false)).append(')')
+                        .append('\n');
             } else if (actualInstance instanceof UnitFolder) {
                 UnitFolder folder = (UnitFolder) actualInstance;
-                sb.append(prefix).append(connector).append(folder.getName()).append("\n");
+                sb.append(prefix).append(connector).append(folder.getName()).append('\n');
                 String newPrefix = prefix + (isLast ? TREE_SPACE : TREE_VERTICAL);
                 renderTree(folder.getChildren(), sb, newPrefix);
             }
@@ -105,11 +105,11 @@ public class UnitStructureDecorator implements Decorator<UnitFolder, TerminalOut
                 UnitFile file = (UnitFile) actualInstance;
                 sb.append(prefix);
                 if (!prefix.isEmpty()) {
-                    sb.append("/");
+                    sb.append('/');
                 }
-                sb.append(file.getName());
-                sb.append(" ").append(file.getSize());
-                sb.append("\n");
+                sb.append(file.getName())
+                        .append(' ').append(file.getSize())
+                        .append('\n');
             } else if (actualInstance instanceof UnitFolder) {
                 UnitFolder subFolder = (UnitFolder) actualInstance;
                 String newPrefix = prefix.isEmpty() ? subFolder.getName() : prefix + "/" + subFolder.getName();

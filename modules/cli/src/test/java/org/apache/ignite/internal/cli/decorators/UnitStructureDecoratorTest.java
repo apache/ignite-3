@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.rest.client.model.UnitEntry;
 import org.apache.ignite.rest.client.model.UnitFile;
@@ -168,14 +169,12 @@ class UnitStructureDecoratorTest {
     }
 
     private UnitFolder createFolderWithFiles(String name, UnitFile... files) {
-        List<UnitEntry> children = new java.util.ArrayList<>();
-        long totalSize = 0;
+        List<UnitEntry> children = new ArrayList<>();
 
         for (UnitFile file : files) {
             UnitEntry entry = new UnitEntry();
             entry.setActualInstance(file);
             children.add(entry);
-            totalSize += file.getSize();
         }
 
         return new UnitFolder()

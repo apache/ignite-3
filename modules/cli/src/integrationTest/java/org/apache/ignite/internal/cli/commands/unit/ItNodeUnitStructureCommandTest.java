@@ -40,6 +40,24 @@ public class ItNodeUnitStructureCommandTest extends CliIntegrationTest {
         testFile = Files.createFile(testDirectory.resolve("test.txt")).toString();
         Files.createFile(testDirectory.resolve("test2.txt"));
         Files.createFile(testDirectory.resolve("test3.txt"));
+
+        // Files with special characters
+        Files.createFile(testDirectory.resolve("file with spaces.txt"));
+        Files.createFile(testDirectory.resolve("file-with-dashes.txt"));
+        Files.createFile(testDirectory.resolve("file_with_underscores.txt"));
+        Files.createFile(testDirectory.resolve("file.multiple.dots.txt"));
+        Files.createFile(testDirectory.resolve("file(with)parentheses.txt"));
+        Files.createFile(testDirectory.resolve("UPPERCASE.TXT"));
+        Files.createFile(testDirectory.resolve("MixedCase.Txt"));
+
+        // Subdirectory with files
+        Path subDir = Files.createDirectory(testDirectory.resolve("sub-directory"));
+        Files.createFile(subDir.resolve("nested file.txt"));
+        Files.createFile(subDir.resolve("nested-file.txt"));
+
+        // Deeply nested directory
+        Path deepDir = Files.createDirectories(testDirectory.resolve("level1").resolve("level2"));
+        Files.createFile(deepDir.resolve("deep file.txt"));
     }
 
     @Test
@@ -65,6 +83,19 @@ public class ItNodeUnitStructureCommandTest extends CliIntegrationTest {
                 () -> assertOutputContains("test.txt"),
                 () -> assertOutputContains("test2.txt"),
                 () -> assertOutputContains("test3.txt"),
+                () -> assertOutputContains("file with spaces.txt"),
+                () -> assertOutputContains("file-with-dashes.txt"),
+                () -> assertOutputContains("file_with_underscores.txt"),
+                () -> assertOutputContains("file.multiple.dots.txt"),
+                () -> assertOutputContains("file(with)parentheses.txt"),
+                () -> assertOutputContains("UPPERCASE.TXT"),
+                () -> assertOutputContains("MixedCase.Txt"),
+                () -> assertOutputContains("sub-directory"),
+                () -> assertOutputContains("nested file.txt"),
+                () -> assertOutputContains("nested-file.txt"),
+                () -> assertOutputContains("level1"),
+                () -> assertOutputContains("level2"),
+                () -> assertOutputContains("deep file.txt"),
                 () -> assertOutputContains(" B)") // File size display
         );
     }
@@ -90,7 +121,15 @@ public class ItNodeUnitStructureCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("test.txt"),
                 () -> assertOutputContains("test2.txt"),
-                () -> assertOutputContains("test3.txt")
+                () -> assertOutputContains("test3.txt"),
+                () -> assertOutputContains("file with spaces.txt"),
+                () -> assertOutputContains("file-with-dashes.txt"),
+                () -> assertOutputContains("file_with_underscores.txt"),
+                () -> assertOutputContains("file.multiple.dots.txt"),
+                () -> assertOutputContains("file(with)parentheses.txt"),
+                () -> assertOutputContains("sub-directory"),
+                () -> assertOutputContains("level1"),
+                () -> assertOutputContains("level2")
         );
     }
 
