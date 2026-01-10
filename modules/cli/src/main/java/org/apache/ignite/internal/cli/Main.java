@@ -53,25 +53,42 @@ public class Main {
     public static void main(String[] args) {
         initJavaLoggerProps();
 
+        // Determine if we're entering interactive REPL mode.
+        // REPL mode is only entered when no args AND stdin/stdout are terminals.
+        boolean interactiveMode = args.length == 0 && isatty();
+
         int exitCode = 0;
+        boolean ansiInstalled = false;
         ApplicationContextBuilder builder = ApplicationContext.builder(Environment.CLI).deduceEnvironment(false);
         try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
-            AnsiConsole.systemInstall();
-            initReplExecutor(micronautFactory);
-            initQuestionAsker(micronautFactory);
-            if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
+            if (interactiveMode) {
+                // REPL mode: full initialization with Jansi ANSI console and JLine terminal.
+                AnsiConsole.systemInstall();
+                ansiInstalled = true;
+                initReplExecutor(micronautFactory);
+                initQuestionAsker(micronautFactory);
+                enterRepl(micronautFactory);
+            } else {
+                // Non-interactive mode: skip JLine terminal initialization for faster startup.
+                // Only install ANSI console if stdout is a terminal (for colored output).
+                if (isatty()) {
+                    AnsiConsole.systemInstall();
+                    ansiInstalled = true;
+                }
                 try {
                     exitCode = executeCommand(args, micronautFactory);
                 } catch (Exception e) {
-                    System.err.println("Error occurred during command execution");
+                    System.err.println("Error occurred during command execution: " + e.getMessage());
+                    exitCode = 1;
                 }
-            } else {
-                enterRepl(micronautFactory);
             }
         } catch (Exception e) {
-            System.err.println("Error occurred during initialization");
+            System.err.println("Error occurred during initialization: " + e.getMessage());
+            exitCode = 1;
         } finally {
-            AnsiConsole.systemUninstall();
+            if (ansiInstalled) {
+                AnsiConsole.systemUninstall();
+            }
         }
         System.exit(exitCode);
     }
