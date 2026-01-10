@@ -599,6 +599,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                                 null,
                                 10L,
                                 null,
+                                null,
                                 null
                         )),
                         completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp))
