@@ -58,7 +58,6 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
     }
 
-    // SQL PA query fails
     @Test
     void testStopNodePartitionAwarenessQuery() {
         try (IgniteClient client = getClient()) {
@@ -81,7 +80,6 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
     }
 
-    // SQL non-PA Works fine
     @Test
     void testStopNode() {
         try (IgniteClient client = getClient()) {
