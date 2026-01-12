@@ -71,7 +71,6 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -110,6 +109,8 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
+import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -155,8 +156,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
-import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
-import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
@@ -179,7 +178,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.JoinedNodes;
+import org.apache.ignite.internal.network.LogicalTopologyEventsListener;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -887,15 +886,10 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
-                nodeProperties,
                 replicationConfig,
                 threadPoolsManager.commonScheduler(),
                 metricManager,
-                zoneId -> distributionZoneManager().currentDataNodes(zoneId),
-                tableId -> {
-                    CatalogTableDescriptor table = catalogManager.activeCatalog(clock.now().longValue()).table(tableId);
-                    return table == null ? null : table.zoneId();
-                }
+                zoneId -> distributionZoneManager().currentDataNodes(zoneId)
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
@@ -1007,7 +1001,6 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                nodeProperties,
                 metricManager,
                 lowWatermark
         );
@@ -1030,6 +1023,7 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 clusterSvc.topologyService(),
+                lowWatermark,
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
@@ -1039,9 +1033,6 @@ public class IgniteImpl implements Ignite {
         this.catalogCompactionRunner = catalogCompactionRunner;
 
         killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
-
-        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
-                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
@@ -1089,7 +1080,6 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 failureManager,
-                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -1102,7 +1092,9 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 dataStorageMgr,
                 outgoingSnapshotsManager,
-                metricManager
+                metricManager,
+                messagingServiceReturningToStorageOperationsPool,
+                replicaSvc
         );
 
         systemViewManager.register(txManager);
@@ -1156,7 +1148,6 @@ public class IgniteImpl implements Ignite {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
-                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
@@ -1291,6 +1282,9 @@ public class IgniteImpl implements Ignite {
         ClientConnectorConfiguration clientConnectorConfiguration = nodeConfigRegistry
                 .getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
 
+        SuggestionsConfiguration suggestionsConfiguration = clusterConfigRegistry
+                .getConfiguration(SuggestionsClusterExtensionConfiguration.KEY).suggestions();
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -1312,8 +1306,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                nodeProperties,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);
@@ -1353,16 +1347,16 @@ public class IgniteImpl implements Ignite {
         );
     }
 
-    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(JoinedNodes joinedNodes) {
+    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(LogicalTopologyEventsListener listener) {
         return new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-                joinedNodes.onJoined(joinedNode);
+                listener.onJoined(joinedNode, newTopology.version());
             }
 
             @Override
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-                joinedNodes.onLeft(leftNode);
+                listener.onLeft(leftNode, newTopology.version());
             }
         };
     }
@@ -1596,6 +1590,7 @@ public class IgniteImpl implements Ignite {
                         lifecycleManager.startComponentsAsync(
                                 componentContext,
                                 catalogManager,
+                                new LowWatermarkRectifier(lowWatermark, catalogManager),
                                 catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,

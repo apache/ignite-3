@@ -19,8 +19,6 @@ package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION_DESC;
 
@@ -35,17 +33,9 @@ public class ResetPartitionsMixin {
     @Option(names = RECOVERY_ZONE_NAME_OPTION, description = RECOVERY_ZONE_NAME_OPTION_DESC, required = true)
     private String zoneName;
 
-    @Option(names = RECOVERY_TABLE_NAME_OPTION, description = RECOVERY_TABLE_NAME_OPTION_DESC)
-    private String tableName;
-
     /** Returns name of the zone to reset partitions of. */
     public String zoneName() {
         return zoneName;
-    }
-
-    /** Returns name of the table to reset partitions of. */
-    public String tableName() {
-        return tableName;
     }
 
     /** Returns IDs of partitions to reset. */

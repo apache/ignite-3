@@ -31,7 +31,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.util.FlatteningIterator;
 import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -99,16 +101,19 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         Iterable<ColumnMetadata> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
-            return catalog.tables().stream()
-                    .flatMap(table -> table.columns().stream()
-                            .map(columnDescriptor -> new ColumnMetadata(
-                                            catalog.schema(table.schemaId()).name(),
-                                            table,
-                                            columnDescriptor
-                                    )
-                            )
+            return new FlatteningIterator<>(
+                    new TransformingIterator<>(
+                            catalog.tables().iterator(),
+                            table -> {
+                                String schemaName = catalog.schema(table.schemaId()).name();
+
+                                return TransformingIterator.newIterable(
+                                        table.columns(),
+                                        column -> new ColumnMetadata(schemaName, table, column)
+                                );
+                            }
                     )
-                    .iterator();
+            );
         };
 
         Publisher<ColumnMetadata> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);

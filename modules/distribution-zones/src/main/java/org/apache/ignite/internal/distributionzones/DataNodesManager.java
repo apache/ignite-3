@@ -1387,8 +1387,8 @@ public class DataNodesManager {
         }
     }
 
-    CompletableFuture<?> onZoneDrop(int zoneId, HybridTimestamp timestamp) {
-        return removeDataNodesKeys(zoneId, timestamp)
+    CompletableFuture<?> onZoneDestroy(int zoneId, int dropZoneCatalogVersion) {
+        return removeDataNodesKeys(zoneId, dropZoneCatalogVersion)
                 .thenRun(() -> {
                     ZoneTimers zt = zoneTimers.remove(zoneId);
                     if (zt != null) {
@@ -1401,9 +1401,9 @@ public class DataNodesManager {
      * Method deletes data nodes related values for the specified zone.
      *
      * @param zoneId Unique id of a zone.
-     * @param timestamp Timestamp of an event that has triggered this method.
+     * @param dropZoneCatalogVersion Version of catalog when zone was dropped.
      */
-    private CompletableFuture<?> removeDataNodesKeys(int zoneId, HybridTimestamp timestamp) {
+    private CompletableFuture<?> removeDataNodesKeys(int zoneId, int dropZoneCatalogVersion) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -1412,7 +1412,7 @@ public class DataNodesManager {
             Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
 
             Update removeKeysUpd = ops(
-                    // TODO remove(zoneDataNodesHistoryKey(zoneId)), https://issues.apache.org/jira/browse/IGNITE-24345
+                    remove(zoneDataNodesHistoryKey(zoneId)),
                     remove(zoneScaleUpTimerKey(zoneId)),
                     remove(zoneScaleDownTimerKey(zoneId))
             ).yield(true);
@@ -1425,16 +1425,18 @@ public class DataNodesManager {
                         if (e != null) {
                             if (!relatesToNodeStopping(e)) {
                                 String errorMessage = String.format(
-                                        "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
+                                        "Failed to delete zone's dataNodes keys [zoneId = %s, dropZoneCatalogVersion = %s]",
                                         zoneId,
-                                        timestamp
+                                        dropZoneCatalogVersion
                                 );
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }
                         } else if (invokeResult) {
-                            LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
+                            LOG.info("Delete zone's dataNodes keys [zoneId = {}, dropZoneCatalogVersion = {}]", zoneId,
+                                    dropZoneCatalogVersion);
                         } else {
-                            LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
+                            LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, dropZoneCatalogVersion = {}]", zoneId,
+                                    dropZoneCatalogVersion);
                         }
                     });
         } finally {

@@ -109,7 +109,7 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
         // Truncate log prefix to force snapshot installation to node 2 when its storages will be cleared on startup.
         // This also causes flushes of both MV and TxState storages, so, after we simulate non-finished rebalance in either MV or
         // TX state storage and restart node 2, the corresponding storage data will not be rewritten by reapplying the log.
-        truncateLogPrefixOnAllNodes(cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
+        truncateLogPrefixOnAllNodes(cluster.solePartitionId(ZONE_NAME));
 
         Path node2PartitionsDbPath = unwrapIgniteImpl(cluster.node(2)).partitionsWorkDir().dbPath();
 

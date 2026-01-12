@@ -51,6 +51,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -82,8 +83,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
@@ -221,7 +220,6 @@ public class DistributionZoneManager extends
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                new SystemPropertiesNodeProperties(),
                 metricManager,
                 lowWatermark
         );
@@ -239,7 +237,6 @@ public class DistributionZoneManager extends
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param clockService Clock service.
-     * @param nodeProperties Node properties.
      * @param metricManager Metric manager.
      * @param lowWatermark Low watermark manager.
      */
@@ -253,7 +250,6 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            NodeProperties nodeProperties,
             MetricManager metricManager,
             LowWatermark lowWatermark
     ) {
@@ -801,7 +797,8 @@ public class DistributionZoneManager extends
         }));
 
         catalogManager.listen(ZONE_DROP, (DropZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
-            return onDropZoneBusy(parameters).thenApply((ignored) -> false);
+            onDropZoneBusy(parameters);
+            return falseCompletedFuture();
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
@@ -889,14 +886,12 @@ public class DistributionZoneManager extends
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
+    private void onDropZoneBusy(DropZoneEventParameters parameters) {
         unregisterMetricSource(parameters.zoneId());
+    }
 
-        long causalityToken = parameters.causalityToken();
-
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
-
-        return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
+    public CompletableFuture<?> onDropZoneDestroy(int zoneId, int dropZoneCatalogVersion) {
+        return dataNodesManager.onZoneDestroy(zoneId, dropZoneCatalogVersion);
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {

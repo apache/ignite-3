@@ -85,6 +85,42 @@ public class SqlTests(IIgniteClient client)
     }
 
     [UsedImplicitly]
+    public async Task TestAllColumnTypesWithMapper()
+    {
+        var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);
+        var view = table!.GetRecordView(new PocoAllColumnsSqlMapper());
+
+        var poco = GetPoco();
+        await view.UpsertAsync(null, poco);
+
+        await using IResultSet<PocoAllColumnsSql> resultSet = await client.Sql.ExecuteAsync(
+            transaction: null,
+            mapper: new PocoAllColumnsSqlMapper(),
+            statement: $"select * from {table.Name} where KEY = ?",
+            CancellationToken.None,
+            poco.Key);
+
+        List<PocoAllColumnsSql> rows = await resultSet.ToListAsync();
+        PocoAllColumnsSql row = rows.Single();
+
+        Assert.AreEqual(poco.Key, row.Key);
+        Assert.AreEqual(poco.Str, row.Str);
+        Assert.AreEqual(poco.Int8, row.Int8);
+        Assert.AreEqual(poco.Int16, row.Int16);
+        Assert.AreEqual(poco.Int32, row.Int32);
+        Assert.AreEqual(poco.Int64, row.Int64);
+        Assert.AreEqual(poco.Float, row.Float);
+        Assert.AreEqual(poco.Double, row.Double);
+        Assert.AreEqual(poco.Uuid, row.Uuid);
+        Assert.AreEqual(poco.Decimal, row.Decimal);
+        Assert.AreEqual(poco.Date, row.Date);
+        Assert.AreEqual(poco.Time, row.Time);
+        Assert.AreEqual(poco.DateTime, row.DateTime);
+        Assert.AreEqual(poco.Timestamp, row.Timestamp);
+        Assert.AreEqual(poco.Blob, row.Blob);
+    }
+
+    [UsedImplicitly]
     public async Task TestExecuteReaderAsync()
     {
         var table = await client.Tables.GetTableAsync(TestTables.TableAllColumnsSqlName);

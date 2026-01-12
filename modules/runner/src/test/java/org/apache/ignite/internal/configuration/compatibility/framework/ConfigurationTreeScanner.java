@@ -40,7 +40,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
@@ -58,6 +57,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides method to extract metadata from project configuration classes.

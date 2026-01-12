@@ -115,8 +115,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -658,7 +656,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27467")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         Node node = getNode(0);
 
@@ -1218,8 +1216,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             vaultManager = createVault(dir);
 
-            NodeProperties nodeProperties = new SystemPropertiesNodeProperties();
-
             var clusterIdService = new ClusterIdHolder();
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
@@ -1541,7 +1537,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     lowWatermark,
                     failureManager,
-                    nodeProperties,
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.partitionOperationsExecutor(),
@@ -1554,7 +1549,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     dataStorageMgr,
                     outgoingSnapshotManager,
-                    metricManager
+                    metricManager,
+                    clusterService.messagingService(),
+                    replicaSvc
             );
 
             tableManager = new TableManager(
@@ -1591,7 +1588,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     indexMetaStorage,
                     logStorageFactory,
                     partitionReplicaLifecycleManager,
-                    nodeProperties,
                     minTimeCollectorService,
                     systemDistributedConfiguration,
                     metricManager,

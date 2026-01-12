@@ -57,7 +57,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -936,9 +935,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 metastore,
                 clusterNodeResolver,
                 clockService,
-                zoneId -> completedFuture(Set.of("A")),
-                id -> null,
-                new SystemPropertiesNodeProperties()
+                zoneId -> completedFuture(Set.of("A"))
         );
     }
 
@@ -946,9 +943,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         return new AssignmentsTracker(
                 metastore,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
-                zoneId -> completedFuture(Set.of("A")),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of("A"))
         );
     }
 }

@@ -68,6 +68,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -125,7 +126,6 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -136,7 +136,9 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -486,8 +488,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionStateResolver,
                 storageUpdateHandler,
                 new DummyValidationSchemasSource(schemaManager),
+                LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
+                placementDriver,
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
                 schemaManager,
@@ -495,6 +499,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark(),
                 mock(FailureProcessor.class),
                 new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
+        );
+
+        TxMessageSender txMessageSender = new TxMessageSender(
+                mock(MessagingService.class),
+                replicaSvc,
+                CLOCK_SERVICE
         );
 
         ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
@@ -509,10 +519,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 svc,
                 mock(FailureProcessor.class),
                 LOCAL_NODE,
-                zonePartitionId
+                zonePartitionId,
+                transactionStateResolver,
+                txMessageSender
         );
 
-        zoneReplicaListener.addTableReplicaProcessor(tableId, raftClient -> tableReplicaListener);
+        zoneReplicaListener.addTableReplicaProcessor(tableId, (raftClient, txStateResolver) -> tableReplicaListener);
 
         replicaListener = zoneReplicaListener;
 
@@ -525,7 +537,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
-                safeTime,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),

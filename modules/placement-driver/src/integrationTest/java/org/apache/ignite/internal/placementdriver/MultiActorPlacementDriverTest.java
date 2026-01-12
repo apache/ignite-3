@@ -43,7 +43,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -330,12 +329,10 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     clockService,
                     mock(FailureProcessor.class),
-                    new SystemPropertiesNodeProperties(),
                     replicationConfiguration,
                     Runnable::run,
                     mock(MetricManager.class),
-                    zoneId -> completedFuture(Set.of()),
-                    zoneId -> null
+                    zoneId -> completedFuture(Set.of())
             );
 
             res.add(new Node(

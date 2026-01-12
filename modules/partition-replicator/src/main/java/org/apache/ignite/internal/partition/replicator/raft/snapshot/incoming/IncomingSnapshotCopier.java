@@ -70,10 +70,10 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Binar
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
@@ -102,7 +102,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
-    private static final long NETWORK_TIMEOUT = Long.MAX_VALUE;
+    // Snapshot loading is batched, so 2 minutes should be more than enough for all operations.
+    private static final long NETWORK_TIMEOUT_MILLIS = 120_000;
 
     private static final long MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT = 100 * 1024;
 
@@ -370,7 +371,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenApply(response -> {
                 PartitionSnapshotMeta snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
@@ -442,7 +443,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .id(snapshotUri.snapshotId)
                             .batchSizeHint(MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT)
                             .build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenComposeAsync(response -> {
                 SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
 
@@ -526,7 +527,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .id(snapshotUri.snapshotId)
                             .maxTransactionsInBatch(MAX_TX_DATA_BATCH_SIZE)
                             .build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenComposeAsync(response -> {
                 SnapshotTxDataResponse snapshotTxDataResponse = (SnapshotTxDataResponse) response;
 
@@ -698,7 +699,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private String createPartitionInfo() {
-        ZonePartitionKey partitionKey = partitionSnapshotStorage.partitionKey();
+        PartitionKey partitionKey = partitionSnapshotStorage.partitionKey();
 
         return "zoneId=" + partitionKey.zoneId() + ", partitionId=" + partitionKey.partitionId();
     }
@@ -814,7 +815,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     LWM_MSG_FACTORY.getLowWatermarkRequest().build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenAcceptAsync(response -> {
                 GetLowWatermarkResponse getLowWatermarkResponse = (GetLowWatermarkResponse) response;
 

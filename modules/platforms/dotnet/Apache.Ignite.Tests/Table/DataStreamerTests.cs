@@ -404,6 +404,7 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    [Category(TestUtils.CategoryIntensive)]
     public async Task TestManyItemsWithDisconnectAndRetry([Values(true, false)] bool withReceiver)
     {
         const int count = 100_000;
