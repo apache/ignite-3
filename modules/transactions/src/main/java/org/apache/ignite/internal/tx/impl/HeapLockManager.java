@@ -171,7 +171,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             LockState state = acquireLockState(lockKey);
 
             if (state == null) {
-                return failedFuture(new LockTableOverflowException(txId, lockMapSize));
+                return failedFuture(new LockTableOverflowException(txId, lockMapSize, txStateVolatileStorage));
             }
 
             IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
@@ -1055,7 +1055,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private void setWaiterTimeout(WaiterImpl waiter) {
             delayedExecutor.execute(() -> {
                 if (!waiter.fut.isDone()) {
-                    waiter.fut.completeExceptionally(new AcquireLockTimeoutException(waiter, deadlockPreventionPolicy.waitTimeout()));
+                    waiter.fut.completeExceptionally(
+                            new AcquireLockTimeoutException(waiter, deadlockPreventionPolicy.waitTimeout(), txStateVolatileStorage));
                 }
             });
         }

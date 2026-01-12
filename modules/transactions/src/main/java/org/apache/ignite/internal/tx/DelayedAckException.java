@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_DELAYED_ACK_ERR;
 
 import java.util.UUID;
@@ -31,13 +32,20 @@ public class DelayedAckException extends IgniteInternalException {
     private final UUID txId;
 
     /**
-     * Create the exception with txId and caus.
+     * Create the exception with txId, cause, and optional txManager for label formatting.
      *
      * @param txId The transaction id.
      * @param cause The cause.
+     * @param txManager Optional transaction manager to retrieve label for logging.
      */
-    public DelayedAckException(UUID txId, Throwable cause) {
-        super(TX_DELAYED_ACK_ERR, "Failed to commit the transaction due to failed replication acknowledgement [txId=" + txId + ']', cause);
+    public DelayedAckException(UUID txId, Throwable cause, TxManager txManager) {
+        super(
+                TX_DELAYED_ACK_ERR,
+                "Failed to commit the transaction due to failed replication acknowledgement ["
+                        + formatTxInfo(txId, txManager)
+                        + ']',
+                cause
+        );
         this.txId = txId;
     }
 
