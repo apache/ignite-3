@@ -57,7 +57,9 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
     }
 
     private HeapLockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
+        txStateVolatileStorage.start();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

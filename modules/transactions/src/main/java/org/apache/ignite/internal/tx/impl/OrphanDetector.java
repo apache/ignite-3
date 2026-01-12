@@ -200,7 +200,8 @@ public class OrphanDetector {
     private void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
-                    InternalClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
+                    InternalClusterNode commitPartPrimaryNode =
+                            replicaMeta != null ? topologyService.getByConsistentId(replicaMeta.getLeaseholder()) : null;
 
                     if (commitPartPrimaryNode == null) {
                         LOG.warn(

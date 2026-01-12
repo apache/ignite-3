@@ -41,6 +41,9 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var tx1 = beginTx();
         var tx2 = beginTx();
 
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx2, "tx2");
+
         var key = key("test");
 
         assertThat(xlock(tx1, key), willSucceedFast());
@@ -58,6 +61,9 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var tx1 = beginTx();
         var tx2 = beginTx();
 
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx2, "tx2");
+
         var key = key("test");
 
         assertThat(xlock(tx2, key), willSucceedFast());
@@ -74,6 +80,9 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
     public void timeoutFail() throws InterruptedException {
         var tx1 = beginTx();
         var tx2 = beginTx();
+
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx2, "tx2");
 
         var key = key("test");
 
@@ -94,6 +103,9 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var tx1 = beginTx();
         var tx2 = beginTx();
 
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx2, "tx2");
+
         var key = key("test");
 
         assertThat(xlock(tx2, key), willSucceedFast());
@@ -113,6 +125,9 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var tx0 = beginTx();
         var tx1 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+
         var key = key("test0");
 
         assertThat(slock(tx0, key), willSucceedFast());
@@ -126,6 +141,9 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
     public void allowDeadlockOnTwoKeysWithTimeout() {
         var tx0 = beginTx();
         var tx1 = beginTx();
+
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
 
         var key0 = key("test0");
         var key1 = key("test1");

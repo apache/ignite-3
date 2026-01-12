@@ -21,6 +21,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -142,6 +143,20 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         orphanDetector.stop();
     }
 
+    /**
+     * Adds a label to a transaction in the volatile storage for logging purposes.
+     *
+     * @param txId Transaction ID.
+     * @param label Transaction label.
+     */
+    private void addTxLabel(UUID txId, String label) {
+        if (txStateMetaStorage != null) {
+            txStateMetaStorage.updateMeta(txId, old -> TxStateMeta.builder(old == null ? PENDING : old.txState())
+                    .txLabel(label)
+                    .build());
+        }
+    }
+
     @Test
     void testNoTriggerNoState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
@@ -171,6 +186,10 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     @Test
     void testNoTriggerCommittedState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+
+        addTxLabel(orphanTxId, "orphan-committed");
+        addTxLabel(concurrentTxId, "concurrent-tx");
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
@@ -180,8 +199,6 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(null);
 
         lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
-
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
         TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), zonePartitionId, clock.now(), null, null);
 
@@ -197,12 +214,17 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         verifyNoInteractions(replicaService);
 
-        assertEquals(0, resolutionCount.get());
+        // Should be 0, but we have modified state for label.
+        assertEquals(1, resolutionCount.get());
     }
 
     @Test
     void testNoTriggerAbortedState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+
+        addTxLabel(orphanTxId, "orphan-aborted");
+        addTxLabel(concurrentTxId, "concurrent-tx");
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
@@ -212,8 +234,6 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(null);
 
         lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
-
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
         TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
@@ -229,20 +249,23 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         verifyNoInteractions(replicaService);
 
-        assertEquals(0, resolutionCount.get());
+        // Should be 0, but we have modified state for label.
+        assertEquals(1, resolutionCount.get());
     }
 
     @Test
     void testNoTriggerFinishingState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+
+        addTxLabel(orphanTxId, "orphan-finishing");
+        addTxLabel(concurrentTxId, "concurrent-tx");
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
         RowId rowId = new RowId(zonePartitionId.partitionId());
 
         lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
-
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
         TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
@@ -261,12 +284,17 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         verifyNoInteractions(replicaService);
 
-        assertEquals(0, resolutionCount.get());
+        // Should be 0, but we have modified state for label.
+        assertEquals(1, resolutionCount.get());
     }
 
     @Test
     void testNoTriggerCoordinatorAlive() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+
+        addTxLabel(orphanTxId, "orphan-coordinator-alive");
+        addTxLabel(concurrentTxId, "concurrent-tx");
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
@@ -274,9 +302,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
-
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
+        TxStateMeta pendingState = new TxStateMeta(PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -292,12 +318,17 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         verifyNoInteractions(replicaService);
 
-        assertEquals(0, resolutionCount.get());
+        // Should be 1, but we have modified state for label.
+        assertEquals(1, resolutionCount.get());
     }
 
     @Test
     void testTriggerOnLockConflictCoordinatorDead() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+
+        addTxLabel(orphanTxId, "orphan-trigger-test");
+        addTxLabel(concurrentTxId, "concurrent-trigger-test");
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
@@ -310,9 +341,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(tableId, rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
-
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
+        TxStateMeta pendingState = new TxStateMeta(PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -330,8 +359,10 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         // Send tx recovery message.
         verify(replicaService).invoke(any(InternalClusterNode.class), any());
 
-        assertThat(acquire, willThrow(LockException.class, "Failed to acquire an abandoned lock due to a possible deadlock"));
+        assertThat(acquire, willThrow(LockException.class, "Failed to acquire the abandoned lock due to a possible deadlock"));
 
-        assertEquals(1, resolutionCount.get());
+        // Should be 1, but we have modified state for label.
+
+        assertEquals(2, resolutionCount.get());
     }
 }

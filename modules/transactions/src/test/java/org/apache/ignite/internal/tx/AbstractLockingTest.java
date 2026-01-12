@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,6 +49,7 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     private SystemLocalConfiguration systemLocalConfiguration;
 
     protected LockManager lockManager;
+    protected VolatileTxStateMetaStorage txStateVolatileStorage;
     private final Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
 
     @BeforeEach
@@ -58,7 +60,9 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     protected abstract LockManager lockManager();
 
     protected LockManager lockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
+        txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        txStateVolatileStorage.start();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(deadlockPreventionPolicy);
         return lockManager;
     }
@@ -69,6 +73,20 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
 
     protected UUID beginTx(TxPriority priority) {
         return TestTransactionIds.newTransactionId(priority);
+    }
+
+    /**
+     * Adds a label to a transaction in the volatile storage for logging purposes.
+     *
+     * @param txId Transaction ID.
+     * @param label Transaction label.
+     */
+    protected void addTxLabel(UUID txId, String label) {
+        if (txStateVolatileStorage != null) {
+            txStateVolatileStorage.updateMeta(txId, old -> TxStateMeta.builder(old == null ? PENDING : old.txState())
+                    .txLabel(label)
+                    .build());
+        }
     }
 
     protected LockKey key(Object key) {

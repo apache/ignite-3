@@ -76,6 +76,9 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+
         LockKey key = key(new Object());
 
         xlock(tx0, key);
@@ -89,6 +92,9 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+
         xlock(tx1, key);
         xlock(tx0, key);
 
@@ -100,6 +106,10 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
         UUID tx2 = beginTx();
+
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx1, "tx2");
 
         slock(tx0, key);
         slock(tx1, key);
@@ -116,6 +126,10 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx1 = beginTx();
         UUID tx2 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx1, "tx2");
+
         slock(tx1, key);
         slock(tx0, key);
         checkNoEvent();
@@ -130,6 +144,9 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+
         slock(tx0, key);
         slock(tx1, key);
         checkNoEvent();
@@ -143,6 +160,8 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
     public void reenterNoEvent() {
         UUID tx0 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+
         slock(tx0, key);
         xlock(tx0, key);
         checkNoEvent();
@@ -153,6 +172,10 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
         UUID tx2 = beginTx();
+
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx1, "tx2");
 
         xlock(tx0, key);
 
@@ -168,6 +191,9 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+
         slock(tx0, key);
         slock(tx1, key);
         checkNoEvent();
@@ -178,6 +204,10 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
         UUID tx2 = beginTx();
+
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx1, "tx2");
 
         slock(tx1, key);
         slock(tx2, key);
@@ -197,6 +227,10 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx1 = beginTx();
         UUID tx2 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx1, "tx2");
+
         xlock(tx2, key);
 
         xlock(tx1, key);
@@ -215,6 +249,10 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
         UUID tx2 = beginTx();
+
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+        addTxLabel(tx1, "tx2");
 
         xlock(tx0, key);
         slock(tx1, key);

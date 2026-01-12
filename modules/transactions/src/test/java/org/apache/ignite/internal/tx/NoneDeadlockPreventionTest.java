@@ -37,6 +37,9 @@ public class NoneDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
         var tx0 = beginTx();
         var tx1 = beginTx();
 
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
+
         var key = key("test0");
 
         assertThat(slock(tx0, key), willSucceedFast());
@@ -50,6 +53,9 @@ public class NoneDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     public void allowDeadlockOnTwoKeys() {
         var tx0 = beginTx();
         var tx1 = beginTx();
+
+        addTxLabel(tx0, "tx0");
+        addTxLabel(tx1, "tx1");
 
         var key0 = key("test0");
         var key1 = key("test1");

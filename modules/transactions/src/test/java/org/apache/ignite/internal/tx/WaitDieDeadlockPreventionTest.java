@@ -40,6 +40,9 @@ public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var oldLowTx = beginTx(TxPriority.LOW);
         var youngNormalTx = beginTx(TxPriority.NORMAL);
 
+        addTxLabel(oldLowTx, "oldLowTx");
+        addTxLabel(youngNormalTx, "youngNormalTx");
+
         var key1 = key("test");
 
         assertThat(xlock(oldLowTx, key1), willSucceedFast());
@@ -56,6 +59,9 @@ public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var oldNormalTx = beginTx(TxPriority.NORMAL);
         var youngLowTx = beginTx(TxPriority.LOW);
 
+        addTxLabel(oldNormalTx, "oldNormalTx");
+        addTxLabel(youngLowTx, "youngLowTx");
+
         var key1 = key("test");
 
         assertThat(xlock(oldNormalTx, key1), willSucceedFast());
@@ -67,6 +73,9 @@ public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTes
     public void youngSamePriorityTxShouldBeAborted() {
         var oldNormalTx = beginTx(TxPriority.NORMAL);
         var youngNormalTx = beginTx(TxPriority.NORMAL);
+
+        addTxLabel(oldNormalTx, "oldNormalTx");
+        addTxLabel(youngNormalTx, "youngNormalTx");
 
         var key1 = key("test");
 

@@ -43,7 +43,9 @@ import org.junit.jupiter.api.Test;
 public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockManager newInstance(SystemLocalConfiguration systemLocalConfiguration) {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
+        txStateVolatileStorage.start();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
@@ -57,7 +59,9 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTableOverflow() throws Exception {
         int maxSlots = 16;
 
-        HeapLockManager lockManager = new HeapLockManager(maxSlots, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        txStateVolatileStorage.start();
+        HeapLockManager lockManager = new HeapLockManager(maxSlots, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID[] txs = new UUID[maxSlots];
@@ -93,7 +97,9 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTooManyKeysInTx() throws Exception {
         int maxSlots = 16;
 
-        HeapLockManager lockManager = new HeapLockManager(maxSlots, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        HeapLockManager lockManager = new HeapLockManager(maxSlots, txStateVolatileStorage);
+        txStateVolatileStorage.start();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID txId = TestTransactionIds.newTransactionId();
