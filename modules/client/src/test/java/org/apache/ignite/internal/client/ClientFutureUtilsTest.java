@@ -117,7 +117,24 @@ public class ClientFutureUtilsTest {
         var ex2 = new Exception("2");
 
         var fut = ClientFutureUtils.doWithRetryAsync(
-                () -> CompletableFuture.failedFuture(counter.get() % 2 == 0 ? ex1 : ex2),
+                () -> {
+                    switch (counter.get()) {
+                        case 0: // Self.
+                            return CompletableFuture.failedFuture(ex1);
+
+                        case 1: // Other.
+                            return CompletableFuture.failedFuture(ex2);
+
+                        case 2: // Self wrapped.
+                            return CompletableFuture.failedFuture(new Exception(ex1));
+
+                        case 3: // Other wrapped.
+                            return CompletableFuture.failedFuture(new Exception(ex2));
+
+                        default:
+                            return CompletableFuture.failedFuture(new Exception("Other"));
+                    }
+                },
                 ctx -> counter.incrementAndGet() < 4
         );
 
