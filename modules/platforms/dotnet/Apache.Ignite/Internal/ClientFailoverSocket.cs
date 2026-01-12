@@ -742,9 +742,12 @@ namespace Apache.Ignite.Internal
                         $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterIds.StringJoin()}");
                 }
 
-                endpoint.Socket = socket;
-
+                // First update mapping, then set socket:
+                // - GetConnections does not lock and should not return connections that are not in the map.
+                // - GetSocketAsync uses a lock and will not see a null/old socket.
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+
+                endpoint.Socket = socket;
 
                 return socket;
             }

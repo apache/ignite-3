@@ -20,13 +20,18 @@ package org.apache.ignite.table;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base test class for mutable Tuple implementation.
@@ -137,5 +142,33 @@ public abstract class AbstractMutableTupleTest extends AbstractImmutableTupleTes
         assertEquals(tuple, shuffledTuple);
         assertEquals(shuffledTuple, tuple);
         assertEquals(tuple.hashCode(), shuffledTuple.hashCode());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldIndex")
+    public void nullPointerWhenReadingNullAsPrimitiveAfterModification(
+            ColumnType type,
+            BiConsumer<Tuple, Integer> fieldAccessor
+    ) {
+        Tuple tuple = createNullValueTuple(type);
+
+        tuple.set("NEW", null);
+
+        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple, 2));
+        assertEquals(String.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2), err.getMessage());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldName")
+    public void nullPointerWhenReadingNullByNameAsPrimitiveAfterModification(
+            ColumnType type,
+            BiConsumer<Tuple, String> fieldAccessor
+    ) {
+        Tuple tuple = createNullValueTuple(type);
+
+        tuple.set("NEW", null);
+
+        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple, "NEW"));
+        assertEquals(String.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW"), err.getMessage());
     }
 }

@@ -34,6 +34,9 @@ using Microsoft.Extensions.Logging;
 
 public static class TestUtils
 {
+    // Indicates long-running and/or memory/cpu intensive test.
+    public const string CategoryIntensive = "LONG_TEST";
+
     public static readonly string SolutionDir = CommonTestUtils.SolutionDir;
 
     public static readonly string RepoRootDir = CommonTestUtils.RepoRootDir;
