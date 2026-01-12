@@ -28,6 +28,9 @@ import org.apache.ignite.table.KeyValueView;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests thin client connection failover with and without partition awareness.
+ */
 public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int[] cmgMetastoreNodes() {
