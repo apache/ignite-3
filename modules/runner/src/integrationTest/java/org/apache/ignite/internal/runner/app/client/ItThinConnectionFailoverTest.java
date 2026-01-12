@@ -41,14 +41,7 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         long reconnectInterval = 1000;
         cluster.startAndInit(nodesCount, new int[]{2});
 
-        String[] addresses = IntStream.range(0, nodesCount)
-                .mapToObj(i -> "127.0.0.1:" + (10800 + i))
-                .toArray(String[]::new);
-
-        try (IgniteClient client = IgniteClient.builder()
-                .backgroundReconnectInterval(reconnectInterval)
-                .addresses(addresses).build()) {
-
+        try (IgniteClient client = getClient(nodesCount, reconnectInterval)) {
             client.sql().executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
                     + "CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
 
@@ -77,13 +70,7 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         long reconnectInterval = 1000;
         cluster.startAndInit(nodesCount, new int[]{2});
 
-        String[] addresses = IntStream.range(0, nodesCount)
-                .mapToObj(i -> "127.0.0.1:" + (10800 + i))
-                .toArray(String[]::new);
-
-        try (IgniteClient client = IgniteClient.builder()
-                .backgroundReconnectInterval(reconnectInterval)
-                .addresses(addresses).build()) {
+        try (IgniteClient client = getClient(nodesCount, reconnectInterval)) {
             IgniteSql sql = client.sql();
 
             sql.executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
@@ -109,11 +96,7 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});
 
-        String[] addresses = IntStream.range(0, nodesCount)
-                .mapToObj(i -> "127.0.0.1:" + (10800 + i))
-                .toArray(String[]::new);
-
-        try (IgniteClient client = IgniteClient.builder().addresses(addresses).build()) {
+        try (IgniteClient client = getClient(nodesCount, 30_000)) {
             IgniteSql sql = client.sql();
 
             Awaitility.await().until(() -> client.connections().size(), is(3));
@@ -130,5 +113,15 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                 sql.execute(null, "SELECT " + i).close();
             }
         }
+    }
+
+    private static IgniteClient getClient(int nodesCount, long reconnectInterval) {
+        String[] addresses = IntStream.range(0, nodesCount)
+                .mapToObj(i -> "127.0.0.1:" + (10800 + i))
+                .toArray(String[]::new);
+
+        return IgniteClient.builder()
+                .backgroundReconnectInterval(reconnectInterval)
+                .addresses(addresses).build();
     }
 }
