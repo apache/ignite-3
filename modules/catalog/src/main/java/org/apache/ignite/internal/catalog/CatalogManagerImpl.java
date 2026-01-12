@@ -65,7 +65,6 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Catalog service implementation.
@@ -118,25 +117,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Partition count provider for command update contexts.
      */
     private final PartitionCountProvider partitionCountProvider;
-
-    /**
-     * Test-only constructor.
-     */
-    @TestOnly
-    public CatalogManagerImpl(
-            UpdateLog updateLog,
-            ClockService clockService,
-            FailureProcessor failureProcessor,
-            LongSupplier delayDurationMsSupplier
-    ) {
-        this(
-                updateLog,
-                clockService,
-                failureProcessor,
-                delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
-        );
-    }
 
     /**
      * Constructor.

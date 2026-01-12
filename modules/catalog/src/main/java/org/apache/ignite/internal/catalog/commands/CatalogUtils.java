@@ -607,10 +607,18 @@ public class CatalogUtils {
     }
 
     private static CatalogZoneDescriptor createDefaultZoneDescriptor(PartitionCountProvider partitionCountProvider, int newDefaultZoneId) {
+        PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
+                .replicaFactor(DEFAULT_REPLICA_COUNT)
+                .dataNodesFilter(DEFAULT_FILTER)
+                .storageProfiles(List.of(DEFAULT_STORAGE_PROFILE))
+                .build();
+
+        int partitionCount = partitionCountProvider.calculate(partitionCountCalculationParameters);
+
         return new CatalogZoneDescriptor(
                 newDefaultZoneId,
                 DEFAULT_ZONE_NAME,
-                defaultZonePartitionCount(partitionCountProvider),
+                partitionCount,
                 DEFAULT_REPLICA_COUNT,
                 DEFAULT_ZONE_QUORUM_SIZE,
                 IMMEDIATE_TIMER_VALUE,
@@ -619,10 +627,6 @@ public class CatalogUtils {
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
                 STRONG_CONSISTENCY
         );
-    }
-
-    public static int defaultZonePartitionCount(PartitionCountProvider partitionCountProvider) {
-        return partitionCountProvider.calculate(PartitionCountCalculationParameters.builder().build());
     }
 
     private static void checkDuplicateDefaultZoneName(Catalog catalog) {
