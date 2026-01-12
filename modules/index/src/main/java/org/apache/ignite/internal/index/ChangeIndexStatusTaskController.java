@@ -49,8 +49,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 
 /**
  * Component that reacts to certain Catalog changes and starts or stops corresponding {@link ChangeIndexStatusTask}s via the

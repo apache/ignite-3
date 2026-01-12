@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Aot.Compute;
 
 using Common.Compute;
+using Common.Table;
 using Ignite.Compute;
 using Ignite.Table;
 using JetBrains.Annotations;
@@ -38,27 +39,41 @@ public class ComputeTests(IIgniteClient client)
     }
 
     [UsedImplicitly]
-    public async Task TestColocated()
+    public async Task TestColocatedTuple()
     {
         var keyTuple = new IgniteTuple { [KeyCol] = 42L };
 
-        IJobExecution<string> exec = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), JavaJobs.NodeNameJob, null);
+        IJobTarget<IgniteTuple> jobTarget = JobTarget.Colocated(TableName, keyTuple);
+        IJobExecution<string> exec = await client.Compute.SubmitAsync(jobTarget, JavaJobs.NodeNameJob, null);
         var res = await exec.GetResultAsync();
 
         Assert.AreEqual(JavaJobs.PlatformTestNodeRunner, res);
     }
 
     [UsedImplicitly]
-    public async Task TestColocatedPrimitiveKeyThrows()
+    public async Task TestColocatedPoco()
+    {
+        var key = new Poco { Key = 42L };
+
+        IJobTarget<Poco> jobTarget = JobTarget.Colocated(TableName, key, new PocoMapper());
+        IJobExecution<string> exec = await client.Compute.SubmitAsync(jobTarget, JavaJobs.NodeNameJob, null);
+        var res = await exec.GetResultAsync();
+
+        Assert.AreEqual(JavaJobs.PlatformTestNodeRunner, res);
+    }
+
+    [UsedImplicitly]
+    public async Task TestColocatedWithoutMapperThrows()
     {
         try
         {
-            await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, 42L), JavaJobs.NodeNameJob, null);
+            IJobTarget<long> jobTarget = JobTarget.Colocated(TableName, 42L);
+            await client.Compute.SubmitAsync(jobTarget, JavaJobs.NodeNameJob, null);
             throw new Exception("Expected exception was not thrown.");
         }
         catch (InvalidOperationException e)
         {
-            Assert.AreEqual("Colocated job target requires an IIgniteTuple key when running in trimmed AOT mode.", e.Message);
+            Assert.AreEqual("Use JobTarget.Colocated overload with IMapper<T>.", e.Message);
         }
     }
 

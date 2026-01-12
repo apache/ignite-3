@@ -52,7 +52,9 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlPlanToTxSchemaVersionValidator;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -66,10 +68,9 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
@@ -203,10 +204,11 @@ public class TestNode implements LifecycleAware {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
-                new ExpressionFactoryImpl(
+                new SqlExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
-                5_000
+                5_000,
+                SqlPlanToTxSchemaVersionValidator.create(new AlwaysSyncedSchemaSyncService(), catalogService)
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
@@ -287,6 +289,10 @@ public class TestNode implements LifecycleAware {
 
     ClockService clockService() {
         return clockService;
+    }
+
+    public PrepareService prepareService() {
+        return prepareService;
     }
 
     /**
@@ -396,11 +402,10 @@ public class TestNode implements LifecycleAware {
     public AsyncSqlCursor<InternalSqlRow> executeQuery(
             SqlProperties properties, QueryTransactionContext txContext, String query, Object... params
     ) {
-        return await(queryExecutor.executeQuery(
+        return await(executeQueryAsync(
                 properties,
                 txContext,
                 query,
-                null,
                 params
         ));
     }
@@ -412,6 +417,19 @@ public class TestNode implements LifecycleAware {
 
     public AsyncSqlCursor<InternalSqlRow> executeQuery(SqlProperties properties, String query, Object... params) {
         return executeQuery(properties, ImplicitTxContext.create(), query, params);
+    }
+
+    /** Executes the given query. */
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeQueryAsync(
+            SqlProperties properties, QueryTransactionContext txContext, String query, Object... params
+    ) {
+        return queryExecutor.executeQuery(
+                properties,
+                txContext,
+                query,
+                null,
+                params
+        );
     }
 
     public List<QueryInfo> runningQueries() {

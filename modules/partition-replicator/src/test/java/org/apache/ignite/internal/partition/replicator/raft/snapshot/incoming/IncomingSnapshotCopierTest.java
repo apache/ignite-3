@@ -97,10 +97,10 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Binar
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -415,7 +415,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
         var storage = new PartitionSnapshotStorage(
-                new ZonePartitionKey(ZONE_ID, PARTITION_ID),
+                new PartitionKey(ZONE_ID, PARTITION_ID),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(incomingTxStateStorage.getPartitionStorage(PARTITION_ID)),
@@ -754,7 +754,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     void cancellationsFromMultipleThreadsDoNotBlockEachOther() throws Exception {
         PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class);
 
-        when(partitionSnapshotStorage.partitionKey()).thenReturn(new ZonePartitionKey(1, 0));
+        when(partitionSnapshotStorage.partitionKey()).thenReturn(new PartitionKey(1, 0));
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,

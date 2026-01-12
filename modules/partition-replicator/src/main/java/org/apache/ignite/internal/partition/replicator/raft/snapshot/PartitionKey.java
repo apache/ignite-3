@@ -17,13 +17,63 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import java.util.Objects;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Uniquely identifies a partition.
+ * Uniquely identifies a partition. This is a pair of zone ID and partition number (aka partition ID).
  */
-public interface PartitionKey {
-    int partitionId();
+public class PartitionKey {
+    private final int zoneId;
 
-    ReplicationGroupId toReplicationGroupId();
+    private final int partitionId;
+
+    /**
+     * Constructs a new partition key.
+     */
+    public PartitionKey(int zoneId, int partitionId) {
+        this.zoneId = zoneId;
+        this.partitionId = partitionId;
+    }
+
+    /**
+     * Returns ID of the zone.
+     */
+    public int zoneId() {
+        return zoneId;
+    }
+
+    /**
+     * Returns partition ID.
+     */
+    public int partitionId() {
+        return partitionId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PartitionKey that = (PartitionKey) o;
+        return partitionId == that.partitionId && zoneId == that.zoneId;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(zoneId, partitionId);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(PartitionKey.class, this);
+    }
+
+    public ZonePartitionId toReplicationGroupId() {
+        return new ZonePartitionId(zoneId, partitionId);
+    }
 }

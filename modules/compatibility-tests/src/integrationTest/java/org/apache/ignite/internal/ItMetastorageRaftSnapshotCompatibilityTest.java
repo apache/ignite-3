@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTa
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.Matchers.is;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -63,7 +61,6 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27185")
     void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
         cluster.startEmbedded(2);
@@ -76,7 +73,7 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
 
         // Assert that new node got all log entries from old one.
-        await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
+        await().until(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision());
     }
 
     private void checkMetastorage() {

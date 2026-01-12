@@ -79,16 +79,6 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void acquirePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to take any lock.
-    }
-
-    @Override
-    public void releasePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to releasetestbala any lock.
-    }
-
-    @Override
     public CompletableFuture<Void> flush(boolean trigger) {
         return partitionStorage.flush(trigger);
     }

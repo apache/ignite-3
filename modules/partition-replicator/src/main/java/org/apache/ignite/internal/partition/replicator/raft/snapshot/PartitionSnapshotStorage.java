@@ -67,7 +67,7 @@ public class PartitionSnapshotStorage {
     /** Default number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
     private static final int DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS = 3000;
 
-    private final ZonePartitionKey partitionKey;
+    private final PartitionKey partitionKey;
 
     private final TopologyService topologyService;
 
@@ -105,7 +105,7 @@ public class PartitionSnapshotStorage {
 
     /** Constructor. */
     public PartitionSnapshotStorage(
-            ZonePartitionKey partitionKey,
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txState,
@@ -131,7 +131,7 @@ public class PartitionSnapshotStorage {
 
     /** Constructor. */
     public PartitionSnapshotStorage(
-            ZonePartitionKey partitionKey,
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txState,
@@ -154,7 +154,7 @@ public class PartitionSnapshotStorage {
         this.snapshotsMetricsSource = snapshotsMetricsSource;
     }
 
-    public ZonePartitionKey partitionKey() {
+    public PartitionKey partitionKey() {
         return partitionKey;
     }
 
@@ -202,6 +202,15 @@ public class PartitionSnapshotStorage {
             } else {
                 return allOf(ongoingSnapshotOperations.values()).thenCompose(v -> removeMvPartition(tableId));
             }
+        }
+    }
+
+    /**
+     * Returns true if there are neither ongoing snapshot operations nor partition snapshot storages, falser otherwise.
+     */
+    public boolean arePartitionSnapshotStoragesEmpty() {
+        synchronized (snapshotOperationLock) {
+            return ongoingSnapshotOperations.isEmpty() && partitionsByTableId.isEmpty();
         }
     }
 

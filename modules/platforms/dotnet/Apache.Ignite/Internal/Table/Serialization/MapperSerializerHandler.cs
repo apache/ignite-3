@@ -52,11 +52,10 @@ internal sealed class MapperSerializerHandler<T> : IRecordSerializerHandler<T>
     /// <inheritdoc/>
     public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        Column[] columns = schema.GetColumnsFor(keyOnly);
-        var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Length);
-
-        var mapperReader = new RowReader(ref binaryTupleReader, columns);
         IMapperSchema mapperSchema = schema.GetMapperSchema(keyOnly);
+
+        var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), mapperSchema.Columns.Count);
+        var mapperReader = new RowReader(ref binaryTupleReader, mapperSchema);
 
         return _mapper.Read(ref mapperReader, mapperSchema);
     }

@@ -29,6 +29,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
@@ -36,13 +37,18 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsChainGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePendingAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignmentsGetLocally;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
@@ -63,6 +69,7 @@ import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.COLLECTI
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -86,7 +93,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -97,7 +103,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescr
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
-import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -118,6 +124,8 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -129,6 +137,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
@@ -158,6 +167,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -168,11 +178,15 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageRebalanceException;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
@@ -205,8 +219,6 @@ public class PartitionReplicaLifecycleManager extends
     private final LowWatermark lowWatermark;
 
     private final FailureProcessor failureProcessor;
-
-    private final NodeProperties nodeProperties;
 
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
@@ -270,13 +282,23 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ReliableCatalogVersions reliableCatalogVersions;
 
+    private final TransactionStateResolver transactionStateResolver;
+
+    private final TxMessageSender txMessageSender;
+
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
+    private final EventListener<DropZoneEventParameters> onZoneDropListener = fromConsumer(this::onZoneDrop);
+
+    private final EventListener<ChangeLowWatermarkEventParameters> onLowWatermarkChangedListener = this::onLwmChanged;
 
     /**
      * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
      */
     private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
+
+    private final LongPriorityQueue<DestroyZoneEvent> destructionEventsQueue =
+            new LongPriorityQueue<>(DestroyZoneEvent::catalogVersion);
 
     /**
      * The constructor.
@@ -299,6 +321,8 @@ public class PartitionReplicaLifecycleManager extends
      * @param dataStorageManager Data storage manager.
      * @param outgoingSnapshotsManager Outgoing snapshots manager.
      * @param metricManager Metric manager.
+     * @param messagingService Messaging service.
+     * @param replicaService Replica service.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -308,7 +332,6 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -321,7 +344,9 @@ public class PartitionReplicaLifecycleManager extends
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            MessagingService messagingService,
+            ReplicaService replicaService
     ) {
         this(
                 catalogService,
@@ -331,7 +356,6 @@ public class PartitionReplicaLifecycleManager extends
                 topologyService,
                 lowWatermark,
                 failureProcessor,
-                nodeProperties,
                 ioExecutor,
                 rebalanceScheduler,
                 partitionOperationsExecutor,
@@ -352,7 +376,9 @@ public class PartitionReplicaLifecycleManager extends
                         partitionOperationsExecutor,
                         replicaMgr
                 ),
-                metricManager
+                metricManager,
+                messagingService,
+                replicaService
         );
     }
 
@@ -365,7 +391,6 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -377,7 +402,9 @@ public class PartitionReplicaLifecycleManager extends
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             ZoneResourcesManager zoneResourcesManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            MessagingService messagingService,
+            ReplicaService replicaService
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -386,7 +413,6 @@ public class PartitionReplicaLifecycleManager extends
         this.topologyService = topologyService;
         this.lowWatermark = lowWatermark;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -407,6 +433,21 @@ public class PartitionReplicaLifecycleManager extends
                 Integer::parseInt
         );
 
+        txMessageSender = new TxMessageSender(
+                messagingService,
+                replicaService,
+                clockService
+        );
+
+        transactionStateResolver = new TransactionStateResolver(
+                txManager,
+                clockService,
+                topologyService,
+                messagingService,
+                executorInclinedPlacementDriver,
+                txMessageSender
+        );
+
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
@@ -416,15 +457,13 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        if (!nodeProperties.colocationEnabled()) {
-            return nullCompletedFuture();
-        }
+        transactionStateResolver.start();
 
         CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
         assert recoveryFinishFuture.isDone();
         long recoveryRevision = recoveryFinishFuture.join().revision();
 
-        cleanUpResourcesForDroppedZonesOnRecovery();
+        handleResourcesForDroppedZonesOnRecovery();
 
         CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
                 .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision));
@@ -434,6 +473,9 @@ public class PartitionReplicaLifecycleManager extends
         metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
 
         catalogService.listen(ZONE_CREATE, onCreateZoneListener);
+        catalogService.listen(ZONE_DROP, onZoneDropListener);
+
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
         rebalanceRetryDelayConfiguration.init();
 
@@ -461,12 +503,34 @@ public class PartitionReplicaLifecycleManager extends
         var startedZones = new IntOpenHashSet();
         var startZoneFutures = new ArrayList<CompletableFuture<?>>();
 
+        Catalog nextCatalog = null;
+
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
+            Catalog catalog = catalogService.catalog(ver);
+            Catalog finalNextCatalog = nextCatalog;
+
             int ver0 = ver;
             catalogService.catalog(ver).zones().stream()
                     .filter(zone -> startedZones.add(zone.id()))
-                    .forEach(zoneDescriptor -> startZoneFutures.add(
-                            calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor, true)));
+                    .forEach(zoneDescriptor -> {
+                        int zoneId = zoneDescriptor.id();
+
+                        startZoneFutures.add(
+                                calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor, true));
+
+                        // Handle missed zone drop event.
+                        if (finalNextCatalog != null && finalNextCatalog.zone(zoneId) == null) {
+                            destructionEventsQueue.enqueue(
+                                    new DestroyZoneEvent(
+                                            finalNextCatalog.version(),
+                                            zoneId,
+                                            zoneDescriptor.partitions()
+                                    )
+                            );
+                        }
+                    });
+
+            nextCatalog = catalog;
         }
 
         return allOf(startZoneFutures.toArray(CompletableFuture[]::new))
@@ -536,8 +600,8 @@ public class PartitionReplicaLifecycleManager extends
         }
     }
 
-    private void cleanUpResourcesForDroppedZonesOnRecovery() {
-        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
+    private void handleResourcesForDroppedZonesOnRecovery() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-27466 Handle abandoned resources for dropped zones from vault and metastore
     }
 
     private CompletableFuture<Boolean> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
@@ -769,7 +833,9 @@ public class PartitionReplicaLifecycleManager extends
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
                                                 topologyService.localMember(),
-                                                zonePartitionId
+                                                zonePartitionId,
+                                                transactionStateResolver,
+                                                txMessageSender
                                         );
 
                                         zoneResources.replicaListenerFuture().complete(replicaListener);
@@ -891,7 +957,10 @@ public class PartitionReplicaLifecycleManager extends
 
         executorInclinedPlacementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
 
+        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
+
         catalogService.removeListener(ZONE_CREATE, onCreateZoneListener);
+        catalogService.removeListener(ZONE_DROP, onZoneDropListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
@@ -1633,7 +1702,7 @@ public class PartitionReplicaLifecycleManager extends
             Assignments pendingAssignments,
             long revision
     ) {
-        Entry reduceEntry = metaStorageMgr.getLocally(ZoneRebalanceUtil.switchReduceKey(replicaGrpId), revision);
+        Entry reduceEntry = metaStorageMgr.getLocally(switchReduceKey(replicaGrpId), revision);
 
         Assignments reduceAssignments = reduceEntry != null
                 ? Assignments.fromBytes(reduceEntry.value())
@@ -1660,10 +1729,6 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        if (!nodeProperties.colocationEnabled()) {
-            return nullCompletedFuture();
-        }
-
         try {
             metricManager.unregisterSource(zoneResourcesManager.snapshotsMetricsSource());
 
@@ -1828,7 +1893,7 @@ public class PartitionReplicaLifecycleManager extends
     public void loadTableListenerToZoneReplica(
             ZonePartitionId zonePartitionId,
             int tableId,
-            Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
+            TablePartitionReplicaProcessorFactory tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
             PartitionMvStorageAccess partitionMvStorageAccess,
             boolean onNodeRecovery
@@ -2009,6 +2074,174 @@ public class PartitionReplicaLifecycleManager extends
         return zoneResourcesManager.getZonePartitionResources(zonePartitionId);
     }
 
+    private void onZoneDrop(DropZoneEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int eventCatalogVersion = parameters.catalogVersion();
+            int catalogVersionWithZonePresent = eventCatalogVersion - 1;
+            int zoneId = parameters.zoneId();
+
+            CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersionWithZonePresent).zone(zoneId);
+
+            assert zoneDescriptor != null : "Unexpected null zone descriptor for zoneId=" + zoneId + ", catalogVersion "
+                    + catalogVersionWithZonePresent;
+
+            destructionEventsQueue.enqueue(
+                    new DestroyZoneEvent(
+                            eventCatalogVersion,
+                            zoneId,
+                            zoneDescriptor.partitions()
+                    )
+            );
+        });
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27468 Not "thread-safe" in case of concurrent disaster recovery or rebalances.
+    private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        if (!busyLock.enterBusy()) {
+            return falseCompletedFuture();
+        }
+
+        try {
+            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
+
+            // Run zone destruction fully asynchronously.
+            destructionEventsQueue.drainUpTo(newEarliestCatalogVersion)
+                    .forEach(this::removeZonePartitionsIfPossible);
+
+            return falseCompletedFuture();
+        } catch (Throwable t) {
+            return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * For each partition performs following actions.
+     *
+     * <ol>
+     *     <li>Check whether it's started or await if it's starting.</li>
+     *     <li>Check whether the partition is eligible for removal -  has zero table resources and empty txStateStorage.</li>
+     *     <li>Stop partition, destroy zone partition resources and unregister it from within startedReplicationGroups.</li>
+     *     <li>Remove partition assignments from meta storage.</li>
+     * </ol>
+     */
+    private void removeZonePartitionsIfPossible(DestroyZoneEvent event) {
+        int zoneId = event.zoneId();
+        int partitionsCount = event.partitions();
+
+        List<CompletableFuture<Boolean>> partitionsEligibilityForRemovalFutures = new ArrayList<>();
+        for (int partitionIndex = 0; partitionIndex < partitionsCount; partitionIndex++) {
+            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionIndex);
+
+            CompletableFuture<Boolean> partitionRemovalFuture =
+                    startedReplicationGroups.hasReplicationGroupStartedOrAwaitIfStarting(zonePartitionId)
+                            .thenComposeAsync(started -> {
+                                if (!started) {
+                                    return falseCompletedFuture();
+                                }
+
+                                return inBusyLockAsync(busyLock, () ->
+                                        isEligibleForDrop(zonePartitionId)
+                                                .thenCompose(eligible -> {
+                                                    if (!eligible) {
+                                                        return falseCompletedFuture();
+                                                    }
+
+                                                    // It's safe to use -1 as revision id here, since we only stop partitions that do not
+                                                    // have active table-related resources.
+                                                    return stopAndDestroyPartition(zonePartitionId, -1)
+                                                            .thenCompose(v -> dropAssignments(zonePartitionId))
+                                                            .thenApply(v -> true);
+                                                })
+                                );
+                            }, partitionOperationsExecutor)
+                            .exceptionally(e -> {
+                                if (!hasCause(e, NodeStoppingException.class)) {
+                                    LOG.error(
+                                            "Unable to destroy zone partition [zonePartitionId={}]",
+                                            e,
+                                            zonePartitionId);
+                                }
+
+                                // In case of false, event will be returned to the destructionEventsQueue and thus removal will be retried
+                                // on next iteration of LWM change.
+                                return false;
+                            });
+
+            partitionsEligibilityForRemovalFutures.add(partitionRemovalFuture);
+        }
+
+        // If there's a partition that still has non empty resourses e.g. non-empty txnStateStorage, the event is returned
+        // back to destructionEventsQueue and thus will be re-processed on next lwm change.
+        allOf(partitionsEligibilityForRemovalFutures.toArray(new CompletableFuture[0]))
+                .thenApply(fs -> partitionsEligibilityForRemovalFutures.stream().anyMatch(f -> !f.join()))
+                .thenAccept(anyFalse -> {
+                    if (anyFalse) {
+                        destructionEventsQueue.enqueue(event);
+                    } else {
+                        distributionZoneMgr.onDropZoneDestroy(zoneId, event.catalogVersion)
+                                .whenComplete((r, e) -> {
+                                    if (e != null) {
+                                        LOG.error(
+                                                "Unable to destroy zone resources [zoneId={}]",
+                                                e,
+                                                zoneId);
+                                    }
+                                });
+                    }
+                });
+    }
+
+    /**
+     * Checks whether partition could be removed. In order to match the condition, a zone partition should have zero table resources and
+     * empty txStateStorage.
+     */
+    private CompletableFuture<Boolean> isEligibleForDrop(ZonePartitionId zonePartitionId) {
+        ZonePartitionResources zonePartitionResources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
+
+        if (zonePartitionResources == null) {
+            return trueCompletedFuture();
+        }
+
+        try (var cursor = zonePartitionResources.txStatePartitionStorage().scan()) {
+            if (cursor.hasNext()) {
+                return falseCompletedFuture();
+            }
+        } catch (TxStateStorageRebalanceException e) {
+            return falseCompletedFuture();
+        }
+
+        // In order to simplify the logic of table resources cleanup, that is handled by TableManager and
+        // zone resources cleanup that is handled by PartitionReplicaLifecycleManager, on zone destruction event
+        // we await TableManager to finish its own job instead of stealing it.
+        // In case when both tables and zone were destroyed on the same lwm, PartitionReplicaLifecycleManager will cleanup
+        // zone resources within the next lwm update.
+        return zoneResourcesManager.areTableResourcesEmpty(zonePartitionId);
+    }
+
+    /**
+     * Removes all zone partition assignment keys from metastorage.
+     */
+    private CompletableFuture<Void> dropAssignments(ZonePartitionId zonePartitionId) {
+        Set<ByteArray> assignmentKeys = Set.of(
+                stablePartAssignmentsKey(zonePartitionId),
+                pendingPartAssignmentsQueueKey(zonePartitionId),
+                pendingChangeTriggerKey(zonePartitionId),
+                plannedPartAssignmentsKey(zonePartitionId),
+                switchAppendKey(zonePartitionId),
+                switchReduceKey(zonePartitionId),
+                assignmentsChainKey(zonePartitionId)
+        );
+
+        return metaStorageMgr.removeAll(assignmentKeys)
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to remove assignments from metastorage [zonePartitionId={}]", e, zonePartitionId);
+                    }
+                });
+    }
+
     /**
      * For HA zones: Check that last rebalance was graceful (caused by common rebalance triggers, like data nodes change, replica factor
      * change, etc.) rather than forced (caused by a disaster recovery reset after losing the majority of nodes).
@@ -2016,5 +2249,49 @@ public class PartitionReplicaLifecycleManager extends
     private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
         // Assignments chain is either empty (when there have been no stable switch yet) or contains a single element in chain.
         return assignmentsChain == null || assignmentsChain.size() == 1;
+    }
+
+    /** Internal event. */
+    private static class DestroyZoneEvent {
+        final int catalogVersion;
+        final int zoneId;
+        final int partitions;
+
+        DestroyZoneEvent(
+                int catalogVersion,
+                int zoneId,
+                int partitions
+        ) {
+            this.catalogVersion = catalogVersion;
+            this.zoneId = zoneId;
+            this.partitions = partitions;
+        }
+
+        int catalogVersion() {
+            return catalogVersion;
+        }
+
+        int zoneId() {
+            return zoneId;
+        }
+
+        int partitions() {
+            return partitions;
+        }
+    }
+
+    /**
+     * Factory for creating table partition replica processors.
+     */
+    @FunctionalInterface
+    public interface TablePartitionReplicaProcessorFactory {
+        /**
+         * Creates a table partition replica processor.
+         *
+         * @param raftCommandRunner Raft command runner.
+         * @param transactionStateResolver Transaction state resolver.
+         * @return Table partition replica processor.
+         */
+        ReplicaTableProcessor createProcessor(RaftCommandRunner raftCommandRunner, TransactionStateResolver transactionStateResolver);
     }
 }

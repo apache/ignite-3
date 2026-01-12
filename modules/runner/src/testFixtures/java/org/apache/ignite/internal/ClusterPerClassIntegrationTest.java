@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
@@ -218,17 +217,10 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         assertTrue(waitForCondition(() -> {
                     CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;
 
-                    if (colocationEnabled()) {
-                        globalPartitionStates = node.disasterRecoveryManager()
-                                .globalPartitionStates(Set.of(zone), partitionIds)
-                                .thenApply(map -> map.entrySet().stream()
-                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
-                    } else {
-                        globalPartitionStates = node.disasterRecoveryManager()
-                                .globalTablePartitionStates(Set.of(zone), partitionIds)
-                                .thenApply(map -> map.entrySet().stream()
-                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
-                    }
+                    globalPartitionStates = node.disasterRecoveryManager()
+                            .globalPartitionStates(Set.of(zone), partitionIds)
+                            .thenApply(map -> map.entrySet().stream()
+                                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
 
                     assertThat(globalPartitionStates, willCompleteSuccessfully());
 
