@@ -51,6 +51,7 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
+    implementation libs.micronaut.management
     implementation libs.micronaut.openapi
     implementation libs.micronaut.security
     implementation libs.micronaut.security.annotations
