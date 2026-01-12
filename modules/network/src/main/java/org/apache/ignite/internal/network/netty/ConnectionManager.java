@@ -537,7 +537,8 @@ public class ConnectionManager implements ChannelCreationListener {
                 this,
                 stopping::get,
                 productVersionSource,
-                topologyService
+                topologyService,
+                failureProcessor
         );
     }
 
