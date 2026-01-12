@@ -120,8 +120,8 @@ import org.locationtech.jts.geom.Geometry;
  *      Cast TIME to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_TIME).
  *      Cast DATE to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_DATE).
  *      Cast TIMESTAMP to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_TIMESTAMP).
- *      Cast TIMESTAMP LTZ to VARCHAR with format is updated to use our implementation 
- *      (see IgniteMethod.FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
+ *      Cast TIMESTAMP LTZ to VARCHAR with and w/o format both updated to use our implementation 
+ *      (see {@link IgniteMethod#FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE}, {@link IgniteMethod#TIMESTAMP_LTZ_TO_STRING_PRECISION_AWARE)).
  *      Added support cast to decimal, see ConverterUtils.convertToDecimal
  *      Removed original casts to numeric types and used own ConverterUtils.convert
  *      Added pad-truncate from CHARACTER to INTERVAL types
@@ -132,6 +132,8 @@ import org.locationtech.jts.geom.Geometry;
  *      see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  *      Cast between TIME, TIMESTAMP amd TIMESTAMP_LTZ takes precision into account (see {@link IgniteMethod#ADJUST_TIMESTAMP_MILLIS}).
+ *      Cast TIME/TIMESTAMP to TIMESTAMP_LTZ is updated to use our implementation (see
+ *      {@link IgniteMethod#TIMESTAMP_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  * 6. Translate literals changes:
  *      DECIMAL use own implementation see IgniteSqlFunctions.class, "toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
