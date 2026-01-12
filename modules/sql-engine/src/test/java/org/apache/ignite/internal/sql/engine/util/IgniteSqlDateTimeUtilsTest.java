@@ -131,17 +131,17 @@ public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @CsvSource({
-            "00:00:00,     0, 0",
-            "00:00:00,     0, 123",
-            "00:00:00.1,   1, 123",
-            "00:00:00.12,  2, 123",
-            "00:00:00.123, 3, 123",
-            "00:00:00.123, 4, 123",
-            "00:00:00.123, 5, 123",
-            "00:00:00.123, 6, 123",
-            "23:59:59.999, 3, 86399999",
-            "23:59:59.99,  2, 86399999",
-            "23:59:59.9,   1, 86399999",
+            "00:00:00,        0, 0",
+            "00:00:00,        0, 123",
+            "00:00:00.1,      1, 123",
+            "00:00:00.12,     2, 123",
+            "00:00:00.123,    3, 123",
+            "00:00:00.1230,   4, 123",
+            "00:00:00.12300,  5, 123",
+            "00:00:00.123000, 6, 123",
+            "23:59:59.999,    3, 86399999",
+            "23:59:59.99,     2, 86399999",
+            "23:59:59.9,      1, 86399999",
     })
     public void testTimeToString(String expectedTime, int precision, int millis) {
         assertThat(IgniteSqlDateTimeUtils.unixTimeToString(millis, precision), is(expectedTime));
@@ -149,17 +149,68 @@ public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @CsvSource({
-            "1970-01-01 00:00:00,     0, 0",
-            "1970-01-01 00:00:00.12,  2, 123",
-            "1970-01-01 00:00:00.123, 3, 123",
-            "1970-01-01 00:00:00.123, 6, 123",
-            "1970-02-01 23:59:59,     0, 2764799000",
-            "1970-02-01 23:59:59.04,  2, 2764799040",
-            "1969-12-31 23:59:59.999, 3, -1",
-            "1969-12-31 23:59:59.98,  2, -11",
+            "1970-01-01 00:00:00,        0, 0",
+            "1970-01-01 00:00:00.12,     2, 123",
+            "1970-01-01 00:00:00.123,    3, 123",
+            "1970-01-01 00:00:00.123000, 6, 123",
+            "1970-02-01 23:59:59,        0, 2764799000",
+            "1970-02-01 23:59:59.00,     2, 2764799000",
+            "1970-02-01 23:59:59.04,     2, 2764799040",
+            "1969-12-31 23:59:59.999,    3, -1",
+            "1969-12-31 23:59:59.98,     2, -11",
     })
     public void testTimestampToString(String expectedDate, int precision, long millis) {
         assertThat(IgniteSqlDateTimeUtils.unixTimestampToString(millis, precision), is(expectedDate));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "1970-01-01 02:00:00 GMT+02:00,        0, GMT+2, 0",
+            "1970-01-01 04:00:00 GMT+04:00,        0, GMT+4, 0",
+            "1970-01-01 02:00:00.12 GMT+02:00,     2, GMT+2, 123",
+            "1970-01-01 04:00:00.12 GMT+04:00,     2, GMT+4, 123",
+            "1970-01-01 02:00:00.123 GMT+02:00,    3, GMT+2, 123",
+            "1970-01-01 04:00:00.123 GMT+04:00,    3, GMT+4, 123",
+            "1970-01-01 02:00:00.123000 GMT+02:00, 6, GMT+2, 123",
+            "1970-01-01 04:00:00.123000 GMT+04:00, 6, GMT+4, 123",
+            "1970-02-02 01:59:59 GMT+02:00,        0, GMT+2, 2764799000",
+            "1970-02-02 03:59:59 GMT+04:00,        0, GMT+4, 2764799000",
+            "1970-02-02 01:59:59.00 GMT+02:00,     2, GMT+2, 2764799000",
+            "1970-02-02 03:59:59.00 GMT+04:00,     2, GMT+4, 2764799000",
+            "1970-02-02 01:59:59.04 GMT+02:00,     2, GMT+2, 2764799040",
+            "1970-02-02 03:59:59.04 GMT+04:00,     2, GMT+4, 2764799040",
+            "1970-01-01 01:59:59.999 GMT+02:00,    3, GMT+2, -1",
+            "1970-01-01 03:59:59.999 GMT+04:00,    3, GMT+4, -1",
+            "1970-01-01 01:59:59.98 GMT+02:00,     2, GMT+2, -11",
+            "1970-01-01 03:59:59.98 GMT+04:00,     2, GMT+4, -11",
+    })
+    public void testTimestampLtzToString(String expectedDate, int precision, String zoneId, long millis) {
+        @SuppressWarnings("UseOfObsoleteDateTimeApi")
+        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+
+        assertThat(IgniteSqlDateTimeUtils.timestampWithLocalTimeZoneToString(millis, precision, timeZone), is(expectedDate));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "1970-01-01T02:00:00,    GMT+2, 1970-01-01T00:00:00Z",
+            "1970-01-01T04:00:00,    GMT+4, 1970-01-01T00:00:00Z",
+            "1970-01-01T01:59:59.98, GMT+2, 1969-12-31T23:59:59.98Z",
+            "1970-01-01T03:59:59.98, GMT+4, 1969-12-31T23:59:59.98Z",
+    })
+    void testTimestampToTimestampLtzConversion(String input, String zoneId, String expectedOutput) {
+        @SuppressWarnings("UseOfObsoleteDateTimeApi")
+        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+
+        LocalDateTime dt = LocalDateTime.parse(input);
+        long ts = (long) TypeUtils.toInternal(dt, ColumnType.DATETIME);
+
+        long tsAfterConversion = IgniteSqlDateTimeUtils.toTimestampWithLocalTimeZone(ts, timeZone);
+
+        assertThat(
+                Instant.ofEpochMilli(tsAfterConversion),
+                is(Instant.parse(expectedOutput))
+        );
     }
 
     @ParameterizedTest
