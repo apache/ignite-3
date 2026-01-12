@@ -22,9 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_V
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 
 import java.util.Collection;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -71,10 +69,7 @@ public class ItIndexesSystemViewTest extends AbstractSystemViewTest {
         sql(createIndexSql("TEST_INDEX_HASH", TABLE_NAME, HASH.name(), COLUMNS));
         sql(createIndexSql("TEST_INDEX_SORTED", TABLE_NAME, "SORTED", COLUMNS_COLLATIONS));
 
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManager catalogManager = ignite.catalogManager();
-        int version = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(version);
+        Catalog catalog = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog();
 
         CatalogTableDescriptor tableDescriptor = catalog.tables().stream()
                 .filter(table -> table.name().equals(TABLE_NAME))

@@ -48,8 +48,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -394,11 +392,11 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @return Index id.
      */
     private int getIndexId(String idxName) {
-        CatalogManager catalogManager = igniteImpl(0).catalogManager();
-
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
-        return catalog.indexes().stream()
+        return igniteImpl(0)
+                .catalogManager()
+                .latestCatalog()
+                .indexes()
+                .stream()
                 .filter(index -> {
                     log.info("Scanned idx " + index.name());
 
