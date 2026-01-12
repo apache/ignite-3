@@ -111,7 +111,7 @@ public class ClientFutureUtilsTest {
     }
 
     @Test
-    public void testDoWithRetryAsyncPreventsSelfReferenceInSuppressedExceptions() {
+    public void testDoWithRetryAsyncPreventsDuplicatesAndSelfReferenceInSuppressedExceptions() {
         var counter = new AtomicInteger();
 
         var ex1 = new Exception("1");
