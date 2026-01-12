@@ -353,4 +353,82 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
             return null;
         }
     }
+
+    /**
+     * Tests that a compute job can see data that was inserted before the job was submitted.
+     * This verifies the observable timestamp propagation from client to worker node.
+     *
+     * <p>Scenario (IGNITE-25718):
+     * <ol>
+     *   <li>Client inserts a row R that goes to node A</li>
+     *   <li>Client invokes compute job that goes to node B</li>
+     *   <li>The job should see row R because the observable timestamp is propagated</li>
+     * </ol>
+     */
+    @ParameterizedTest
+    @MethodSource("targetNodeIndexes")
+    void computeJobSeesDataInsertedBeforeJobSubmission(int targetNodeIndex) {
+        // Create table and insert data from entry node (node 0)
+        createTestTableWithOneRow();
+
+        Ignite entryNode = node(0);
+        Ignite targetNode = node(targetNodeIndex);
+
+        // Submit a job to target node that reads the data
+        Integer result = entryNode.compute().execute(
+                JobTarget.node(clusterNode(targetNode)),
+                JobDescriptor.builder(ReadTableValueJob.class).build(),
+                1 // key to read
+        );
+
+        // The job should see the inserted value
+        assertThat(result, is(101));
+    }
+
+    /**
+     * Tests that a compute job can see data that was inserted in a loop before each job submission.
+     * This verifies the observable timestamp is updated after each insert and propagated to jobs.
+     */
+    @ParameterizedTest
+    @MethodSource("targetNodeIndexes")
+    void computeJobSeesLatestDataAfterMultipleInserts(int targetNodeIndex) {
+        sql("DROP TABLE IF EXISTS test");
+        sql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
+
+        Ignite entryNode = node(0);
+        Ignite targetNode = node(targetNodeIndex);
+
+        // Insert multiple rows and verify each can be read by a compute job
+        for (int i = 1; i <= 5; i++) {
+            int key = i;
+            int value = i * 100;
+
+            // Insert from entry node
+            sql("INSERT INTO test(k, v) VALUES (" + key + ", " + value + ")");
+
+            // Read from target node via compute job
+            Integer result = entryNode.compute().execute(
+                    JobTarget.node(clusterNode(targetNode)),
+                    JobDescriptor.builder(ReadTableValueJob.class).build(),
+                    key
+            );
+
+            // The job should see the inserted value
+            assertThat("Job should see inserted row with key " + key, result, is(value));
+        }
+    }
+
+    /**
+     * Job that reads a value from the test table by key.
+     */
+    private static class ReadTableValueJob implements ComputeJob<Integer, Integer> {
+        @Override
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Integer key) {
+            Table table = context.ignite().tables().table("test");
+            KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
+
+            Integer value = view.get(null, key);
+            return CompletableFuture.completedFuture(value);
+        }
+    }
 }
