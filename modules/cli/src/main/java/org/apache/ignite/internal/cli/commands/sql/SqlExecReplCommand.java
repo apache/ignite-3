@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
@@ -87,6 +89,9 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;
+
+    @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
+    private boolean timed;
 
     @ArgGroup
     private ExecOptions execOptions;
@@ -218,7 +223,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 .inputProvider(() -> new StringCallInput(line))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new SqlQueryResultDecorator(plain))
+                .decorator(new SqlQueryResultDecorator(plain, timed))
                 .verbose(verbose)
                 .exceptionHandler(SqlExceptionHandler.INSTANCE)
                 .build();

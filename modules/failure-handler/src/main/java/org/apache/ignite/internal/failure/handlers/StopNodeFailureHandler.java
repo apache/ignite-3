@@ -19,6 +19,10 @@ package org.apache.ignite.internal.failure.handlers;
 
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.NodeStopper;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -26,16 +30,26 @@ import org.apache.ignite.internal.tostring.S;
  * Handler will stop node in case of critical error using provided {@link NodeStopper}.
  */
 public class StopNodeFailureHandler extends AbstractFailureHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(StopNodeFailureHandler.class);
+
+    /** Ignite node name. */
+    private final String nodeName;
+
     @IgniteToStringExclude
     private final NodeStopper nodeStopper;
 
-    public StopNodeFailureHandler(NodeStopper nodeStopper) {
+    public StopNodeFailureHandler(String nodeName, NodeStopper nodeStopper) {
+        this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
     }
 
     @Override
     protected boolean handle(FailureContext failureCtx) {
-        nodeStopper.stopNode();
+        IgniteThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, "node-stopper", true, LOG, ThreadOperation.values());
+
+        Thread nodeStopperThread = threadFactory.newThread(nodeStopper::stopNode);
+
+        nodeStopperThread.start();
 
         return true;
     }

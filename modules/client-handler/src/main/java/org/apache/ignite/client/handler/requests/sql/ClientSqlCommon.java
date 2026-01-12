@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
+
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -188,7 +191,7 @@ class ClientSqlCommon {
             int fieldsNum = origin == null ? 6 : 9;
             out.packInt(fieldsNum);
 
-            out.packString(col.name());
+            out.packString(SqlCommon.normalizedColumnName(col));
             out.packBoolean(col.nullable());
             out.packInt(col.type().id());
             out.packInt(col.scale());
@@ -204,23 +207,25 @@ class ClientSqlCommon {
             if (col.name().equals(origin.columnName())) {
                 out.packNil();
             } else {
-                out.packString(origin.columnName());
+                out.packString(parseIdentifier(origin.columnName()));
             }
 
-            Integer schemaIdx = schemas.get(origin.schemaName());
+            String schemaName = parseIdentifier(origin.schemaName());
+            Integer schemaIdx = schemas.get(schemaName);
 
             if (schemaIdx == null) {
-                schemas.put(origin.schemaName(), i);
-                out.packString(origin.schemaName());
+                schemas.put(schemaName, i);
+                out.packString(schemaName);
             } else {
                 out.packInt(schemaIdx);
             }
 
-            Integer tableIdx = tables.get(origin.tableName());
+            String tableName = parseIdentifier(origin.tableName());
+            Integer tableIdx = tables.get(tableName);
 
             if (tableIdx == null) {
-                tables.put(origin.tableName(), i);
-                out.packString(origin.tableName());
+                tables.put(tableName, i);
+                out.packString(tableName);
             } else {
                 out.packInt(tableIdx);
             }

@@ -41,10 +41,6 @@ class ReadWriteIntentLinks implements PageMemoryTraversal<Void> {
 
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Void unused) {
-        return readFullOrInitiateReadFragmented(pageAddr, payload);
-    }
-
-    private long readFullOrInitiateReadFragmented(long pageAddr, DataPagePayload payload) {
         byte dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
 
         assert dataType == WiLinkableRowVersion.WRITE_INTENT_DATA_TYPE || dataType == WiLinkableRowVersion.COMMITTED_DATA_TYPE
@@ -62,7 +58,7 @@ class ReadWriteIntentLinks implements PageMemoryTraversal<Void> {
             return;
         }
 
-        result = new WriteIntentLinks(nextWiLink, prevWiLink);
+        result = new WriteIntentLinks(prevWiLink, nextWiLink);
     }
 
     WriteIntentLinks result() {

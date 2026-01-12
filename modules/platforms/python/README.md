@@ -3,7 +3,7 @@ Apache Ignite 3 DB API Driver.
 
 ## Prerequisites
 
-- Python 3.9 or above (3.9, 3.10, 3.11, 3.12 and 3.13 are tested),
+- Python 3.10 or above (3.10, 3.11, 3.12, 3.13 and 3.14 are tested),
 - Access to Ignite 3 node, local or remote.
 
 ## Installation
@@ -47,7 +47,7 @@ Linux building requirements:
 - CMake version >=3.18;
 - OpenSSL (dev version of the package);
 - Docker to build wheels;
-- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13).
+- Supported versions of Python (3.10, 3.11, 3.12, 3.13 and 3.14).
   You can disable some of these versions, but you'd need to edit the script for that.
 
 For building universal `wheels` (binary packages) for Linux, just invoke script `./scripts/create_distr.sh`.
@@ -56,7 +56,7 @@ Windows building requirements:
 - MSVC 14.x, and it should be in path;
 - CMake version >=3.18;
 - OpenSSL (headers are required for the build);
-- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13).
+- Supported versions of Python (3.10, 3.11, 3.12, 3.13 and 3.14).
   You can disable some of these versions, but you'd need to edit the script for that.
 
 For building `wheels` for Windows, invoke script `.\scripts\BuildWheels.ps1` using PowerShell.
@@ -65,7 +65,7 @@ The script only works with Python distributions installed in a standard path, wh
 
 Ready wheels will be located in `distr` directory.
 
-### Updating from older version
+### Updating from an older version
 
 To upgrade an existing package, use the following command:
 ```

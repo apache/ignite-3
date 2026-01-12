@@ -18,11 +18,16 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Globalization;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Common.Table;
 using Ignite.Sql;
+using Ignite.Table.Mapper;
 using NodaTime;
 using NUnit.Framework;
 using static Common.Table.TestTables;
@@ -89,9 +94,12 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestSelectAllColumns()
+    public async Task TestSelectAllColumns([Values(true, false)] bool withMapper)
     {
-        var resultSet = await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1");
+        var resultSet = withMapper
+            ? await Client.Sql.ExecuteAsync(null, new PocoAllColumnsSqlNullableMapper(), "select * from TBL_ALL_COLUMNS_SQL order by 1", CancellationToken.None)
+            : await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1");
+
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(Count + 1, rows.Count);
@@ -113,6 +121,25 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 2), rows[1].Uuid);
 
         Assert.AreEqual(new PocoAllColumnsSqlNullable(100), rows[Count]);
+    }
+
+    [Test]
+    public async Task TestSelectAllColumnsStringMapper()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                new StringMapper(),
+                "select * from TBL_ALL_COLUMNS_SQL order by KEY LIMIT 1",
+                CancellationToken.None);
+
+        List<string> rows = await resultSet.ToListAsync();
+        string row = rows.Single();
+
+        Assert.AreEqual(
+            "STR=v-0, INT8=1, KEY=0, INT16=2, INT32=3, INT64=4, FLOAT=5.5, DOUBLE=6.5, UUID=00000001-0002-0003-0405-060708090a01, " +
+            "DATE=Thursday, 01 December 2022, TIME=11:38:01, TIME2=, DATETIME=12/19/2022 11:01:00, DATETIME2=, " +
+            "TIMESTAMP=1970-01-01T00:00:01Z, TIMESTAMP2=, BLOB=System.Byte[], DECIMAL=7.7, BOOLEAN=",
+            row);
     }
 
     [Test]
@@ -233,6 +260,15 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(expected, ex!.Message);
     }
 
+    [Test]
+    public void TestDateTimeFieldThrowsException()
+    {
+        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await Client.Sql.ExecuteAsync<DateTimeRec>(null, "select \"DATETIME\" as Dt from TBL_ALL_COLUMNS_SQL where key = 3"));
+
+        Assert.AreEqual("Conversion from NodaTime.LocalDateTime to System.DateTime is not supported (column 'DT').", ex!.Message);
+    }
+
     // ReSharper disable NotAccessedPositionalProperty.Local
     // ReSharper disable ClassNeverInstantiated.Local
     private record struct StructRec([property: Column("KEY")] int Id, string Str);
@@ -248,4 +284,55 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     private record NotMappedRec(int Key, [property: NotMapped] string? Str);
 
     private record ConvertTypeRec(sbyte Key, float Double, double Float, long Int8);
+
+    private record DateTimeRec(DateTime Dt);
+
+    private class StringMapper : IMapper<string>
+    {
+        public void Write(string obj, ref RowWriter rowWriter, IMapperSchema schema) => throw new NotImplementedException();
+
+        public string Read(ref RowReader rowReader, IMapperSchema schema)
+        {
+            var sb = new StringBuilder();
+
+            foreach (var col in schema.Columns)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Append(", ");
+                }
+
+                object? val = col.Type switch
+                {
+                    ColumnType.Null => null,
+                    ColumnType.Boolean => rowReader.ReadBool(),
+                    ColumnType.Int8 => rowReader.ReadByte(),
+                    ColumnType.Int16 => rowReader.ReadShort(),
+                    ColumnType.Int32 => rowReader.ReadInt(),
+                    ColumnType.Int64 => rowReader.ReadLong(),
+                    ColumnType.Float => rowReader.ReadFloat(),
+                    ColumnType.Double => rowReader.ReadDouble(),
+                    ColumnType.Decimal => rowReader.ReadDecimal(),
+                    ColumnType.Date => rowReader.ReadDate(),
+                    ColumnType.Time => rowReader.ReadTime(),
+                    ColumnType.Datetime => rowReader.ReadDateTime(),
+                    ColumnType.Timestamp => rowReader.ReadTimestamp(),
+                    ColumnType.Uuid => rowReader.ReadGuid(),
+                    ColumnType.String => rowReader.ReadString(),
+                    ColumnType.ByteArray => rowReader.ReadBytes(),
+                    ColumnType.Period => rowReader.ReadPeriod(),
+                    ColumnType.Duration => rowReader.ReadDuration(),
+                    _ => throw new InvalidOperationException("Unexpected column type: " + col.Type)
+                };
+
+                var valStr = val is IFormattable formattable
+                    ? formattable.ToString(null, CultureInfo.InvariantCulture)
+                    : val?.ToString();
+
+                sb.Append(col.Name).Append('=').Append(valStr);
+            }
+
+            return sb.ToString();
+        }
+    }
 }

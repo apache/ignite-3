@@ -73,6 +73,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -103,7 +104,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -117,6 +117,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -293,6 +294,10 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         return txManager;
     }
 
+    private static ReplicaPrimacy validRwPrimacy() {
+        return ReplicaPrimacy.forPrimaryReplicaRequest(1);
+    }
+
     @BeforeEach
     public void beforeTest() {
         ((TestSortedIndexStorage) pkStorage.get().storage()).clear();
@@ -365,7 +370,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -444,7 +449,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 

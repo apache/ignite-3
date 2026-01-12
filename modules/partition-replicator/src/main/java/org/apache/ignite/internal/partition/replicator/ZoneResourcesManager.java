@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
@@ -31,9 +32,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -69,6 +71,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     private final Executor partitionOperationsExecutor;
 
     private final ReplicaManager replicaManager;
+
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
 
     /** Map from zone IDs to their resource holders. */
     private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
@@ -121,20 +125,22 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         );
 
         var snapshotStorage = new PartitionSnapshotStorage(
-                new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStatePartitionStorage),
                 catalogService,
                 failureProcessor,
                 partitionOperationsExecutor,
-                new LogStorageAccessImpl(replicaManager)
+                new LogStorageAccessImpl(replicaManager),
+                snapshotsMetricsSource
         );
 
         var zonePartitionResources = new ZonePartitionResources(
                 txStatePartitionStorage,
                 raftGroupListener,
                 snapshotStorage,
+                safeTimeTracker,
                 storageIndexTracker
         );
 
@@ -206,6 +212,24 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 });
     }
 
+    /**
+     *  Returns future of true if there are no corresponding table-related resources, otherwise awaits replicaListenerFuture
+     *  and checks whether table replica processors, table raft processors and partition snapshot storages are present.
+     *  if any is present, returns false, otherwise returns true.
+     */
+    CompletableFuture<Boolean> areTableResourcesEmpty(ZonePartitionId zonePartitionId) {
+        ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
+
+        if (resources == null) {
+            return trueCompletedFuture();
+        }
+
+        return resources.replicaListenerFuture
+                .thenApply(zoneReplicaListener -> zoneReplicaListener.areTableReplicaProcessorsEmpty()
+                        && resources.raftListener().areTableRaftProcessorsEmpty()
+                        && resources.snapshotStorage().arePartitionSnapshotStoragesEmpty());
+    }
+
     @TestOnly
     @Nullable
     TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
@@ -216,6 +240,10 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         }
 
         return resources.txStateStorage.getPartitionStorage(partitionId);
+    }
+
+    RaftSnapshotsMetricsSource snapshotsMetricsSource() {
+        return snapshotsMetricsSource;
     }
 
     private static class ZoneResources {
@@ -239,6 +267,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
         private final PartitionSnapshotStorage snapshotStorage;
 
+        private final SafeTimeValuesTracker safeTimeTracker;
+
         private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
         /**
@@ -255,11 +285,13 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 TxStatePartitionStorage txStatePartitionStorage,
                 ZonePartitionRaftListener raftListener,
                 PartitionSnapshotStorage snapshotStorage,
+                SafeTimeValuesTracker safeTimeTracker,
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker
         ) {
             this.txStatePartitionStorage = txStatePartitionStorage;
             this.raftListener = raftListener;
             this.snapshotStorage = snapshotStorage;
+            this.safeTimeTracker = safeTimeTracker;
             this.storageIndexTracker = storageIndexTracker;
         }
 
@@ -279,12 +311,17 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             return snapshotStorage;
         }
 
-        public PendingComparableValuesTracker<Long, Void> storageIndexTracker() {
-            return storageIndexTracker;
+        public SafeTimeValuesTracker safeTimeTracker() {
+            return safeTimeTracker;
         }
 
         public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
             return replicaListenerFuture;
+        }
+
+        public void closeTrackers() {
+            safeTimeTracker.close();
+            storageIndexTracker.close();
         }
     }
 }

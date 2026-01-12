@@ -17,16 +17,25 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.exactly;
+import static com.github.tomakehurst.wiremock.client.WireMock.moreThanOrExactly;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
-import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-import static org.mockserver.model.JsonBody.json;
-import static org.mockserver.model.MediaType.APPLICATION_JSON;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -41,21 +50,16 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockserver.integration.ClientAndServer;
-import org.mockserver.junit.jupiter.MockServerExtension;
-import org.mockserver.verify.VerificationTimes;
 
-@ExtendWith({MockServerExtension.class, ConfigurationExtension.class})
+@ExtendWith(ConfigurationExtension.class)
+@WireMockTest
 class WebhookSinkTest extends BaseIgniteAbstractTest {
-    private static ClientAndServer clientAndServer;
-
     private static final UUID CLUSTER_ID = UUID.randomUUID();
 
     @InjectConfiguration("mock{sinks.webhookSink{type=webhook,endpoint=\"http://localhost\"}}")
@@ -63,13 +67,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
     @Test
     void shouldSendEventsInBatches() {
-        clientAndServer
-                .when(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                )
-                .respond(response(null));
+        stubFor(post("/api/v1/events").willReturn(ok()));
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(2));
 
@@ -89,28 +87,18 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         var expectedSentContent = "[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}, {\"type\" : \"USER_AUTHENTICATION_FAILURE\"}]";
 
-        clientAndServer
-                .verify(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                                .withContentType(APPLICATION_JSON)
-                                .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
-                                .withHeader("X-SINK-NODE-NAME", "default")
-                                .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.exactly(1));
+        verify(exactly(1), postRequestedFor(urlEqualTo("/api/v1/events"))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON))
+                .withHeader("X-SINK-CLUSTER-ID", equalTo(CLUSTER_ID.toString()))
+                .withHeader("X-SINK-NODE-NAME", equalTo("default"))
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+        );
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24226")
     @Test
     void shouldSendEventsByTimeout() {
-        clientAndServer
-                .when(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                )
-                .respond(response(null));
+        stubFor(post("/api/v1/events").willReturn(ok()));
 
         WebhookSink sink = createSink(c -> c.changeBatchSendFrequencyMillis(200L));
 
@@ -122,27 +110,17 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         var expectedSentContent = "[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]";
 
-        clientAndServer
-                .verify(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                                .withContentType(APPLICATION_JSON)
-                                .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
-                                .withHeader("X-SINK-NODE-NAME", "default")
-                                .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.exactly(1));
+        verify(exactly(1), postRequestedFor(urlEqualTo("/api/v1/events"))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON))
+                .withHeader("X-SINK-CLUSTER-ID", equalTo(CLUSTER_ID.toString()))
+                .withHeader("X-SINK-NODE-NAME", equalTo("default"))
+                .withRequestBody(equalToJson(expectedSentContent, true, true))
+        );
     }
 
     @Test
     void shouldSkipSendingEvents() {
-        clientAndServer
-                .when(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                )
-                .respond(response(null));
+        stubFor(post("/api/v1/events").willReturn(ok()));
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(2));
 
@@ -154,15 +132,11 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         assertThat(sink.getEvents(), hasSize(1));
 
-        clientAndServer
-                .verify(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                                .withContentType(APPLICATION_JSON)
-                                .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
-                                .withHeader("X-SINK-NODE-NAME", "default"),
-                        VerificationTimes.never());
+        verify(exactly(0), postRequestedFor(urlEqualTo("/api/v1/events"))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON))
+                .withHeader("X-SINK-CLUSTER-ID", equalTo(CLUSTER_ID.toString()))
+                .withHeader("X-SINK-NODE-NAME", equalTo("default"))
+        );
     }
 
     @Test
@@ -182,13 +156,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(ints = {429, 502, 503, 504})
     void shouldTryToResendEvents(int statusCode) {
-        clientAndServer
-                .when(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                )
-                .respond(response().withStatusCode(statusCode));
+        stubFor(post("/api/v1/events").willReturn(aResponse().withStatus(statusCode)));
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
@@ -200,28 +168,18 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         assertThat(sink.getEvents(), hasSize(0));
 
-        clientAndServer
-                .verify(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                                .withContentType(APPLICATION_JSON)
-                                .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
-                                .withHeader("X-SINK-NODE-NAME", "default")
-                                .withBody(json("[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]", ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.atLeast(2));
+        verify(moreThanOrExactly(2), postRequestedFor(urlEqualTo("/api/v1/events"))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON))
+                .withHeader("X-SINK-CLUSTER-ID", equalTo(CLUSTER_ID.toString()))
+                .withHeader("X-SINK-NODE-NAME", equalTo("default"))
+                .withRequestBody(equalToJson("[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]", true, true))
+        );
     }
 
     @ParameterizedTest
     @ValueSource(ints = {500, 400, 404, 301})
     void shouldIgnoreErrorOnSendEvents(int statusCode) {
-        clientAndServer
-                .when(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                )
-                .respond(response().withStatusCode(statusCode));
+        stubFor(post("/api/v1/events").willReturn(aResponse().withStatus(statusCode)));
 
         WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
@@ -233,30 +191,19 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         assertThat(sink.getEvents(), hasSize(0));
 
-        clientAndServer
-                .verify(
-                        request()
-                                .withMethod("POST")
-                                .withPath("/api/v1/events")
-                                .withContentType(APPLICATION_JSON)
-                                .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
-                                .withHeader("X-SINK-NODE-NAME", "default")
-                                .withBody(json("[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]", ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.atLeast(1));
-    }
-
-    @BeforeAll
-    static void initMockServer(ClientAndServer clientAndServer) {
-        WebhookSinkTest.clientAndServer = clientAndServer;
+        verify(moreThanOrExactly(1), postRequestedFor(urlEqualTo("/api/v1/events"))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON))
+                .withHeader("X-SINK-CLUSTER-ID", equalTo(CLUSTER_ID.toString()))
+                .withHeader("X-SINK-NODE-NAME", equalTo("default"))
+                .withRequestBody(equalToJson("[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]", true, true))
+        );
     }
 
     @BeforeEach
-    void resetMockServer() {
-        clientAndServer.reset();
-
+    void resetMockServer(WireMockRuntimeInfo wmRuntimeInfo) {
         assertThat(
                 cfg.sinks().get("webhookSink").change(c -> c.convert(WebhookSinkChange.class)
-                        .changeEndpoint("http://localhost:" + clientAndServer.getPort() + "/api/v1/events")
+                        .changeEndpoint(wmRuntimeInfo.getHttpBaseUrl() + "/api/v1/events")
                 ),
                 willCompleteSuccessfully()
         );

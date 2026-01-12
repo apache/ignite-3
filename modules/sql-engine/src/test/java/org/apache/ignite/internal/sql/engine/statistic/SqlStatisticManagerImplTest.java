@@ -20,12 +20,10 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMap.entry;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.DEFAULT_TABLE_SIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -38,6 +36,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +44,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -67,22 +65,20 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.sql.ColumnType;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mock.Strictness;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests of SqlStatisticManagerImpl.
  */
 @ExtendWith(MockitoExtension.class)
-@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
@@ -107,8 +103,11 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     @Mock(strictness = Strictness.LENIENT)
     private StatisticAggregatorImpl statAggregator;
 
-    @InjectExecutorService
-    private ScheduledExecutorService commonExecutor;
+    @Mock(strictness = Strictness.LENIENT)
+    private ScheduledExecutorService scheduledExecutorService;
+
+    @Mock(strictness = Strictness.LENIENT)
+    private ScheduledFuture<Void> taskFuture;
 
     @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=5")
     private StatisticsConfiguration statisticsConfiguration;
@@ -116,17 +115,22 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     private static final CatalogTableColumnDescriptor pkCol =
             new CatalogTableColumnDescriptor("pkCol", ColumnType.STRING, false, 0, 0, 10, null);
 
+    private final ArrayDeque<Runnable> scheduledTasks = new ArrayDeque<>();
+
     @Test
     public void checkDefaultTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         // Preparing:
         prepareEmptyCatalog();
+        prepareTaskScheduler();
 
         when(statAggregator.estimatedSizeWithLastUpdate(List.of()))
                 .thenReturn(CompletableFuture.completedFuture(Int2ObjectMaps.emptyMap()));
 
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
+
+        runScheduledTasks();
 
         // Test:
         // return default value for unknown table.
@@ -139,6 +143,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         long tableSize = 999_888_777L;
         // Preparing:
         prepareCatalogWithTable(tableId);
+        prepareTaskScheduler();
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
@@ -149,11 +154,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
-        long timeout = 2 * UPDATE_INTERVAL_SECONDS;
-
-        Awaitility.await().timeout(timeout, TimeUnit.SECONDS).untilAsserted(() ->
-                assertEquals(tableSize, sqlStatisticManager.tableSize(tableId))
-        );
+        runScheduledTasks();
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
 
         // Second time we should obtain the same value from a cache.
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
@@ -171,6 +173,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         HybridTimestamp time2 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(500);
         // Preparing:
         prepareCatalogWithTable(tableId);
+        prepareTaskScheduler();
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
@@ -186,11 +189,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
-        long timeout = 2 * UPDATE_INTERVAL_SECONDS;
+        runScheduledTasks();
 
-        Awaitility.await().timeout(timeout, TimeUnit.SECONDS).untilAsserted(() ->
-                assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId))
-        );
         // The second time we should obtain the same value from a cache.
         assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
 
@@ -249,8 +249,12 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(statAggregator.estimatedSizeWithLastUpdate(any()))
                 .thenReturn(CompletableFuture.completedFuture(modifications));
 
+        prepareTaskScheduler();
+
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
+
+        runScheduledTasks();
 
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
@@ -275,6 +279,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         long tableSize = 999_888_777L;
         // Preparing:
         prepareCatalogWithTable(tableId);
+        prepareTaskScheduler();
 
         ArgumentCaptor<EventListener<DropTableEventParameters>> tableDropCapture = ArgumentCaptor.forClass(EventListener.class);
         doNothing().when(catalogManager).listen(eq(CatalogEvent.TABLE_DROP), tableDropCapture.capture());
@@ -292,11 +297,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
-        long timeout = 2 * UPDATE_INTERVAL_SECONDS;
-
-        Awaitility.await().timeout(timeout, TimeUnit.SECONDS).untilAsserted(() ->
-                assertEquals(tableSize, sqlStatisticManager.tableSize(tableId))
-        );
+        runScheduledTasks();
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
 
         int catalogVersionBeforeDrop = 1;
         int catalogVersionAfterDrop = 2;
@@ -338,6 +340,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
                         entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
+        prepareTaskScheduler();
+
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
@@ -356,12 +360,9 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .storageProfile("")
                 .build();
         tableCreateCapture.getValue().notify(new CreateTableEventParameters(-1, 0, catalogDescriptor));
-        // now table is created and size should be actual.
-        long timeout = 2 * UPDATE_INTERVAL_SECONDS;
 
-        Awaitility.await().timeout(timeout, TimeUnit.SECONDS).untilAsserted(() ->
-                assertEquals(tableSize, sqlStatisticManager.tableSize(tableId))
-        );
+        runScheduledTasks();
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
     }
 
     @Test
@@ -387,6 +388,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
 
+        prepareTaskScheduler();
+
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
@@ -395,6 +398,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
 
         // Error was handled after the first call.
+        runScheduledTasks();
 
         // tableSize2
         sqlStatisticManager.forceUpdateAll();
@@ -424,6 +428,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                         entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
         );
 
+        prepareTaskScheduler();
+
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
@@ -436,55 +442,45 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         // get tableSize2
         sqlStatisticManager.forceUpdateAll();
 
-        long timeout = 2 * UPDATE_INTERVAL_SECONDS;
-
-        Awaitility.await().timeout(timeout, TimeUnit.SECONDS).untilAsserted(() ->
-                assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId))
-        );
+        runScheduledTasks();
+        assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
 
         // Stale result must be discarded.
         assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
     }
 
     @Test
-    public void rescheduleWhenUpdateIntervalChanges() {
+    public void updateSchedulingInterval() {
         prepareEmptyCatalog();
+        prepareTaskScheduler();
 
         when(statAggregator.estimatedSizeWithLastUpdate(List.of()))
                 .thenReturn(CompletableFuture.completedFuture(Int2ObjectMaps.emptyMap()));
 
+        ConfigurationValue<Integer> configurationValue = statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds();
+        configurationValue.update(UPDATE_INTERVAL_SECONDS).join();
+
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager();
         sqlStatisticManager.start();
 
-        // Increase interval - reschedule
-        {
-            ScheduledFuture<?> f = sqlStatisticManager.currentScheduledFuture();
+        configurationValue.update(UPDATE_INTERVAL_SECONDS + 1).join();
+        configurationValue.update(UPDATE_INTERVAL_SECONDS - 1).join();
+        // Same value no effect.
+        configurationValue.update(UPDATE_INTERVAL_SECONDS - 1).join();
 
-            ConfigurationValue<Integer> interval = statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds();
-            interval.update(UPDATE_INTERVAL_SECONDS + 1).join();
-            assertNotSame(f, sqlStatisticManager.currentScheduledFuture());
-        }
+        sqlStatisticManager.stop();
 
-        // Decrease the interval - reschedule
-        {
-            ScheduledFuture<?> f = sqlStatisticManager.currentScheduledFuture();
-
-            ConfigurationValue<Integer> interval = statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds();
-            interval.update(UPDATE_INTERVAL_SECONDS - 1).join();
-
-            assertNotSame(f, sqlStatisticManager.currentScheduledFuture());
-        }
-
-        // Do not reschedule
-        {
-            ScheduledFuture<?> f = sqlStatisticManager.currentScheduledFuture();
-
-            ConfigurationValue<Integer> interval = statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds();
-            int currentValue = interval.value().intValue();
-            interval.update(currentValue).join();
-
-            assertSame(f, sqlStatisticManager.currentScheduledFuture());
-        }
+        InOrder inOrder = Mockito.inOrder(scheduledExecutorService, taskFuture);
+        // Start
+        inOrder.verify(scheduledExecutorService).scheduleAtFixedRate(any(Runnable.class), eq(0L), eq(5L), eq(TimeUnit.SECONDS));
+        // Update 1
+        inOrder.verify(taskFuture).cancel(anyBoolean());
+        inOrder.verify(scheduledExecutorService).scheduleAtFixedRate(any(Runnable.class), eq(6L), eq(6L), eq(TimeUnit.SECONDS));
+        // Update 2
+        inOrder.verify(taskFuture).cancel(anyBoolean());
+        inOrder.verify(scheduledExecutorService).scheduleAtFixedRate(any(Runnable.class), eq(4L), eq(4L), eq(TimeUnit.SECONDS));
+        // Stopping cancels the task.
+        inOrder.verify(taskFuture).cancel(anyBoolean());
     }
 
     @Test
@@ -493,6 +489,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         long tableSize = 1_000L;
         // Preparing:
         prepareCatalogWithTable(tableId);
+        prepareTaskScheduler();
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
@@ -512,17 +509,12 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         SqlStatisticManagerImpl sqlStatisticManager = newSqlStatisticsManager(intervalSeconds);
         sqlStatisticManager.start();
 
-        ScheduledFuture<?> f = sqlStatisticManager.currentScheduledFuture();
-        // An exception does not terminate the task.
-        assertThrows(TimeoutException.class, () -> f.get(intervalSeconds * 2, TimeUnit.SECONDS));
+        // The first run fails
+        runScheduledTasks();
+        assertEquals(1, sqlStatisticManager.tableSize(tableId));
 
-        // The statistics will eventually refresh
-        Awaitility.await()
-                .pollInterval(intervalSeconds / 2, TimeUnit.SECONDS)
-                .untilAsserted(() -> assertEquals(tableSize, sqlStatisticManager.tableSize(tableId)));
-
-        // The task is still running
-        assertFalse(f.isDone());
+        runScheduledTasks();
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
     }
 
     private SqlStatisticManagerImpl newSqlStatisticsManager() {
@@ -537,7 +529,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 tableManager,
                 catalogManager,
                 lowWatermark,
-                commonExecutor,
+                scheduledExecutorService,
                 statAggregator,
                 checkInterval
         );
@@ -567,5 +559,24 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         Catalog catalog = mock(Catalog.class);
         when(catalogManager.catalog(1)).thenReturn(catalog);
         when(catalog.tables()).thenReturn(List.of());
+    }
+
+    private void prepareTaskScheduler() {
+        doAnswer(invocation -> {
+            Runnable r = invocation.getArgument(0);
+            scheduledTasks.add(r);
+            return taskFuture;
+        }).when(scheduledExecutorService).scheduleAtFixedRate(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
+
+        doAnswer(invocation -> {
+            scheduledTasks.poll();
+            return true;
+        }).when(taskFuture).cancel(anyBoolean());
+    }
+
+    private void runScheduledTasks() {
+        for (Runnable r : scheduledTasks) {
+            r.run();
+        }
     }
 }

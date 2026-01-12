@@ -23,11 +23,9 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
 import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
-import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
@@ -66,7 +64,6 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,7 +72,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.raft.jraft.Node;
@@ -844,7 +841,7 @@ public class Cluster {
      * @param nodeIndex Destination node index.
      * @param groupId ID of the replication group.
      */
-    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) {
         String proposedPrimaryName = node(nodeIndex).name();
 
         if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {
@@ -875,17 +872,14 @@ public class Cluster {
      * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
-    public ReplicationGroupId solePartitionId(String zoneName, String tableName) {
+    public ZonePartitionId solePartitionId(String zoneName) {
         IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
         Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
-        CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
 
-        List<? extends ReplicationGroupId> replicationGroupIds = colocationEnabled()
-                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
-                : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
+        List<ZonePartitionId> replicationGroupIds = zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id());
 
         assertThat(replicationGroupIds.size(), is(1));
 

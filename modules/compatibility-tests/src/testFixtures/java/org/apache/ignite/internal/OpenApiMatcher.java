@@ -34,6 +34,7 @@ import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,32 +55,44 @@ import org.jetbrains.annotations.Nullable;
 @SuppressWarnings("rawtypes") // Mostly for the Schema class, which is parameterized but the API returns raw type.
 public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
     private final OpenAPI baseApi;
+    private final Set<String> removedPaths;
 
     private OpenApiMatcher(OpenAPI baseApi) {
+        this(baseApi, Collections.emptySet());
+    }
+
+    private OpenApiMatcher(OpenAPI baseApi, Set<String> removedPaths) {
         this.baseApi = baseApi;
+        this.removedPaths = removedPaths;
     }
 
     public static Matcher<OpenAPI> isCompatibleWith(OpenAPI baseApi) {
         return new OpenApiMatcher(baseApi);
     }
 
+    public static Matcher<OpenAPI> isCompatibleWith(OpenAPI baseApi, Set<String> removedPaths) {
+        return new OpenApiMatcher(baseApi, removedPaths);
+    }
+
     @Override
     protected boolean matchesSafely(OpenAPI currentApi, Description mismatchDescription) {
-        return new OpenApiDiff(baseApi, currentApi, mismatchDescription).compare();
+        return new OpenApiDiff(baseApi, currentApi, mismatchDescription, removedPaths).compare();
     }
 
     private static class OpenApiDiff {
         private final OpenAPI baseApi;
         private final OpenAPI currentApi;
         private final Description mismatchDescription;
+        private final Set<String> removedPaths;
 
         // Current direction
         private boolean isRequest;
 
-        private OpenApiDiff(OpenAPI baseApi, OpenAPI currentApi, Description mismatchDescription) {
+        private OpenApiDiff(OpenAPI baseApi, OpenAPI currentApi, Description mismatchDescription, Set<String> removedPaths) {
             this.baseApi = baseApi;
             this.currentApi = currentApi;
             this.mismatchDescription = mismatchDescription;
+            this.removedPaths = removedPaths;
         }
 
         boolean compare() {
@@ -92,6 +105,7 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
             // Check for missing paths
             Set<String> missingPaths = basePaths.keySet().stream()
                     .filter(path -> !currentPaths.containsKey(path))
+                    .filter(path -> !removedPaths.contains(path))
                     .collect(toSet());
 
             if (!missingPaths.isEmpty()) {
@@ -101,6 +115,10 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
 
             for (Entry<String, PathItem> entry : basePaths.entrySet()) {
                 String path = entry.getKey();
+
+                if (removedPaths.contains(path)) {
+                    continue;
+                }
 
                 Map<HttpMethod, Operation> baseOperations = entry.getValue().readOperationsMap();
                 Map<HttpMethod, Operation> currentOperations = currentPaths.get(path).readOperationsMap();

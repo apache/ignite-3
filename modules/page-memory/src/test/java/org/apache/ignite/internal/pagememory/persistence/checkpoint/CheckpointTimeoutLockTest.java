@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -41,6 +42,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -51,6 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -70,6 +73,10 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
 
     @InjectExecutorService
     private ExecutorService executorService;
+
+    private final CheckpointReadWriteLockMetrics dummyMetrics = new CheckpointReadWriteLockMetrics(
+            new CheckpointMetricSource("test")
+    );
 
     @AfterEach
     void tearDown() {
@@ -385,7 +392,11 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     }
 
     private CheckpointReadWriteLock newReadWriteLock() {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService);
+        return newReadWriteLock(dummyMetrics);
+    }
+
+    private CheckpointReadWriteLock newReadWriteLock(CheckpointReadWriteLockMetrics metrics) {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metrics);
     }
 
     private CheckpointProgress newCheckpointProgress(CompletableFuture<?> future) {
@@ -406,5 +417,64 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         when(checkpointer.scheduleCheckpoint(0, "too many dirty pages")).thenReturn(checkpointProgress);
 
         return checkpointer;
+    }
+
+    @Test
+    void testCheckpointReadLockMetrics() {
+        CheckpointMetricSource metricSource = new CheckpointMetricSource("test");
+        CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(metricSource);
+        CheckpointReadWriteLock readWriteLock = newReadWriteLock(metrics);
+
+        timeoutLock = new CheckpointTimeoutLock(
+                readWriteLock,
+                10_000,
+                () -> NOT_REQUIRED,
+                mock(Checkpointer.class),
+                mock(FailureManager.class)
+        );
+
+        timeoutLock.start();
+
+        try {
+            // Verify metrics start at zero
+            assertDistributionMetricRecordsCount(metrics.readLockAcquisitionTime(), 0L);
+
+            // Acquire and immediately release the lock
+            timeoutLock.checkpointReadLock();
+            timeoutLock.checkpointReadUnlock();
+
+            // Verify acquisition was recorded
+            assertDistributionMetricRecordsCount(metrics.readLockAcquisitionTime(), 1L);
+
+            // Verify hold time distribution was recorded
+            assertDistributionMetricRecordsCount(metrics.readLockHoldTime(), 1L);
+
+            readWriteLock.writeLock();
+            runAsync(() -> {
+                timeoutLock.checkpointReadLock();
+                timeoutLock.checkpointReadUnlock();
+            });
+            await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(1L)));
+            readWriteLock.writeUnlock();
+            await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(0L)));
+        } finally {
+            timeoutLock.stop();
+        }
+    }
+
+    /**
+     * Verifies that the specified distribution metric has recorded the expected total number of measurements.
+     *
+     * <p>
+     * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
+     * and confirms that the expected interaction was captured in at least one of them.
+     */
+    private static void assertDistributionMetricRecordsCount(DistributionMetric metric, long expectedMeasuresCount) {
+        long totalMeasuresCount = Arrays.stream(metric.value()).sum();
+        assertThat(
+                "Unexpected total measures count in distribution metric " + metric.name(),
+                totalMeasuresCount,
+                is(expectedMeasuresCount)
+        );
     }
 }

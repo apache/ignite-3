@@ -459,7 +459,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         CountDownLatch readIndexLatch = new CountDownLatch(1);
         AtomicInteger currentValue = new AtomicInteger(-1);
         String errorMsg = testInfo.getDisplayName();
-        StateMachine fsm = new StateMachineAdapter() {
+        StateMachine fsm = new StateMachineAdapter("test") {
 
             @Override
             public void onApply(Iterator iter) {
@@ -4199,6 +4199,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     public void testChangePeersAndLearnersChaosWithoutSnapshot() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
@@ -4246,6 +4247,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     public void testChangePeersAndLearnersChaosApplyTasks() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();

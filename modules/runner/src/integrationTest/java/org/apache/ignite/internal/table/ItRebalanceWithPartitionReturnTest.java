@@ -37,7 +37,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
-import org.apache.ignite.internal.ConfigOverrides;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -114,17 +113,8 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
     }
 
     @Test
-    @ConfigOverrides({
-            @ConfigOverride(
-                    name = "ignite.nodeAttributes",
-                    value = "{ nodeAttributes: {region = US, storage = SSD}}"
-            ),
-            @ConfigOverride(
-                    name = "ignite.nodeAttributes",
-                    value = "{ nodeAttributes: {region = EU, storage = SSD}}",
-                    nodeIndex = 0
-            )
-    })
+    @ConfigOverride(name = "ignite.nodeAttributes", value = "{ nodeAttributes: {region = US, storage = SSD}}")
+    @ConfigOverride(name = "ignite.nodeAttributes", value = "{ nodeAttributes: {region = EU, storage = SSD}}", nodeIndex = 0)
     public void test() throws Exception {
         String filter = DEFAULT_FILTER;
         int partCount = 24;

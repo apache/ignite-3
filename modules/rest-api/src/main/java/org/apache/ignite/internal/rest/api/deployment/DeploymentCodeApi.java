@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry.UnitFolder;
 import org.reactivestreams.Publisher;
 
 /**
@@ -233,5 +234,29 @@ public interface DeploymentCodeApi {
             Optional<String> version,
             @Schema(name = "statuses", description = "Deployment status filter.")
             Optional<List<DeploymentStatus>> statuses
+    );
+
+    /**
+     * Unit content REST method.
+     */
+    @Operation(
+            operationId = "unitContent",
+            summary = "Get unit contents.",
+            description = "Returns a folder representation with unit content."
+    )
+    @ApiResponse(responseCode = "200",
+            description = "Unit content returned successfully.",
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = UnitFolder.class))
+    )
+    @ApiResponse(responseCode = "500",
+            description = "Internal error.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
+    )
+    @Get("node/units/structure/{unitId}/{unitVersion}")
+    CompletableFuture<UnitFolder> unitStructure(
+            @Schema(name = "unitId", description = "The ID of the deployment unit.")
+            String unitId,
+            @Schema(name = "unitVersion", description = "The version of the deployment unit.")
+            String unitVersion
     );
 }

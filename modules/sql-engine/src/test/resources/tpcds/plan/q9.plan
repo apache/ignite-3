@@ -113,7 +113,7 @@ Project
                                             est: (rows=720101)
                               Project
                                   fieldNames: [EXPR$0]
-                                  projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                                  projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                                   est: (rows=1)
                                 ReduceSortAggregate
                                     fieldNames: [f0_0, f1_1]
@@ -123,7 +123,7 @@ Project
                                     est: (rows=1)
                                   Project
                                       fieldNames: [0, 1]
-                                      projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                                      projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                                       est: (rows=1)
                                     Exchange
                                         distribution: single
@@ -141,7 +141,7 @@ Project
                                             est: (rows=720101)
                             Project
                                 fieldNames: [EXPR$0]
-                                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                                projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                                 est: (rows=1)
                               ReduceSortAggregate
                                   fieldNames: [f0_0, f1_1]
@@ -151,7 +151,7 @@ Project
                                   est: (rows=1)
                                 Project
                                     fieldNames: [0, 1]
-                                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                                    projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                                     est: (rows=1)
                                   Exchange
                                       distribution: single
@@ -193,7 +193,7 @@ Project
                                       est: (rows=720101)
                         Project
                             fieldNames: [EXPR$0]
-                            projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                            projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                             est: (rows=1)
                           ReduceSortAggregate
                               fieldNames: [f0_0, f1_1]
@@ -203,7 +203,7 @@ Project
                               est: (rows=1)
                             Project
                                 fieldNames: [0, 1]
-                                projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                                projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                                 est: (rows=1)
                               Exchange
                                   distribution: single
@@ -221,7 +221,7 @@ Project
                                       est: (rows=720101)
                       Project
                           fieldNames: [EXPR$0]
-                          projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                          projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                           est: (rows=1)
                         ReduceSortAggregate
                             fieldNames: [f0_0, f1_1]
@@ -231,7 +231,7 @@ Project
                             est: (rows=1)
                           Project
                               fieldNames: [0, 1]
-                              projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                              projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                               est: (rows=1)
                             Exchange
                                 distribution: single
@@ -273,7 +273,7 @@ Project
                                 est: (rows=720101)
                   Project
                       fieldNames: [EXPR$0]
-                      projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                      projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                       est: (rows=1)
                     ReduceSortAggregate
                         fieldNames: [f0_0, f1_1]
@@ -283,7 +283,7 @@ Project
                         est: (rows=1)
                       Project
                           fieldNames: [0, 1]
-                          projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                          projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                           est: (rows=1)
                         Exchange
                             distribution: single
@@ -301,7 +301,7 @@ Project
                                 est: (rows=720101)
                 Project
                     fieldNames: [EXPR$0]
-                    projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                    projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                     est: (rows=1)
                   ReduceSortAggregate
                       fieldNames: [f0_0, f1_1]
@@ -311,7 +311,7 @@ Project
                       est: (rows=1)
                     Project
                         fieldNames: [0, 1]
-                        projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                        projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                         est: (rows=1)
                       Exchange
                           distribution: single
@@ -353,7 +353,7 @@ Project
                           est: (rows=720101)
             Project
                 fieldNames: [EXPR$0]
-                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
                 est: (rows=1)
               ReduceSortAggregate
                   fieldNames: [f0_0, f1_1]
@@ -363,7 +363,7 @@ Project
                   est: (rows=1)
                 Project
                     fieldNames: [0, 1]
-                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                    projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                     est: (rows=1)
                   Exchange
                       distribution: single
@@ -381,7 +381,7 @@ Project
                           est: (rows=720101)
           Project
               fieldNames: [EXPR$0]
-              projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+              projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
               est: (rows=1)
             ReduceSortAggregate
                 fieldNames: [f0_0, f1_1]
@@ -391,7 +391,7 @@ Project
                 est: (rows=1)
               Project
                   fieldNames: [0, 1]
-                  projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                  projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
                   est: (rows=1)
                 Exchange
                     distribution: single
@@ -433,7 +433,7 @@ Project
                     est: (rows=720101)
       Project
           fieldNames: [EXPR$0]
-          projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+          projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
           est: (rows=1)
         ReduceSortAggregate
             fieldNames: [f0_0, f1_1]
@@ -443,7 +443,7 @@ Project
             est: (rows=1)
           Project
               fieldNames: [0, 1]
-              projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+              projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
               est: (rows=1)
             Exchange
                 distribution: single
@@ -461,7 +461,7 @@ Project
                     est: (rows=720101)
     Project
         fieldNames: [EXPR$0]
-        projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+        projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
         est: (rows=1)
       ReduceSortAggregate
           fieldNames: [f0_0, f1_1]
@@ -471,7 +471,7 @@ Project
           est: (rows=1)
         Project
             fieldNames: [0, 1]
-            projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+            projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
             est: (rows=1)
           Exchange
               distribution: single

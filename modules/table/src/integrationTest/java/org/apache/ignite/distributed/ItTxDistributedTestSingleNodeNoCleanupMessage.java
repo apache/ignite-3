@@ -45,6 +45,8 @@ import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -71,8 +72,9 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -217,18 +219,20 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         new TableMetricSource(QualifiedName.fromSimple("test_table"))
                 ) {
                     @Override
-                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
-                        if (request instanceof WriteIntentSwitchReplicaRequest) {
+                    public CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
+                        if (request instanceof TableWriteIntentSwitchReplicaRequest) {
                             logger().info("Dropping cleanup request: {}", request);
 
                             releaseTxLocks(
-                                    ((WriteIntentSwitchReplicaRequest) request).txId(),
+                                    ((TableWriteIntentSwitchReplicaRequest) request).txId(),
                                     txManager.lockManager()
                             );
 
-                            return completedFuture(new ReplicaResult(null, null));
+                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false, false, false);
+                            return completedFuture(new ReplicaResult(cleanupResult, null));
                         }
-                        return super.invoke(request, senderId);
+
+                        return super.process(request, replicaPrimacy, senderId);
                     }
                 };
             }

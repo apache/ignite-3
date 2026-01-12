@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotReader;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -66,7 +67,7 @@ public class PartitionSnapshotStorage {
     /** Default number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
     private static final int DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS = 3000;
 
-    private final ZonePartitionKey partitionKey;
+    private final PartitionKey partitionKey;
 
     private final TopologyService topologyService;
 
@@ -100,16 +101,19 @@ public class PartitionSnapshotStorage {
 
     private final LogStorageAccess logStorage;
 
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+
     /** Constructor. */
     public PartitionSnapshotStorage(
-            ZonePartitionKey partitionKey,
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
-            LogStorageAccess logStorage
+            LogStorageAccess logStorage,
+            RaftSnapshotsMetricsSource snapshotsMetricsSource
     ) {
         this(
                 partitionKey,
@@ -120,13 +124,14 @@ public class PartitionSnapshotStorage {
                 failureProcessor,
                 incomingSnapshotsExecutor,
                 DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS,
-                logStorage
+                logStorage,
+                snapshotsMetricsSource
         );
     }
 
     /** Constructor. */
     public PartitionSnapshotStorage(
-            ZonePartitionKey partitionKey,
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txState,
@@ -134,7 +139,8 @@ public class PartitionSnapshotStorage {
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
             long waitForMetadataCatchupMs,
-            LogStorageAccess logStorage
+            LogStorageAccess logStorage,
+            RaftSnapshotsMetricsSource snapshotsMetricsSource
     ) {
         this.partitionKey = partitionKey;
         this.topologyService = topologyService;
@@ -145,6 +151,7 @@ public class PartitionSnapshotStorage {
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
         this.logStorage = logStorage;
+        this.snapshotsMetricsSource = snapshotsMetricsSource;
     }
 
     public PartitionKey partitionKey() {
@@ -199,6 +206,15 @@ public class PartitionSnapshotStorage {
     }
 
     /**
+     * Returns true if there are neither ongoing snapshot operations nor partition snapshot storages, falser otherwise.
+     */
+    public boolean arePartitionSnapshotStoragesEmpty() {
+        synchronized (snapshotOperationLock) {
+            return ongoingSnapshotOperations.isEmpty() && partitionsByTableId.isEmpty();
+        }
+    }
+
+    /**
      * Returns the TX state storage.
      */
     public PartitionTxStateAccess txState() {
@@ -231,7 +247,13 @@ public class PartitionSnapshotStorage {
 
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
-        var copier = new IncomingSnapshotCopier(this, snapshotUri, incomingSnapshotsExecutor, waitForMetadataCatchupMs) {
+        var copier = new IncomingSnapshotCopier(
+                this,
+                snapshotUri,
+                incomingSnapshotsExecutor,
+                waitForMetadataCatchupMs,
+                snapshotsMetricsSource
+        ) {
             @Override
             public void close() {
                 try {
@@ -257,7 +279,7 @@ public class PartitionSnapshotStorage {
 
         startSnapshotOperation(snapshotId);
 
-        return new OutgoingSnapshotReader(snapshotId, this) {
+        return new OutgoingSnapshotReader(snapshotId, this, snapshotsMetricsSource) {
             @Override
             public void close() throws IOException {
                 try {
@@ -279,7 +301,11 @@ public class PartitionSnapshotStorage {
     }
 
     private void completeSnapshotOperation(UUID snapshotId) {
+        LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
         synchronized (snapshotOperationLock) {
+            LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
             CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 
             assert operationFuture != null :

@@ -46,6 +46,10 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
     private static final long REFRESH_PERIOD_MILLIS = 5_000;
 
+    private static final Duration REFRESH_CHECK_TIMEOUT = Duration.ofSeconds(20);
+
+    private static final Duration REFRESH_POLL_INTERVAL = Duration.ofMillis(50);
+
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
@@ -80,12 +84,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         AtomicInteger inc = new AtomicInteger();
 
-        long timeout = calcStatisticUpdateIntervalMillis();
-        // max 10 times cache pollution
-        long pollInterval = timeout / 10;
-
-        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+        Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
                         assertQuery(format("select {} from t", inc.incrementAndGet()))
                                 .matches(nodeRowCount("TableScan", is((int) update)))
                                 .check()
@@ -98,20 +98,15 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         long updates1 = insert(0L, milestone);
 
-        long timeout = calcStatisticUpdateIntervalMillis();
+        Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() -> {
+                            sqlStatisticManager.forceUpdateAll();
+                            sqlStatisticManager.lastUpdateStatisticFuture().join();
 
-        // max 10 times cache pollution
-        long pollInterval = timeout / 10;
-
-        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-                    sqlStatisticManager.forceUpdateAll();
-                    sqlStatisticManager.lastUpdateStatisticFuture().join();
-
-                    assertQuery("select 1 from t")
-                            .matches(nodeRowCount("TableScan", is((int) updates1)))
-                            .check();
-                }
+                            assertQuery("select 1 from t")
+                                    .matches(nodeRowCount("TableScan", is((int) updates1)))
+                                    .check();
+                        }
         );
 
         milestone = computeNextMilestone(milestone, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
@@ -122,15 +117,12 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sqlStatisticManager.lastUpdateStatisticFuture().join();
 
         // query not cached in plans
-        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-                    sqlStatisticManager.forceUpdateAll();
-                    sqlStatisticManager.lastUpdateStatisticFuture().join();
-
-                    assertQuery("select 1 from t")
-                            .matches(nodeRowCount("TableScan", is((int) updates2)))
-                            .check();
-                }
+        Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() -> {
+                            assertQuery("select 1 from t")
+                                    .matches(nodeRowCount("TableScan", is((int) updates2)))
+                                    .check();
+                        }
         );
     }
 
@@ -150,13 +142,9 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
                     + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
 
-            long statRefresh = calcStatisticUpdateIntervalMillis();
-
-            // max 10 times cache pollution
-            long pollInterval = statRefresh / 10;
-
-            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT)
+                    .untilAsserted(() ->
                             assertQuery(query)
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
@@ -169,8 +157,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             sqlStatisticManager.forceUpdateAll();
             sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
-            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
                             assertQuery(query)
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
@@ -204,25 +192,21 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             sqlClusterConfig.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
                     .update((int) (newRefreshInterval / 1000)).join();
 
-            long statRefresh = calcStatisticUpdateIntervalMillis(newRefreshInterval);
-            long pollInterval = statRefresh / 10;
-
-            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
                             assertQuery(query)
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
                                     .returnNothing()
-                                    .check()
-            );
+                                    .check());
 
             sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 3 * DEFAULT_MIN_STALE_ROWS_COUNT);
 
             sqlStatisticManager.forceUpdateAll();
             sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
-            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
                             assertQuery(query)
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
@@ -233,19 +217,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                     + "DROP TABLE IF EXISTS j1;"
                     + "DROP TABLE IF EXISTS j2;");
         }
-    }
-
-    private static long calcStatisticUpdateIntervalMillis() {
-        return calcStatisticUpdateIntervalMillis(REFRESH_PERIOD_MILLIS);
-    }
-
-    private static long calcStatisticUpdateIntervalMillis(long refreshPeriodMillis) {
-        long inc = TimeUnit.SECONDS.toMillis(2);
-        // need to wait at least 2 statistic updates.
-        long statisticAggregationTimeout = refreshPeriodMillis + 2 * refreshPeriodMillis;
-        long delay = refreshPeriodMillis / 2;
-
-        return statisticAggregationTimeout + delay + inc;
     }
 
     // copy-paste from private method: PartitionModificationCounter#computeNextMilestone

@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.computeDefaultMaxLogEntrySizeBytes;
 import static org.apache.ignite.internal.raft.storage.segstore.ByteChannelUtils.readFully;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -95,6 +97,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private final FailureManager failureManager = new NoOpFailureManager();
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
     private LogStorageConfiguration storageConfiguration;
 
@@ -113,6 +118,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 failureManager,
+                raftConfiguration,
                 storageConfiguration
         );
     }
@@ -171,7 +177,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         String expectedMessage = String.format(
                 "Segment entry is too big (%d bytes), maximum allowed segment entry size: %d bytes.",
                 FILE_SIZE + SegmentPayload.fixedOverheadSize() + 2, // 2 bytes for index and term.
-                FILE_SIZE - HEADER_RECORD.length
+                computeDefaultMaxLogEntrySizeBytes(FILE_SIZE)
         );
 
         assertThat(e.getMessage(), is(expectedMessage));

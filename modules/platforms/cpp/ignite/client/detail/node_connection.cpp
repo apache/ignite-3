@@ -86,10 +86,12 @@ void node_connection::process_message(bytes_view msg) {
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
 
-    { // Locking scope
+    std::shared_ptr<response_handler> handler{};
+    {
         std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
 
-        auto handler = find_handler_unsafe(req_id);
+        handler = find_handler_unsafe(req_id);
+    }
         if (!handler) {
             m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
             return;
@@ -106,6 +108,8 @@ void node_connection::process_message(bytes_view msg) {
             m_logger->log_error("Uncaught user callback exception: " + result.error().what_str());
         }
 
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
         if (handler->is_handling_complete()) {
             m_request_handlers.erase(req_id);
         }
