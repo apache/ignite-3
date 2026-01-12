@@ -1234,6 +1234,51 @@ public class IgniteUtils {
     }
 
     /**
+     * Retries operation until it succeeds or timeout occurs.
+     *
+     * @param operation Operation.
+     * @param timeout Timeout in milliseconds.
+     * @param executor Executor to make retry in.
+     * @return Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> CompletableFuture<T> retryOperationUntilSuccessOrTimeout(
+            Supplier<CompletableFuture<T>> operation,
+            long timeout,
+            Executor executor
+    ) {
+        CompletableFuture<T> futureWithTimeout = new CompletableFuture<T>().orTimeout(timeout, TimeUnit.MILLISECONDS);
+
+        retryOperationUntilSuccessOrFutureDone(operation, futureWithTimeout, executor);
+
+        return futureWithTimeout;
+    }
+
+    /**
+     * Retries operation until it succeeds or provided future is done.
+     *
+     * @param operation Operation.
+     * @param future Future to track.
+     * @param executor Executor to make retry in.
+     */
+    private static <T> void retryOperationUntilSuccessOrFutureDone(
+            Supplier<CompletableFuture<T>> operation,
+            CompletableFuture<T> future,
+            Executor executor
+    ) {
+
+        operation.get()
+                .whenComplete((res, e) -> {
+                    if (!future.isDone()) {
+                        if (e == null) {
+                            future.complete(res);
+                        } else {
+                            executor.execute(() -> retryOperationUntilSuccessOrFutureDone(operation, future, executor));
+                        }
+                    }
+                });
+    }
+
+    /**
      * Utility method to check if one byte array starts with a specified sequence of bytes.
      *
      * @param key The array to check.

@@ -413,7 +413,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Enlists a single row into a transaction.
+     * Enlists collection of rows into a transaction.
      *
      * @param keyRows Rows.
      * @param tx The transaction.

@@ -20,16 +20,18 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions.isRecoverable;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
-import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
+import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccessOrTimeout;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -172,15 +175,13 @@ public class PlacementDriverMessageProcessor {
                     assert leaseExpirationTime == null || clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
                             : "Invalid lease expiration time in message, msg=" + msg;
 
+                    Supplier<CompletableFuture<Void>> waitForStateAndSendPrimaryReplicaChanged =
+                            () -> getWaitForStateAndSendPrimaryReplicaChanged(msg);
+
                     if (msg.force()) {
                         // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                         // group leader are received.
-                        return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                                .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
-                                        msg.leaseStartTime().longValue(),
-                                        localNode.id(),
-                                        localNode.name()
-                                ))
+                        return waitForStateAndSendPrimaryReplicaChanged.get()
                                 .thenCompose(v -> {
                                     CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                             acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -194,12 +195,7 @@ public class PlacementDriverMessageProcessor {
                                 });
                     } else {
                         if (leader.equals(localNode)) {
-                            return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                                    .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
-                                            msg.leaseStartTime().longValue(),
-                                            localNode.id(),
-                                            localNode.name()
-                                    ))
+                            return waitForStateAndSendPrimaryReplicaChanged.get()
                                     .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                         } else {
                             return proposeLeaseRedirect(leader);
@@ -207,6 +203,23 @@ public class PlacementDriverMessageProcessor {
                     }
                 }, executor)
         );
+    }
+
+    private @NotNull CompletableFuture<Void> getWaitForStateAndSendPrimaryReplicaChanged(LeaseGrantedMessage msg) {
+        return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical()).thenCompose(
+                        v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue(),
+                                localNode.id(), localNode.name()))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.warn("Could not send primary replica changed "
+                                        + "[leaseStartTime={}, primaryReplicaNodeId={}, primaryReplicaNodeName ={}].", e,
+                                msg.leaseStartTime().longValue(), localNode.id(), localNode.name());
+                    } else {
+                        LOG.info("Primary Replica changed was sent"
+                                        + "[leaseStartTime={}, primaryReplicaNodeId={}, primaryReplicaNodeName ={}].",
+                                msg.leaseStartTime().longValue(), localNode.id(), localNode.name());
+                    }
+                });
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(
@@ -259,51 +272,137 @@ public class PlacementDriverMessageProcessor {
      * @return Future that is completed when local storage catches up the index that is actual for leader on the moment of request.
      */
     private CompletableFuture<Void> waitForActualState(HybridTimestamp startTime, long expirationTime) {
-        long timeout = expirationTime - currentTimeMillis();
-
-        LOG.info("Waiting for actual storage state [groupId={}, leaseStartTime={},"
-                        + " expirationTime={}, timeoutMs={}]",
-                groupId, startTime, expirationTime, timeout);
+        LOG.info("Waiting for actual storage state [groupId={}, expirationTime={}, timeoutMs={}, leaseStartTime={}]",
+                groupId, expirationTime,  expirationTime - currentTimeMillis(), startTime);
 
         replicaReservationClosure.accept(groupId, startTime);
 
-        if (timeout <= 0) {
-            LOG.warn("Timeout already expired before starting wait [groupId={}, expirationTime={}, currentTime={}]",
-                    groupId, expirationTime, currentTimeMillis());
-            return failedFuture(new TimeoutException("Timeout expired before starting wait"));
+        TimeTracker readIndexTimeTracker = new TimeTracker(
+                expirationTime,
+                groupId,
+                "Timeout is expired before raft index reading started");
+        if (readIndexTimeTracker.isExpired()) {
+            return readIndexTimeTracker.getFailedFuture();
         }
 
-        long readIndexStartTime = currentTimeMillis();
-
-        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
+        return retryOperationUntilSuccessOrTimeout(raftClient::readIndex, readIndexTimeTracker.getTimeoutMs(), executor)
                 .whenComplete((raftIndex, readIndexError) -> {
-                    long readIndexDuration = currentTimeMillis() - readIndexStartTime;
-
                     if (readIndexError != null) {
-                        LOG.warn("Failed to read index from raft leader [groupId={}, durationMs={}, error={}]",
-                                groupId, readIndexDuration, readIndexError);
+                        LOG.warn("Failed to read index from raft leader"
+                                        + " [groupId={}, , expirationTime={}, timeoutMs={}, durationMs={}]", readIndexError,
+                                groupId, expirationTime, readIndexTimeTracker.getTimeoutMs(), readIndexTimeTracker.getDurationMs());
+                    } else {
+                        LOG.info("Successfully read index from raft leader "
+                                        + "[groupId={},  expirationTime={}, timeoutMs={}, durationMs={}]",
+                                groupId, expirationTime, readIndexTimeTracker.getTimeoutMs(), readIndexTimeTracker.getDurationMs());
                     }
                 })
                 .thenCompose(raftIndex -> {
                     // Recalculate remaining time after readIndex completes.
-                    long storageIndexUpdateStartTime = currentTimeMillis();
-                    long remainingTime = expirationTime - storageIndexUpdateStartTime;
-                    if (remainingTime <= 0) {
-                        return failedFuture(new TimeoutException("No time left for storage wait"));
+                    TimeTracker storageIndexUpdateTimeTracker = new TimeTracker(
+                            expirationTime,
+                            groupId,
+                            "Timeout is expired before storage index tracking started");
+                    if (storageIndexUpdateTimeTracker.isExpired()) {
+                        return storageIndexUpdateTimeTracker.getFailedFuture();
                     }
 
                     return storageIndexTracker.waitFor(raftIndex)
-                            .orTimeout(remainingTime, TimeUnit.MILLISECONDS)
+                            .orTimeout(storageIndexUpdateTimeTracker.getTimeoutMs(), MILLISECONDS)
                             .whenComplete((v, storageIndexTrackerError) -> {
-                                long trackingDuration = currentTimeMillis() - storageIndexUpdateStartTime;
-
                                 if (storageIndexTrackerError != null) {
                                     LOG.warn("Failed to wait for storage index to reach raft leader"
-                                                    + " [groupId={}, durationMs={}, error={}]",
-                                            groupId, trackingDuration, storageIndexTrackerError);
+                                                    + " [groupId={}, expirationTime={}, timeoutMs={}, durationMs={}]",
+                                            storageIndexTrackerError, groupId, expirationTime,
+                                            storageIndexUpdateTimeTracker.getTimeoutMs(),
+                                            storageIndexUpdateTimeTracker.getDurationMs());
+                                } else {
+                                    LOG.info("Successfully waited for storage index to reach raft leader"
+                                                    + " [groupId={}, expirationTime={}, timeoutMs={}, durationMs={}]",
+                                            groupId, expirationTime,
+                                            storageIndexUpdateTimeTracker.getTimeoutMs(),
+                                            storageIndexUpdateTimeTracker.getDurationMs());
                                 }
                             });
                 });
+    }
+
+    /**
+     * Tracks time for timeout operations. Calculates remaining time based on expiration time and provides utilities
+     * for checking expiration and creating timeout exceptions with detailed messages.
+     */
+    private static class TimeTracker {
+        /** Expiration time in milliseconds. */
+        private final long expirationTime;
+
+        /** Replication group ID for logging purposes. */
+        private final ReplicationGroupId groupId;
+
+        /** Start time when this tracker was created. */
+        private final long startTime;
+
+        /** Base message for timeout exception. */
+        private final String message;
+
+        /**
+         * Creates a time tracker.
+         *
+         * @param expirationTime Expiration time in milliseconds.
+         * @param groupId Replication group ID for logging purposes.
+         * @param message Base message for timeout exception.
+         */
+        private TimeTracker(long expirationTime, ReplicationGroupId groupId, String message) {
+            this.expirationTime = expirationTime;
+            this.groupId = groupId;
+            this.startTime = currentTimeMillis();
+            this.message = message;
+        }
+
+        /**
+         * Checks if the timeout has expired.
+         *
+         * @return {@code true} if the timeout has expired (timeLeft < 0), {@code false} otherwise.
+         */
+        public boolean isExpired() {
+            return getTimeoutMs() < 0;
+        }
+
+        /**
+         * Creates a failed future with a timeout exception that includes detailed information.
+         *
+         * @return A failed future with {@link TimeoutException} containing the base message and details.
+         */
+        public CompletableFuture<Void> getFailedFuture() {
+            return failedFuture(new TimeoutException(message + getMessageDetails()));
+        }
+
+        /**
+         * Formats message details including group ID, expiration time, and current time.
+         *
+         * @return Formatted message details.
+         */
+        private String getMessageDetails() {
+            return format(" [groupId={}, expirationTime={}, timeoutMs={}, durationMs={}].",
+                    groupId, expirationTime, getTimeoutMs(), getDurationMs());
+        }
+
+        /**
+         * Returns the duration since this tracker was created.
+         *
+         * @return Duration in milliseconds since the tracker was created.
+         */
+        public long getDurationMs() {
+            return currentTimeMillis() - startTime;
+        }
+
+        /**
+         * Returns the remaining time until expiration in milliseconds.
+         *
+         * @return Remaining time in milliseconds. Can be negative if already expired.
+         */
+        public long getTimeoutMs() {
+            return expirationTime - currentTimeMillis();
+        }
     }
 
     private void onLeaderElected(InternalClusterNode clusterNode, long term) {

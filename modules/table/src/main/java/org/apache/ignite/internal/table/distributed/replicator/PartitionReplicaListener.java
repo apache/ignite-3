@@ -572,7 +572,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(),  old -> builder(old, PENDING)
+            txManager.updateTxMeta(req.transactionId(), old -> builder(old, PENDING)
                     .txCoordinatorId(req.coordinatorId())
                     .commitPartitionId(req.commitPartitionId().asZonePartitionId())
                     .txLabel(req.txLabel())
