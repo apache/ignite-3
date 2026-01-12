@@ -30,17 +30,13 @@ import org.junit.jupiter.api.Test;
 
 public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest {
     @Override
-    protected int initialNodes() {
-        return 0;
+    protected int[] cmgMetastoreNodes() {
+        return new int[]{2};
     }
 
-    // KV fails
     @Test
     void testStopNodePartitionAwarenessKeyValue() {
-        int nodesCount = 3;
-        cluster.startAndInit(nodesCount, new int[]{2});
-
-        try (IgniteClient client = getClient(nodesCount, 1000)) {
+        try (IgniteClient client = getClient()) {
             client.sql().executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
                     + "CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
 
@@ -65,10 +61,7 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
     // SQL PA query fails
     @Test
     void testStopNodePartitionAwarenessQuery() {
-        int nodesCount = 3;
-        cluster.startAndInit(nodesCount, new int[]{2});
-
-        try (IgniteClient client = getClient(nodesCount, 1000)) {
+        try (IgniteClient client = getClient()) {
             IgniteSql sql = client.sql();
 
             sql.executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
@@ -91,10 +84,7 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
     // SQL non-PA Works fine
     @Test
     void testStopNode() {
-        int nodesCount = 3;
-        cluster.startAndInit(nodesCount, new int[]{2});
-
-        try (IgniteClient client = getClient(nodesCount, 30_000)) {
+        try (IgniteClient client = getClient()) {
             IgniteSql sql = client.sql();
 
             Awaitility.await().until(() -> client.connections().size(), is(3));
@@ -113,13 +103,11 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
     }
 
-    private static IgniteClient getClient(int nodesCount, long reconnectInterval) {
-        String[] addresses = IntStream.range(0, nodesCount)
+    private IgniteClient getClient() {
+        String[] addresses = IntStream.range(0, initialNodes())
                 .mapToObj(i -> "127.0.0.1:" + (10800 + i))
                 .toArray(String[]::new);
 
-        return IgniteClient.builder()
-                .backgroundReconnectInterval(reconnectInterval)
-                .addresses(addresses).build();
+        return IgniteClient.builder().addresses(addresses).build();
     }
 }
