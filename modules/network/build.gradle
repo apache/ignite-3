@@ -86,6 +86,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler:'))
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.compileTesting
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster

@@ -15,28 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Repeatable;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+package org.apache.ignite.internal.network;
 
 /**
- * Annotation to make configuration overrides. Supports only root elements of the configuration.
- * Used for testing purposes only.
+ * Allows reacting to logical topology changes.
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Repeatable(ConfigOverrides.class)
-public @interface ConfigOverride {
-    /** Node index. {@code -1} by default, which means that the override is applied to all nodes. */
-    int nodeIndex() default -1;
+public interface LogicalTopologyEventsListener {
 
-    /** Configuration node name. */
-    String name();
+    /**
+     * Called when the node joins logical topology.
+     *
+     * @param node Node.
+     * @param topologyVersion Logical topology version.
+     */
+    void onJoined(InternalClusterNode node, long topologyVersion);
 
-    /** Value for override. */
-    String value();
+    /**
+     * Called when the node leaves logical topology.
+     *
+     * @param node Node.
+     * @param topologyVersion Logical topology version.
+     */
+    void onLeft(InternalClusterNode node, long topologyVersion);
 }

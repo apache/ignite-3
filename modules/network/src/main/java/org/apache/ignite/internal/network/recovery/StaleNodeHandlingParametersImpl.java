@@ -15,28 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.network.recovery;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Repeatable;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParameters;
 
 /**
- * Annotation to make configuration overrides. Supports only root elements of the configuration.
- * Used for testing purposes only.
+ * Basic implementation of {@link StaleNodeHandlingParameters}. Exists only to simplify the code and avoid code duplication.
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Repeatable(ConfigOverrides.class)
-public @interface ConfigOverride {
-    /** Node index. {@code -1} by default, which means that the override is applied to all nodes. */
-    int nodeIndex() default -1;
+class StaleNodeHandlingParametersImpl implements StaleNodeHandlingParameters {
+    private final TopologyService topologyService;
 
-    /** Configuration node name. */
-    String name();
+    StaleNodeHandlingParametersImpl(TopologyService topologyService) {
+        this.topologyService = topologyService;
+    }
 
-    /** Value for override. */
-    String value();
+    @Override
+    public long topologyVersion() {
+        return topologyService.logicalTopologyVersion();
+    }
 }
