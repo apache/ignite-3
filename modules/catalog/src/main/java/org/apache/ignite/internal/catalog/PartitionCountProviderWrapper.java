@@ -22,7 +22,7 @@ package org.apache.ignite.internal.catalog;
  */
 public final class PartitionCountProviderWrapper implements PartitionCountProvider {
     /** Wrapped delegate to compute partition count. */
-    private PartitionCountProvider delegate;
+    private volatile PartitionCountProvider delegate;
 
     /** Constructor. */
     public PartitionCountProviderWrapper(PartitionCountProvider delegate) {

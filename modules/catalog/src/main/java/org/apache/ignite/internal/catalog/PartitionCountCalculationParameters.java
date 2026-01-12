@@ -32,13 +32,10 @@ import org.jetbrains.annotations.Nullable;
  * Parameters container for {@link PartitionCountProvider#calculate}.
  */
 public final class PartitionCountCalculationParameters {
-    /** Data nodes filter. */
     private final String dataNodesFilter;
 
-    /** Storage profiles. */
     private final List<String> storageProfiles;
 
-    /** Replica factor. */
     private final int replicaFactor;
 
     private PartitionCountCalculationParameters(
