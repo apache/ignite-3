@@ -236,6 +236,7 @@ import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
+import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -2771,6 +2772,98 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(request.enlistmentConsistencyToken()).thenReturn(leaseStartTime);
 
         assertThat(processWithPrimacy(request), willThrow(PrimaryReplicaMissException.class));
+    }
+
+    @ParameterizedTest
+    @MethodSource("prepareVersionsParameters")
+    void processTxStatePrimaryReplicaRequestTest(
+            boolean addOtherTxVersionBefore,
+            boolean addOtherTxVersionAfter,
+            boolean addThisTxVersionBefore,
+            boolean addThisTxVersionAfter,
+            boolean addWriteIntent,
+            boolean writeIntentHasThisTxId,
+            boolean outdatedReadTs,
+            TransactionMeta expected
+    ) {
+        UUID thisTxId = newTxId();
+        UUID otherTxId = newTxId();
+
+        RowId rowId = new RowId(1, 1, 1);
+        BinaryRow row = binaryRow(1);
+
+        prepareVersions(
+                rowId,
+                row,
+                thisTxId,
+                otherTxId,
+                addOtherTxVersionBefore,
+                addOtherTxVersionAfter,
+                addThisTxVersionBefore,
+                addThisTxVersionAfter,
+                addWriteIntent,
+                writeIntentHasThisTxId
+        );
+
+        HybridTimestamp readTs = outdatedReadTs ? hybridTimestamp(5) : hybridTimestamp(100);
+
+        TxStatePrimaryReplicaRequest request = TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()
+                .groupId(zonePartitionIdMessage(grpId))
+                .tableId(TABLE_ID)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(rowId.partitionId()).uuid(rowId.uuid()).build())
+                .readTimestamp(readTs)
+                .build();
+
+        CompletableFuture<ReplicaResult> fut = processWithPrimacy(request);
+        assertThat(fut, willCompleteSuccessfully());
+        ReplicaResult res = fut.join();
+
+        TransactionMeta meta = (TransactionMeta) res.result();
+        assertEquals(expected, meta);
+    }
+
+    private void prepareVersions(
+            RowId rowId,
+            BinaryRow row,
+            UUID thisTxId,
+            UUID otherTxId,
+            boolean addOtherTxVersionBefore,
+            boolean addOtherTxVersionAfter,
+            boolean addThisTxVersionBefore,
+            boolean addThisTxVersionAfter,
+            boolean addWriteIntent,
+            boolean writeIntentHasThisTxId
+    ) {
+        if (addOtherTxVersionBefore) {
+            addWriteAndCommit(rowId, row, otherTxId, 10);
+        }
+
+        if (addThisTxVersionBefore) {
+            addWriteAndCommit(rowId, row, otherTxId, 20);
+        }
+
+        if (addThisTxVersionAfter) {
+            addWriteAndCommit(rowId, row, thisTxId, 110);
+        }
+
+        if (addOtherTxVersionAfter) {
+            addWriteAndCommit(rowId, row, otherTxId, 120);
+        }
+
+        if (addWriteIntent) {
+            UUID txId = writeIntentHasThisTxId ? thisTxId : otherTxId;
+            testMvPartitionStorage.addWrite(rowId, row, txId, 1, 1);
+        }
+    }
+
+    private void addWriteAndCommit(RowId rowId, BinaryRow row, UUID txId, long commitTs) {
+        testMvPartitionStorage.addWrite(rowId, row, txId, ZONE_ID, PART_ID);
+        testMvPartitionStorage.commitWrite(rowId, hybridTimestamp(commitTs), txId);
+
+    }
+
+    private static Stream<Arguments> prepareVersionsParameters() {
+        return null;
     }
 
     private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {
