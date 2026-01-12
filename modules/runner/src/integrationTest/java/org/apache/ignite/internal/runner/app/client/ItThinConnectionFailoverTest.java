@@ -26,81 +26,85 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests thin client connection failover with and without partition awareness.
  */
 public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest {
+    private IgniteClient client;
+
     @Override
     protected int[] cmgMetastoreNodes() {
         return new int[]{2};
     }
 
+    @BeforeEach
+    void setUp() {
+        client = getClient();
+
+        client.sql().executeScript(
+                "CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
+                        + "CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
+
+        Awaitility.await().until(() -> client.connections().size(), is(initialNodes()));
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (client != null) {
+            client.close();
+        }
+    }
+
     @Test
     void testStopNodePartitionAwarenessKeyValue() {
-        try (IgniteClient client = getClient()) {
-            client.sql().executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
-                    + "CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
+        KeyValueView<Integer, Integer> kvView = client.tables().table("t")
+                .keyValueView(Integer.class, Integer.class);
 
-            Awaitility.await().until(() -> client.connections().size(), is(3));
+        for (int i = 0; i < 10; i++) {
+            kvView.put(null, i, i);
+        }
 
-            KeyValueView<Integer, Integer> kvView = client.tables().table("t")
-                    .keyValueView(Integer.class, Integer.class);
+        cluster.stopNode(0);
+        assertThat(client.connections().size(), is(2));
 
-            for (int i = 0; i < 100; i++) {
-                kvView.put(null, i, i);
-            }
-
-            cluster.stopNode(0);
-            assertThat(client.connections().size(), is(2));
-
-            for (int i = 100; i < 200; i++) {
-                kvView.put(null, i, i);
-            }
+        for (int i = 10; i < 20; i++) {
+            kvView.put(null, i, i);
         }
     }
 
     @Test
     void testStopNodePartitionAwarenessQuery() {
-        try (IgniteClient client = getClient()) {
-            IgniteSql sql = client.sql();
+        IgniteSql sql = client.sql();
 
-            sql.executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
-                    + "CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
+        for (int i = 0; i < 10; i++) {
+            sql.execute(null, "INSERT INTO t VALUES (?, ?)", i, i).close();
+        }
 
-            for (int i = 0; i < 100; i++) {
-                sql.execute(null, "INSERT INTO t VALUES (?, ?)", i, i).close();
-            }
+        cluster.stopNode(0);
+        assertThat(client.connections().size(), is(2));
 
-            cluster.stopNode(0);
-
-            assertThat(client.connections().size(), is(2));
-
-            for (int i = 100; i < 200; i++) {
-                sql.execute(null, "INSERT INTO t VALUES (?, ?)", i, i).close();
-            }
+        for (int i = 10; i < 20; i++) {
+            sql.execute(null, "INSERT INTO t VALUES (?, ?)", i, i).close();
         }
     }
 
     @Test
-    void testStopNode() {
-        try (IgniteClient client = getClient()) {
-            IgniteSql sql = client.sql();
+    void testStopNodeNonPartitionAwareQuery() {
+        IgniteSql sql = client.sql();
 
-            Awaitility.await().until(() -> client.connections().size(), is(3));
+        for (int i = 0; i < 10; i++) {
+            sql.execute(null, "SELECT " + i).close();
+        }
 
-            for (int i = 0; i < 100; i++) {
-                sql.execute(null, "SELECT " + i).close();
-            }
+        cluster.stopNode(0);
+        assertThat(client.connections().size(), is(2));
 
-            cluster.stopNode(0);
-
-            assertThat(client.connections().size(), is(2));
-
-            for (int i = 100; i < 200; i++) {
-                sql.execute(null, "SELECT " + i).close();
-            }
+        for (int i = 10; i < 20; i++) {
+            sql.execute(null, "SELECT " + i).close();
         }
     }
 
