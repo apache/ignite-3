@@ -131,7 +131,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
      *          JDBC connection property is correctly applied to the underlying client.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27188")
     void testConnectionRestoredAfterBackgroundReconnectInterval() throws Exception {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});

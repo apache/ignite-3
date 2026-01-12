@@ -143,7 +143,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMetaAbandoned abandoned() {
         assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
-        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
+        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel);
     }
 
     /**
@@ -255,7 +255,7 @@ public class TxStateMeta implements TransactionMeta {
         private @Nullable Long cleanupCompletionTimestamp;
         protected @Nullable Boolean isFinishedDueToTimeout;
         protected @Nullable String txLabel;
-        private @Nullable InternalTransaction tx;
+        protected @Nullable InternalTransaction tx;
 
         TxStateMetaBuilder(TxState txState) {
             this.txState = txState;
@@ -359,7 +359,7 @@ public class TxStateMeta implements TransactionMeta {
             if (txState == FINISHING) {
                 return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
             } else if (txState == ABANDONED) {
-                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, txLabel);
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel);
             } else {
                 return new TxStateMeta(
                         txState,

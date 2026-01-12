@@ -17,10 +17,15 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Internal.Common;
+using Internal.Table;
+using Internal.Table.Serialization;
 using Network;
 using Table;
+using Table.Mapper;
 
 /// <summary>
 /// Compute job target.
@@ -75,7 +80,23 @@ public static class JobTarget
     {
         IgniteArgumentCheck.NotNull(key);
 
-        return new ColocatedTarget<TKey>(tableName, key);
+        return new ColocatedTarget<TKey>(tableName, key, null);
+    }
+
+    /// <summary>
+    /// Creates a colocated job target for a specific table and key.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="mapper">Mapper for the key.</param>
+    /// <typeparam name="TKey">Key type.</typeparam>
+    /// <returns>Colocated job target.</returns>
+    public static IJobTarget<TKey> Colocated<TKey>(QualifiedName tableName, TKey key, IMapper<TKey> mapper)
+        where TKey : notnull
+    {
+        IgniteArgumentCheck.NotNull(key);
+
+        return new ColocatedTarget<TKey>(tableName, key, mapper);
     }
 
     /// <summary>
@@ -88,6 +109,18 @@ public static class JobTarget
     public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
         where TKey : notnull =>
         Colocated(QualifiedName.Parse(tableName), key);
+
+    /// <summary>
+    /// Creates a colocated job target for a specific table and key.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="mapper">Mapper for the key.</param>
+    /// <typeparam name="TKey">Key type.</typeparam>
+    /// <returns>Colocated job target.</returns>
+    public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key, IMapper<TKey> mapper)
+        where TKey : notnull =>
+        Colocated(QualifiedName.Parse(tableName), key, mapper);
 
     /// <summary>
     /// Single node job target.
@@ -106,7 +139,26 @@ public static class JobTarget
     /// </summary>
     /// <param name="TableName">Table name.</param>
     /// <param name="Data">Key.</param>
+    /// <param name="Mapper">Optional mapper for the key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
-    internal sealed record ColocatedTarget<TKey>(QualifiedName TableName, TKey Data) : IJobTarget<TKey>
-        where TKey : notnull;
+    internal sealed record ColocatedTarget<TKey>(QualifiedName TableName, TKey Data, IMapper<TKey>? Mapper) : IJobTarget<TKey>
+        where TKey : notnull
+    {
+        /// <summary>
+        /// Gets the cached serializer handler function.
+        /// </summary>
+        internal Func<Table, IRecordSerializerHandler<TKey>>? SerializerHandlerFunc { get; } = GetSerializerHandlerFunc(Mapper);
+
+        private static Func<Table, IRecordSerializerHandler<TKey>>? GetSerializerHandlerFunc(IMapper<TKey>? mapper)
+        {
+            if (mapper == null)
+            {
+                return null;
+            }
+
+            var handler = new MapperSerializerHandler<TKey>(mapper);
+
+            return _ => handler;
+        }
+    }
 }

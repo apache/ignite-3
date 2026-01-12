@@ -41,6 +41,11 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         return new TupleImpl().set(columnName, value);
     }
 
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
+        return Tuple.create().set("ID", 1).set("VAL", null);
+    }
+
     @Test
     void testTupleFactoryMethods() {
         assertEquals(Tuple.create(), Tuple.create(10));

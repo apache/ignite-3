@@ -30,9 +30,9 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 import org.apache.calcite.util.mapping.IntPair;
 import org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Parsed fields.

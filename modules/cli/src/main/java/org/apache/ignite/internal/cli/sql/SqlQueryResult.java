@@ -28,9 +28,30 @@ import org.apache.ignite.internal.cli.sql.table.Table;
  */
 public class SqlQueryResult {
     private final List<SqlQueryResultItem> sqlQueryResultItems;
+    private final long durationMs;
 
-    private SqlQueryResult(List<SqlQueryResultItem> sqlQueryResultItems) {
+    private SqlQueryResult(List<SqlQueryResultItem> sqlQueryResultItems, long durationMs) {
         this.sqlQueryResultItems = sqlQueryResultItems;
+        this.durationMs = durationMs;
+    }
+
+    /**
+     * SQL query result provider.
+     *
+     * @param plain Whether to use plain formatting.
+     * @param timed Whether to include execution time in output.
+     * @return terminal output all items in query result.
+     */
+    public TerminalOutput getResult(boolean plain, boolean timed) {
+        return () -> {
+            String result = sqlQueryResultItems.stream()
+                    .map(x -> x.decorate(plain).toTerminalString())
+                    .collect(Collectors.joining(""));
+            if (timed) {
+                result += "Query executed in " + durationMs + "ms (client-side).\n";
+            }
+            return result;
+        };
     }
 
     /**
@@ -39,9 +60,7 @@ public class SqlQueryResult {
      * @return terminal output all items in query result.
      */
     public TerminalOutput getResult(boolean plain) {
-        return () -> sqlQueryResultItems.stream()
-            .map(x -> x.decorate(plain).toTerminalString())
-            .collect(Collectors.joining(""));
+        return getResult(plain, false);
     }
 
     /**
@@ -49,6 +68,7 @@ public class SqlQueryResult {
      */
     static class SqlQueryResultBuilder {
         private final List<SqlQueryResultItem> sqlQueryResultItems = new ArrayList<>();
+        private long durationMs;
 
         /**
          * Add table to query result.
@@ -64,8 +84,15 @@ public class SqlQueryResult {
             sqlQueryResultItems.add(new SqlQueryResultMessage(message + "\n"));
         }
 
+        /**
+         * Set the query execution duration in milliseconds.
+         */
+        void setDurationMs(long durationMs) {
+            this.durationMs = durationMs;
+        }
+
         public SqlQueryResult build() {
-            return new SqlQueryResult(sqlQueryResultItems);
+            return new SqlQueryResult(sqlQueryResultItems, durationMs);
         }
     }
 }

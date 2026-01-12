@@ -31,10 +31,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Node;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compares two configuration trees (snapshot and current).
