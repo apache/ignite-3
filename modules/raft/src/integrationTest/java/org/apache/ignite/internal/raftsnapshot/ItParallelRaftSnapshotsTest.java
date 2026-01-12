@@ -69,7 +69,7 @@ class ItParallelRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     void testSnapshotStreamingToMultipleNodes() {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, initialNodes());
 
-        ReplicationGroupId groupId = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+        ReplicationGroupId groupId = cluster.solePartitionId(ZONE_NAME);
 
         int primaryReplicaIndex = primaryReplicaIndex(groupId);
 

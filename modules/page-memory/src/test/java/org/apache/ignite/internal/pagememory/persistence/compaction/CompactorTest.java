@@ -47,6 +47,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -220,13 +221,11 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
         when(filePageStore.getDeltaFileToCompaction()).then(answer -> deltaFilePageStoreIoRef.get());
 
-        FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
-
-        GroupPageStoresMap<FilePageStore> groupPageStoresMap = new GroupPageStoresMap<>(new LongOperationAsyncExecutor("test", log));
+        var groupPageStoresMap = new GroupPageStoresMap<FilePageStore>(new LongOperationAsyncExecutor("test", log));
 
         groupPageStoresMap.put(new GroupPartitionId(0, 0), filePageStore);
 
-        when(filePageStoreManager.allPageStores()).then(answer -> groupPageStoresMap.getAll());
+        FilePageStoreManager filePageStoreManager = newFilePageStoreManager(groupPageStoresMap);
 
         Compactor compactor = spy(newCompactor(filePageStoreManager));
 
@@ -303,18 +302,21 @@ public class CompactorTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testPauseResume() throws Exception {
-        Compactor compactor = spy(newCompactor());
+    void testNotifyCheckpointStartAndFinish() throws Exception {
+        var groupPageStoresMap = new GroupPageStoresMap<FilePageStore>(new LongOperationAsyncExecutor("test", log));
 
-        compactor.pause();
+        FilePageStoreManager filePageStoreManager = newFilePageStoreManager(groupPageStoresMap);
+
+        Compactor compactor = spy(newCompactor(filePageStoreManager));
+
+        compactor.notifyCheckpointStart();
 
         DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo();
         FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
 
-        assertThat(
-                runAsync(() -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())),
-                willCompleteSuccessfully()
-        );
+        groupPageStoresMap.put(new GroupPartitionId(0, 0), filePageStore);
+
+        assertThat(runAsync(compactor::doCompaction), willCompleteSuccessfully());
 
         verify(filePageStore, never()).write(anyLong(), any());
         verify(filePageStore, never()).sync();
@@ -324,12 +326,9 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         verify(deltaFilePageStoreIo, never()).markMergedToFilePageStore();
         verify(deltaFilePageStoreIo, never()).stop(anyBoolean());
 
-        compactor.resume();
+        compactor.notifyCheckpointFinish();
 
-        assertThat(
-                runAsync(() -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())),
-                willCompleteSuccessfully()
-        );
+        assertThat(runAsync(compactor::doCompaction), willCompleteSuccessfully());
 
         verify(filePageStore).write(anyLong(), any());
         verify(filePageStore).sync();
@@ -341,18 +340,15 @@ public class CompactorTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testTriggerCompactionAfterPause() {
+    void testTriggerCompactionAfterNotifyCheckpointStartAndFinish() {
         Compactor compactor = spy(newCompactor());
 
-        compactor.pause();
+        compactor.notifyCheckpointStart();
 
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
         assertThat(waitDeltaFilesFuture, willTimeoutFast());
 
         compactor.triggerCompaction();
-        assertThat(waitDeltaFilesFuture, willTimeoutFast());
-
-        compactor.resume();
         assertThat(waitDeltaFilesFuture, willCompleteSuccessfully());
     }
 
@@ -363,7 +359,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
         assertThat(waitDeltaFilesFuture, willTimeoutFast());
 
-        compactor.resume();
+        compactor.notifyCheckpointFinish();
         assertThat(waitDeltaFilesFuture, willCompleteSuccessfully());
     }
 
@@ -407,8 +403,24 @@ public class CompactorTest extends BaseIgniteAbstractTest {
     private static FilePageStore createFilePageStore(DeltaFilePageStoreIo deltaFilePageStoreIo) {
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        when(filePageStore.removeDeltaFile(eq(deltaFilePageStoreIo))).thenReturn(true);
+        var removedDeltaFile = new AtomicBoolean();
+
+        when(filePageStore.removeDeltaFile(eq(deltaFilePageStoreIo))).then(invocation -> {
+            removedDeltaFile.set(true);
+
+            return true;
+        });
+        when(filePageStore.getDeltaFileToCompaction()).then(invocation -> removedDeltaFile.get() ? null : deltaFilePageStoreIo);
+        when(filePageStore.deltaFileCount()).thenReturn(1);
 
         return filePageStore;
+    }
+
+    private static FilePageStoreManager newFilePageStoreManager(GroupPageStoresMap<FilePageStore> map) {
+        FilePageStoreManager manager = mock(FilePageStoreManager.class);
+
+        when(manager.allPageStores()).then(invocation -> map.getAll());
+
+        return manager;
     }
 }

@@ -279,12 +279,16 @@ namespace Apache.Ignite.Tests.Compute
             var resNodeName3 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPocoStruct), NodeNameJob, null);
             var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
+            var resNodeName4 = await client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(TableName), keyPoco, new PocoMapper()), NodeNameJob, null);
+            var requestTargetNodeName4 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
+
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
 
             Assert.AreEqual(expectedNodeName, await resNodeName.GetResultAsync());
             Assert.AreEqual(expectedNodeName, await resNodeName2.GetResultAsync());
             Assert.AreEqual(expectedNodeName, await resNodeName3.GetResultAsync());
+            Assert.AreEqual(expectedNodeName, await resNodeName4.GetResultAsync());
 
             // We only connect to 2 of 4 nodes because of different auth settings.
             if (nodeIdx < 3)
@@ -292,6 +296,7 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName);
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
+                Assert.AreEqual(expectedNodeName, requestTargetNodeName4);
             }
         }
 

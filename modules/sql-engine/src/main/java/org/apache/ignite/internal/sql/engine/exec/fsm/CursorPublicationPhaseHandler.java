@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.util.AsyncCursor;
 
 /**
  * Handler that postpones moment of publication of the cursor.
  *
  * <p>Without this delay, the cursor is published as soon as all fragments is initialized on remote nodes. And here the most confusing side
- * effect: for multi-step DML, if {@link AsyncCursor#closeAsync()} invoked immediately after cursor becomes public, all fragments will be 
+ * effect: for multi-step DML, if {@link AsyncCursor#closeAsync()} invoked immediately after cursor becomes public, all fragments will be
  * cancelled, and implicit transaction will be commited. This affect script processing, because currently it iterates over all te results
  * and just closes them. From user's point of view, such a behaviour renders certain DML statements to be skipped since no results are
  * commited.
@@ -41,12 +41,12 @@ class CursorPublicationPhaseHandler implements ExecutionPhaseHandler {
     @Override
     public Result handle(Query query) {
         AsyncSqlCursor<?> cursor = query.cursor;
+        QueryPlan plan = query.plan;
 
         assert cursor != null;
+        assert plan != null;
 
-        SqlQueryType queryType = cursor.queryType();
-
-        if (queryType == SqlQueryType.QUERY) {
+        if (plan.lazyCursorPublication()) {
             // Preserve lazy execution for statements that only reads.
             return Result.completed();
         }

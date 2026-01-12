@@ -410,6 +410,9 @@ namespace Apache.Ignite
 
             /// <summary> GroupOverloaded error. </summary>
             public const int GroupOverloaded = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> GroupUnavailable error. </summary>
+            public const int GroupUnavailable = (GroupCode << 16) | (10 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>
@@ -732,6 +735,9 @@ namespace Apache.Ignite
 
             /// <summary> RequestForward error. </summary>
             public const int RequestForward = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> RemoteNode error. </summary>
+            public const int RemoteNode = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>

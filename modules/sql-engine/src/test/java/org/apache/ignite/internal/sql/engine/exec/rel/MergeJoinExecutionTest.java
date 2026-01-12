@@ -43,11 +43,11 @@ import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -675,7 +675,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        ExpressionFactoryImpl expFactory = new ExpressionFactoryImpl(
+        SqlExpressionFactoryImpl expFactory = new SqlExpressionFactoryImpl(
                 Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
         );
 

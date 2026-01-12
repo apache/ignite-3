@@ -74,6 +74,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -320,7 +321,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
 
         CompletableFuture<ReplicaMeta> primary = node.placementDriver().awaitPrimaryReplica(
-                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
+                cluster.solePartitionId(TEST_ZONE_NAME),
                 node.clockService().now(),
                 AWAIT_PRIMARY_REPLICA_SECONDS,
                 TimeUnit.SECONDS);
@@ -394,7 +395,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        ReplicationGroupId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME);
+        ZonePartitionId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME);
 
         doSnapshotOnLeader(replicationGroupId, expectedLeaderNodeIndex, forced);
     }
@@ -404,7 +405,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartition(int nodeIndex, boolean forced) {
-        ReplicationGroupId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME);
+        ZonePartitionId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME);
 
         doSnapshotOn(replicationGroupId, nodeIndex, forced);
     }
@@ -475,11 +476,11 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
+        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME));
     }
 
-    private void transferPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        cluster.transferPrimaryTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
+    private void transferPrimaryOnSolePartitionTo(int nodeIndex) {
+        cluster.transferPrimaryTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME));
     }
 
     /**
@@ -972,7 +973,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         BlockingAppendEntriesRequestProcessor blockingProcessor = new BlockingAppendEntriesRequestProcessor(
                 appenderExecutor,
                 raftMessagesFactory,
-                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME).toString()
+                cluster.solePartitionId(TEST_ZONE_NAME).toString()
         );
 
         rpcServer.registerProcessor(blockingProcessor);

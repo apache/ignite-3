@@ -132,10 +132,14 @@ public class TxCleanupRequestSender {
                                 String primaryNode = replicaMeta.getLeaseholder();
                                 HybridTimestamp startTime = replicaMeta.getStartTime();
                                 return txMessageSender.resolveTxStateFromCommitPartition(
-                                        primaryNode,
-                                        txId,
-                                        commitPartitionId,
-                                        startTime.longValue()).thenApply(TransactionMeta::commitTimestamp);
+                                            primaryNode,
+                                            txId,
+                                            commitPartitionId,
+                                            startTime.longValue(),
+                                            null,
+                                            null
+                                        )
+                                        .thenApply(TransactionMeta::commitTimestamp);
                             }
                     );
         } else {

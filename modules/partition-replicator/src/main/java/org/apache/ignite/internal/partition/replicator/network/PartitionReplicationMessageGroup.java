@@ -33,12 +33,15 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryRequestMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryResponseMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionsEstimatedSizeResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.OperationCompletedMessage;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
@@ -298,19 +301,22 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link LocalPartitionStatesResponse}. */
         short LOCAL_PARTITION_STATE_RESPONSE = 102;
 
-        /** Message type for {@link LocalTablePartitionStateMessage}. */
+        /** Message type for {@link LocalPartitionsEstimatedSizeMessage}. */
         short LOCAL_TABLE_PARTITION_STATE = 103;
 
-        /** Message type for {@link LocalTablePartitionStateRequest}. */
+        /** Message type for {@link LocalPartitionsEstimatedSizeRequest}. */
         short LOCAL_TABLE_PARTITION_STATE_REQUEST = 104;
 
-        /** Message type for {@link LocalTablePartitionStateResponse}. */
+        /** Message type for {@link LocalPartitionsEstimatedSizeResponse}. */
         short LOCAL_TABLE_PARTITION_STATE_RESPONSE = 105;
 
-        /** Message type for disaster recovery request forwarding. */
+        /** Message type for {@link DisasterRecoveryRequestMessage}. */
         short DISASTER_RECOVERY_REQUEST = 106;
 
-        /** Message type for disaster recovery request forwarding response. */
+        /** Message type for {@link DisasterRecoveryResponseMessage}. */
         short DISASTER_RECOVERY_RESPONSE = 111;
+
+        /** Message type for {@link OperationCompletedMessage}. */
+        short OPERATION_COMPLETED = 112;
     }
 }

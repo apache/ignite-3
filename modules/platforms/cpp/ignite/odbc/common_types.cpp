@@ -224,6 +224,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
         case error::code::GROUP_OVERLOADED:
+        case error::code::GROUP_UNAVAILABLE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
@@ -315,6 +316,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NOT_ENOUGH_ALIVE_NODES:
         case error::code::ILLEGAL_NODES_SET:
         case error::code::REQUEST_FORWARD:
+        case error::code::REMOTE_NODE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21

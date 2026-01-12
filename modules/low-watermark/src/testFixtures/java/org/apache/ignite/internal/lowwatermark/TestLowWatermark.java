@@ -86,6 +86,11 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
+    public void setLowWatermarkOnRecovery(HybridTimestamp newLowWatermark) {
+        setLowWatermark(newLowWatermark);
+    }
+
+    @Override
     public boolean tryLock(UUID lockId, HybridTimestamp lockTs) {
         updateLowWatermarkLock.readLock().lock();
 

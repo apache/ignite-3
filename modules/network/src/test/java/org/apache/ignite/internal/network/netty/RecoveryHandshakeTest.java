@@ -810,7 +810,8 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 channel -> {},
                 () -> false,
                 new DefaultIgniteProductVersionSource(),
-                topologyService
+                topologyService,
+                new NoOpFailureManager()
         );
     }
 

@@ -493,6 +493,9 @@ public class ErrorGroups {
 
         /** Replication group overloaded exception code. */
         public static final int GROUP_OVERLOADED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Replication group unavailable exception code. */
+        public static final int GROUP_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 10);
     }
 
     /** Storage error group. */
@@ -753,6 +756,9 @@ public class ErrorGroups {
 
         /** Error when forwarding disaster recovery request to another node failed. */
         public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Error when multi node operation fails on any node. */
+        public static final int REMOTE_NODE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Embedded API error group. */

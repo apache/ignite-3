@@ -19,10 +19,8 @@ package org.apache.ignite.internal.partition.replicator;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
 /**
  * Processor of replica requests targeted at a particular table.
@@ -43,8 +41,4 @@ public interface ReplicaTableProcessor {
 
     /** Returns tracker of RW transactions operations. */
     TableTxRwOperationTracker txRwOperationTracker();
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-27405 as safe time should not depend on the table.
-    /** Returns safe time tracker for the partition. */
-    PendingComparableValuesTracker<HybridTimestamp, Void> safeTime();
 }

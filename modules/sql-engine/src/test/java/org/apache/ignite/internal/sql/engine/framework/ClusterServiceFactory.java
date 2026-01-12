@@ -176,6 +176,11 @@ public class ClusterServiceFactory {
             return Commons.cast(logicalTopology.getLogicalTopology().nodes());
         }
 
+        @Override
+        public long logicalTopologyVersion() {
+            return logicalTopology.getLogicalTopology().version();
+        }
+
         /** {@inheritDoc} */
         @Override
         public @Nullable InternalClusterNode getByAddress(NetworkAddress addr) {
@@ -197,11 +202,11 @@ public class ClusterServiceFactory {
         }
 
         @Override
-        public void onJoined(InternalClusterNode node) {
+        public void onJoined(InternalClusterNode node, long topologyVersion) {
         }
 
         @Override
-        public void onLeft(InternalClusterNode node) {
+        public void onLeft(InternalClusterNode node, long topologyVersion) {
         }
     }
 
