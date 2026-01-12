@@ -23,6 +23,9 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -35,6 +38,8 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
+import org.apache.ignite.internal.network.recovery.message.StaleNodeHandlingParameters;
+import org.apache.ignite.internal.tostring.S;
 
 class HandshakeManagerUtils {
     private static final IgniteLogger LOG = Loggers.forClass(HandshakeManagerUtils.class);
@@ -87,5 +92,29 @@ class HandshakeManagerUtils {
         return msg.reason() == HandshakeRejectionReason.STOPPING
                 ? new RecipientLeftException(msg.message())
                 : new HandshakeException(msg.message());
+    }
+
+    static void maybeFailOnStaleNodeDetection(
+            FailureProcessor failureProcessor,
+            StaleNodeHandlingParameters local,
+            StaleNodeHandlingParameters remote,
+            ClusterNodeMessage remoteNode
+    ) {
+        long localTopologyVersion = local.topologyVersion();
+        long remoteTopologyVersion = remote.topologyVersion();
+
+        if (localTopologyVersion >= remoteTopologyVersion) {
+            return;
+        }
+
+        String message = S.toString(
+                "Cluster segmentation detected, current node will be shut down",
+                "logicalTopologyVersion", localTopologyVersion, false,
+                "remoteLogicalTopologyVersion", remoteTopologyVersion, false,
+                "remoteNodeId", remoteNode.id(), false,
+                "remoteNodeName", remoteNode.name(), false
+        );
+
+        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null, message));
     }
 }

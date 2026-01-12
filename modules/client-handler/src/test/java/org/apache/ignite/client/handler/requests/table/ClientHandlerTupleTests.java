@@ -39,14 +39,24 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.util.Random;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for {@link ClientHandlerTuple}.
@@ -164,6 +174,41 @@ public class ClientHandlerTupleTests {
         assertEquals(-1, tuple.columnIndex("valLongCol"));
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessors")
+    @SuppressWarnings("ThrowableNotThrown")
+    void nullPointerWhenReadingNullAsPrimitive(
+            NativeType type,
+            BiConsumer<Tuple, Object> fieldAccessor
+    ) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("ID", INT32, false)},
+                new Column[]{new Column("VAL", type, true)}
+        );
+
+        BinaryRow binaryRow = SchemaTestUtils.binaryRow(schema, 1, null);
+        Tuple row = new ClientHandlerTuple(schema, null, new BinaryTupleReader(2, binaryRow.tupleSlice()), false);
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, 1),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1)
+        );
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(row, "VAL"),
+                IgniteStringFormatter.format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL")
+        );
+
+        IgniteTestUtils.assertThrows(
+                UnsupportedOperationException.class,
+                () -> row.set("NEW", null),
+                null
+        );
+    }
+
     private static Tuple createKeyTuple() {
         return Tuple.create()
                 .set("keyUuidCol", GUID);
@@ -187,5 +232,10 @@ public class ClientHandlerTupleTests {
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+    }
+
+    private static Stream<Arguments> primitiveAccessors() {
+        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
+                .map(e -> Arguments.of(e.getKey(), e.getValue()));
     }
 }
