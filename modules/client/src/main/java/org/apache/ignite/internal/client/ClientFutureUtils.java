@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -74,11 +75,13 @@ class ClientFutureUtils {
                     } else {
                         resErr = ctx.errors.get(0);
 
+                        HashSet<Throwable> dejaVu = new HashSet<>();
+                        existingCauseOrSuppressed(resErr, dejaVu); // Seed dejaVu.
+
                         for (int i = 1; i < ctx.errors.size(); i++) {
                             Throwable e = ctx.errors.get(i);
 
-                            // Do not create circular references if the error is repeated.
-                            if (resErr != e) {
+                            if (!existingCauseOrSuppressed(e, dejaVu)) {
                                 resErr.addSuppressed(e);
                             }
                         }
@@ -94,6 +97,24 @@ class ClientFutureUtils {
                 resFut.completeExceptionally(t);
             }
         });
+    }
+
+    private static boolean existingCauseOrSuppressed(Throwable t, HashSet<Throwable> dejaVu) {
+        if (t == null) {
+            return false;
+        }
+
+        if (!dejaVu.add(t)) {
+            return true;
+        }
+
+        for (Throwable sup : t.getSuppressed()) {
+            if (existingCauseOrSuppressed(sup, dejaVu)) {
+                return true;
+            }
+        }
+
+        return existingCauseOrSuppressed(t.getCause(), dejaVu);
     }
 
     static class RetryContext {

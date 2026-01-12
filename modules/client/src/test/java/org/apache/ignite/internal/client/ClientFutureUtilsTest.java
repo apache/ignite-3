@@ -145,8 +145,7 @@ public class ClientFutureUtilsTest {
         assertEquals(ex1, ex, "Expected the first exception to be the main one.");
 
         Throwable[] suppressed = ex.getSuppressed();
-        assertEquals(2, suppressed.length);
-        assertEquals(ex2, unwrapCause(suppressed[0]), "Should not have itself as suppressed.");
-        assertEquals(ex2, unwrapCause(suppressed[1]), "Should not have itself as suppressed.");
+        assertEquals(1, suppressed.length, "Should not have duplicate suppressed exceptions.");
+        assertEquals(ex2, unwrapCause(suppressed[0]));
     }
 }
