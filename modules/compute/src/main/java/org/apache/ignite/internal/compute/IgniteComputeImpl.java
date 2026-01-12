@@ -158,7 +158,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(descriptor);
 
         ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, descriptor.argumentMarshaller());
-        ExecutionContext executionContext = new ExecutionContext(descriptor, metadataBuilder, argHolder);
+        ExecutionContext executionContext = new ExecutionContext(descriptor, metadataBuilder, argHolder, getObservableTimestamp());
 
         if (target instanceof AnyNodeJobTarget) {
             Set<InternalClusterNode> nodes = internalNodesFromPublicNodes(((AnyNodeJobTarget) target).nodes());
@@ -354,7 +354,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 executeOnOneNodeWithFailover(
                         node,
                         nextWorkerSelector,
-                        new ExecutionContext(options, descriptor.units(), descriptor.jobClassName(), metadataBuilder, argHolder),
+                        new ExecutionContext(options, descriptor.units(), descriptor.jobClassName(), metadataBuilder, argHolder,
+                                getObservableTimestamp()),
                         cancellationToken
                 ),
                 descriptor,
@@ -514,13 +515,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .partition(partition)
                 .build();
 
+        Long observableTs = getObservableTimestamp();
+
         return primaryReplicaForPartition(table, partitionId)
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new PartitionNextWorkerSelector(
                                 placementDriver, topologyService, clock,
                                 table.zoneId(), partition),
-                        new ExecutionContext(options, units, jobClassName, metadataBuilder, arg),
+                        new ExecutionContext(options, units, jobClassName, metadataBuilder, arg, observableTs),
                         cancellationToken
                 ));
     }
@@ -685,7 +688,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 deploymentUnits,
                 getReceiverJobClassName(options.executorType()),
                 ComputeEventMetadata.builder(Type.DATA_RECEIVER),
-                SharedComputeUtils.marshalArgOrResult(payload, null)
+                SharedComputeUtils.marshalArgOrResult(payload, null),
+                getObservableTimestamp()
         );
 
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
@@ -712,6 +716,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @TestOnly
     public ComputeComponent computeComponent() {
         return computeComponent;
+    }
+
+    /**
+     * Returns the current observable timestamp from the tracker, or {@code null} if not set.
+     *
+     * @return Observable timestamp, or {@code null}.
+     */
+    private @Nullable Long getObservableTimestamp() {
+        long ts = observableTimestampTracker.getLong();
+        return ts == 0 ? null : ts;
     }
 
     private static <R> R sync(CompletableFuture<R> future) {
