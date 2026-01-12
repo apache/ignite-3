@@ -172,7 +172,7 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
       },
       "listenAddresses" : [],
       "membership" : {
-        "failurePingIntervalMillis" : 1000,
+        "failurePingIntervalMillis" : 2000,
         "membershipSyncIntervalMillis" : 30000,
         "scaleCube" : {
           "failurePingRequestMembers" : 3,
@@ -250,7 +250,7 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
 |inbound.tcpNoDelay|true| Defines if the TCP no delay option is used.| Yes | Yes | true, false
 |listenAddresses| |List of addresses (IPs or hostnames) to listen on. If empty, listens on all interfaces. Currently, only a single address is supported. This limitation will be lifted in a future update.| Yes | Yes | A list of valid addresses separated by comma
 |membership||Node membership configuration.|||
-|membership.failurePingIntervalMillis|1000| Failure detector ping interval.| Yes | Yes | 0 - inf
+|membership.failurePingIntervalMillis|2000| Failure detector ping interval.| Yes | Yes | 0 - inf
 |membership.membershipSyncIntervalMillis|30000|Periodic membership data synchronization interval.| Yes | Yes | 0 - inf
 |membership.scaleCube|| ScaleCube-specific configuration.|||
 |scaleCube.failurePingRequestMembers|3|Number of members that are randomly selected by a cluster node for an indirect ping request.| Yes | Yes | 1 - inf
