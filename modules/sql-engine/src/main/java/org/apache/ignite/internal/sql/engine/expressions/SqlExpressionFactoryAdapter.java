@@ -144,7 +144,7 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
             RelDataType requiredRelType = TypeUtils.native2relationalType(planner.getTypeFactory(), resultType);
             expressionAst = tryAdjustReturnType(validator, scope, expressionAst, requiredRelType);
 
-            RexNode rexNode = planner.sqlToRelConverter().convertExpressionExt(expressionAst, scope, null);
+            RexNode rexNode = planner.sqlToRelConverter().convertExpressionExt(expressionAst, scope);
 
             SqlScalar<Object> scalar = factory.scalar(
                     rexNode
