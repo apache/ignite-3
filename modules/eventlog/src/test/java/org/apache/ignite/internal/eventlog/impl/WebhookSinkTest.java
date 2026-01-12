@@ -30,6 +30,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
@@ -49,9 +50,8 @@ import org.apache.ignite.internal.eventlog.config.schema.WebhookSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,11 +65,13 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock{sinks.webhookSink{type=webhook,endpoint=\"http://localhost\"}}")
     private EventLogConfiguration cfg;
 
+    private WebhookSink sink;
+
     @Test
     void shouldSendEventsInBatches() {
         stubFor(post("/api/v1/events").willReturn(ok()));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(2));
+        createSink(c -> c.changeBatchSize(2));
 
         Stream<Event> events = Stream.of(
                 IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")),
@@ -79,9 +81,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         events.forEach(sink::write);
 
-        Awaitility.await()
-                .atMost(Duration.ofMillis(500L))
-                .until(() -> sink.getLastSendMillis() > 0L);
+        awaitSend();
 
         assertThat(sink.getEvents(), hasSize(1));
 
@@ -95,18 +95,15 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24226")
     @Test
     void shouldSendEventsByTimeout() {
         stubFor(post("/api/v1/events").willReturn(ok()));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSendFrequencyMillis(200L));
+        createSink(c -> c.changeBatchSendFrequencyMillis(200L));
 
         sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
-        Awaitility.await()
-                .atMost(Duration.ofMillis(500L))
-                .until(() -> sink.getLastSendMillis() > 0L);
+        awaitSend();
 
         var expectedSentContent = "[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]";
 
@@ -122,12 +119,12 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     void shouldSkipSendingEvents() {
         stubFor(post("/api/v1/events").willReturn(ok()));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(2));
+        createSink(c -> c.changeBatchSize(2));
 
         sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
-        Awaitility.await()
-                .timeout(Duration.ofMillis(500L))
+        await()
+                .during(Duration.ofMillis(500L))
                 .until(() -> sink.getLastSendMillis() == 0L);
 
         assertThat(sink.getEvents(), hasSize(1));
@@ -147,7 +144,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         Stream<Event> events = Stream.of(user1Event, user2Event, user3Event);
 
-        WebhookSink sink = createSink(c -> c.changeQueueSize(2));
+        createSink(c -> c.changeQueueSize(2));
         events.forEach(sink::write);
 
         assertThat(sink.getEvents(), hasItems(user2Event, user3Event));
@@ -158,13 +155,11 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     void shouldTryToResendEvents(int statusCode) {
         stubFor(post("/api/v1/events").willReturn(aResponse().withStatus(statusCode)));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
+        createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
         sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
-        Awaitility.await()
-                .atMost(Duration.ofMillis(500L))
-                .until(() -> sink.getLastSendMillis() > 0L);
+        awaitSend();
 
         assertThat(sink.getEvents(), hasSize(0));
 
@@ -181,13 +176,11 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     void shouldIgnoreErrorOnSendEvents(int statusCode) {
         stubFor(post("/api/v1/events").willReturn(aResponse().withStatus(statusCode)));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
+        createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
         sink.write(IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
-        Awaitility.await()
-                .atMost(Duration.ofMillis(500L))
-                .until(() -> sink.getLastSendMillis() > 0L);
+        awaitSend();
 
         assertThat(sink.getEvents(), hasSize(0));
 
@@ -209,6 +202,14 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @AfterEach
+    void stopSink() {
+        if (sink != null) {
+            sink.stop();
+            sink = null;
+        }
+    }
+
     private static void mutateSinkConfiguration(EventLogConfiguration cfg, Consumer<WebhookSinkChange> consumer) {
         assertThat(
                 cfg.sinks().get("webhookSink").change(c -> consumer.accept(c.convert(WebhookSinkChange.class))),
@@ -216,10 +217,14 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private WebhookSink createSink(Consumer<WebhookSinkChange> consumer) {
+    private void createSink(Consumer<WebhookSinkChange> consumer) {
         mutateSinkConfiguration(cfg, consumer);
 
-        return (WebhookSink) new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), () -> CLUSTER_ID, "default")
+        sink = (WebhookSink) new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), () -> CLUSTER_ID, "default")
                 .createSink(cfg.sinks().get("webhookSink").value());
+    }
+
+    private void awaitSend() {
+        await().until(() -> sink.getLastSendMillis() > 0L);
     }
 }
