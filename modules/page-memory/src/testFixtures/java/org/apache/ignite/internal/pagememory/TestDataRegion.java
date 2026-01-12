@@ -18,16 +18,23 @@
 package org.apache.ignite.internal.pagememory;
 
 /**
- * Data region based on {@link PageMemory}.
+ * A test implementation of the {@link DataRegion} interface that returns the associated {@link PageMemory} instance.
+ * The region size is fixed at {@code 0} for testing purposes.
  */
-public interface DataRegion<T extends PageMemory> {
-    /**
-     * Returns page memory.
-     */
-    T pageMemory();
+public class TestDataRegion<T extends PageMemory> implements DataRegion<T> {
+    private final T pageMemory;
 
-    /**
-     * Returns the region size in bytes.
-     */
-    long regionSize();
+    public TestDataRegion(T pageMemory) {
+        this.pageMemory = pageMemory;
+    }
+
+    @Override
+    public T pageMemory() {
+        return pageMemory;
+    }
+
+    @Override
+    public long regionSize() {
+        return 0;
+    }
 }
