@@ -38,10 +38,9 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
     @Test
     void testStopNodePartitionAwarenessKeyValue() {
         int nodesCount = 3;
-        long reconnectInterval = 1000;
         cluster.startAndInit(nodesCount, new int[]{2});
 
-        try (IgniteClient client = getClient(nodesCount, reconnectInterval)) {
+        try (IgniteClient client = getClient(nodesCount, 1000)) {
             client.sql().executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
                     + "CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
 
@@ -67,10 +66,9 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
     @Test
     void testStopNodePartitionAwarenessQuery() {
         int nodesCount = 3;
-        long reconnectInterval = 1000;
         cluster.startAndInit(nodesCount, new int[]{2});
 
-        try (IgniteClient client = getClient(nodesCount, reconnectInterval)) {
+        try (IgniteClient client = getClient(nodesCount, 1000)) {
             IgniteSql sql = client.sql();
 
             sql.executeScript("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default'];"
