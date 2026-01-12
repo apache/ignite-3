@@ -624,7 +624,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
-    /** Wraps given expression in CAST iff given expressions is not of provided type and implicit cast exists. */
+    /** Wraps the given expression in CAST iff it is not of the specified type and such implicit cast is allowed. */
     public SqlNode addImplicitCastIfNeeded(SqlValidatorScope scope, SqlNode node, RelDataType requiredType) {
         if (needToCast(scope, node, requiredType)) {
             RelDataType fromType = validator.deriveType(scope, node);
