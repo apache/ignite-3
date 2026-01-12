@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -145,7 +146,7 @@ public class ClientFutureUtilsTest {
 
         Throwable[] suppressed = ex.getSuppressed();
         assertEquals(2, suppressed.length);
-        assertEquals(ex2, suppressed[0], "Should not have itself as suppressed.");
-        assertEquals(ex2, suppressed[1], "Should not have itself as suppressed.");
+        assertEquals(ex2, unwrapCause(suppressed[0]), "Should not have itself as suppressed.");
+        assertEquals(ex2, unwrapCause(suppressed[1]), "Should not have itself as suppressed.");
     }
 }
