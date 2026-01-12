@@ -15,24 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.network.recovery.message;
 
 /**
- * Allows reacting to logical topology changes.
+ * Parameters required for handling stale state of a node.
  */
-public interface JoinedNodes {
-
-    /**
-     * Called when the node joins logical topology.
-     *
-     * @param node Node.
-     */
-    void onJoined(InternalClusterNode node);
-
-    /**
-     * Called when the node leaves logical topology.
-     *
-     * @param node Node.
-     */
-    void onLeft(InternalClusterNode node);
+public interface StaleNodeHandlingParameters {
+    /** Returns the logical topology version. */
+    long topologyVersion();
 }
