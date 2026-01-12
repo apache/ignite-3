@@ -17,27 +17,17 @@
 
 package org.apache.ignite.internal.raft.rebalance;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
-
-import org.apache.ignite.internal.lang.ComponentStoppingException;
-import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
- * Helper class for exception handling.
+ * Exception thrown when a RAFT configuration change fails due to non-recoverable errors
+ * such as the node being in an invalid state (EPERM) or invalid arguments (EINVAL).
+ *
+ * <p>This exception is non-recoverable and should not be retried.
  */
-public class ExceptionUtils {
+public class RaftConfigurationException extends IgniteInternalCheckedException {
 
-    /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        return !hasCause(t,
-                NodeStoppingException.class,
-                ComponentStoppingException.class,
-                RaftStaleUpdateException.class,
-                RaftConfigurationException.class);
+    public RaftConfigurationException(String message) {
+        super(message);
     }
 }
