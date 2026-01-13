@@ -29,6 +29,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +46,9 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttle;
 import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.core.Window;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
@@ -71,6 +74,8 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.sql2rel.RelDecorrelator;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
@@ -78,6 +83,7 @@ import org.apache.calcite.util.Util.FoundOne;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
@@ -89,6 +95,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -156,6 +163,10 @@ public final class PlannerHelper {
             rel = RelOptUtil.propagateRelHints(rel, false);
 
             rel = planner.replaceCorrelatesCollisions(rel);
+
+            if (!hints.present(IgniteHint.DISABLE_DECORRELATION)) {
+                rel = tryDecorrelate(planner, rel);
+            }
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
@@ -229,6 +240,34 @@ public final class PlannerHelper {
 
             throw ex;
         }
+    }
+
+    private static RelNode tryDecorrelate(IgnitePlanner planner, RelNode rel) {
+        try {
+            // Currently, RelDecorrelator emits incorrect plan if the same correlation id is used
+            // in several relations.
+            rel.accept(new CorrelationUsedOnlyInSingleRelValidator());
+        } catch (FoundOne ignored) {
+            return rel;
+        }
+
+        RelBuilder relBuilder = Commons.FRAMEWORK_CONFIG.getSqlToRelConverterConfig()
+                .getRelBuilderFactory()
+                .create(planner.cluster(), null);
+
+        RelNode result = RelDecorrelator.decorrelateQuery(rel, relBuilder);
+        result = planner.transform(
+                PlannerPhase.HEP_PROJECT_TO_WINDOW, rel.getTraitSet(), result
+        );
+
+        try {
+            // Decorrelation may produce Window node which is currently not supported.
+            result.accept(WindowNodeIsNotPresentedValidator.INSTANCE);
+        } catch (FoundOne ignored) {
+            return rel;
+        }
+
+        return result;
     }
 
     private static void validateIndexesFromHints(RelNode rel, Hints hints) {
@@ -605,6 +644,39 @@ public final class PlannerHelper {
             } else {
                 return operand instanceof SqlIdentifier && ((SqlIdentifier) operand).isStar();
             }
+        }
+    }
+
+    private static class CorrelationUsedOnlyInSingleRelValidator extends RelHomogeneousShuttle {
+        private final Map<CorrelationId, RelNode> correlationUsage = new IdentityHashMap<>();
+
+        @Override
+        public RelNode visit(RelNode other) {
+            RelOptUtil.VariableUsedVisitor vuv = new RelOptUtil.VariableUsedVisitor(null);
+            other.accept(vuv);
+
+            for (CorrelationId id : vuv.variables) {
+                RelNode old = correlationUsage.put(id, other);
+
+                if (old != null && old != other) {
+                    throw new Util.FoundOne(id);
+                }
+            }
+
+            return super.visit(other);
+        }
+    }
+
+    private static class WindowNodeIsNotPresentedValidator extends RelHomogeneousShuttle {
+        private static final WindowNodeIsNotPresentedValidator INSTANCE = new WindowNodeIsNotPresentedValidator();
+
+        @Override
+        public RelNode visit(RelNode other) {
+            if (other instanceof Window) {
+                throw new Util.FoundOne(other);
+            }
+
+            return super.visit(other);
         }
     }
 }
