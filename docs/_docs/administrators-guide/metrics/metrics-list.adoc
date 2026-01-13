@@ -141,16 +141,9 @@ NOTE: Each link:administrators-guide/storage/storage-overview[storage profile] w
 | CpSyncedPages | The number of fsynced pages in the current checkpoint.
 | CpWriteSpeed | The checkpoint write speed, in pages per second. The value is averaged over the last 3 checkpoints plus the current one.
 | CurrDirtyRatio | The current ratio of dirty pages (dirty vs total), expressed as a fraction. The fraction is computed for each segment in the current region, and the highest value becomes "current."
-| DirtyPages | Current number of dirty pages in memory.
 | LastEstimatedSpeedForMarkAll | The last estimated speed of marking all clean pages dirty to the end of a checkpoint, in pages per second.
-| LoadedPages | Current number of pages loaded in memory.
 | MaxSize | The maximum in-memory region size in bytes.
 | MarkDirtySpeed | The speed of marking pages dirty, in pages per second. The value is averaged over the last 3 fragments, 0.25 sec each, plus the current fragment, 0–0.25 sec (0.75–1.0 sec total).
-| PageReplacements | Number of times a page was replaced (evicted) from the page cache.
-| PageCacheHits | Number of times a page was found in the page cache.
-| PageCacheMisses | Number of times a page was not found in the page cache and had to be loaded from disk.
-| PageCacheHitRate | Page cache hit rate over the last 5 minutes.
-| PageAcquireTime | Distribution of page acquisition time in nanoseconds.
 | SpeedBasedThrottlingPercentage | The fraction of throttling time within average marking time (e.g., "quarter" = 0.25).
 | TargetDirtyRatio | The ratio of dirty pages (dirty vs total), expressed as a fraction. Throttling starts when this ratio is reached.
 | ThrottleParkTime | The park (sleep) time for the write operation, in nanoseconds. The value is averaged over the last 3 fragments, 0.25 sec each, plus the current fragment, 0–0.25 sec (0.75–1.0 sec total). It defines park periods for either the checkpoint buffer protection or the clean page pool protection.
