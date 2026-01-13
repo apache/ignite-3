@@ -33,6 +33,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
@@ -245,7 +247,13 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                 false
         );
 
-        SuperRoot superRoot = new SuperRoot(s -> new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass)));
+        // Accept both "mock" (HOCON convention per @InjectConfiguration docs) and rootKey.key()
+        // (for patchConfigurationWithDynamicDefaults which uses the real root key).
+        SuperRoot superRoot = new SuperRoot(s ->
+                s.equals(rootKey.key()) || s.equals("mock")
+                        ? new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass))
+                        : null
+        );
 
         ConfigObject hoconCfg = ConfigFactory.parseString(annotation.value()).root();
 
@@ -345,10 +353,20 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
     private static void patchWithDynamicDefault(ConfigurationType type, SuperRoot superRoot) {
         SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
-        if (type == LOCAL) {
-            LOCAL_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
-        } else {
-            DISTRIBUTED_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+        List<ConfigurationModule> modules = type == LOCAL ? LOCAL_MODULES : DISTRIBUTED_MODULES;
+        modules.forEach(module -> patchIfRootExists(module, rootChange));
+    }
+
+    /**
+     * Patches configuration with dynamic defaults if the required root exists.
+     * Modules may try to access roots that don't exist in a test SuperRoot (when using custom rootName),
+     * in which case the patching is silently skipped.
+     */
+    private static void patchIfRootExists(ConfigurationModule module, SuperRootChange rootChange) {
+        try {
+            module.patchConfigurationWithDynamicDefaults(rootChange);
+        } catch (NoSuchElementException ignored) {
+            // Module tried to access a root that doesn't exist in this SuperRoot - skip
         }
     }
 }

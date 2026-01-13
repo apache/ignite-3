@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal;
 
+import static java.time.Duration.ofSeconds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
@@ -45,30 +45,34 @@ public class AssignmentsTestUtils {
      * @param node Node via which to operate.
      * @param tableName Name of the table which assignments (or which zone's assignments) to wait for.
      */
-    public static void awaitAssignmentsStabilization(Ignite node, String tableName) throws InterruptedException {
+    public static void awaitAssignmentsStabilization(Ignite node, String tableName) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(node.tables().table(tableName));
 
-        Catalog catalog = igniteImpl.catalogManager().catalog(igniteImpl.catalogManager().latestCatalogVersion());
-        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+        CatalogZoneDescriptor zone = igniteImpl.catalogManager().latestCatalog().zone(table.zoneId());
         assertNotNull(zone);
 
         HybridTimestamp timestamp = igniteImpl.clock().now();
 
-        assertTrue(waitForCondition(() -> {
-            int totalPartitionSize = 0;
+        int expectedTotalPartitionSize = zone.partitions() * zone.replicas();
 
-            for (int p = 0; p < zone.partitions(); p++) {
-                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
-                        new ZonePartitionId(table.zoneId(), p),
-                        timestamp);
+        waitAtMost(ofSeconds(10)).until(
+                () -> {
+                    int totalPartitionSize = 0;
 
-                assertThat(assignmentsFuture, willCompleteSuccessfully());
+                    for (int p = 0; p < zone.partitions(); p++) {
+                        CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
+                                new ZonePartitionId(table.zoneId(), p),
+                                timestamp);
 
-                totalPartitionSize += assignmentsFuture.join().nodes().size();
-            }
+                        assertThat(assignmentsFuture, willCompleteSuccessfully());
 
-            return totalPartitionSize == zone.partitions() * zone.replicas();
-        }, 10_000));
+                        totalPartitionSize += assignmentsFuture.join().nodes().size();
+                    }
+
+                    return totalPartitionSize;
+                },
+                is(expectedTotalPartitionSize)
+        );
     }
 }

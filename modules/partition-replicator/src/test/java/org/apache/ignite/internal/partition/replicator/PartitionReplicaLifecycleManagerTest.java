@@ -321,7 +321,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testStopOrder() throws NodeStoppingException {
-        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
+        int zoneId = catalogManager.latestCatalog().defaultZone().id();
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -352,7 +352,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             afterReplicaStoppedFuture.complete(params);
         }));
 
-        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
+        int zoneId = catalogManager.latestCatalog().defaultZone().id();
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -381,7 +381,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             afterReplicaDestroyedFuture.complete(params);
         }));
 
-        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
+        int zoneId = catalogManager.latestCatalog().defaultZone().id();
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -424,7 +424,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     public void partitionLifecycleManagerStopsCorrectWhenTxStatePartitionStoragesAreStoppedExceptionally() throws Exception {
         doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(any());
 
-        int defaultZoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
+        int defaultZoneId = catalogManager.latestCatalog().defaultZone().id();
         List<ZonePartitionResources> defaultZoneResources = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT)
                 .mapToObj(partId -> new ZonePartitionId(defaultZoneId, partId))
                 .map(partitionReplicaLifecycleManager::zonePartitionResources)

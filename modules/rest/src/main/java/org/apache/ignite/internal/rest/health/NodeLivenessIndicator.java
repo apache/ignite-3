@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.rest.health;
+
+import static io.micronaut.health.HealthStatus.UP;
+
+import io.micronaut.management.health.indicator.HealthIndicator;
+import io.micronaut.management.health.indicator.HealthResult;
+import io.micronaut.management.health.indicator.annotation.Liveness;
+import jakarta.inject.Singleton;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 
 /**
- * Data region based on {@link PageMemory}.
+ * Health indicator that always responds with the UP status.
  */
-public interface DataRegion<T extends PageMemory> {
-    /**
-     * Returns page memory.
-     */
-    T pageMemory();
-
-    /**
-     * Returns the region size in bytes.
-     */
-    long regionSize();
+@Singleton
+@Liveness
+public class NodeLivenessIndicator implements HealthIndicator {
+    @Override
+    public Publisher<HealthResult> getResult() {
+        return Flux.just(HealthResult.builder("node", UP).build());
+    }
 }

@@ -64,6 +64,7 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
@@ -178,7 +179,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 checkpointManager.partitionDestructionLockManager()
         );
 
-        dataRegionList.add(() -> pageMemory);
+        dataRegionList.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
         checkpointManager.start();
