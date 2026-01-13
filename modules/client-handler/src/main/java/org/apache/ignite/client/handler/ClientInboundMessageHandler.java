@@ -1418,7 +1418,7 @@ public class ClientInboundMessageHandler
                     })
                     .thenApply(unpacker -> {
                         try (unpacker) {
-                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker);
+                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker, false);
                         }
                     });
         }
