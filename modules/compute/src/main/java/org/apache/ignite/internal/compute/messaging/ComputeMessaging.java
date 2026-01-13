@@ -204,8 +204,7 @@ public class ComputeMessaging {
                 units,
                 request.jobClassName(),
                 metadataBuilder,
-                request.input(),
-                request.observableTimestamp()
+                request.input()
         );
 
         starter.start(executionContext)
