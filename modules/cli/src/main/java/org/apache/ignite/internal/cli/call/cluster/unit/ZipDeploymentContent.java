@@ -87,6 +87,10 @@ class ZipDeploymentContent implements DeploymentContent {
 
     @Override
     public void cleanup() {
-        zipFile.delete();
+        try {
+            Files.deleteIfExists(zipFile.toPath());
+        } catch (IOException ignored) {
+            // Best effort cleanup - temporary file will be deleted on JVM exit
+        }
     }
 }
