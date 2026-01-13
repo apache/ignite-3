@@ -54,6 +54,8 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.PushMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterChange;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
+import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
+import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
@@ -74,7 +76,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.exporters {log {"
             + "exporterName = logPush, "
             + "periodMillis = 300, "
-            + "oneLinePerMetricSource = false,"
+            + "oneLinePerMetricSource = true,"
             + "enabledMetrics = ["
             + "  " + SRC_NAME + ", "
             + "  " + ADDITIONAL_SRC_NAME + ", "
@@ -171,6 +173,12 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
     void setUp() {
         metricManager = new MetricManagerImpl();
         metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
+
+        // Register JVM and OS metric sources for system metrics (heap, CPU).
+        metricManager.registerSource(new JvmMetricSource());
+        metricManager.registerSource(new OsMetricSource());
+        metricManager.enable("jvm");
+        metricManager.enable("os");
 
         metricManager.registerSource(new TestMetricSource(metricSet));
         metricManager.registerSource(new TestMetricSource(fullyIncludedMetricSet));
@@ -305,7 +313,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
     void testHeapMemoryIncluded() {
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage()
-                        .matches(".*Heap \\[used=[0-9.]+[KMG]B, free=[0-9.]+%, comm=[0-9.]+[KMG]B\\].*"),
+                        .matches(".*Heap \\[used=[0-9.]+ [KMG]iB, free=[0-9.]+%, comm=[0-9.]+ [KMG]iB\\].*"),
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
 
@@ -436,6 +444,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
+                                .changeOneLinePerMetricSource(true)
                                 .changeEnabledMetrics("testSource", "thread.pools.*")
                 )
         );
@@ -469,6 +478,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
+                                .changeOneLinePerMetricSource(true)
                                 .changeEnabledMetrics("testSource", "thread.pools.*")
                 )
         );
@@ -492,10 +502,44 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSingleLineOutput() {
+        mutateConfiguration(metricConfiguration, change ->
+                change.changeExporters().update("log", exporterChange ->
+                        exporterChange.convert(LogPushExporterChange.class)
+                                .changeOneLinePerMetricSource(true)
+                )
+        );
+
         withLogInspector(
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
                     return msg.contains("Metrics for local node") && !msg.contains("\n");
+                },
+                logInspector -> {
+                    metricManager.start(Map.of("logPush", exporter));
+
+                    Awaitility.await()
+                            .atMost(Duration.ofMillis(500L))
+                            .until(logInspector::isMatched);
+                }
+        );
+    }
+
+    @Test
+    void testMultilineOutput() {
+        mutateConfiguration(metricConfiguration, change ->
+                change.changeExporters().update("log", exporterChange ->
+                        exporterChange.convert(LogPushExporterChange.class)
+                                .changeOneLinePerMetricSource(false)
+                )
+        );
+
+        withLogInspector(
+                evt -> {
+                    String msg = evt.getMessage().getFormattedMessage();
+                    // Check that metrics are formatted with newlines and padding
+                    return msg.contains("Metrics for local node")
+                            && msg.contains("\n" + SRC_NAME + ":")
+                            && msg.contains("\n  ");
                 },
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
@@ -734,9 +778,15 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     assertTrue(similarSetTwoMetricTwo.get());
                     assertFalse(ignoredMetric.get());
 
-                    assertTrue(fullMetricSingleString.get());
-                    assertFalse(fullMetricIntOneString.get());
-                    assertFalse(fullMetricLongOneString.get());
+                    if (oneLinePerMetricSource) {
+                        assertTrue(fullMetricSingleString.get());
+                        assertFalse(fullMetricIntOneString.get());
+                        assertFalse(fullMetricLongOneString.get());
+                    } else {
+                        assertFalse(fullMetricSingleString.get());
+                        assertTrue(fullMetricIntOneString.get());
+                        assertTrue(fullMetricLongOneString.get());
+                    }
                 }
         );
     }

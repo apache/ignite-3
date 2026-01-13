@@ -20,13 +20,11 @@ package org.apache.ignite.internal.metrics.exporters.log;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
+import static org.apache.ignite.internal.util.IgniteUtils.formatUptimeHms;
+import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 
 import com.google.auto.service.AutoService;
-import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.RuntimeMXBean;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,10 +45,13 @@ import org.apache.ignite.internal.util.CollectionUtils;
 @AutoService(MetricExporter.class)
 public class LogPushExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "logPush";
-    private final RuntimeMXBean runtimeMxBean;
-    private final MemoryMXBean memoryMxBean;
-    private final OperatingSystemMXBean osMxBean;
 
+    /** Padding for individual metric output in multiline mode. */
+    private static final String PADDING = "  ";
+
+    private final RuntimeMXBean runtimeMxBean;
+
+    private volatile boolean oneLinePerMetricSource;
     private volatile List<String> enabledMetrics;
 
     /**
@@ -58,8 +59,6 @@ public class LogPushExporter extends PushMetricExporter {
      */
     public LogPushExporter() {
         this.runtimeMxBean = ManagementFactory.getRuntimeMXBean();
-        this.memoryMxBean = ManagementFactory.getMemoryMXBean();
-        this.osMxBean = ManagementFactory.getOperatingSystemMXBean();
     }
 
     @Override
@@ -72,6 +71,7 @@ public class LogPushExporter extends PushMetricExporter {
         super.reconfigure(view);
 
         LogPushExporterView v = (LogPushExporterView) view;
+        oneLinePerMetricSource = v.oneLinePerMetricSource();
         enabledMetrics = Arrays.asList(v.enabledMetrics());
     }
 
@@ -102,39 +102,29 @@ public class LogPushExporter extends PushMetricExporter {
 
         appendNetworkInfo(report, metricSets);
 
-        appendCpuInfo(report);
+        appendCpuInfo(report, metricSets);
 
-        appendHeapInfo(report);
+        appendHeapInfo(report, metricSets);
 
         for (MetricSet metricSet : metricSets) {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                report.append(", ").append(metricSet.name()).append('=');
-                appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
+                if (oneLinePerMetricSource) {
+                    report.append(", ").append(metricSet.name()).append('=');
+                    appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
+                } else {
+                    report.append('\n').append(metricSet.name()).append(':');
+                    appendMetricsMultiline(report, metricSet, hasMetricsWhiteList);
+                }
             }
         }
 
-        appendThreadPoolMetrics(report, metricSets);
+        if (oneLinePerMetricSource) {
+            appendThreadPoolMetrics(report, metricSets);
+        }
 
         log.info(report.toString());
-    }
-
-    /**
-     * Formats uptime in HH:MM:SS.mmm format.
-     *
-     * @param uptimeMs Uptime in milliseconds.
-     * @return Formatted uptime string.
-     */
-    private static String formatUptimeHms(long uptimeMs) {
-        long milliseconds = uptimeMs % 1000;
-        long totalSeconds = uptimeMs / 1000;
-        long seconds = totalSeconds % 60;
-        long totalMinutes = totalSeconds / 60;
-        long minutes = totalMinutes % 60;
-        long hours = totalMinutes / 60;
-
-        return String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
     }
 
     /**
@@ -145,7 +135,7 @@ public class LogPushExporter extends PushMetricExporter {
      */
     private void appendNodeInfo(StringBuilder report, Collection<MetricSet> metricSets) {
         String ephemeralId = getEphemeralNodeId(metricSets);
-        String nodeName = getNodeName(metricSets);
+        String nodeName = nodeName();
         String version = getNodeVersion(metricSets);
 
         long uptimeMs = runtimeMxBean.getUptime();
@@ -183,24 +173,6 @@ public class LogPushExporter extends PushMetricExporter {
     }
 
     /**
-     * Formats bytes in a human-readable format.
-     *
-     * @param bytes Number of bytes.
-     * @return Formatted string.
-     */
-    private static String formatBytes(long bytes) {
-        if (bytes < 1024) {
-            return bytes + "B";
-        } else if (bytes < 1024 * 1024) {
-            return String.format("%.1fKB", bytes / 1024.0);
-        } else if (bytes < 1024 * 1024 * 1024) {
-            return String.format("%.1fMB", bytes / (1024.0 * 1024));
-        } else {
-            return String.format("%.1fGB", bytes / (1024.0 * 1024 * 1024));
-        }
-    }
-
-    /**
      * Checks if the node is initialized based on the presence of key metrics.
      *
      * @param metricSets Collection of metric sets.
@@ -230,25 +202,6 @@ public class LogPushExporter extends PushMetricExporter {
             }
         }
         return null;
-    }
-
-    /**
-     * Gets the node name from topology metrics.
-     *
-     * @param metricSets Collection of metric sets.
-     * @return Node name or null if not available.
-     */
-    private String getNodeName(Collection<MetricSet> metricSets) {
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("topology.local")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("NodeName")) {
-                        return metric.getValueAsString();
-                    }
-                }
-            }
-        }
-        return nodeName();
     }
 
     /**
@@ -324,82 +277,91 @@ public class LogPushExporter extends PushMetricExporter {
      * Appends CPU information. Format: CPU [CPUs=20, curLoad=38.57%, avgLoad=16.53%, GC=0%].
      *
      * @param report Report string builder.
+     * @param metricSets Collection of metric sets.
      */
-    private void appendCpuInfo(StringBuilder report) {
-        int cpuCount = Runtime.getRuntime().availableProcessors();
+    private void appendCpuInfo(StringBuilder report, Collection<MetricSet> metricSets) {
+        Integer cpuCount = null;
+        Double curLoad = null;
+        Double avgLoad = null;
+        Double gcPercent = null;
 
-        double curLoad = -1.0;
-        double avgLoad = -1.0;
-
-        if (osMxBean instanceof com.sun.management.OperatingSystemMXBean) {
-            com.sun.management.OperatingSystemMXBean sunOs = (com.sun.management.OperatingSystemMXBean) osMxBean;
-            curLoad = sunOs.getProcessCpuLoad();
-            avgLoad = sunOs.getSystemLoadAverage();
+        // Get CPU metrics from os metric source.
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("os")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("AvailableProcessors")) {
+                        cpuCount = Integer.parseInt(metric.getValueAsString());
+                    } else if (metric.name().equals("CpuLoad")) {
+                        curLoad = Double.parseDouble(metric.getValueAsString());
+                    } else if (metric.name().equals("LoadAverage")) {
+                        avgLoad = Double.parseDouble(metric.getValueAsString());
+                    }
+                }
+            } else if (metricSet.name().equals("jvm")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("gc.CollectionTimePercent")) {
+                        gcPercent = Double.parseDouble(metric.getValueAsString());
+                    }
+                }
+            }
         }
 
-        // Calculate GC percentage.
-        double gcPercent = calculateGcPercent();
+        if (cpuCount == null || cpuCount <= 0) {
+            return;
+        }
 
         report.append(", CPU [CPUs=").append(cpuCount);
 
-        if (curLoad >= 0) {
+        if (curLoad != null && curLoad >= 0) {
             report.append(", curLoad=").append(String.format("%.2f%%", curLoad * 100));
         }
 
-        if (avgLoad >= 0) {
+        if (avgLoad != null && avgLoad >= 0) {
             report.append(", loadAvg=").append(String.format("%.2f", avgLoad));
         }
 
-        report.append(", GC=").append(String.format("%.0f%%", gcPercent))
-                .append(']');
+        if (gcPercent != null) {
+            report.append(", GC=").append(String.format("%.0f%%", gcPercent));
+        }
+
+        report.append(']');
     }
 
     /**
      * Appends Heap memory information. Format: Heap [used=6950MB, free=43.44%, comm=12288MB].
      *
      * @param report Report string builder.
+     * @param metricSets Collection of metric sets.
      */
-    private void appendHeapInfo(StringBuilder report) {
-        MemoryUsage heapUsage = memoryMxBean.getHeapMemoryUsage();
+    private void appendHeapInfo(StringBuilder report, Collection<MetricSet> metricSets) {
+        Long used = null;
+        Long committed = null;
+        Double freePercent = null;
 
-        long used = heapUsage.getUsed();
-        long committed = heapUsage.getCommitted();
-        long max = heapUsage.getMax();
+        // Get heap memory metrics from jvm metric source.
+        for (MetricSet metricSet : metricSets) {
+            if (metricSet.name().equals("jvm")) {
+                for (Metric metric : metricSet) {
+                    if (metric.name().equals("memory.heap.Used")) {
+                        used = Long.parseLong(metric.getValueAsString());
+                    } else if (metric.name().equals("memory.heap.Committed")) {
+                        committed = Long.parseLong(metric.getValueAsString());
+                    } else if (metric.name().equals("memory.heap.FreePercent")) {
+                        freePercent = Double.parseDouble(metric.getValueAsString());
+                    }
+                }
+                break;
+            }
+        }
 
-        // Calculate free percentage based on max if available, otherwise committed.
-        double freePercent;
-        if (max > 0) {
-            freePercent = (Math.max(max - used, 0) * 100.0) / max;
-        } else if (committed > 0) {
-            freePercent = (Math.max(committed - used, 0) * 100.0) / (committed);
-        } else {
+        if (used == null || committed == null || freePercent == null) {
             return;
         }
 
-        report.append(", Heap [used=").append(formatBytes(used))
+        report.append(", Heap [used=").append(readableSize(used, false))
                 .append(", free=").append(String.format("%.2f%%", freePercent))
-                .append(", comm=").append(formatBytes(committed))
+                .append(", comm=").append(readableSize(committed, false))
                 .append(']');
-    }
-
-    /**
-     * Calculates GC percentage.
-     *
-     * @return GC percentage.
-     */
-    private double calculateGcPercent() {
-        List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
-
-        long totalGcTime = 0;
-        for (GarbageCollectorMXBean gcBean : gcBeans) {
-            totalGcTime += Math.max(gcBean.getCollectionTime(), 0);
-        }
-
-        long uptime = runtimeMxBean.getUptime();
-        if (uptime > 0) {
-            return (totalGcTime * 100.0) / uptime;
-        }
-        return 0;
     }
 
     /**
@@ -424,6 +386,24 @@ public class LogPushExporter extends PushMetricExporter {
             sb.append(m.name()).append('=').append(m.getValueAsString());
         }
         sb.append(']');
+    }
+
+    /**
+     * Appends metrics in multiline format.
+     *
+     * @param sb String builder.
+     * @param metricSet Metric set.
+     * @param hasMetricsWhiteList Whether metrics whitelist is present.
+     */
+    private void appendMetricsMultiline(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList) {
+        List<Metric> metrics = StreamSupport.stream(metricSet.spliterator(), false)
+                .sorted(comparing(Metric::name))
+                .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
+                .collect(toList());
+
+        for (Metric m : metrics) {
+            sb.append('\n').append(PADDING).append(m.name()).append(": ").append(m.getValueAsString());
+        }
     }
 
     /**
