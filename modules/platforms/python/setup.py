@@ -96,6 +96,7 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
                 f'-DEXTENSION_FILENAME={ext_file}',
                 f'-DIGNITE_VERSION={cmake_project_version(version)}',
+                f'-DPython3_EXECUTABLE={sys.version_info}")'
             ]
 
             if platform.system() == 'Windows':
