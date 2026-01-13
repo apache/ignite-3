@@ -141,12 +141,16 @@ public class PagerSupport {
      * @param output the output to count lines in
      * @return the number of lines
      */
-    int countLines(String output) {
+    static int countLines(String output) {
         if (output == null || output.isEmpty()) {
             return 0;
         }
+        // Normalize Windows line endings
+        String normalized = output.replace("\r", "");
         // Remove trailing newline for accurate count
-        String normalized = output.endsWith("\n") ? output.substring(0, output.length() - 1) : output;
+        if (normalized.endsWith("\n")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
         if (normalized.isEmpty()) {
             return 0;
         }
@@ -159,11 +163,8 @@ public class PagerSupport {
         return count;
     }
 
-    /**
-     * Creates the process builder for the pager.
-     * Package-private for testing.
-     */
-    ProcessBuilder createPagerProcess(String command) {
+    /** Creates the process builder for the pager. */
+    private static ProcessBuilder createPagerProcess(String command) {
         ProcessBuilder pb;
         if (isWindows()) {
             pb = new ProcessBuilder("cmd", "/c", command);
@@ -175,20 +176,20 @@ public class PagerSupport {
         return pb;
     }
 
-    private boolean readPagerEnabled(ConfigManagerProvider configManagerProvider) {
+    private static boolean readPagerEnabled(ConfigManagerProvider configManagerProvider) {
         String value = configManagerProvider.get()
                 .getCurrentProperty(CliConfigKeys.PAGER_ENABLED.value());
         // Default to true if not set
         return value == null || value.isEmpty() || Boolean.parseBoolean(value);
     }
 
-    private String readPagerCommand(ConfigManagerProvider configManagerProvider) {
+    private static String readPagerCommand(ConfigManagerProvider configManagerProvider) {
         String configured = configManagerProvider.get()
                 .getCurrentProperty(CliConfigKeys.PAGER_COMMAND.value());
         return resolveCommand(configured);
     }
 
-    private String resolveCommand(String configured) {
+    private static String resolveCommand(String configured) {
         // Priority: configured > $PAGER env > default
         if (configured != null && !configured.isEmpty()) {
             return configured;
@@ -202,7 +203,7 @@ public class PagerSupport {
         return isWindows() ? DEFAULT_PAGER_WINDOWS : DEFAULT_PAGER;
     }
 
-    private boolean isWindows() {
+    static boolean isWindows() {
         return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 }

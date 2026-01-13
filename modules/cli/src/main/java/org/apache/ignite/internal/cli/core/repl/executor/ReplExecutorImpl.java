@@ -159,7 +159,7 @@ public class ReplExecutorImpl implements ReplExecutor {
 
     private SystemRegistryImpl createRegistry(Repl repl) {
         return new SystemRegistryImpl(
-                repl.getParser() == null ? parser : repl.getParser(),
+                repl.getParser() != null ? repl.getParser() : parser,
                 terminal,
                 WORK_DIR_PROVIDER,
                 null

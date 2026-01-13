@@ -162,14 +162,16 @@ class PagerSupportTest {
         @DisplayName("returns default command when config is null")
         void defaultWhenConfigNull() {
             PagerSupport pager = createPagerSupport(24, true, null);
-            assertThat(pager.getPagerCommand(), is(PagerSupport.DEFAULT_PAGER));
+            String expectedPager = PagerSupport.isWindows() ? PagerSupport.DEFAULT_PAGER_WINDOWS : PagerSupport.DEFAULT_PAGER;
+            assertThat(pager.getPagerCommand(), is(expectedPager));
         }
 
         @Test
         @DisplayName("returns default command when config is empty")
         void defaultWhenConfigEmpty() {
             PagerSupport pager = createPagerSupport(24, true, "");
-            assertThat(pager.getPagerCommand(), is(PagerSupport.DEFAULT_PAGER));
+            String expectedPager = PagerSupport.isWindows() ? PagerSupport.DEFAULT_PAGER_WINDOWS : PagerSupport.DEFAULT_PAGER;
+            assertThat(pager.getPagerCommand(), is(expectedPager));
         }
     }
 
