@@ -58,13 +58,11 @@ public class Main {
         boolean interactiveMode = args.length == 0 && isatty();
 
         int exitCode = 0;
-        boolean ansiInstalled = false;
         ApplicationContextBuilder builder = ApplicationContext.builder(Environment.CLI).deduceEnvironment(false);
         try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
             if (interactiveMode) {
                 // REPL mode: full initialization with Jansi ANSI console and JLine terminal.
                 AnsiConsole.systemInstall();
-                ansiInstalled = true;
                 initReplExecutor(micronautFactory);
                 initQuestionAsker(micronautFactory);
                 enterRepl(micronautFactory);
@@ -73,7 +71,6 @@ public class Main {
                 // Only install ANSI console if stdout is a terminal (for colored output).
                 if (isatty()) {
                     AnsiConsole.systemInstall();
-                    ansiInstalled = true;
                 }
                 try {
                     exitCode = executeCommand(args, micronautFactory);
@@ -86,7 +83,7 @@ public class Main {
             System.err.println("Error occurred during initialization: " + e.getMessage());
             exitCode = 1;
         } finally {
-            if (ansiInstalled) {
+            if (AnsiConsole.isInstalled()) {
                 AnsiConsole.systemUninstall();
             }
         }
