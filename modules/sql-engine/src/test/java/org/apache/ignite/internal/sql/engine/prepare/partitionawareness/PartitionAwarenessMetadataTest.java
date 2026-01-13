@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -77,10 +76,8 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
     void clearCatalog() {
         Commons.resetFastQueryOptimizationFlag();
 
-        int version = CLUSTER.catalogManager().latestCatalogVersion();
-
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().latestCatalog().tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
@@ -390,10 +387,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
         } else {
             assertNotNull(actual, "Metadata not found");
 
-            CatalogManager catalogManager = CLUSTER.catalogManager();
-            int v = catalogManager.latestCatalogVersion();
-
-            CatalogTableDescriptor table = catalogManager.catalog(v).table("PUBLIC", "T");
+            CatalogTableDescriptor table = CLUSTER.catalogManager().latestCatalog().table("PUBLIC", "T");
             assertNotNull(table, "table");
 
             assertEquals(table.id(), actual.tableId(), "metadata tableId");

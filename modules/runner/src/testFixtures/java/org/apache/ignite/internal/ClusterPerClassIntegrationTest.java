@@ -242,13 +242,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Drops all non-system schemas. */
     protected static void dropAllSchemas() {
         Ignite aliveNode = CLUSTER.aliveNode();
-        IgniteImpl ignite = unwrapIgniteImpl(aliveNode);
-        CatalogManager catalogManager = ignite.catalogManager();
 
-        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-        assert latestCatalog != null;
-
-        String dropSchemasScript = latestCatalog.schemas().stream()
+        String dropSchemasScript = unwrapIgniteImpl(aliveNode).catalogManager().latestCatalog().schemas().stream()
                 .map(CatalogSchemaDescriptor::name)
                 .filter(Predicate.not(CatalogUtils.SYSTEM_SCHEMAS::contains))
                 .filter(Predicate.not(SqlCommon.DEFAULT_SCHEMA_NAME::equals))
@@ -262,8 +257,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible zones. */
     protected static void dropAllZonesExceptDefaultOne() {
-        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+        Catalog catalog = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog();
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         Predicate<String> isNotDefaultZone = defaultZone == null ? zoneName -> true

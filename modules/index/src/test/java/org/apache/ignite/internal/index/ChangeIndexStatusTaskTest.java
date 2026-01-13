@@ -402,7 +402,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     private ZonePartitionId createReplicationGroupId(int partId) {
-        Collection<CatalogZoneDescriptor> zones = catalogManager.catalog(catalogManager.latestCatalogVersion()).zones();
+        Collection<CatalogZoneDescriptor> zones = catalogManager.latestCatalog().zones();
 
         assertThat("Only one zone should be defined [zones=" + zones + ']', zones, hasSize(1));
 

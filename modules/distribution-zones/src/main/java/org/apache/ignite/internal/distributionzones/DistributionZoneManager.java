@@ -696,9 +696,7 @@ public class DistributionZoneManager extends
      * Returns the current zones in the Catalog. Must always be called from the meta storage thread.
      */
     private Collection<CatalogZoneDescriptor> currentZones() {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        return catalogManager.catalog(catalogVersion).zones();
+        return catalogManager.latestCatalog().zones();
     }
 
     /**

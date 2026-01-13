@@ -64,7 +64,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
-public class IgniteSqlToRelConvertor extends SqlToRelConverter implements InitializerContext {
+public class IgniteSqlToRelConverter extends SqlToRelConverter implements InitializerContext {
 
     private static final MethodHandle REPLACE_SUB_QUERIES;
 
@@ -97,7 +97,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
 
     private RelBuilder relBuilder;
 
-    IgniteSqlToRelConvertor(
+    IgniteSqlToRelConverter(
             RelOptTable.ViewExpander viewExpander,
             @Nullable SqlValidator validator,
             Prepare.CatalogReader catalogReader, RelOptCluster cluster,
@@ -109,7 +109,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         relBuilder = config.getRelBuilderFactory().create(cluster, null);
 
         if (INIT_ERROR != null) {
-            throw new IllegalStateException("Failed to initialize " + IgniteSqlToRelConvertor.class.getName(), INIT_ERROR);
+            throw new IllegalStateException("Failed to initialize " + IgniteSqlToRelConverter.class.getName(), INIT_ERROR);
         }
     }
 
@@ -145,14 +145,50 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
      *
      * @param node The AST root to convert.
      * @param scope The scope to use to resolve column reference, if any.
-     * @param inputRowType The input row type. Should be provided if expression contains any column references.
+     * @param inputRowTypes The types of the input which can be referenced in the expression.
+     *      Should be provided if expression contains any column references.
      * @return A converted expression tree.
      */
-    public RexNode convertExpressionExt(SqlNode node, SqlValidatorScope scope, @Nullable RelDataType inputRowType) {
+    public RexNode convertExpressionExt(SqlNode node, SqlValidatorScope scope, RelDataType... inputRowTypes) {
         Blackboard bb = createBlackboard(scope, null, false);
 
-        if (inputRowType != null) {
-            bb.setRoot(relBuilder.values(inputRowType).build(), true);
+        // If expression expects one or more inputs, then we need to create fake root rel so converter 
+        // can properly resolve index of referenced columns. The rules are as follow:
+        //   1) If there is only one input, then simple Values relation is registered both as root and as leafs.
+        //   2) If there is multiple inputs, then Values relation is created for every input and registered as leaf.
+        //      Then, all created Values relation are combined in left-deep Join tree. The topmost join relation is
+        //      then registered as root.
+        //
+        // For example, for input types `type1`, `type2`, and `type3` the following tree is created:
+        //
+        // Join (root)
+        //  +- Join
+        //  |   +- Values():type1 (leaf)
+        //  |   +- Values():type2 (leaf)
+        //  +- Values():type3 (leaf)
+        //
+        // Registering relation as leaf make converter to consider this relation during reference index resolution,
+        // and registration of the root is required for converter to create InputReference, otherwise Correlate
+        // will be created instead.
+        if (inputRowTypes.length > 0) {
+            int inputNo = 0;
+            for (RelDataType inputType : inputRowTypes) {
+                // Create fake Values node representing input.
+                RelNode values = relBuilder.values(inputType).build();
+                // And put it on top of the stack of RelBuilder.
+                relBuilder.push(values);
+
+                if (inputNo > 0) {
+                    relBuilder.join(JoinRelType.INNER, rexBuilder.makeLiteral(true));
+                }
+
+                inputNo++;
+
+                bb.setRoot(values, true);
+            }
+
+            // Get the result from top of the stack.
+            bb.setRoot(relBuilder.build(), false);
         }
 
         try {

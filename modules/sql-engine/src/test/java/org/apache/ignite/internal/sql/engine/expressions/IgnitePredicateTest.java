@@ -29,31 +29,18 @@ import java.time.LocalTime;
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.api.expressions.EvaluationContext;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionEvaluationException;
-import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionParsingException;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionValidationException;
 import org.apache.ignite.internal.sql.engine.api.expressions.IgnitePredicate;
-import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
-import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
-import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 @SuppressWarnings("ThrowableNotThrown")
 class IgnitePredicateTest extends AbstractExpressionFactoryTest {
-    private final ExpressionFactory factory = new SqlExpressionFactoryAdapter(
-            new SqlExpressionFactoryImpl(
-                    Commons.typeFactory(), 0, EmptyCacheFactory.INSTANCE
-            )
-    );
-
     @Test
     @TestFor(ColumnType.BOOLEAN)
     void booleanTest() throws Exception {
@@ -1151,6 +1138,12 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
                 () -> factory.predicate("CURRENT_DATE", singleColumnType(NativeTypes.INT32)),
                 "From line 1, column 1 to line 1, column 12: CURRENT_DATE is not supported in given context."
         );
+
+        assertThrows(
+                ExpressionValidationException.class,
+                () -> factory.predicate("1 + CAST(? AS BIGINT)", singleColumnType(NativeTypes.INT32)),
+                "From line 1, column 10 to line 1, column 10: Dynamic parameters are not supported in given context."
+        );
     }
 
     @Test
@@ -1170,45 +1163,4 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
         );
     }
 
-    private EvaluationContext<Object[]> context() {
-        return factory.<Object[]>contextBuilder()
-                .rowAccessor(ObjectArrayAccessor.INSTANCE)
-                .build();
-    }
-
-    private EvaluationContext<Object[]> context(Instant currentTime) {
-        return factory.<Object[]>contextBuilder()
-                .rowAccessor(ObjectArrayAccessor.INSTANCE)
-                .timeProvider(currentTime::toEpochMilli)
-                .build();
-    }
-
-    private static StructNativeType singleColumnType(NativeType type) {
-        return NativeTypes.structBuilder()
-                .addField("VAL", type, true)
-                .build();
-    }
-
-    private static @Nullable Object[] row(@Nullable Object value) {
-        return new Object[] {value};
-    }
-
-    static class ObjectArrayAccessor implements RowAccessor<Object[]> {
-        private static final ObjectArrayAccessor INSTANCE = new ObjectArrayAccessor();
-
-        @Override
-        public @Nullable Object get(int field, Object[] row) {
-            return row[field];
-        }
-
-        @Override
-        public int columnsCount(Object[] row) {
-            return row.length;
-        }
-
-        @Override
-        public boolean isNull(int field, Object[] row) {
-            return row[field] == null;
-        }
-    }
 }
