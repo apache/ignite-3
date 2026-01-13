@@ -69,7 +69,7 @@ public class ComputeJobDataHolder {
      *
      * @return Marshalled data.
      */
-    public byte[] data() {
+    public byte @Nullable [] data() {
         return data;
     }
 

@@ -25,6 +25,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.jetbrains.annotations.Nullable;
@@ -52,9 +53,17 @@ public final class ClientComputeJobUnpacker {
     }
 
     /** Unpacks compute job argument without marshaller. */
-    public static @Nullable ComputeJobDataHolder unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
+    public static @Nullable ComputeJobDataHolder unpackJobArgumentWithoutMarshaller(
+            ClientMessageUnpacker unpacker,
+            boolean enableObservableTs) {
+        long observableTs = enableObservableTs
+                ? unpacker.unpackLong()
+                : HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
         if (unpacker.tryUnpackNil()) {
-            return null;
+            return observableTs == HybridTimestamp.NULL_HYBRID_TIMESTAMP
+                    ? null
+                    : new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, observableTs);
         }
 
         int typeId = unpacker.unpackInt();
@@ -67,7 +76,10 @@ public final class ClientComputeJobUnpacker {
     }
 
     /** Unpacks compute job info. */
-    public static Job unpackJob(ClientMessageUnpacker unpacker, boolean enablePlatformJobs) {
+    public static Job unpackJob(
+            ClientMessageUnpacker unpacker,
+            boolean enablePlatformJobs,
+            boolean enableObservableTs) {
         List<DeploymentUnit> deploymentUnits = unpacker.unpackDeploymentUnits();
         String jobClassName = unpacker.unpackString();
         var options = JobExecutionOptions.builder().priority(unpacker.unpackInt()).maxRetries(unpacker.unpackInt());
@@ -76,7 +88,7 @@ public final class ClientComputeJobUnpacker {
             options.executorType(JobExecutorType.fromOrdinal(unpacker.unpackInt()));
         }
 
-        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker);
+        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker, enableObservableTs);
 
         return new Job(deploymentUnits, jobClassName, options.build(), args);
     }
