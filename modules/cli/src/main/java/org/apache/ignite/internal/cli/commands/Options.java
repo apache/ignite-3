@@ -247,6 +247,12 @@ public enum Options {
         /** Unit nodes option description. */
         public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes where the unit will be deployed";
 
+        /** Unit recursive option long name. */
+        public static final String UNIT_RECURSIVE_OPTION = "--recursive";
+
+        /** Unit recursive option description. */
+        public static final String UNIT_RECURSIVE_OPTION_DESC = "Deploy directory recursively (creates a ZIP file and uses ZIP deployment)";
+
         public static final String CLUSTER_CONFIG_OPTION = "--config";
 
         public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration that "

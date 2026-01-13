@@ -323,6 +323,80 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         });
     }
 
+    @Test
+    @DisplayName("Should deploy a unit from directory with subdirectories using --recursive")
+    void deployRecursive() throws IOException {
+        // Given a directory with subdirectories
+        Path recursiveDir = Files.createDirectory(WORK_DIR.resolve("recursive-test"));
+        Path subDir = Files.createDirectory(recursiveDir.resolve("subdir"));
+        Files.createFile(recursiveDir.resolve("root-file.txt"));
+        Files.createFile(subDir.resolve("nested-file.txt"));
+
+        // When deploy with --recursive option
+        execute("cluster", "unit", "deploy", "test.unit.recursive.1", "--version", "1.0.0",
+                "--path", recursiveDir.toString(), "--recursive");
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        // And unit is deployed
+        await().untilAsserted(() -> {
+            execute("cluster", "unit", "list", "--plain", "test.unit.recursive.1");
+
+            assertDeployed("test.unit.recursive.1");
+        });
+    }
+
+    @Test
+    @DisplayName("Should deploy a unit from deeply nested directory using --recursive")
+    void deployRecursiveDeepNesting() throws IOException {
+        // Given a directory with deeply nested subdirectories
+        Path deepDir = Files.createDirectory(WORK_DIR.resolve("deep-test"));
+        Path level1 = Files.createDirectory(deepDir.resolve("level1"));
+        Path level2 = Files.createDirectory(level1.resolve("level2"));
+        Path level3 = Files.createDirectory(level2.resolve("level3"));
+        Files.createFile(deepDir.resolve("root.txt"));
+        Files.createFile(level1.resolve("file1.txt"));
+        Files.createFile(level2.resolve("file2.txt"));
+        Files.createFile(level3.resolve("file3.txt"));
+
+        // When deploy with --recursive option
+        execute("cluster", "unit", "deploy", "test.unit.recursive.2", "--version", "1.0.0",
+                "--path", deepDir.toString(), "--recursive");
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        // And unit is deployed
+        await().untilAsserted(() -> {
+            execute("cluster", "unit", "list", "--plain", "test.unit.recursive.2");
+
+            assertDeployed("test.unit.recursive.2");
+        });
+    }
+
+    @Test
+    @DisplayName("Should display error when --recursive is used with a file path")
+    void deployRecursiveWithFile() {
+        // When deploy with --recursive option pointing to a file
+        execute("cluster", "unit", "deploy", "test.unit.recursive.error", "--version", "1.0.0",
+                "--path", testFile, "--recursive");
+
+        // Then error is displayed
+        assertAll(
+                () -> assertExitCodeIs(2),
+                () -> assertErrOutputContains("The --recursive option requires a directory path")
+        );
+    }
+
     private void assertDeployed(String id) {
         assertDeployed(id, "*1.0.0");
     }

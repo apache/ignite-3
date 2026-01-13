@@ -22,12 +22,15 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import okhttp3.Call;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -64,27 +67,52 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
         if (Files.notExists(path)) {
             return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(path.toString())));
         }
+
+        DeploymentContent content;
+        try {
+            content = input.recursive() ? createZipContent(path) : createFilesContent(path);
+        } catch (IOException e) {
+            return completedFuture(DefaultCallOutput.failure(e));
+        }
+
+        return executeDeploy(input, api, content);
+    }
+
+    private static DeploymentContent createFilesContent(Path path) throws IOException {
         List<File> files;
         try (Stream<Path> stream = Files.walk(path, 1)) {
             files = stream
                     .filter(Files::isRegularFile)
                     .map(Path::toFile)
                     .collect(Collectors.toList());
-        } catch (IOException e) {
-            return completedFuture(DefaultCallOutput.failure(e));
         }
+        return new FilesDeploymentContent(files);
+    }
 
+    private static DeploymentContent createZipContent(Path path) throws IOException {
+        File zipFile = createZipFromDirectory(path);
+        return new ZipDeploymentContent(zipFile);
+    }
+
+    private CompletableFuture<CallOutput<String>> executeDeploy(
+            DeployUnitCallInput input,
+            DeployUnitClient api,
+            DeploymentContent content
+    ) {
         TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
         String ver = input.version() == null ? "" : input.version();
         DeployMode deployMode = inferDeployMode(input.nodes());
         List<String> initialNodes = deployMode == null ? input.nodes() : null;
-        Call call = api.deployUnitAsync(input.id(), files, ver, deployMode, initialNodes, callback);
+
+        Call call = content.deploy(api, input.id(), ver, deployMode, initialNodes, callback);
 
         return CompletableFuture.supplyAsync(() -> {
             try {
                 callback.awaitDone();
             } catch (InterruptedException e) {
                 return DefaultCallOutput.failure(e);
+            } finally {
+                content.cleanup();
             }
             if (call.isCanceled()) {
                 return DefaultCallOutput.failure(new RuntimeException("Unit deployment process was canceled"));
@@ -94,6 +122,95 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
                 return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());
             }
         });
+    }
+
+    private static File createZipFromDirectory(Path sourceDir) throws IOException {
+        Path zipPath = Files.createTempFile("deploy-unit-", ".zip");
+        try (OutputStream os = Files.newOutputStream(zipPath);
+                ZipOutputStream zos = new ZipOutputStream(os)) {
+            try (Stream<Path> stream = Files.walk(sourceDir)) {
+                stream.filter(Files::isRegularFile).forEach(filePath -> {
+                    Path relativePath = sourceDir.relativize(filePath);
+                    try {
+                        ZipEntry zipEntry = new ZipEntry(relativePath.toString().replace('\\', '/'));
+                        zos.putNextEntry(zipEntry);
+                        Files.copy(filePath, zos);
+                        zos.closeEntry();
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to add file to ZIP: " + filePath, e);
+                    }
+                });
+            }
+        }
+        return zipPath.toFile();
+    }
+
+    /** Abstraction for deployment content that can be either files or a ZIP archive. */
+    private interface DeploymentContent {
+        /** Executes the deployment and returns the HTTP call. */
+        Call deploy(
+                DeployUnitClient api,
+                String unitId,
+                String version,
+                @Nullable DeployMode deployMode,
+                @Nullable List<String> initialNodes,
+                TrackingCallback<Boolean> callback
+        );
+
+        /** Performs cleanup after deployment (e.g., deletes temporary files). */
+        void cleanup();
+    }
+
+    /** Deployment content for regular files (non-recursive). */
+    private static class FilesDeploymentContent implements DeploymentContent {
+        private final List<File> files;
+
+        FilesDeploymentContent(List<File> files) {
+            this.files = files;
+        }
+
+        @Override
+        public Call deploy(
+                DeployUnitClient api,
+                String unitId,
+                String version,
+                @Nullable DeployMode deployMode,
+                @Nullable List<String> initialNodes,
+                TrackingCallback<Boolean> callback
+        ) {
+            return api.deployUnitAsync(unitId, files, version, deployMode, initialNodes, callback);
+        }
+
+        @Override
+        public void cleanup() {
+            // No cleanup needed for regular files
+        }
+    }
+
+    /** Deployment content for ZIP archive (recursive). */
+    private static class ZipDeploymentContent implements DeploymentContent {
+        private final File zipFile;
+
+        ZipDeploymentContent(File zipFile) {
+            this.zipFile = zipFile;
+        }
+
+        @Override
+        public Call deploy(
+                DeployUnitClient api,
+                String unitId,
+                String version,
+                @Nullable DeployMode deployMode,
+                @Nullable List<String> initialNodes,
+                TrackingCallback<Boolean> callback
+        ) {
+            return api.deployZipUnitAsync(unitId, zipFile, version, deployMode, initialNodes, callback);
+        }
+
+        @Override
+        public void cleanup() {
+            zipFile.delete();
+        }
     }
 
     private static CallOutput<String> handleException(Exception exception, DeployUnitCallInput input) {
