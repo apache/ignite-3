@@ -158,7 +158,7 @@ NOTE: Each link:administrators-guide/storage/storage-overview[storage profile] w
 | TotalUsedSize | The total size of non-empty allocated pages on disk in bytes.
 |=======================================================================
 
-== storage.aipersist.{checkpoint}
+== storage.aipersist.checkpoint
 
 [width="100%",cols="20%,80%",opts="header"]
 |=======================================================================
