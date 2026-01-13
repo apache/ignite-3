@@ -52,6 +52,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
+import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
@@ -182,7 +183,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         pageStoreManager.start();
         pageMemory.start();
 
-        dataRegion = () -> pageMemory;
+        dataRegion = new TestDataRegion<>(pageMemory);
         dataRegions.add(dataRegion);
 
         checkpointManager.start();

@@ -424,8 +424,10 @@ class Records {
         record Record(Integer id, String value) { }
 
         static final class Class {
-            private final Integer id;
-            private final String value;
+            private Integer id;
+            private String value;
+
+            Class() {}
 
             Class(Integer id, String value) {
                 this.id = id;

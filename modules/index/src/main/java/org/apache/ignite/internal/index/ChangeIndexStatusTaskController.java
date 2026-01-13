@@ -229,7 +229,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private void scheduleTasksOnPrimaryReplicaElectedBusy(ZonePartitionId zonePartitionId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
-        Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+        Catalog catalog = catalogService.latestCatalog();
 
         IntArrayList tableIds =
                 getTableIdsForPrimaryReplicaElected(catalog, zonePartitionId, id -> !localNodeIsPrimaryReplicaForTableIds.contains(id));
@@ -260,7 +260,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private void handlePrimacyLoss(ZonePartitionId zonePartitionId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
-        Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+        Catalog catalog = catalogService.latestCatalog();
 
         IntArrayList tableIds =
                 getTableIdsForPrimaryReplicaElected(catalog, zonePartitionId, localNodeIsPrimaryReplicaForTableIds::contains);

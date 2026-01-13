@@ -246,7 +246,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertThat(index.status(), is(AVAILABLE));
 
         // Validate actual catalog
-        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog latestCatalog = manager.latestCatalog();
 
         assertNotNull(latestCatalog);
         assertSame(latestCatalog, manager.activeCatalog(clock.nowLong()));
@@ -853,11 +853,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private List<Integer> tableIndexIds(int catalogVersion, int tableId) {
-        Catalog catalog = manager.catalog(catalogVersion);
-
-        assert catalog != null;
-
-        return catalog.indexes(tableId).stream().map(CatalogObjectDescriptor::id).collect(toList());
+        return manager.catalog(catalogVersion)
+                .indexes(tableId)
+                .stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toList());
     }
 
     private int tableId(String tableName) {
