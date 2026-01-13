@@ -260,6 +260,11 @@ public class ItDeployUndeployCallsTest extends CliIntegrationTest {
             Assertions.assertThat(unitStatuses.get(0).getVersionToStatus())
                     .containsExactly((new UnitVersionStatus()).version("1.0.0").status(DEPLOYED));
         });
+
+        // Cleanup
+        CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("recursive.test.id", "1.0.0"));
+        assertThat(undeployOutput.hasError()).isFalse();
+        await().untilAsserted(() -> assertThat(listUnitCall.execute(listIdInput("recursive.test.id")).isEmpty()).isTrue());
     }
 
     @Test
@@ -297,5 +302,10 @@ public class ItDeployUndeployCallsTest extends CliIntegrationTest {
             Assertions.assertThat(unitStatuses.get(0).getVersionToStatus())
                     .containsExactly((new UnitVersionStatus()).version("1.0.0").status(DEPLOYED));
         });
+
+        // Cleanup
+        CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("deep.recursive.test.id", "1.0.0"));
+        assertThat(undeployOutput.hasError()).isFalse();
+        await().untilAsserted(() -> assertThat(listUnitCall.execute(listIdInput("deep.recursive.test.id")).isEmpty()).isTrue());
     }
 }

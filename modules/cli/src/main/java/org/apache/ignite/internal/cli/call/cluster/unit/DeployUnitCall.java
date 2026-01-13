@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

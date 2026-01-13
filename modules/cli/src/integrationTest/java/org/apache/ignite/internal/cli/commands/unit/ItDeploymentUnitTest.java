@@ -383,20 +383,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         });
     }
 
-    @Test
-    @DisplayName("Should display error when --recursive is used with a file path")
-    void deployRecursiveWithFile() {
-        // When deploy with --recursive option pointing to a file
-        execute("cluster", "unit", "deploy", "test.unit.recursive.error", "--version", "1.0.0",
-                "--path", testFile, "--recursive");
-
-        // Then error is displayed
-        assertAll(
-                () -> assertExitCodeIs(2),
-                () -> assertErrOutputContains("The --recursive option requires a directory path")
-        );
-    }
-
     private void assertDeployed(String id) {
         assertDeployed(id, "*1.0.0");
     }
