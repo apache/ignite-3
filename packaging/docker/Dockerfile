@@ -15,10 +15,10 @@
 # limitations under the License.
 #
 
-FROM eclipse-temurin:11 AS jre-build
+FROM eclipse-temurin:25 AS jre-build
 
 RUN $JAVA_HOME/bin/jlink \
-         --add-modules ALL-MODULE-PATH \
+         --add-modules java.base,java.logging,java.naming,java.net.http,java.sql,java.xml,java.management,java.rmi,java.instrument,java.desktop,java.prefs,java.scripting,jdk.unsupported,jdk.zipfs,jdk.crypto.ec,jdk.security.auth \
          --strip-debug \
          --no-man-pages \
          --no-header-files \
