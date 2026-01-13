@@ -137,12 +137,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
-            // Update the observable timestamp tracker to ensure the job can read data that was committed
-            // before the job was submitted.
-            Long observableTs = executionContext.observableTimestamp();
-            if (observableTs != null) {
-                observableTimestampTracker.update(observableTs);
-            }
+            observableTimestampTracker.update(executionContext.observableTimestamp());
 
             CompletableFuture<UnitsClassLoaderContext> classLoaderFut =
                     jobContextManager.acquireClassLoader(executionContext.units(), executionContext.jobClassName());

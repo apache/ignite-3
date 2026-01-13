@@ -22,6 +22,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,36 +39,8 @@ public class ExecutionContext {
 
     private final ComputeJobDataHolder arg;
 
-    private final @Nullable Long observableTimestamp;
-
     /**
      * Creates new execution context.
-     *
-     * @param options Job execution options.
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param metadataBuilder Event metadata builder.
-     * @param arg Job argument.
-     * @param observableTimestamp Observable timestamp from the client, or {@code null}.
-     */
-    public ExecutionContext(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
-            @Nullable Long observableTimestamp
-    ) {
-        this.options = options;
-        this.units = units;
-        this.jobClassName = jobClassName;
-        this.metadataBuilder = metadataBuilder;
-        this.arg = arg;
-        this.observableTimestamp = observableTimestamp;
-    }
-
-    /**
-     * Creates new execution context without observable timestamp.
      *
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
@@ -82,7 +55,11 @@ public class ExecutionContext {
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     ) {
-        this(options, units, jobClassName, metadataBuilder, arg, null);
+        this.options = options;
+        this.units = units;
+        this.jobClassName = jobClassName;
+        this.metadataBuilder = metadataBuilder;
+        this.arg = arg;
     }
 
     /**
@@ -119,25 +96,6 @@ public class ExecutionContext {
         this(descriptor.options(), descriptor.units(), descriptor.jobClassName(), metadataBuilder, arg);
     }
 
-    /**
-     * Creates new execution context with observable timestamp. Takes execution options, deployment units and job class name
-     * from a job descriptor.
-     *
-     * @param descriptor Job descriptor.
-     * @param metadataBuilder Event metadata builder.
-     * @param arg Job argument.
-     * @param observableTimestamp Observable timestamp from the client, or {@code null}.
-     */
-    public <T, R> ExecutionContext(
-            JobDescriptor<T, R> descriptor,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
-            @Nullable Long observableTimestamp
-    ) {
-        this(ExecutionOptions.from(descriptor.options()), descriptor.units(), descriptor.jobClassName(), metadataBuilder, arg,
-                observableTimestamp);
-    }
-
     public ExecutionOptions options() {
         return options;
     }
@@ -159,14 +117,15 @@ public class ExecutionContext {
         return arg;
     }
 
-    /**
-     * Returns observable timestamp from the client that submitted the job. This timestamp should be used to ensure
-     * that the job reads data that was committed before the job was submitted.
-     *
-     * @return Observable timestamp, or {@code null} if not specified.
-     */
-    @Nullable
-    public Long observableTimestamp() {
-        return observableTimestamp;
+    public long observableTimestamp() {
+        if (arg == null) {
+            return HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+        }
+
+        Long ts = arg.observableTimestamp();
+
+        return ts == null
+                ? HybridTimestamp.NULL_HYBRID_TIMESTAMP
+                : ts;
     }
 }
