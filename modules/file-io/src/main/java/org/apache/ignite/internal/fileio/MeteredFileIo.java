@@ -86,7 +86,7 @@ public class MeteredFileIo implements FileIo {
     public int readFully(ByteBuffer destBuf) throws IOException {
         long startNanos = System.nanoTime();
 
-        int bytesRead = delegate.read(destBuf);
+        int bytesRead = delegate.readFully(destBuf);
 
         if (bytesRead > 0) {
             long durationNanos = System.nanoTime() - startNanos;
@@ -99,7 +99,7 @@ public class MeteredFileIo implements FileIo {
     public int readFully(ByteBuffer destBuf, long position) throws IOException {
         long startNanos = System.nanoTime();
 
-        int bytesRead = delegate.read(destBuf, position);
+        int bytesRead = delegate.readFully(destBuf, position);
 
         if (bytesRead > 0) {
             long durationNanos = System.nanoTime() - startNanos;
@@ -112,7 +112,7 @@ public class MeteredFileIo implements FileIo {
     public int readFully(byte[] buf, int off, int len) throws IOException {
         long startNanos = System.nanoTime();
 
-        int bytesRead = delegate.read(buf, off, len);
+        int bytesRead = delegate.readFully(buf, off, len);
 
         if (bytesRead > 0) {
             long durationNanos = System.nanoTime() - startNanos;
