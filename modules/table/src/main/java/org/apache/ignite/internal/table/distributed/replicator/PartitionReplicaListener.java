@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
+import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
@@ -2230,66 +2231,77 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<TransactionMeta> processTxStatePrimaryReplicaRequest(TxStatePrimaryReplicaRequest request) {
-        return completedFuture(txMetaFromStorage(request.rowId().asRowId(), request.txId(), request.readTimestamp()));
+        return completedFuture(txMetaFromStorage(
+                request.rowId().asRowId(),
+                request.txId(),
+                request.newestCommitTimestamp(),
+                request.readTimestamp()
+        ));
     }
 
     /**
-     * On primary replica, we can determine transaction state by checking the storage state having row id, transaction id and timestamp.
+     * On primary replica, we can determine transaction state by checking the storage state having row id, transaction id,
+     * newest commit timestamp known to requesting replica and read timestamp.
      * Non-primary replica must wait for safe time that is equal to or greater than the read timestamp it provides in the request.
      * Given this, we can see in the storage doing read with the given read timestamp, and the return result:
      *
      * <ul>
-     *   <li>
-     *     Short path: version is present and committed: respond with {@code COMMITTED}.
-     *   </li>
-     *   <li>
-     *     Otherwise, scan the storage. Possible outcomes:
+     *   <li>short path:
      *     <ul>
-     *       <li>
-     *         Write intent for the sought transaction is found: respond with {@code PENDING}.
-     *       </li>
-     *       <li>
-     *         Committed version for the sought transaction is found: respond with {@code COMMITTED}.
-     *       </li>
-     *       <li>
-     *         Any committed version before read timestamp is found - it is known that GC has not
-     *         collected versions, the sought transaction was never committed: respond with
-     *         {@code ABORTED}.
-     *       </li>
-     *       <li>
-     *         No committed versions before read timestamp:
+     *       <li>no versions:
      *         <ul>
-     *           <li>
-     *             Read timestamp is greater than low watermark:
-     *             <ul>
-     *               <li>
-     *                 Any write intent is found: can safely respond with {@code PENDING}
-     *                 (which most likely will end up with abortion but the transaction was never committed
-     *                 so it won't cause inconsistency).
-     *               </li>
-     *               <li>
-     *                 Otherwise: respond with {@code ABORTED}.
-     *               </li>
-     *             </ul>
-     *           </li>
-     *           <li>
-     *             Read timestamp is less than or equal to low watermark: throws {@link OutdatedReadOnlyTransactionException}.
-     *           </li>
+     *           <li>read timestamp is greater than low watermark: respond with ABORTED</li>
+     *           <li>read timestamp is less than or equal to low watermark: error (outdated RO transaction)</li>
      *         </ul>
      *       </li>
+     *       <li>there is write intent having transaction id of the sought transaction: respond with PENDING</li>
+     *       <li>there is no write intent or there is write intent of another transaction and newest commit timestamp is the same as in the request: respond with ABORTED</li>
+     *       <li>
+     *         there is the latest committed version and its timestamp (is greater than the newest commit timestamp from request or newest commit timestamp is null),
+     *         and less than or equal to the read timestamp. This means, the write intent for this committed version was created before read timestamp,
+     *         and requesting replica has seen it, so it is committed write intent for sought transaction: respond with COMMITTED.
+     *       </li>
+     *     </ul>
+     *   </li>
+     *   <li>otherwise we need to scan the storage. Outcomes:
+     *     <ul>
+     *       <li>
+     *         there is committed version with timestamp greater than the newest commit timestamp from request and less than or equal to the read timestamp.
+     *         This means, the write intent for this committed version was created before read timestamp, and requesting replica has seen it,
+     *         so it is committed write intent for sought transaction: respond with COMMITTED.
+     *       </li>
+     *       <li>
+     *         there is only committed version(s) with timestamp greater than the newest commit timestamp from request and greater than read timestamp.
+     *         This means that state of the sought transaction is unrecoverable from storage state.
+     *         However, the write intent should be ignored by the requesting replica.
+     *       </li>
+     *       <li>otherwise, if there is any committed version before read timestamp: respond with ABORTED</li>
+     *       <li>no committed versions before read timestamp: same as no versions at all (see above).</li>
      *     </ul>
      *   </li>
      * </ul>
      *
      * @param rowId Row id.
      * @param txId Transaction id.
+     * @param newestCommitTimestamp Newest commit timestamp known to sender node.
      * @param readTimestamp Read timestamp.
      * @return Transaction meta calculated from the storage state.
      */
-    private TransactionMeta txMetaFromStorage(RowId rowId, UUID txId, HybridTimestamp readTimestamp) {
+    private TransactionMeta txMetaFromStorage(
+            RowId rowId,
+            UUID txId,
+            @Nullable HybridTimestamp newestCommitTimestamp,
+            HybridTimestamp readTimestamp
+    ) {
         ReadResult readResult = mvDataStorage.read(rowId, readTimestamp);
 
-        if (!readResult.isWriteIntent() && readResult.transactionId().equals(txId)) {
+        if (readResult == null || readResult.isEmpty()) {
+            return txMetaFromStorageNoCommittedResult(txId, readTimestamp);
+        } else if (isWriteIntentBelongingToThisTx(readResult, txId)) {
+            return builder(PENDING).build();
+        } else if (isSameCommittedResult(readResult, newestCommitTimestamp)) {
+            return builder(ABORTED).build();
+        } else if (isNewCommittedVersionBeforeReadTimestamp(readResult, newestCommitTimestamp, readTimestamp)) {
             return builder(COMMITTED).commitTimestamp(readResult.commitTimestamp()).build();
         } else {
             // In this case we can't be sure if the write intent of sought transaction is committed or aborted, scan the storage.
@@ -2300,12 +2312,38 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // - now is t5
             // - backup replica waits for safe time >= t2, here on primary we read from storage using t2 and can't see version
             // modification at t4, because there are two operations: addWrite (at t2) and commitWrite (at t4),
-            // so we need to scan the storage to see all versions up to now
-            return txMetaFromStorageWithScan(rowId, txId, readTimestamp);
+            // so we need to scan the storage to see all versions up to now. Commit timestamp is checked on the requesting replica.
+            return txMetaFromStorageWithScan(rowId, txId, newestCommitTimestamp, readTimestamp);
         }
     }
 
-    private TransactionMeta txMetaFromStorageNoCommittedResult(UUID txId, HybridTimestamp readTimestamp) {
+    private static boolean isWriteIntentBelongingToThisTx(ReadResult rr, UUID txId) {
+        return rr.isWriteIntent() && rr.transactionId() != null && rr.transactionId().equals(txId);
+    }
+
+    private static boolean isSameCommittedResult(ReadResult rr, @Nullable HybridTimestamp newestCommitTimestamp) {
+        if (newestCommitTimestamp == null) {
+            return false;
+        }
+
+        return !rr.isWriteIntent() && rr.commitTimestamp().equals(newestCommitTimestamp)
+                || rr.isWriteIntent() && newestCommitTimestamp.equals(rr.newestCommitTimestamp());
+    }
+
+    private static boolean isNewCommittedVersionBeforeReadTimestamp(
+            ReadResult rr,
+            @Nullable HybridTimestamp newestCommitTimestamp,
+            HybridTimestamp readTimestamp
+    ) {
+        return !rr.isWriteIntent()
+                && (newestCommitTimestamp == null || rr.commitTimestamp().longValue() > newestCommitTimestamp.longValue())
+                && rr.commitTimestamp().longValue() <= readTimestamp.longValue();
+    }
+
+    private TransactionMeta txMetaFromStorageNoCommittedResult(
+            UUID txId,
+            HybridTimestamp readTimestamp
+    ) {
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
         HybridTimestamp earliestDataAvailableTimestamp =  lwm == null ? HybridTimestamp.MIN_VALUE : lwm;
@@ -2317,9 +2355,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
     }
 
-    private TransactionMeta txMetaFromStorageWithScan(RowId rowId, UUID txId, HybridTimestamp readTimestamp) {
-        ReadResult committedThis = null;
-        ReadResult anyCommittedBefore = null;
+    private TransactionMeta txMetaFromStorageWithScan(
+            RowId rowId,
+            UUID txId,
+            @Nullable HybridTimestamp newestCommitTimestamp,
+            HybridTimestamp readTimestamp
+    ) {
+        ReadResult anyCommittedBeforeReadTs = null;
+        ReadResult anyCommittedAfterReadTs = null;
         ReadResult wi = null;
 
         try (Cursor<ReadResult> versions = mvDataStorage.scanVersions(rowId)) {
@@ -2331,37 +2374,60 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         requireNonNull(rr.transactionId(), "Committed read result must have transaction id");
                         requireNonNull(rr.commitTimestamp(), "Committed read result must have commit timestamp");
 
-                        if (rr.transactionId().equals(txId)) {
-                            committedThis = rr;
-                        } else if (anyCommittedBefore == null && rr.commitTimestamp().longValue() <= readTimestamp.longValue()) {
-                            anyCommittedBefore = rr;
+                        long commitTs = rr.commitTimestamp().longValue();
+
+                        // newestCommitTimestamp comes from requesting replica and is always less than read timestamp (if not null).
+                        if (commitTs > newestCommitTimestamp.longValue()) {
+                            if (commitTs <= readTimestamp.longValue()) {
+                                // This means, the write intent for this committed version was created before read timestamp,
+                                // and requesting replica has seen it, so this is committed write intent for sought transaction.
+                                // Commit timestamp is checked on the requesting replica.
+                                return builder(COMMITTED).commitTimestamp(rr.commitTimestamp()).build();
+                            } else {
+                                anyCommittedAfterReadTs = rr;
+                            }
+                        }
+
+                        if (commitTs <= readTimestamp.longValue()) {
+                            anyCommittedBeforeReadTs = rr;
                         }
                     }
                 }
             }
         }
 
-        if (wi != null && wi.transactionId() != null && wi.transactionId().equals(txId)) {
+        if (wi != null && isWriteIntentBelongingToThisTx(wi, txId)) {
             return builder(PENDING).build();
-        } else if (committedThis != null) {
-            return builder(COMMITTED).commitTimestamp(committedThis.commitTimestamp()).build();
-        } else if (anyCommittedBefore != null) {
-            // It's known that GC hasn't collected versions, the sought transaction was never committed.
+        } else if (anyCommittedAfterReadTs != null) {
+            // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
+            // contain tx id.
+            // Consider the examples:
+            // Example 1:
+            // - wi created at t1 by tx1
+            // - read ts is t2, backup replica waits for t2
+            // - tx1 is committed at t5, commit ts is t5
+            // - commit write is replicated at t6
+            // - now is t7
+            // - on primary replica, we see committed version with commit ts t5
+            // Example 2:
+            // - wi1 created at t1 by tx1
+            // - read ts is t2, backup replica waits for t2
+            // - tx1 is aborted at t3
+            // - tx2 creates wi2 on primary at t4
+            // - tx2 is committed at t5, commit ts is t5
+            // - commit write is replicated at t6
+            // - now is t7
+            // - on primary replica, we see committed version with commit ts t5
+            // In 1st example tx1 was committed and in 2nd it was aborted but in both examples the state of the storage is the same.
+            // So the state of tx1 is unknown.
+            // However, the write intent should be ignored by the requesting replica because nothing was committed
+            // with commit timestamp less than read timestamp.
+            return txStateMetaUnknown(true);
+        } else if (anyCommittedBeforeReadTs != null) {
+            // These are just some versions known to requesting replica.
             return builder(ABORTED).build();
         } else {
-            HybridTimestamp lwm = lowWatermark.getLowWatermark();
-
-            HybridTimestamp earliestDataAvailableTimestamp =  lwm == null ? HybridTimestamp.MIN_VALUE : lwm;
-
-            if (clockService.after(readTimestamp, earliestDataAvailableTimestamp)) {
-                if (wi != null) {
-                    return builder(PENDING).build();
-                } else {
-                    return builder(ABORTED).build();
-                }
-            } else {
-                throw new OutdatedReadOnlyTransactionException(txId);
-            }
+            return txMetaFromStorageNoCommittedResult(txId, readTimestamp);
         }
     }
 

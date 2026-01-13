@@ -22,6 +22,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction state request for primary replica path.
@@ -31,6 +32,8 @@ public interface TxStatePrimaryReplicaRequest extends PrimaryReplicaRequest, Tab
     UUID txId();
 
     RowIdMessage rowId();
+
+    @Nullable HybridTimestamp newestCommitTimestamp();
 
     HybridTimestamp readTimestamp();
 }

@@ -2819,7 +2819,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ReplicaResult res = fut.join();
 
         TransactionMeta meta = (TransactionMeta) res.result();
-        assertEquals(expected, meta);
+        assertEquals(expected.txState(), meta.txState());
+
+        if (expected.txState() == COMMITTED) {
+            assertEquals(expected.commitTimestamp(), meta.commitTimestamp());
+        }
     }
 
     private void prepareVersions(
@@ -2863,7 +2867,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static Stream<Arguments> prepareVersionsParameters() {
-        return null;
+        return Stream.of(
+
+        );
     }
 
     private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {

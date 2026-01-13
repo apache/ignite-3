@@ -53,15 +53,22 @@ public enum TxState {
      * State that is assigned to a transaction due to absence of coordinator. It is temporary and can be changed to
      * {@link TxState#COMMITTED} or {@link TxState#ABORTED} after recovery or successful write intent resolution.
      */
-    ABANDONED(4);
+    ABANDONED(4),
+
+    /**
+     * Unknown transaction state. It may be used during transaction state resolution, shouldn't be used for either volatile
+     * or persistent transaction meta. Any transitions from or to this state are forbidden.
+     */
+    UNKNOWN(5);
 
     private static final boolean[][] TRANSITION_MATRIX = {
-            { false, true,  true, true,  true,  true },
-            { false, true,  true,  true,  true,  true },
-            { false, false, false, true,  true,  true },
-            { false, false, false, true,  false, false },
-            { false, false, false, false, true,  false },
-            { false,  false,  true,  true,  true,  true }
+            { false, true,  true,  true,  true,  true,  false },
+            { false, true,  true,  true,  true,  true,  false },
+            { false, false, false, true,  true,  true,  false },
+            { false, false, false, true,  false, false, false },
+            { false, false, false, false, true,  false, false },
+            { false, false, true,  true,  true,  true,  false },
+            { false, false, false, false, false, false, false }
     };
 
     /**
@@ -109,6 +116,7 @@ public enum TxState {
             case 2: return ABORTED;
             case 3: return COMMITTED;
             case 4: return ABANDONED;
+            case 5: return UNKNOWN;
             default:
                 throw new IllegalArgumentException("No enum constant from id: " + id);
         }
