@@ -47,7 +47,7 @@ public final class ClientComputeJobUnpacker {
             @Nullable Marshaller<?, byte[]> marshaller,
             @Nullable Class<?> resultClass
     ) {
-        ComputeJobDataHolder holder = unpackJobArgumentWithoutMarshaller(unpacker);
+        ComputeJobDataHolder holder = unpackJobArgumentWithoutMarshaller(unpacker, false);
 
         return SharedComputeUtils.unmarshalArgOrResult(holder, marshaller, resultClass);
     }
