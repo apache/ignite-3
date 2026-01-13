@@ -106,6 +106,14 @@ Run checkstyle and PMD on the modified module(s):
 ./gradlew :ignite-<module>:checkstyleMain :ignite-<module>:checkstyleTest :ignite-<module>:pmdMain :ignite-<module>:pmdTest
 ```
 
+Run IDEA inspections on the modified module(s):
+```bash
+idea inspect . .idea/inspectionProfiles/Project_Default.xml /tmp/results -d modules/<module>
+```
+Notes:
+- IntelliJ IDEA must be closed for command-line inspections to work.
+- If `idea` command is not available, ask the user to install it via: **Tools > Create Command-line Launcher** in IntelliJ IDEA.
+
 ### Git Push
 **Never use `git push` without specifying the target branch.** Always push explicitly:
 ```bash
