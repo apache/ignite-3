@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.io.FileNotFoundException;
@@ -60,7 +61,7 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
         Path path = input.path();
         if (Files.notExists(path)) {
-            return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(path.toString())));
+            return completedFuture(failure(new FileNotFoundException(path.toString())));
         }
 
         try {
@@ -69,7 +70,7 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
                     : FilesDeploymentContent.fromPath(path);
             return executeDeploy(input, api, content);
         } catch (IOException e) {
-            throw sneakyThrow(e);
+            return completedFuture(failure(e));
         }
     }
 
@@ -89,12 +90,12 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
             try {
                 callback.awaitDone();
             } catch (InterruptedException e) {
-                return DefaultCallOutput.failure(e);
+                return failure(e);
             } finally {
                 content.cleanup();
             }
             if (call.isCanceled()) {
-                return DefaultCallOutput.failure(new RuntimeException("Unit deployment process was canceled"));
+                return failure(new RuntimeException("Unit deployment process was canceled"));
             } else if (callback.exception() != null) {
                 return handleException(callback.exception(), input);
             } else {
@@ -109,13 +110,13 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
             if (apiException.getCode() == 409) {
                 // special case when cluster is not initialized
                 if (apiException.getResponseBody().contains("Cluster is not initialized")) {
-                    return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
+                    return failure(new IgniteCliApiException(exception, input.clusterUrl()));
                 }
-                return DefaultCallOutput.failure(new UnitAlreadyExistsException(input.id(), input.version()));
+                return failure(new UnitAlreadyExistsException(input.id(), input.version()));
             }
         }
 
-        return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
+        return failure(new IgniteCliApiException(exception, input.clusterUrl()));
     }
 
     @Nullable

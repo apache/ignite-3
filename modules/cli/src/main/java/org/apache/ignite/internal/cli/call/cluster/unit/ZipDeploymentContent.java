@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -63,7 +65,7 @@ class ZipDeploymentContent implements DeploymentContent {
                         Files.copy(filePath, zos);
                         zos.closeEntry();
                     } catch (IOException e) {
-                        throw new RuntimeException("Failed to add file to ZIP: " + filePath, e);
+                        throw sneakyThrow(e);
                     }
                 });
             }
