@@ -124,22 +124,22 @@ public class RowAssembler {
                 return appendBoolean((boolean) val);
             }
             case INT8: {
-                return appendByte((byte) val);
+                return appendByte(((Number) val).byteValue());
             }
             case INT16: {
-                return appendShort((short) val);
+                return appendShort(((Number) val).shortValue());
             }
             case INT32: {
-                return appendInt((int) val);
+                return appendInt(((Number) val).intValue());
             }
             case INT64: {
-                return appendLong((long) val);
+                return appendLong(((Number) val).longValue());
             }
             case FLOAT: {
-                return appendFloat((float) val);
+                return appendFloat(((Number) val).floatValue());
             }
             case DOUBLE: {
-                return appendDouble((double) val);
+                return appendDouble(((Number) val).doubleValue());
             }
             case UUID: {
                 return appendUuid((UUID) val);

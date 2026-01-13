@@ -60,7 +60,9 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.AbstractImmutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Tests {@link SqlRow} tuple implementation.
@@ -125,15 +127,19 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         return createSqlRow(schema, Tuple.create().set("ID", 1).set("VAL", null));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
     @Test
     @Override
     public void testTupleEquality() {
-        Assumptions.abort("SqlRow doesn't implement equals.");
+        super.testTupleEquality();
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
+    @ParameterizedTest
     @Override
+    @SuppressWarnings("JUnitMalformedDeclaration")
     public void testTupleColumnsEquality(ColumnType type) {
-        Assumptions.abort("SqlRow doesn't implement equals.");
+        super.testTupleColumnsEquality(type);
     }
 
     @Test

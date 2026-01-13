@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -38,12 +39,15 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Base class for integration testing of key-value/record view public API.
@@ -126,6 +130,13 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
                 assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
             }
         }
+    }
+
+    static void expectTypeMismatch(Executable executable, String columnName, ColumnType expected, ColumnType actual) {
+        //noinspection ThrowableNotThrown
+        assertThrows(MarshallerException.class, executable,
+                IgniteStringFormatter.format("Value type does not match [column='{}', expected={}, actual={}",
+                        columnName.toUpperCase(), expected.name(), actual.name()));
     }
 
     private static List<String> getClientAddresses(List<Ignite> nodes) {

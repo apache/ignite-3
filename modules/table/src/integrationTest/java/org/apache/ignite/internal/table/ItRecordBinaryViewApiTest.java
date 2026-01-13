@@ -328,7 +328,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         RecordView<Tuple> tbl = testCase.view();
 
-        Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
+        Tuple keyTuple0 = Tuple.create().set("id", Double.MAX_VALUE).set("id1", 0);
         Tuple keyTuple1 = Tuple.create().set("id1", 0);
         Tuple tuple0 = Tuple.create().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
         Tuple tuple1 = Tuple.create().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
@@ -891,7 +891,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         }
 
         void checkValueTypeDoesNotMatchError(Executable run) {
-            String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=INT32]";
+            String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=DOUBLE]";
 
             if (thin) {
                 IgniteException ex = (IgniteException) IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);

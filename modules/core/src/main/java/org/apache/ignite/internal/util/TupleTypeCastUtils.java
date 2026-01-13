@@ -482,6 +482,45 @@ public class TupleTypeCastUtils {
         }
     }
 
+    /**
+     * Checks whether a cast is possible between two types for the given value.
+     *
+     * <p>Widening casts between integer types and between floating-point types are always allowed.
+     *
+     * <p>Narrowing casts between integer types and between floating-point types are allowed only
+     * when the provided value can be represented in the target type.
+     *
+     * @param from Source column type
+     * @param to Target column type
+     * @param val The value to be cast
+     * @return {@code True} if the cast is possible without data loss, {@code false} otherwise.
+     */
+    public static boolean isCastAllowed(ColumnType from, ColumnType to, Object val) {
+        if (!(floatingPointType(from) && floatingPointType(to))
+                && !(integerType(from) && integerType(to))) {
+            return false;
+        }
+
+        Number number = (Number) val;
+
+        switch (to) {
+            case INT8:
+                return number.byteValue() == number.longValue();
+            case INT16:
+                return number.shortValue() == number.longValue();
+            case INT32:
+                return number.intValue() == number.longValue();
+            case FLOAT:
+                return number.floatValue() == number.doubleValue();
+            case INT64:
+            case DOUBLE:
+                return true;
+
+            default:
+                throw new UnsupportedOperationException(from.name() + " -> " + to.name());
+        }
+    }
+
     private static void throwClassCastException(ColumnType requestedType, ColumnType actualType, int index) {
         throw newClassCastException(requestedType, actualType, index);
     }
@@ -498,13 +537,11 @@ public class TupleTypeCastUtils {
         return new ClassCastException(IgniteStringFormatter.format(TYPE_CAST_ERROR_COLUMN_NAME, columnName, actualType, requestedType));
     }
 
-    /**
-     * Returns {@code true} when the provided {@link ColumnType} is an integer type.
-     *
-     * @param actualType column type to check
-     * @return {@code true} if {@code actualType} is one of INT8, INT16, INT32 or INT64
-     */
-    private static boolean integerType(ColumnType actualType) {
-        return INT_TYPES.contains(actualType);
+    private static boolean integerType(ColumnType type) {
+        return INT_TYPES.contains(type);
+    }
+
+    private static boolean floatingPointType(ColumnType type) {
+        return type == ColumnType.FLOAT || type == ColumnType.DOUBLE;
     }
 }

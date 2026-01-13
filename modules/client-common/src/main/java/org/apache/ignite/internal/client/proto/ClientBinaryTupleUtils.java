@@ -204,27 +204,27 @@ public class ClientBinaryTupleUtils {
                     return;
 
                 case INT8:
-                    builder.appendByte((byte) v);
+                    appendByteValue(builder, v);
                     return;
 
                 case INT16:
-                    builder.appendShort((short) v);
+                    appendShortValue(builder, v);
                     return;
 
                 case INT32:
-                    builder.appendInt((int) v);
+                    appendIntValue(builder, v);
                     return;
 
                 case INT64:
-                    builder.appendLong((long) v);
+                    appendLongValue(builder, v);
                     return;
 
                 case FLOAT:
-                    builder.appendFloat((float) v);
+                    appendFloatValue(builder, v);
                     return;
 
                 case DOUBLE:
-                    builder.appendDouble((double) v);
+                    appendDoubleValue(builder, v);
                     return;
 
                 case DECIMAL:
@@ -286,6 +286,165 @@ public class ClientBinaryTupleUtils {
 
             throw new MarshallerException(error, e);
         }
+    }
+
+    private static void appendByteValue(BinaryTupleBuilder builder, Object val) {
+        if (val.getClass() == Byte.class) {
+            builder.appendByte((byte) val);
+            return;
+        }
+
+        if (val.getClass() == Short.class) {
+            short shortVal = (short) val;
+            byte byteVal = (byte) shortVal;
+
+            if (shortVal == byteVal) {
+                builder.appendByte(byteVal);
+                return;
+            }
+        }
+
+        if (val.getClass() == Integer.class) {
+            int intVal = (int) val;
+            byte byteVal = (byte) intVal;
+
+            if (intVal == byteVal) {
+                builder.appendByte(byteVal);
+                return;
+            }
+        }
+
+        if (val.getClass() == Long.class) {
+            long longVal = (long) val;
+            byte byteVal = (byte) longVal;
+
+            if (longVal == byteVal) {
+                builder.appendByte(byteVal);
+                return;
+            }
+        }
+
+        throw new ClassCastException();
+    }
+
+    private static void appendShortValue(BinaryTupleBuilder builder, Object val) {
+        if (val.getClass() == Short.class) {
+            builder.appendShort((short) val);
+            return;
+        }
+
+        if (val.getClass() == Byte.class) {
+            builder.appendShort((byte) val);
+            return;
+        }
+
+        if (val.getClass() == Integer.class) {
+            int intVal = (int) val;
+            short shortVal = (short) intVal;
+
+            if (intVal == shortVal) {
+                builder.appendShort(shortVal);
+                return;
+            }
+        }
+
+        if (val.getClass() == Long.class) {
+            long longVal = (long) val;
+            short shortVal = (short) longVal;
+
+            if (longVal == shortVal) {
+                builder.appendShort(shortVal);
+                return;
+            }
+        }
+
+        throw new ClassCastException();
+    }
+
+    private static void appendIntValue(BinaryTupleBuilder builder, Object val) {
+        if (val.getClass() == Integer.class) {
+            builder.appendInt((int) val);
+            return;
+        }
+
+        if (val.getClass() == Short.class) {
+            builder.appendInt((short) val);
+            return;
+        }
+
+        if (val.getClass() == Byte.class) {
+            builder.appendInt((byte) val);
+            return;
+        }
+
+        if (val.getClass() == Long.class) {
+            long longVal = (long) val;
+            int intVal = (int) longVal;
+
+            if (longVal == intVal) {
+                builder.appendInt(intVal);
+                return;
+            }
+        }
+
+        throw new ClassCastException();
+    }
+
+    private static void appendLongValue(BinaryTupleBuilder builder, Object val) {
+        if (val.getClass() == Integer.class) {
+            builder.appendLong((int) val);
+            return;
+        }
+
+        if (val.getClass() == Short.class) {
+            builder.appendLong((short) val);
+            return;
+        }
+
+        if (val.getClass() == Byte.class) {
+            builder.appendLong((byte) val);
+            return;
+        }
+
+        if (val.getClass() == Long.class) {
+            builder.appendLong((long) val);
+            return;
+        }
+
+        throw new ClassCastException();
+    }
+
+    private static void appendFloatValue(BinaryTupleBuilder builder, Object val) {
+        if (val.getClass() == Float.class) {
+            builder.appendFloat((float) val);
+            return;
+        }
+
+        if (val.getClass() == Double.class) {
+            double doubleVal = (double) val;
+            float floatVal = (float) doubleVal;
+
+            if (doubleVal == floatVal) {
+                builder.appendFloat(floatVal);
+                return;
+            }
+        }
+
+        throw new ClassCastException();
+    }
+
+    private static void appendDoubleValue(BinaryTupleBuilder builder, Object val) {
+        if (val.getClass() == Double.class) {
+            builder.appendDouble((double) val);
+            return;
+        }
+
+        if (val.getClass() == Float.class) {
+            builder.appendDouble((float) val);
+            return;
+        }
+
+        throw new ClassCastException();
     }
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {

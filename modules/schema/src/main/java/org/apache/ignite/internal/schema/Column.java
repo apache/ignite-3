@@ -27,6 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.internal.util.TupleTypeCastUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -213,6 +214,8 @@ public class Column {
             }
         }
 
+        // assert false;
+
         NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
@@ -222,6 +225,10 @@ public class Column {
                 String error = format("Value too long [column='{}', type={}]", name, type.displayName());
                 throw new InvalidTypeException(error);
             } else {
+                if (TupleTypeCastUtils.isCastAllowed(objType.spec(), type.spec(), val)) {
+                    return;
+                }
+
                 String error = format(
                         "Value type does not match [column='{}', expected={}, actual={}]",
                         name, type.displayName(), objType.displayName()
