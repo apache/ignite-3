@@ -95,5 +95,4 @@ public abstract class CollectionMetricSource implements MetricSource {
     public synchronized boolean enabled() {
         return enabled;
     }
-
 }

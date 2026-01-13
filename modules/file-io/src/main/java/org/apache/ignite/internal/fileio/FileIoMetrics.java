@@ -21,7 +21,13 @@ package org.apache.ignite.internal.fileio;
  * Metrics for file I/O operations.
  */
 public interface FileIoMetrics {
+    /**
+     * Record information about read operation.
+     */
     void recordRead(int bytesRead, long durationNanos);
 
+    /**
+     * Record information about write operation.
+     */
     void recordWrite(int bytesWritten, long durationNanos);
 }
