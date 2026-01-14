@@ -185,7 +185,6 @@ public class ComputeMessaging {
                 .jobClassName(executionContext.jobClassName())
                 .metadataBuilder(executionContext.metadataBuilder())
                 .input(executionContext.arg())
-                .observableTimestamp(executionContext.observableTimestamp())
                 .build();
 
         return invoke(remoteNode, executeRequest)
@@ -199,15 +198,7 @@ public class ComputeMessaging {
                 ? ((ExecuteRequestV2) request).metadataBuilder()
                 : ComputeEventMetadata.builder();
 
-        ExecutionContext executionContext = new ExecutionContext(
-                request.executeOptions(),
-                units,
-                request.jobClassName(),
-                metadataBuilder,
-                request.input()
-        );
-
-        starter.start(executionContext)
+        starter.start(new ExecutionContext(request.executeOptions(), units, request.jobClassName(), metadataBuilder, request.input()))
                 .whenComplete((execution, err) -> {
                             if (err != null) {
                                 sendExecuteResponse(null, err, sender, correlationId);

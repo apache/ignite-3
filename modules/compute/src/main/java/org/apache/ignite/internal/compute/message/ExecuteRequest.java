@@ -63,13 +63,4 @@ public interface ExecuteRequest extends NetworkMessage {
     @Marshallable
     @Nullable
     ComputeJobDataHolder input();
-
-    /**
-     * Returns observable timestamp from the client that submitted the job. This timestamp should be used to ensure
-     * that the job reads data that was committed before the job was submitted.
-     *
-     * @return Observable timestamp, or {@code null} if not specified.
-     */
-    @Nullable
-    Long observableTimestamp();
 }
