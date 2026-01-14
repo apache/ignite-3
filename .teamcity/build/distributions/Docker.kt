@@ -14,9 +14,9 @@ object Docker : BuildType({
     """.trimIndent()
 
     steps {
-        // customScript(type = "bash") {
-        //     name = "Setup Docker Proxy"
-        // }
+        customScript(type = "bash") {
+            name = "Setup Docker Proxy"
+        }
         customGradle {
             name = "Build Docker Image (AMD64)"
             tasks = ":packaging:docker -Ptarget_platform=linux/amd64 -Pplatforms.enable"
