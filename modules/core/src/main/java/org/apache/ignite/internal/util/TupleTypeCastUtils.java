@@ -158,7 +158,7 @@ public class TupleTypeCastUtils {
             return binaryTuple.doubleValue(binaryTupleIndex);
         }
 
-        throw newClassCastException(ColumnType.FLOAT, actualType, columnIndex);
+        throw newClassCastException(ColumnType.DOUBLE, actualType, columnIndex);
     }
 
     /** Reads a value from the tuple and returns it as a double. */
@@ -169,7 +169,7 @@ public class TupleTypeCastUtils {
             return binaryTuple.doubleValue(binaryTupleIndex);
         }
 
-        throw newClassCastException(ColumnType.FLOAT, actualType, columnName);
+        throw newClassCastException(ColumnType.DOUBLE, actualType, columnName);
     }
 
     /**

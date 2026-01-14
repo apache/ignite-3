@@ -381,14 +381,14 @@ public abstract class AbstractImmutableTupleTest {
             Tuple tuple = createTupleOfSingleColumn(ColumnType.INT16, columnName, value);
 
             ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
-            assertThat(ex0.getMessage(), equalTo("Byte value overflow"));
+            assertThat(ex0.getMessage(), equalTo("Byte value overflow: " + value));
 
             assertThat(tuple.shortValue(columnName), is(value));
             assertThat(tuple.intValue(columnName), is((int) value));
             assertThat(tuple.longValue(columnName), is((long) value));
 
             ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
-            assertThat(ex1.getMessage(), equalTo("Byte value overflow"));
+            assertThat(ex1.getMessage(), equalTo("Byte value overflow: " + value));
 
             assertThat(tuple.shortValue(0), is(value));
             assertThat(tuple.intValue(0), is((int) value));
@@ -420,14 +420,14 @@ public abstract class AbstractImmutableTupleTest {
             Tuple tuple = createTupleOfSingleColumn(ColumnType.INT32, columnName, value);
 
             ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
-            assertThat(ex0.getMessage(), equalTo("Byte value overflow"));
+            assertThat(ex0.getMessage(), equalTo("Byte value overflow: " + value));
 
             assertThat(tuple.shortValue(columnName), is((short) value));
             assertThat(tuple.intValue(columnName), is(value));
             assertThat(tuple.longValue(columnName), is((long) value));
 
             ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
-            assertThat(ex1.getMessage(), equalTo("Byte value overflow"));
+            assertThat(ex1.getMessage(), equalTo("Byte value overflow: " + value));
 
             assertThat(tuple.shortValue(0), is((short) value));
             assertThat(tuple.intValue(0), is(value));
@@ -441,12 +441,12 @@ public abstract class AbstractImmutableTupleTest {
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Byte value overflow"));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Short value overflow"));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
             }
 
             assertThat(tuple.intValue(columnName), is(value));
@@ -454,12 +454,12 @@ public abstract class AbstractImmutableTupleTest {
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
-                assertThat(ex.getMessage(), equalTo("Byte value overflow"));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(0));
-                assertThat(ex.getMessage(), equalTo("Short value overflow"));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
             }
 
             assertThat(tuple.intValue(0), is(value));
@@ -491,14 +491,14 @@ public abstract class AbstractImmutableTupleTest {
             Tuple tuple = createTupleOfSingleColumn(ColumnType.INT64, columnName, value);
 
             ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
-            assertThat(ex0.getMessage(), equalTo("Byte value overflow"));
+            assertThat(ex0.getMessage(), equalTo("Byte value overflow: " + value));
 
             assertThat(tuple.shortValue(columnName), is((short) value));
             assertThat(tuple.intValue(columnName), is((int) value));
             assertThat(tuple.longValue(columnName), is(value));
 
             ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
-            assertThat(ex1.getMessage(), equalTo("Byte value overflow"));
+            assertThat(ex1.getMessage(), equalTo("Byte value overflow: " + value));
 
             assertThat(tuple.shortValue(0), is((short) value));
             assertThat(tuple.intValue(0), is((int) value));
@@ -512,12 +512,12 @@ public abstract class AbstractImmutableTupleTest {
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Byte value overflow"));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Short value overflow"));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
             }
 
             assertThat(tuple.intValue(columnName), is((int) value));
@@ -525,12 +525,12 @@ public abstract class AbstractImmutableTupleTest {
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
-                assertThat(ex.getMessage(), equalTo("Byte value overflow"));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(0));
-                assertThat(ex.getMessage(), equalTo("Short value overflow"));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
             }
 
             assertThat(tuple.intValue(0), is((int) value));
@@ -544,34 +544,34 @@ public abstract class AbstractImmutableTupleTest {
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Byte value overflow"));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Short value overflow"));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.intValue(columnName));
-                assertThat(ex.getMessage(), equalTo("Int value overflow"));
+                assertThat(ex.getMessage(), equalTo("Int value overflow: " + value));
             }
 
             assertThat(tuple.longValue(columnName), is(value));
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
-                assertThat(ex.getMessage(), equalTo("Byte value overflow"));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(0));
-                assertThat(ex.getMessage(), equalTo("Short value overflow"));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
             }
 
             {
                 ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.intValue(0));
-                assertThat(ex.getMessage(), equalTo("Int value overflow"));
+                assertThat(ex.getMessage(), equalTo("Int value overflow: " + value));
             }
 
             assertThat(tuple.longValue(0), is(value));
@@ -646,10 +646,10 @@ public abstract class AbstractImmutableTupleTest {
             Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, value);
 
             ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.floatValue(columnName));
-            assertThat(ex0.getMessage(), equalTo("Float value overflow"));
+            assertThat(ex0.getMessage(), equalTo("Float value overflow: " + value));
 
             ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.floatValue(0));
-            assertThat(ex1.getMessage(), equalTo("Float value overflow"));
+            assertThat(ex1.getMessage(), equalTo("Float value overflow: " + value));
 
             assertThat(tuple.doubleValue(columnName), is(value));
             assertThat(tuple.doubleValue(0), is(value));
@@ -668,7 +668,7 @@ public abstract class AbstractImmutableTupleTest {
 
         // Positive infinity
         {
-            Tuple tuple = createTupleOfSingleColumn(ColumnType.FLOAT, columnName, Double.POSITIVE_INFINITY);
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, Double.POSITIVE_INFINITY);
 
             assertThat(tuple.floatValue(columnName), is(Float.POSITIVE_INFINITY));
             assertThat(tuple.doubleValue(columnName), is(Double.POSITIVE_INFINITY));
@@ -679,7 +679,7 @@ public abstract class AbstractImmutableTupleTest {
 
         // Negative infinity
         {
-            Tuple tuple = createTupleOfSingleColumn(ColumnType.FLOAT, columnName, Double.NEGATIVE_INFINITY);
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, Double.NEGATIVE_INFINITY);
 
             assertThat(tuple.floatValue(columnName), is(Float.NEGATIVE_INFINITY));
             assertThat(tuple.doubleValue(columnName), is(Double.NEGATIVE_INFINITY));

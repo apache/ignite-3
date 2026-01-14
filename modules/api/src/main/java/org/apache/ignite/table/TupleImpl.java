@@ -485,9 +485,11 @@ class TupleImpl implements Tuple, Serializable {
     }
 
     private static byte castToByte(Number number) {
-        Class<? extends Number> cls = number.getClass();
+        if (number instanceof Byte) {
+            return (byte) number;
+        }
 
-        if (cls == Long.class || cls == Integer.class || cls == Short.class) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short) {
             long longVal = number.longValue();
             byte byteVal = number.byteValue();
 
@@ -495,16 +497,18 @@ class TupleImpl implements Tuple, Serializable {
                 return byteVal;
             }
 
-            throw new ArithmeticException("Byte value overflow");
+            throw new ArithmeticException("Byte value overflow: " + number);
         }
 
         return (byte) number;
     }
 
     private static short castToShort(Number number) {
-        Class<? extends Number> cls = number.getClass();
+        if (number instanceof Short) {
+            return (short) number;
+        }
 
-        if (cls == Long.class || cls == Integer.class || cls == Byte.class) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
             long longVal = number.longValue();
             short shortVal = number.shortValue();
 
@@ -512,16 +516,18 @@ class TupleImpl implements Tuple, Serializable {
                 return shortVal;
             }
 
-            throw new ArithmeticException("Short value overflow");
+            throw new ArithmeticException("Short value overflow: " + number);
         }
 
         return (short) number;
     }
 
     private static int castToInt(Number number) {
-        Class<? extends Number> cls = number.getClass();
+        if (number instanceof Integer) {
+            return (int) number;
+        }
 
-        if (cls == Long.class || cls == Short.class || cls == Byte.class) {
+        if (number instanceof Long || number instanceof Short || number instanceof Byte) {
             long longVal = number.longValue();
             int intVal = number.intValue();
 
@@ -529,16 +535,14 @@ class TupleImpl implements Tuple, Serializable {
                 return intVal;
             }
 
-            throw new ArithmeticException("Int value overflow");
+            throw new ArithmeticException("Int value overflow: " + number);
         }
 
         return (int) number;
     }
 
     private static long castToLong(Number number) {
-        Class<? extends Number> cls = number.getClass();
-
-        if (cls == Integer.class || cls == Short.class || cls == Byte.class) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
             return number.longValue();
         }
 
@@ -546,7 +550,11 @@ class TupleImpl implements Tuple, Serializable {
     }
 
     private static float castToFloat(Number number) {
-        if (number.getClass() == Double.class) {
+        if (number instanceof Float) {
+            return (float) number;
+        }
+
+        if (number instanceof Double) {
             double doubleVal = number.doubleValue();
             float floatVal = number.floatValue();
 
@@ -555,14 +563,14 @@ class TupleImpl implements Tuple, Serializable {
                 return floatVal;
             }
 
-            throw new ArithmeticException("Float value overflow");
+            throw new ArithmeticException("Float value overflow: " + number);
         }
 
         return (float) number;
     }
 
     private static double castToDouble(Number number) {
-        if (number.getClass() == Float.class) {
+        if (number instanceof Double || number instanceof Float) {
             return number.doubleValue();
         }
 
