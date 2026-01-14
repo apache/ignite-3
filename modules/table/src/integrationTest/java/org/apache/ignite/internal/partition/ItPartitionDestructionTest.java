@@ -57,7 +57,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -377,8 +376,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static HybridTimestamp latestCatalogVersionTs(IgniteImpl ignite) {
-        Catalog latestCatalog = ignite.catalogManager().catalog(ignite.catalogManager().latestCatalogVersion());
-        return HybridTimestamp.hybridTimestamp(latestCatalog.time());
+        return HybridTimestamp.hybridTimestamp(ignite.catalogManager().latestCatalog().time());
     }
 
     private void createZoneAndTableWith1Partition(int replicas) {

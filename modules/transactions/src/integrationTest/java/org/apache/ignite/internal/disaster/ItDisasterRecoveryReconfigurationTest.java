@@ -266,8 +266,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -400,8 +399,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -479,8 +477,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -554,8 +551,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
 
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         Table table = node0.tables().table(TABLE_NAME);
 
@@ -664,8 +660,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
 
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -738,8 +733,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
 
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -797,8 +791,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -887,8 +880,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
 
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         Table table = node0.tables().table(TABLE_NAME);
 
@@ -965,8 +957,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -1116,8 +1107,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -1252,8 +1242,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -1297,8 +1286,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -1452,8 +1440,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -1540,8 +1527,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -1650,8 +1636,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
-        int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager().latestCatalog().time();
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);

@@ -160,7 +160,7 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
         CatalogManager catalogManager = node.catalogManager();
-        assertNull(catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone());
+        assertNull(catalogManager.latestCatalog().defaultZone());
 
         assertDoesNotThrow(() -> createZoneQuery(0, DEFAULT_STORAGE_PROFILE));
 
@@ -169,11 +169,11 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         String testTableWithoutZoneName = "test_table_without_zone";
         assertDoesNotThrow(() -> createTableWithoutZoneQuery(0, testTableWithoutZoneName));
 
-        CatalogZoneDescriptor defaultZoneDesc = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone();
+        CatalogZoneDescriptor defaultZoneDesc = catalogManager.latestCatalog().defaultZone();
         assertNotNull(defaultZoneDesc);
 
         CatalogTableDescriptor tableWithDefaultZoneDescriptor = catalogManager
-                .catalog(catalogManager.latestCatalogVersion())
+                .latestCatalog()
                 .table(DEFAULT_SCHEMA_NAME, testTableWithoutZoneName);
         assertNotNull(tableWithDefaultZoneDescriptor);
         assertEquals(defaultZoneDesc.id(), tableWithDefaultZoneDescriptor.zoneId());

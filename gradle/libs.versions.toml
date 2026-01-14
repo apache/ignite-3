@@ -33,8 +33,8 @@ javax = "1.3.2"
 jetbrainsAnnotations = "26.0.2-1"
 jline = "3.29.0"
 jmh = "1.37"
-junit5 = "5.14.1"
-junit5-platform = "1.14.1"
+junit5 = "5.14.2"
+junit5-platform = "1.14.2"
 junitPioneer = "2.3.0"
 jsr305 = "3.0.2"
 okhttp = "5.3.2"
@@ -60,7 +60,7 @@ hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
 scalecube = "2.6.15"
 calcite = "1.41.0"
-value = "2.12.0"
+value = "2.12.1"
 janino = "3.1.12"
 jsonpath = "2.10.0"
 javassist = "3.30.2-GA"
@@ -82,7 +82,7 @@ awaitility = "4.3.0"
 progressBar = "0.10.1"
 guava = "33.5.0-jre"
 jna = "5.18.1"
-tree-sitter = "0.25.3"
+tree-sitter = "0.26.3"
 tree-sitter-json = "0.24.8"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
@@ -91,7 +91,7 @@ spring-boot = "3.5.7"
 spring-data = "3.5.5"
 testcontainers = "2.0.3"
 gradleToolingApi = "8.6"
-protobuf = "4.33.2"
+protobuf = "4.33.3"
 cytodynamics = "0.2.0"
 japicmp = "0.25.1"
 
@@ -171,6 +171,7 @@ micronaut-http-core = { module = "io.micronaut:micronaut-http", version.ref = "m
 micronaut-http-server-core = { module = "io.micronaut:micronaut-http-server", version.ref = "micronaut" }
 micronaut-http-client = { module = "io.micronaut:micronaut-http-client", version.ref = "micronaut" }
 micronaut-http-server-netty = { module = "io.micronaut:micronaut-http-server-netty", version.ref = "micronaut" }
+micronaut-management = { module = "io.micronaut:micronaut-management", version.ref = "micronaut" }
 micronaut-security = { module = "io.micronaut.security:micronaut-security", version.ref = "micronautSecurity" }
 micronaut-security-annotations = { module = "io.micronaut.security:micronaut-security-annotations", version.ref = "micronautSecurity" }
 micronaut-reactor = { module = "io.micronaut.reactor:micronaut-reactor", version.ref = "micronautReactor" }

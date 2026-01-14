@@ -419,8 +419,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
-        long timestamp = catalogManager.catalog(catalogVersion).time();
+        long timestamp = catalogManager.latestCatalog().time();
 
         byte[] assignmentsBytes = Assignments.of(timestamp, Assignment.forPeer("node0")).toBytes();
 
@@ -454,8 +453,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
-        long timestamp = catalogManager.catalog(catalogVersion).time();
+        long timestamp = catalogManager.latestCatalog().time();
 
         for (int i = 0; i < 25; i++) {
             byte[] assignmentsBytes = Assignments.of(timestamp, Assignment.forPeer("node0")).toBytes();
@@ -505,7 +503,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             Function<ZonePartitionId, ByteArray> assignmentFunction,
             Function<byte[], Assignments> assignmentsFromBytesFunction
     ) {
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.latestCatalog();
 
         catalog.tables().forEach(tableDescriptor -> {
             int zoneId = tableDescriptor.zoneId();
@@ -598,7 +596,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         var zoneId = getZoneId(zoneName);
 
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.latestCatalog();
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
         Set<String> initialDataNodes = Set.of("node0");
