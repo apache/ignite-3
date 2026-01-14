@@ -106,7 +106,9 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Starts the handler doing necessary recovery.
+     * Starts the handler.
+     *
+     * @param onNodeStart {@code true} if called on node start, {@code false} otherwise.
      */
     public void start(boolean onNodeStart) {
         if (onNodeStart) {
