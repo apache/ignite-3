@@ -448,7 +448,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 cmd::toStringForLightLogging,
                 createRequestFactory(cmd),
                 0,  // Single attempt - no retry timeout
-                -1
+                RetryContext.USE_DEFAULT_RESPONSE_TIMEOUT
         );
 
         sendWithRetrySingleAttempt(resultFuture, context);
@@ -498,7 +498,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         }
         long remainingTime = deadline - Utils.monotonicMs();
         if (remainingTime <= 0) {
-            future.cancel(true);
             return CompletableFuture.failedFuture(new TimeoutException());
         }
         return future.orTimeout(remainingTime, TimeUnit.MILLISECONDS);
@@ -577,7 +576,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 cmd::toStringForLightLogging,
                 createRequestFactory(cmd),
                 sendWithRetryTimeoutMillis,
-                -1
+                RetryContext.USE_DEFAULT_RESPONSE_TIMEOUT
         );
 
         sendWithRetryWaitingForLeader(resultFuture, context, cmd, deadline, term);
@@ -617,7 +616,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         }
 
         try {
-            long responseTimeout = retryContext.responseTimeoutMillis() == -1
+            long responseTimeout = retryContext.responseTimeoutMillis() == RetryContext.USE_DEFAULT_RESPONSE_TIMEOUT
                     ? throttlingContextHolder.peerRequestTimeoutMillis() : retryContext.responseTimeoutMillis();
 
             retryContext.onNewAttempt();
@@ -1198,7 +1197,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                     // Redirect to known leader (null tracking = don't mark current peer as bad).
                     Peer leaderPeer = parsePeer(resp.leaderId());
 
-                    assert leaderPeer != null : "parsePeer returned null for non-null leaderId: " + resp.leaderId();
+                    if (leaderPeer == null) {
+                        throw new IllegalStateException("parsePeer returned null for non-null leaderId: " + resp.leaderId());
+                    }
 
                     leader = leaderPeer;
                     strategy.executeRetry(retryContext, leaderPeer, null, reason);

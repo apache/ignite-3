@@ -44,7 +44,13 @@ import org.jetbrains.annotations.Nullable;
  * calls.
  */
 class RetryContext {
+    /** Indicates that default response timeout should be used. */
+    static final long USE_DEFAULT_RESPONSE_TIMEOUT = -1;
+
     private static final int MAX_RETRY_REASONS = 25;
+
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS").withZone(ZoneId.systemDefault());
 
     private final String groupId;
 
@@ -232,10 +238,7 @@ class RetryContext {
     }
 
     private static String timestampToString(long timestamp) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS")
-                .withZone(ZoneId.systemDefault());
-        Instant instant = Instant.ofEpochMilli(timestamp);
-        return formatter.format(instant);
+        return TIMESTAMP_FORMATTER.format(Instant.ofEpochMilli(timestamp));
     }
 
     /**
