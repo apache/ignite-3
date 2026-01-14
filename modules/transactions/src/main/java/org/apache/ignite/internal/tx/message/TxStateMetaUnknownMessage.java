@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.tx.message.TxMessageGroup.TX_STATE_META
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.tx.TransactionMeta;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMetaUnknown;
 
 /**
@@ -29,16 +28,8 @@ import org.apache.ignite.internal.tx.TxStateMetaUnknown;
  */
 @Transferable(TX_STATE_META_UNKNOWN_MESSAGE)
 public interface TxStateMetaUnknownMessage extends TxStateMetaMessage {
-    /**
-     * Whether write intent is readable (committed on primary replica). It is needed when the transaction state is unrecoverable
-     * and only write intent state is known. Transaction state should be {@link TxState#UNKNOWN} in this case.
-     *
-     * @return Whether write intent is readable.
-     */
-    boolean writeIntentReadable();
-
     default TransactionMeta asTxStateMetaUnknown() {
-        return new TxStateMetaUnknown(writeIntentReadable());
+        return new TxStateMetaUnknown();
     }
 
     @Override

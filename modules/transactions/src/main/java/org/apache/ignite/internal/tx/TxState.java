@@ -57,7 +57,9 @@ public enum TxState {
 
     /**
      * Unknown transaction state. It may be used during transaction state resolution, shouldn't be used for either volatile
-     * or persistent transaction meta. Any transitions from or to this state are forbidden.
+     * or persistent transaction meta. It means that the state of the sought transaction is unrecoverable from current storage state,
+     * and it's possible if there is no corresponding committed version, so the write intent that triggered this resolution
+     * should be ignored. Any transitions from or to this state are forbidden.
      */
     UNKNOWN(5);
 

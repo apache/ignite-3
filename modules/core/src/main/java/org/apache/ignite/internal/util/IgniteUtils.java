@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -1317,6 +1318,29 @@ public class IgniteUtils {
 
             return array;
         }
+    }
+
+    /**
+     * Makes array from the given arguments, if any argument is an array itself, its elements are added into result instead of it.
+     *
+     * @param arguments Arguments.
+     * @return Flat array.
+     */
+    public static Object[] flatArray(Object... arguments) {
+        List<Object> list = new ArrayList<>();
+
+        for (Object arg : arguments) {
+            if (arg != null && arg.getClass().isArray()) {
+                int length = Array.getLength(arg);
+                for (int i = 0; i < length; i++) {
+                    list.add(Array.get(arg, i));
+                }
+            } else {
+                list.add(arg);
+            }
+        }
+
+        return list.toArray();
     }
 
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {

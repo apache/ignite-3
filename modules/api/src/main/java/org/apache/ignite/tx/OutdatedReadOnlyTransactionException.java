@@ -24,7 +24,7 @@ import java.util.UUID;
 /**
  * Exception thrown when read-only transaction appears to be outdated due to its read timestamp that is less than low watermark.
  */
-public class OutdatedReadOnlyTransactionException extends TransactionException{
+public class OutdatedReadOnlyTransactionException extends TransactionException {
     private static final long serialVersionUID = -7192328914800703670L;
 
     /**

@@ -24,6 +24,9 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.storage.RowId;
 
+/**
+ * Message for transferring {@link RowId}.
+ */
 @Transferable(ROW_ID_MESSAGE)
 public interface RowIdMessage extends NetworkMessage {
     int partitionId();

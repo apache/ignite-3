@@ -27,23 +27,23 @@ import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
 public class TxStateMetaUnknown extends TxStateMeta {
     private static final long serialVersionUID = -2549857341422406570L;
 
-    private final boolean writeIntentReadable;
-
-    public TxStateMetaUnknown(boolean writeIntentReadable) {
+    public TxStateMetaUnknown() {
         super(TxState.UNKNOWN, null, null, null, null, null);
-
-        this.writeIntentReadable = writeIntentReadable;
     }
 
-    public static TxStateMetaUnknown txStateMetaUnknown(boolean writeIntentReadable) {
-        return new TxStateMetaUnknown(writeIntentReadable);
+    public static TxStateMetaUnknown txStateMetaUnknown() {
+        return new TxStateMetaUnknown();
+    }
+
+    @Override
+    public TxStateMetaBuilder mutate() {
+        throw new AssertionError("UNKNOWN transaction state is immutable.");
     }
 
     @Override
     public TxStateMetaMessage toTransactionMetaMessage(ReplicaMessagesFactory replicaMessagesFactory, TxMessagesFactory txMessagesFactory) {
         return txMessagesFactory
                 .txStateMetaUnknownMessage()
-                .writeIntentReadable(writeIntentReadable)
                 .build();
     }
 }

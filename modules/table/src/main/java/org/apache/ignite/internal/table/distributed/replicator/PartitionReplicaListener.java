@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
@@ -2246,37 +2247,36 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * Given this, we can see in the storage doing read with the given read timestamp, and the return result:
      *
      * <ul>
-     *   <li>short path:
+     *   <li>Short path (using {@link MvPartitionStorage#read(RowId, HybridTimestamp)}):
      *     <ul>
-     *       <li>no versions:
-     *         <ul>
-     *           <li>read timestamp is greater than low watermark: respond with ABORTED</li>
-     *           <li>read timestamp is less than or equal to low watermark: error (outdated RO transaction)</li>
-     *         </ul>
-     *       </li>
-     *       <li>there is write intent having transaction id of the sought transaction: respond with PENDING</li>
-     *       <li>there is no write intent or there is write intent of another transaction and newest commit timestamp is the same as in the request: respond with ABORTED</li>
+     *       <li>there is write intent having transaction id of the sought transaction: respond with {@code PENDING};</li>
      *       <li>
-     *         there is the latest committed version and its timestamp (is greater than the newest commit timestamp from request or newest commit timestamp is null),
-     *         and less than or equal to the read timestamp. This means, the write intent for this committed version was created before read timestamp,
-     *         and requesting replica has seen it, so it is committed write intent for sought transaction: respond with COMMITTED.
+     *         there is the latest committed version and its timestamp (is greater than the newest commit timestamp from request or
+     *         newest commit timestamp is null), and less than or equal to the read timestamp. This means, the write intent for
+     *         this committed version was created before read timestamp, and requesting replica has seen it, so it is
+     *         committed write intent for sought transaction: respond with {@code COMMITTED}.
      *       </li>
      *     </ul>
      *   </li>
-     *   <li>otherwise we need to scan the storage. Outcomes:
+     *   <li>Otherwise we need to scan the storage. Possible outcomes:
      *     <ul>
      *       <li>
-     *         there is committed version with timestamp greater than the newest commit timestamp from request and less than or equal to the read timestamp.
-     *         This means, the write intent for this committed version was created before read timestamp, and requesting replica has seen it,
-     *         so it is committed write intent for sought transaction: respond with COMMITTED.
+     *         there is committed version and its timestamp (is greater than the newest commit timestamp
+     *         or newest commit timestamp is null) and less than or equal to the read timestamp. This means, the write intent for
+     *         this committed version was created before read timestamp, and requesting replica has seen it, so it is
+     *         committed write intent for sought transaction: respond with {@code COMMITTED};
      *       </li>
      *       <li>
-     *         there is only committed version(s) with timestamp greater than the newest commit timestamp from request and greater than read timestamp.
-     *         This means that state of the sought transaction is unrecoverable from storage state.
-     *         However, the write intent should be ignored by the requesting replica.
+     *         if read timestamp is not {@link ClockService#after(HybridTimestamp, HybridTimestamp)} low watermark or
+     *         newest commit timestamp is not {@link ClockService#after(HybridTimestamp, HybridTimestamp)} low watermark then throw
+     *         {@link OutdatedReadOnlyTransactionException};
      *       </li>
-     *       <li>otherwise, if there is any committed version before read timestamp: respond with ABORTED</li>
-     *       <li>no committed versions before read timestamp: same as no versions at all (see above).</li>
+     *       <li>
+     *         there is only committed version(s) with timestamp greater than the newest commit timestamp and greater than
+     *         read timestamp. This means that state of the sought transaction is unrecoverable from storage state.
+     *         However, the write intent should be ignored by the requesting replica. Respond with {@code UNKNOWN};
+     *       </li>
+     *       <li>otherwise, if there is any committed version before read timestamp: respond with {@code ABORTED}.</li>
      *     </ul>
      *   </li>
      * </ul>
@@ -2295,12 +2295,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     ) {
         ReadResult readResult = mvDataStorage.read(rowId, readTimestamp);
 
-        if (readResult == null || readResult.isEmpty()) {
-            return txMetaFromStorageNoCommittedResult(txId, readTimestamp);
-        } else if (isWriteIntentBelongingToThisTx(readResult, txId)) {
+        requireNonNull(readResult, "Read result must not be null.");
+
+        if (isWriteIntentBelongingToThisTx(readResult, txId)) {
             return builder(PENDING).build();
-        } else if (isSameCommittedResult(readResult, newestCommitTimestamp)) {
-            return builder(ABORTED).build();
         } else if (isNewCommittedVersionBeforeReadTimestamp(readResult, newestCommitTimestamp, readTimestamp)) {
             return builder(COMMITTED).commitTimestamp(readResult.commitTimestamp()).build();
         } else {
@@ -2321,13 +2319,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         return rr.isWriteIntent() && rr.transactionId() != null && rr.transactionId().equals(txId);
     }
 
-    private static boolean isSameCommittedResult(ReadResult rr, @Nullable HybridTimestamp newestCommitTimestamp) {
-        if (newestCommitTimestamp == null) {
-            return false;
-        }
-
-        return !rr.isWriteIntent() && rr.commitTimestamp().equals(newestCommitTimestamp)
-                || rr.isWriteIntent() && newestCommitTimestamp.equals(rr.newestCommitTimestamp());
+    private static boolean isCommittedVersion(ReadResult rr) {
+        return !rr.isEmpty() && !rr.isWriteIntent();
     }
 
     private static boolean isNewCommittedVersionBeforeReadTimestamp(
@@ -2335,24 +2328,18 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             @Nullable HybridTimestamp newestCommitTimestamp,
             HybridTimestamp readTimestamp
     ) {
-        return !rr.isWriteIntent()
+        return isCommittedVersion(rr)
                 && (newestCommitTimestamp == null || rr.commitTimestamp().longValue() > newestCommitTimestamp.longValue())
                 && rr.commitTimestamp().longValue() <= readTimestamp.longValue();
     }
 
-    private TransactionMeta txMetaFromStorageNoCommittedResult(
-            UUID txId,
-            HybridTimestamp readTimestamp
-    ) {
+    private boolean isReadTimestampOutdated(HybridTimestamp readTimestamp, @Nullable HybridTimestamp newestCommitTimestamp) {
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
         HybridTimestamp earliestDataAvailableTimestamp =  lwm == null ? HybridTimestamp.MIN_VALUE : lwm;
 
-        if (clockService.after(readTimestamp, earliestDataAvailableTimestamp)) {
-            return builder(ABORTED).build();
-        } else {
-            throw new OutdatedReadOnlyTransactionException(txId);
-        }
+        return !clockService.after(readTimestamp, earliestDataAvailableTimestamp)
+                || (newestCommitTimestamp != null && !clockService.after(newestCommitTimestamp, earliestDataAvailableTimestamp));
     }
 
     private TransactionMeta txMetaFromStorageWithScan(
@@ -2361,7 +2348,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             @Nullable HybridTimestamp newestCommitTimestamp,
             HybridTimestamp readTimestamp
     ) {
-        ReadResult anyCommittedBeforeReadTs = null;
         ReadResult anyCommittedAfterReadTs = null;
         ReadResult wi = null;
 
@@ -2371,13 +2357,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     if (rr.isWriteIntent()) {
                         wi = rr;
                     } else {
-                        requireNonNull(rr.transactionId(), "Committed read result must have transaction id");
                         requireNonNull(rr.commitTimestamp(), "Committed read result must have commit timestamp");
 
                         long commitTs = rr.commitTimestamp().longValue();
 
                         // newestCommitTimestamp comes from requesting replica and is always less than read timestamp (if not null).
-                        if (commitTs > newestCommitTimestamp.longValue()) {
+                        if (newestCommitTimestamp == null || commitTs > newestCommitTimestamp.longValue()) {
                             if (commitTs <= readTimestamp.longValue()) {
                                 // This means, the write intent for this committed version was created before read timestamp,
                                 // and requesting replica has seen it, so this is committed write intent for sought transaction.
@@ -2387,10 +2372,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                 anyCommittedAfterReadTs = rr;
                             }
                         }
-
-                        if (commitTs <= readTimestamp.longValue()) {
-                            anyCommittedBeforeReadTs = rr;
-                        }
                     }
                 }
             }
@@ -2398,6 +2379,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         if (wi != null && isWriteIntentBelongingToThisTx(wi, txId)) {
             return builder(PENDING).build();
+        } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
+            // In this case we can't be sure about anything that happened before read timestamp.
+            throw new OutdatedReadOnlyTransactionException(txId);
         } else if (anyCommittedAfterReadTs != null) {
             // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
             // contain tx id.
@@ -2422,12 +2406,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // So the state of tx1 is unknown.
             // However, the write intent should be ignored by the requesting replica because nothing was committed
             // with commit timestamp less than read timestamp.
-            return txStateMetaUnknown(true);
-        } else if (anyCommittedBeforeReadTs != null) {
-            // These are just some versions known to requesting replica.
-            return builder(ABORTED).build();
+            return txStateMetaUnknown();
         } else {
-            return txMetaFromStorageNoCommittedResult(txId, readTimestamp);
+            // These can be only versions known to requesting replica.
+            return builder(ABORTED).build();
         }
     }
 
@@ -3378,7 +3360,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             @Nullable HybridTimestamp timestamp,
             Supplier<@Nullable TimedBinaryRow> lastCommitted
     ) {
-        if (!readResult.isWriteIntent()) {
+        if (isCommittedVersion(readResult)) {
             return completedFuture(new TimedBinaryRow(readResult.binaryRow(), readResult.commitTimestamp()));
         } else {
             // RW write intent resolution.
@@ -3521,7 +3503,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      *         read time).
      */
     private static Boolean canReadFromWriteIntent(UUID txId, TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
-        assert isFinalState(txMeta.txState()) || txMeta.txState() == PENDING
+        assert isFinalState(txMeta.txState()) || txMeta.txState() == PENDING || txMeta.txState() == UNKNOWN
                 : format("Unexpected state defined by write intent resolution [txId={}, txMeta={}].", txId, txMeta);
 
         if (txMeta.txState() == COMMITTED) {
@@ -3529,7 +3511,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return readLatest || txMeta.commitTimestamp().compareTo(timestamp) <= 0;
         } else {
-            // Either ABORTED or PENDING.
+            // Either ABORTED, PENDING or UNKNOWN. When UNKNOWN, write intent is never readable, see state description.
             return false;
         }
     }

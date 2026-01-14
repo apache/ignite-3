@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -50,10 +51,12 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.test.TxStateMetaTestUtils.assertTxStateMetaIsSame;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.flatArray;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
@@ -128,6 +131,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -247,6 +251,7 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.tx.OutdatedReadOnlyTransactionException;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
@@ -2777,19 +2782,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("prepareVersionsParameters")
     void processTxStatePrimaryReplicaRequestTest(
-            boolean addOtherTxVersionBefore,
-            boolean addOtherTxVersionAfter,
-            boolean addThisTxVersionBefore,
-            boolean addThisTxVersionAfter,
+            boolean addVersionBeforeNewestCommitTs,
+            boolean addVersionAfterNewestCommitTsBeforeReadTs,
+            boolean addVersionEqualToReadTs,
+            boolean addVersionAfterReadTs,
             boolean addWriteIntent,
             boolean writeIntentHasThisTxId,
             boolean outdatedReadTs,
-            TransactionMeta expected
+            boolean newestCommitTsIsPresent,
+            IgniteBiTuple<Class<Exception>, TransactionMeta> expected
     ) {
         UUID thisTxId = newTxId();
         UUID otherTxId = newTxId();
 
-        RowId rowId = new RowId(1, 1, 1);
+        RowId rowId = new RowId(PART_ID, 1, 1);
         BinaryRow row = binaryRow(1);
 
         prepareVersions(
@@ -2797,32 +2803,50 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 row,
                 thisTxId,
                 otherTxId,
-                addOtherTxVersionBefore,
-                addOtherTxVersionAfter,
-                addThisTxVersionBefore,
-                addThisTxVersionAfter,
+                addVersionBeforeNewestCommitTs,
+                addVersionAfterNewestCommitTsBeforeReadTs,
+                addVersionEqualToReadTs,
+                addVersionAfterReadTs,
                 addWriteIntent,
-                writeIntentHasThisTxId
+                writeIntentHasThisTxId,
+                newestCommitTsIsPresent
         );
 
-        HybridTimestamp readTs = outdatedReadTs ? hybridTimestamp(5) : hybridTimestamp(100);
+        HybridTimestamp readTs = outdatedReadTs
+                ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
+                : new HybridTimestamp(100, 0);
+        HybridTimestamp newestCommitTs = newestCommitTsIsPresent ? new HybridTimestamp(50, 0) : null;
 
         TxStatePrimaryReplicaRequest request = TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
+                .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .tableId(TABLE_ID)
                 .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(rowId.partitionId()).uuid(rowId.uuid()).build())
+                .txId(thisTxId)
+                .newestCommitTimestamp(newestCommitTs)
                 .readTimestamp(readTs)
                 .build();
 
         CompletableFuture<ReplicaResult> fut = processWithPrimacy(request);
-        assertThat(fut, willCompleteSuccessfully());
-        ReplicaResult res = fut.join();
 
-        TransactionMeta meta = (TransactionMeta) res.result();
-        assertEquals(expected.txState(), meta.txState());
+        if (expected.get1() != null) {
+            try {
+                assertThrowsWithCause(fut::join, expected.get1());
+            } catch (AssertionError e) {
+                log.info("Actual state: " + fut.join().result());
+                throw e;
+            }
+        } else {
+            assertThat(fut, willCompleteSuccessfully());
+            TransactionMeta expectedMeta = expected.get2();
+            ReplicaResult res = fut.join();
 
-        if (expected.txState() == COMMITTED) {
-            assertEquals(expected.commitTimestamp(), meta.commitTimestamp());
+            TransactionMeta meta = (TransactionMeta) res.result();
+            assertEquals(expectedMeta.txState(), meta.txState());
+
+            if (expectedMeta.txState() == COMMITTED) {
+                assertEquals(expectedMeta.commitTimestamp(), meta.commitTimestamp());
+            }
         }
     }
 
@@ -2831,27 +2855,32 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             BinaryRow row,
             UUID thisTxId,
             UUID otherTxId,
-            boolean addOtherTxVersionBefore,
-            boolean addOtherTxVersionAfter,
-            boolean addThisTxVersionBefore,
-            boolean addThisTxVersionAfter,
+            boolean addVersionBeforeNewestCommitTs,
+            boolean addVersionAfterNewestCommitTsBeforeReadTs,
+            boolean addVersionEqualToReadTs,
+            boolean addVersionAfterReadTs,
             boolean addWriteIntent,
-            boolean writeIntentHasThisTxId
+            boolean writeIntentHasThisTxId,
+            boolean newestCommitTsIsPresent
     ) {
-        if (addOtherTxVersionBefore) {
-            addWriteAndCommit(rowId, row, otherTxId, 10);
+        if (newestCommitTsIsPresent) {
+            if (addVersionBeforeNewestCommitTs) {
+                addWriteAndCommit(rowId, row, otherTxId, new HybridTimestamp(20, 0));
+            }
+
+            addWriteAndCommit(rowId, row, otherTxId, new HybridTimestamp(50, 0));
         }
 
-        if (addThisTxVersionBefore) {
-            addWriteAndCommit(rowId, row, otherTxId, 20);
+        if (addVersionAfterNewestCommitTsBeforeReadTs) {
+            addWriteAndCommit(rowId, row, otherTxId, new HybridTimestamp(70, 0));
         }
 
-        if (addThisTxVersionAfter) {
-            addWriteAndCommit(rowId, row, thisTxId, 110);
+        if (addVersionEqualToReadTs) {
+            addWriteAndCommit(rowId, row, otherTxId, new HybridTimestamp(100, 0));
         }
 
-        if (addOtherTxVersionAfter) {
-            addWriteAndCommit(rowId, row, otherTxId, 120);
+        if (addVersionAfterReadTs) {
+            addWriteAndCommit(rowId, row, otherTxId, new HybridTimestamp(150, 0));
         }
 
         if (addWriteIntent) {
@@ -2860,16 +2889,139 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
-    private void addWriteAndCommit(RowId rowId, BinaryRow row, UUID txId, long commitTs) {
+    private void addWriteAndCommit(RowId rowId, BinaryRow row, UUID txId, HybridTimestamp commitTs) {
         testMvPartitionStorage.addWrite(rowId, row, txId, ZONE_ID, PART_ID);
-        testMvPartitionStorage.commitWrite(rowId, hybridTimestamp(commitTs), txId);
-
+        testMvPartitionStorage.commitWrite(rowId, commitTs, txId);
     }
 
     private static Stream<Arguments> prepareVersionsParameters() {
-        return Stream.of(
+        boolean[] noCommittedVersions = { false, false, false, false };
+        boolean[] committedVersions = { true, true, true, true };
+        boolean[] commitTsBeforeReadTs = { false, true, false, false };
+        boolean[] commitTsBeforeReadTsWithEarlyHistory = { true, true, false, false };
+        boolean[] commitTsEqualToReadTs = { false, false, true, false };
+        boolean[] commitTsAfterReadTs = { false, false, false, true };
+        boolean[] commitTsBeforeAndAfterReadTs = { false, true, false, true };
 
+        boolean[] noWriteIntent = { false, false };
+        boolean[] writeIntentThisTx = { true, true };
+        boolean[] writeIntentAnotherTx = { true, false };
+
+        boolean roOk = false;
+        boolean roOutdated = true;
+
+        boolean newestAbsent = false;
+        boolean newestPresent = true;
+
+        var outdatedError = new IgniteBiTuple<>(OutdatedReadOnlyTransactionException.class, null);
+        var pending = expectedTxStateArg(PENDING, null);
+        var aborted = expectedTxStateArg(ABORTED, null);
+        var committedBeforeReadTs = expectedTxStateArg(COMMITTED, new HybridTimestamp(70, 0));
+        var committedEqualToReadTs = expectedTxStateArg(COMMITTED, new HybridTimestamp(100, 0));
+        var unknown = expectedTxStateArg(UNKNOWN, null);
+
+        return Stream.of(
+                argumentSet(
+                        "outdated ro txn, no committed versions",
+                        flatArray(noCommittedVersions, noWriteIntent, roOutdated, newestAbsent, outdatedError)
+                ),
+                argumentSet(
+                        "outdated ro txn, no committed versions, write intent of another tx",
+                        flatArray(noCommittedVersions, writeIntentAnotherTx, roOutdated, newestAbsent, outdatedError)
+                ),
+                argumentSet(
+                        "outdated ro txn, committed versions",
+                        flatArray(committedVersions, noWriteIntent, roOutdated, newestAbsent, outdatedError)
+                ),
+                argumentSet(
+                        "empty result",
+                        flatArray(noCommittedVersions, noWriteIntent, roOk, newestAbsent, aborted)
+                ),
+                argumentSet(
+                        "write intent of this tx, no committed versions",
+                        flatArray(noCommittedVersions, writeIntentThisTx, roOk, newestAbsent, pending)
+                ),
+                argumentSet(
+                        "write intent of another tx, no committed versions",
+                        flatArray(noCommittedVersions, writeIntentAnotherTx, roOk, newestAbsent, aborted)
+                ),
+                argumentSet(
+                        "committed write intent, commit ts before read ts",
+                        flatArray(commitTsBeforeReadTs, noWriteIntent, roOk, newestAbsent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "committed write intent, commit ts before read ts, early history",
+                        flatArray(commitTsBeforeReadTsWithEarlyHistory, noWriteIntent, roOk, newestAbsent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "committed write intent, commit ts equal to read ts",
+                        flatArray(commitTsEqualToReadTs, noWriteIntent, roOk, newestAbsent, committedEqualToReadTs)
+                ),
+                argumentSet(
+                        "committed write intent, commit ts after read ts",
+                        flatArray(commitTsAfterReadTs, noWriteIntent, roOk, newestAbsent, unknown)
+                ),
+                argumentSet(
+                        "committed write intent, commit ts before and after read ts",
+                        flatArray(commitTsBeforeAndAfterReadTs, noWriteIntent, roOk, newestAbsent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, committed write intent, commit ts before read ts",
+                        flatArray(commitTsBeforeReadTs, noWriteIntent, roOk, newestPresent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, early history, committed write intent, commit ts before read ts",
+                        flatArray(commitTsBeforeReadTsWithEarlyHistory, noWriteIntent, roOk, newestPresent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, committed write intent, commit ts equal to read ts",
+                        flatArray(commitTsEqualToReadTs, noWriteIntent, roOk, newestPresent, committedEqualToReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, committed write intent, commit ts after read ts",
+                        flatArray(commitTsAfterReadTs, noWriteIntent, roOk, newestPresent, unknown)
+                ),
+                argumentSet(
+                        "newest commitTs present, committed write intent, commit ts before and after read ts",
+                        flatArray(commitTsBeforeAndAfterReadTs, noWriteIntent, roOk, newestPresent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, write intent of this tx",
+                        flatArray(noCommittedVersions, writeIntentThisTx, roOk, newestPresent, pending)
+                ),
+                argumentSet(
+                        "newest commitTs present, write intent of another tx",
+                        flatArray(noCommittedVersions, writeIntentAnotherTx, roOk, newestPresent, aborted)
+                ),
+                argumentSet(
+                        "newest commitTs present, write intent of another tx, commit ts before read ts",
+                        flatArray(commitTsBeforeReadTs, writeIntentAnotherTx, roOk, newestPresent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, early history, write intent of another tx, commit ts before read ts",
+                        flatArray(commitTsBeforeReadTsWithEarlyHistory, writeIntentAnotherTx, roOk, newestPresent, committedBeforeReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, write intent of another tx, commit ts equal to read ts",
+                        flatArray(commitTsEqualToReadTs, writeIntentAnotherTx, roOk, newestPresent, committedEqualToReadTs)
+                ),
+                argumentSet(
+                        "newest commitTs present, write intent of another tx, commit ts after read ts",
+                        flatArray(commitTsAfterReadTs, writeIntentAnotherTx, roOk, newestPresent, unknown)
+                ),
+                argumentSet(
+                        "newest commitTs present, write intent of another tx, commit ts after before and after read ts",
+                        flatArray(commitTsBeforeAndAfterReadTs, writeIntentAnotherTx, roOk, newestPresent,
+                                committedBeforeReadTs)
+                )
         );
+    }
+
+    private static IgniteBiTuple<Class<Exception>, TransactionMeta> expectedTxStateArg(
+            TxState txState,
+            @Nullable HybridTimestamp commitTs
+    ) {
+        return new IgniteBiTuple<>(null, TxStateMeta.builder(txState).commitTimestamp(commitTs).build());
     }
 
     private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {
