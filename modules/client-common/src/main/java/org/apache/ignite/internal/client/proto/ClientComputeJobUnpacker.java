@@ -72,7 +72,7 @@ public final class ClientComputeJobUnpacker {
             throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
 
-        return new ComputeJobDataHolder(type, unpacker.readBinary());
+        return new ComputeJobDataHolder(type, unpacker.readBinary(), observableTs);
     }
 
     /** Unpacks compute job info. */

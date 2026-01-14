@@ -39,16 +39,6 @@ public class ComputeJobDataHolder {
      * @param type Job argument type.
      * @param data Marshalled data.
      */
-    public ComputeJobDataHolder(ComputeJobDataType type, byte @Nullable [] data) {
-        this(type, data, null);
-    }
-
-    /**
-     * Constructs a holder.
-     *
-     * @param type Job argument type.
-     * @param data Marshalled data.
-     */
     public ComputeJobDataHolder(ComputeJobDataType type, byte @Nullable [] data, @Nullable Long observableTimestamp) {
         this.type = type;
         this.data = data;
