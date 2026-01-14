@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
@@ -26,6 +27,7 @@ import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.hasMessage;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -70,9 +72,11 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
@@ -80,6 +84,7 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -898,6 +903,29 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    @Test
+    public void observableTsIsPropagatedToTargetNode() {
+        // Bump observable timestamp.
+        createTestTableWithOneRow();
+
+        HybridTimestamp localObservableTs = currentObservableTimestamp();
+
+        JobExecution<Long> execution = submit(
+                JobTarget.node(clusterNode(node(1))),
+                JobDescriptor.builder(ObservableTimestampJob.class).units(units()).build(),
+                null
+        );
+
+        Long jobRes = execution.resultAsync().join();
+        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes);
+
+        assertThat(jobObservableTs, is(localObservableTs));
+    }
+
+    protected @Nullable HybridTimestamp currentObservableTimestamp() {
+        return unwrapIgniteImpl(node(0)).observableTimeTracker().get();
+    }
+
     static Class<ToStringJob> toStringJobClass() {
         return ToStringJob.class;
     }
@@ -932,5 +960,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                         either(hasMessage(containsString(CancellationException.class.getName())))
                                 .or(instanceOf(CancellationException.class))
                 );
+    }
+
+    private static class ObservableTimestampJob implements ComputeJob<Object, Long> {
+        @Override
+        public CompletableFuture<Long> executeAsync(JobExecutionContext context, Object arg) {
+            return completedFuture(unwrapIgniteImpl(context.ignite()).observableTimeTracker().getLong());
+        }
     }
 }
