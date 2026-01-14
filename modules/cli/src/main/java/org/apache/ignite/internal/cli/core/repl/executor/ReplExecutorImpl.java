@@ -37,6 +37,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.DeployUnitsOpti
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContext;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
 import org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport;
@@ -112,17 +113,16 @@ public class ReplExecutorImpl implements ReplExecutor {
         registry.setScriptDescription(cmdLine -> null);
     }
 
+    /**
+     * Displays output, using pager if needed. Disables TailTipWidgets during output
+     * to prevent visual glitches.
+     */
     private void outputWithPager(String output) {
         if (tailTipWidgets != null) {
             tailTipWidgets.disable();
         }
 
-        if (pagerSupport.shouldUsePager(output)) {
-            pagerSupport.pipeToPage(output);
-        } else {
-            terminal.writer().print(output);
-            terminal.writer().flush();
-        }
+        pagerSupport.write(output);
 
         if (tailTipWidgets != null) {
             tailTipWidgets.enable();
@@ -136,6 +136,9 @@ public class ReplExecutorImpl implements ReplExecutor {
      */
     @Override
     public void execute(Repl repl) {
+        // Save the previous context to restore it when this REPL exits.
+        // This is important for nested REPLs (e.g., SQL REPL inside main REPL).
+        CommandLineContext previousContext = CommandLineContextProvider.getContext();
         try {
             repl.customizeTerminal(terminal);
 
@@ -154,6 +157,9 @@ public class ReplExecutorImpl implements ReplExecutor {
             reader.getHistory().save();
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
+        } finally {
+            // Restore the previous context so the parent REPL continues to work correctly
+            CommandLineContextProvider.setContext(previousContext);
         }
     }
 
@@ -191,6 +197,19 @@ public class ReplExecutorImpl implements ReplExecutor {
         return result;
     }
 
+    /**
+     * Main REPL loop. Reads commands, executes them, and displays output with pager support.
+     *
+     * <p>Output capture flow:
+     * <ol>
+     *   <li>Command output is redirected to a StringWriter instead of the terminal</li>
+     *   <li>After the command completes, we have the full output as a string</li>
+     *   <li>PagerSupport decides: if output exceeds terminal height, pipe through pager (e.g., less);
+     *       otherwise, print directly to terminal</li>
+     * </ol>
+     *
+     * <p>This approach allows us to measure output size before displaying it.
+     */
     private void runReplLoop(Repl repl, IgnitePicocliCommands picocliCommands, RegistryCommandExecutor executor, LineReader reader) {
         while (!interrupted.get()) {
             try {
@@ -210,6 +229,12 @@ public class ReplExecutorImpl implements ReplExecutor {
         }
     }
 
+    /**
+     * Executes a command and captures its output to a string.
+     *
+     * <p>Temporarily redirects picocli's output writer to a StringWriter,
+     * executes the command pipeline, then restores the original terminal writer.
+     */
     private String executeCommandWithOutputCapture(Repl repl, IgnitePicocliCommands picocliCommands,
             RegistryCommandExecutor executor, String line) {
         StringWriter capturedOutput = new StringWriter();

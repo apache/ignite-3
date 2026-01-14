@@ -41,7 +41,6 @@ public class PagerSupport {
     /** Number of lines to reserve for prompt and status. */
     private static final int TERMINAL_MARGIN = 2;
 
-    private final int terminalHeight;
     private final boolean pagerEnabled;
     private final String pagerCommand;
     private final Terminal terminal;
@@ -54,7 +53,6 @@ public class PagerSupport {
      */
     public PagerSupport(Terminal terminal, ConfigManagerProvider configManagerProvider) {
         this.terminal = terminal;
-        this.terminalHeight = terminal.getHeight();
         this.pagerEnabled = readPagerEnabled(configManagerProvider);
         this.pagerCommand = readPagerCommand(configManagerProvider);
     }
@@ -63,15 +61,30 @@ public class PagerSupport {
      * Creates PagerSupport for testing.
      *
      * @param terminal JLine terminal (can be null for testing)
-     * @param terminalHeight terminal height in lines
      * @param pagerEnabled whether pager is enabled
      * @param pagerCommand pager command (null for default)
      */
-    PagerSupport(Terminal terminal, int terminalHeight, boolean pagerEnabled, String pagerCommand) {
+    PagerSupport(Terminal terminal, boolean pagerEnabled, String pagerCommand) {
         this.terminal = terminal;
-        this.terminalHeight = terminalHeight;
         this.pagerEnabled = pagerEnabled;
         this.pagerCommand = resolveCommand(pagerCommand);
+    }
+
+    /**
+     * Writes output to terminal, using pager if output exceeds terminal height.
+     *
+     * @param output the output to write
+     */
+    public void write(String output) {
+        if (output == null || output.isEmpty()) {
+            return;
+        }
+        if (shouldUsePager(output)) {
+            pipeToPage(output);
+        } else {
+            terminal.writer().print(output);
+            terminal.writer().flush();
+        }
     }
 
     /**
@@ -80,12 +93,13 @@ public class PagerSupport {
      * @param output the output to check
      * @return true if the output exceeds terminal height and pager is enabled
      */
-    public boolean shouldUsePager(String output) {
-        if (!pagerEnabled) {
+    boolean shouldUsePager(String output) {
+        if (!pagerEnabled || terminal == null) {
             return false;
         }
         int lineCount = countLines(output);
-        int threshold = terminalHeight - TERMINAL_MARGIN;
+        // Query terminal height dynamically to handle window resizing
+        int threshold = terminal.getHeight() - TERMINAL_MARGIN;
         return lineCount > threshold;
     }
 
@@ -97,6 +111,11 @@ public class PagerSupport {
     public void pipeToPage(String output) {
         String command = getPagerCommand();
         try {
+            // Pause JLine terminal to release control to the pager process
+            if (terminal != null) {
+                terminal.pause();
+            }
+
             ProcessBuilder pb = createPagerProcess(command);
             Process process = pb.start();
 
@@ -113,6 +132,15 @@ public class PagerSupport {
             }
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
+            }
+        } finally {
+            // Resume JLine terminal control
+            if (terminal != null) {
+                try {
+                    terminal.resume();
+                } catch (Exception ignored) {
+                    // Ignore resume errors
+                }
             }
         }
     }
@@ -154,13 +182,7 @@ public class PagerSupport {
         if (normalized.isEmpty()) {
             return 0;
         }
-        int count = 1;
-        for (int i = 0; i < normalized.length(); i++) {
-            if (normalized.charAt(i) == '\n') {
-                count++;
-            }
-        }
-        return count;
+        return (int) normalized.chars().filter(c -> c == '\n').count() + 1;
     }
 
     /** Creates the process builder for the pager. */

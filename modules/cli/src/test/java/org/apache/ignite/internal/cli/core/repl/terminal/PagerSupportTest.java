@@ -19,7 +19,10 @@ package org.apache.ignite.internal.cli.core.repl.terminal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import org.jline.terminal.Terminal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -203,7 +206,9 @@ class PagerSupportTest {
      * @return configured PagerSupport instance
      */
     private static PagerSupport createPagerSupport(int terminalHeight, boolean pagerEnabled, String pagerCommand) {
-        return new PagerSupport(null, terminalHeight, pagerEnabled, pagerCommand);
+        Terminal terminal = mock(Terminal.class);
+        when(terminal.getHeight()).thenReturn(terminalHeight);
+        return new PagerSupport(terminal, pagerEnabled, pagerCommand);
     }
 
     /**
