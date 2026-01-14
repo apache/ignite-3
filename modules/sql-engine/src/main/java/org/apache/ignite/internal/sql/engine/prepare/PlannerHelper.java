@@ -244,6 +244,7 @@ public final class PlannerHelper {
 
     private static RelNode tryDecorrelate(IgnitePlanner planner, RelNode rel) {
         try {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-27555 remove this
             // Currently, RelDecorrelator emits incorrect plan if the same correlation id is used
             // in several relations.
             rel.accept(new CorrelationUsedOnlyInSingleRelValidator());
@@ -261,6 +262,7 @@ public final class PlannerHelper {
         );
 
         try {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23608 remove after window functions are supported
             // Decorrelation may produce Window node which is currently not supported.
             result.accept(WindowNodeIsNotPresentedValidator.INSTANCE);
         } catch (FoundOne ignored) {
