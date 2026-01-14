@@ -893,7 +893,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionDataStorage,
                 table,
                 resources.safeTimeTracker(),
-                replicationConfiguration
+                replicationConfiguration,
+                onNodeRecovery
         );
 
         mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
@@ -1633,7 +1634,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionDataStorage partitionDataStorage,
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            ReplicationConfiguration replicationConfiguration
+            ReplicationConfiguration replicationConfiguration,
+            boolean onNodeRecovery
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
 
@@ -1655,7 +1657,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 replicationConfiguration,
                 modificationCounter
         );
-        storageUpdateHandler.start();
+        storageUpdateHandler.start(onNodeRecovery);
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
