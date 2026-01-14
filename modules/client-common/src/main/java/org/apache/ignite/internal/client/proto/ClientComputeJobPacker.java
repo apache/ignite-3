@@ -33,6 +33,7 @@ public final class ClientComputeJobPacker {
      * @param arg Argument.
      * @param marshaller Marshaller.
      * @param packer Packer.
+     * @param observableTs Observable timestamp. Not packed when null.
      * @param <T> Argument type.
      */
     public static <T> void packJobArgument(
@@ -65,6 +66,7 @@ public final class ClientComputeJobPacker {
      * @param arg Job argument.
      * @param platformComputeSupported Whether platform compute is supported.
      * @param w Packer.
+     * @param observableTs Observable timestamp. Not packed when null.
      */
     public static <T, R> void packJob(
             JobDescriptor<T, R> descriptor,
