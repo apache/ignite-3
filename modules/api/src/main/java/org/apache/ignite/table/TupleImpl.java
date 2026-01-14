@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.NumericTypeCastUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -198,7 +199,7 @@ class TupleImpl implements Tuple, Serializable {
     public byte byteValue(String columnName) {
         Number number = valueNotNull(columnName);
 
-        return castToByte(number);
+        return NumericTypeCastUtils.castToByte(number);
     }
 
     /** {@inheritDoc} */
@@ -206,7 +207,7 @@ class TupleImpl implements Tuple, Serializable {
     public byte byteValue(int columnIndex) {
         Number number = valueNotNull(columnIndex);
 
-        return castToByte(number);
+        return NumericTypeCastUtils.castToByte(number);
     }
 
     /** {@inheritDoc} */
@@ -214,7 +215,7 @@ class TupleImpl implements Tuple, Serializable {
     public short shortValue(String columnName) {
         Number number = valueNotNull(columnName);
 
-        return castToShort(number);
+        return NumericTypeCastUtils.castToShort(number);
     }
 
     /** {@inheritDoc} */
@@ -222,7 +223,7 @@ class TupleImpl implements Tuple, Serializable {
     public short shortValue(int columnIndex) {
         Number number = valueNotNull(columnIndex);
 
-        return castToShort(number);
+        return NumericTypeCastUtils.castToShort(number);
     }
 
     /** {@inheritDoc} */
@@ -230,7 +231,7 @@ class TupleImpl implements Tuple, Serializable {
     public int intValue(String columnName) {
         Number number = valueNotNull(columnName);
 
-        return castToInt(number);
+        return NumericTypeCastUtils.castToInt(number);
     }
 
     /** {@inheritDoc} */
@@ -238,7 +239,7 @@ class TupleImpl implements Tuple, Serializable {
     public int intValue(int columnIndex) {
         Number number = valueNotNull(columnIndex);
 
-        return castToInt(number);
+        return NumericTypeCastUtils.castToInt(number);
     }
 
     /** {@inheritDoc} */
@@ -246,7 +247,7 @@ class TupleImpl implements Tuple, Serializable {
     public long longValue(String columnName) {
         Number number = valueNotNull(columnName);
 
-        return castToLong(number);
+        return NumericTypeCastUtils.castToLong(number);
     }
 
     /** {@inheritDoc} */
@@ -254,7 +255,7 @@ class TupleImpl implements Tuple, Serializable {
     public long longValue(int columnIndex) {
         Number number = valueNotNull(columnIndex);
 
-        return castToLong(number);
+        return NumericTypeCastUtils.castToLong(number);
     }
 
     /** {@inheritDoc} */
@@ -262,7 +263,7 @@ class TupleImpl implements Tuple, Serializable {
     public float floatValue(String columnName) {
         Number number = valueNotNull(columnName);
 
-        return castToFloat(number);
+        return NumericTypeCastUtils.castToFloat(number);
     }
 
     /** {@inheritDoc} */
@@ -270,7 +271,7 @@ class TupleImpl implements Tuple, Serializable {
     public float floatValue(int columnIndex) {
         Number number = valueNotNull(columnIndex);
 
-        return castToFloat(number);
+        return NumericTypeCastUtils.castToFloat(number);
     }
 
     /** {@inheritDoc} */
@@ -278,7 +279,7 @@ class TupleImpl implements Tuple, Serializable {
     public double doubleValue(String columnName) {
         Number number = valueNotNull(columnName);
 
-        return castToDouble(number);
+        return NumericTypeCastUtils.castToDouble(number);
     }
 
     /** {@inheritDoc} */
@@ -286,7 +287,7 @@ class TupleImpl implements Tuple, Serializable {
     public double doubleValue(int columnIndex) {
         Number number = valueNotNull(columnIndex);
 
-        return castToDouble(number);
+        return NumericTypeCastUtils.castToDouble(number);
     }
 
     /** {@inheritDoc} */
@@ -482,98 +483,5 @@ class TupleImpl implements Tuple, Serializable {
         }
 
         return value;
-    }
-
-    private static byte castToByte(Number number) {
-        if (number instanceof Byte) {
-            return (byte) number;
-        }
-
-        if (number instanceof Long || number instanceof Integer || number instanceof Short) {
-            long longVal = number.longValue();
-            byte byteVal = number.byteValue();
-
-            if (longVal == byteVal) {
-                return byteVal;
-            }
-
-            throw new ArithmeticException("Byte value overflow: " + number);
-        }
-
-        return (byte) number;
-    }
-
-    private static short castToShort(Number number) {
-        if (number instanceof Short) {
-            return (short) number;
-        }
-
-        if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
-            long longVal = number.longValue();
-            short shortVal = number.shortValue();
-
-            if (longVal == shortVal) {
-                return shortVal;
-            }
-
-            throw new ArithmeticException("Short value overflow: " + number);
-        }
-
-        return (short) number;
-    }
-
-    private static int castToInt(Number number) {
-        if (number instanceof Integer) {
-            return (int) number;
-        }
-
-        if (number instanceof Long || number instanceof Short || number instanceof Byte) {
-            long longVal = number.longValue();
-            int intVal = number.intValue();
-
-            if (longVal == intVal) {
-                return intVal;
-            }
-
-            throw new ArithmeticException("Int value overflow: " + number);
-        }
-
-        return (int) number;
-    }
-
-    private static long castToLong(Number number) {
-        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
-            return number.longValue();
-        }
-
-        return (long) number;
-    }
-
-    private static float castToFloat(Number number) {
-        if (number instanceof Float) {
-            return (float) number;
-        }
-
-        if (number instanceof Double) {
-            double doubleVal = number.doubleValue();
-            float floatVal = number.floatValue();
-
-            //noinspection FloatingPointEquality
-            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
-                return floatVal;
-            }
-
-            throw new ArithmeticException("Float value overflow: " + number);
-        }
-
-        return (float) number;
-    }
-
-    private static double castToDouble(Number number) {
-        if (number instanceof Double || number instanceof Float) {
-            return number.doubleValue();
-        }
-
-        return (double) number;
     }
 }

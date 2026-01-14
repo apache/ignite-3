@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.lang.util.NumericTypeCastUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -260,7 +261,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public byte byteValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return castToByte(number);
+            return NumericTypeCastUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
@@ -268,7 +269,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public byte byteValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return castToByte(number);
+            return NumericTypeCastUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
@@ -276,7 +277,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public short shortValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return castToShort(number);
+            return NumericTypeCastUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
@@ -284,7 +285,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public short shortValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return castToShort(number);
+            return NumericTypeCastUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
@@ -292,7 +293,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public int intValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return castToInt(number);
+            return NumericTypeCastUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
@@ -300,7 +301,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public int intValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return castToInt(number);
+            return NumericTypeCastUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
@@ -308,7 +309,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public long longValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return castToLong(number);
+            return NumericTypeCastUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
@@ -316,7 +317,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public long longValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return castToLong(number);
+            return NumericTypeCastUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
@@ -324,7 +325,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public float floatValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return castToFloat(number);
+            return NumericTypeCastUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
@@ -332,7 +333,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public float floatValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return castToFloat(number);
+            return NumericTypeCastUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
@@ -340,7 +341,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public double doubleValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return castToDouble(number);
+            return NumericTypeCastUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
@@ -348,7 +349,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public double doubleValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return castToDouble(number);
+            return NumericTypeCastUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
@@ -482,99 +483,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             }
 
             return (T) value;
-        }
-
-        private static byte castToByte(Number number) {
-            if (number instanceof Byte) {
-                return (byte) number;
-            }
-
-            if (number instanceof Long || number instanceof Integer || number instanceof Short) {
-                long longVal = number.longValue();
-                byte byteVal = number.byteValue();
-
-                if (longVal == byteVal) {
-                    return byteVal;
-                }
-
-                throw new ArithmeticException("Byte value overflow: " + number);
-            }
-
-            return (byte) number;
-        }
-
-        private static short castToShort(Number number) {
-            if (number instanceof Short) {
-                return (short) number;
-            }
-
-            if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
-                long longVal = number.longValue();
-                short shortVal = number.shortValue();
-
-                if (longVal == shortVal) {
-                    return shortVal;
-                }
-
-                throw new ArithmeticException("Short value overflow: " + number);
-            }
-
-            return (short) number;
-        }
-
-        private static int castToInt(Number number) {
-            if (number instanceof Integer) {
-                return (int) number;
-            }
-
-            if (number instanceof Long || number instanceof Short || number instanceof Byte) {
-                long longVal = number.longValue();
-                int intVal = number.intValue();
-
-                if (longVal == intVal) {
-                    return intVal;
-                }
-
-                throw new ArithmeticException("Int value overflow: " + number);
-            }
-
-            return (int) number;
-        }
-
-        private static long castToLong(Number number) {
-            if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
-                return number.longValue();
-            }
-
-            return (long) number;
-        }
-
-        private static float castToFloat(Number number) {
-            if (number instanceof Float) {
-                return (float) number;
-            }
-
-            if (number instanceof Double) {
-                double doubleVal = number.doubleValue();
-                float floatVal = number.floatValue();
-
-                //noinspection FloatingPointEquality
-                if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
-                    return floatVal;
-                }
-
-                throw new ArithmeticException("Float value overflow: " + number);
-            }
-
-            return (float) number;
-        }
-
-        private static double castToDouble(Number number) {
-            if (number instanceof Double || number instanceof Float) {
-                return number.doubleValue();
-            }
-
-            return (double) number;
         }
     }
 }
