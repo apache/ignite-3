@@ -484,7 +484,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             return (T) value;
         }
 
-
         private static byte castToByte(Number number) {
             if (number instanceof Byte) {
                 return (byte) number;

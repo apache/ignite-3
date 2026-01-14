@@ -206,7 +206,7 @@ public class TupleTypeCastUtils {
                     return byteValue;
                 }
 
-                break;
+                throw new ArithmeticException("Byte value overflow: " + value);
             }
             case INT32: {
                 int value = binaryTuple.intValue(binaryTupleIndex);
@@ -216,7 +216,7 @@ public class TupleTypeCastUtils {
                     return byteValue;
                 }
 
-                break;
+                throw new ArithmeticException("Byte value overflow: " + value);
             }
             case INT64: {
                 long value = binaryTuple.longValue(binaryTupleIndex);
@@ -226,14 +226,13 @@ public class TupleTypeCastUtils {
                     return byteValue;
                 }
 
-                break;
+                throw new ArithmeticException("Byte value overflow: " + value);
             }
 
             default:
-                assert false : valueType;
         }
 
-        throw new ArithmeticException("Byte value overflow");
+        throw new IllegalArgumentException("invalid type: " + valueType);
     }
 
     /** Casts an integer value from the tuple to {@code short} performing range checks. */
@@ -251,7 +250,7 @@ public class TupleTypeCastUtils {
                     return shortValue;
                 }
 
-                break;
+                throw new ArithmeticException("Short value overflow: " + value);
             }
             case INT64: {
                 long value = binaryTuple.longValue(binaryTupleIndex);
@@ -261,14 +260,13 @@ public class TupleTypeCastUtils {
                     return shortValue;
                 }
 
-                break;
+                throw new ArithmeticException("Short value overflow: " + value);
             }
 
             default:
-                assert false : valueType;
         }
 
-        throw new ArithmeticException("Short value overflow");
+        throw new IllegalArgumentException("invalid type: " + valueType);
     }
 
     /** Casts an integer value from the tuple to {@code int} performing range checks. */
@@ -287,14 +285,14 @@ public class TupleTypeCastUtils {
                     return intValue;
                 }
 
-                break;
+                throw new ArithmeticException("Int value overflow: " + value);
             }
 
             default:
                 assert false : valueType;
         }
 
-        throw new ArithmeticException("Int value overflow");
+        throw new IllegalArgumentException("invalid type: " + valueType);
     }
 
     /** Casts a floating-point value from the tuple to {@code float} performing precision checks. */
@@ -310,7 +308,7 @@ public class TupleTypeCastUtils {
             return floatValue;
         }
 
-        throw new ArithmeticException("Float value overflow");
+        throw new ArithmeticException("Float value overflow: " + doubleValue);
     }
 
     private static void throwClassCastException(ColumnType requestedType, ColumnType actualType, int index) {
