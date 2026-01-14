@@ -1414,7 +1414,7 @@ public class ClientInboundMessageHandler
                         packer.packString(jobClassName);
                         packDeploymentUnitPaths(ctx.deploymentUnits(), packer);
                         packer.packBoolean(false); // Retain deployment units in cache.
-                        ClientComputeJobPacker.packJobArgument(arg, null, packer);
+                        ClientComputeJobPacker.packJobArgument(arg, null, packer, null);
                     })
                     .thenApply(unpacker -> {
                         try (unpacker) {
