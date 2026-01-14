@@ -31,7 +31,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.unit.UnitStructureCallInput;
+import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.rest.client.model.UnitFolder;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,12 +40,12 @@ import org.junit.jupiter.api.Test;
 
 @MicronautTest(rebuildContext = true)
 @WireMockTest
-class NodeUnitStructureCallTest {
+class NodeUnitInspectCallTest {
 
     private String url;
 
     @Inject
-    private NodeUnitStructureCall call;
+    private NodeUnitInspectCall call;
 
     @BeforeEach
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
@@ -73,7 +73,7 @@ class NodeUnitStructureCallTest {
                 .willReturn(ok(json)));
 
         // When
-        UnitStructureCallInput input = UnitStructureCallInput.builder()
+        UnitInspectCallInput input = UnitInspectCallInput.builder()
                 .unitId(unitId)
                 .version(version)
                 .url(url)
@@ -100,7 +100,7 @@ class NodeUnitStructureCallTest {
                         .withBody("{\"title\":\"Not Found\",\"status\":404,\"detail\":\"Unit not found\"}")));
 
         // When
-        UnitStructureCallInput input = UnitStructureCallInput.builder()
+        UnitInspectCallInput input = UnitInspectCallInput.builder()
                 .unitId(unitId)
                 .version(version)
                 .url(url)
@@ -140,7 +140,7 @@ class NodeUnitStructureCallTest {
                 .willReturn(ok(json)));
 
         // When
-        UnitStructureCallInput input = UnitStructureCallInput.builder()
+        UnitInspectCallInput input = UnitInspectCallInput.builder()
                 .unitId(unitId)
                 .version(version)
                 .url(url)

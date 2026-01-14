@@ -21,6 +21,6 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /** Manages deployment units on node level. */
-@Command(name = "unit", subcommands = {NodeUnitListCommand.class, NodeUnitStructureCommand.class}, description = "Manages deployment units")
+@Command(name = "unit", subcommands = {NodeUnitListCommand.class, NodeUnitInspectCommand.class}, description = "Manages deployment units")
 public class NodeUnitCommand extends BaseCommand {
 }

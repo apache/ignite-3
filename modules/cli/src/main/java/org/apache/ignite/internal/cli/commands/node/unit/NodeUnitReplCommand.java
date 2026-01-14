@@ -22,7 +22,7 @@ import picocli.CommandLine.Command;
 
 /** Manages deployment units on node level in REPL mode. */
 @Command(name = "unit",
-        subcommands = {NodeUnitListReplCommand.class, NodeUnitStructureReplCommand.class},
+        subcommands = {NodeUnitListReplCommand.class, NodeUnitInspectReplCommand.class},
         description = "Manages deployment units")
 public class NodeUnitReplCommand extends BaseCommand {
 }

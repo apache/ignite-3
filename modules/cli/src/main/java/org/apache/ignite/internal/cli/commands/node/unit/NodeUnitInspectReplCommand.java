@@ -23,22 +23,22 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.node.unit.NodeUnitStructureCall;
-import org.apache.ignite.internal.cli.call.unit.UnitStructureCallInput;
+import org.apache.ignite.internal.cli.call.node.unit.NodeUnitInspectCall;
+import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.UnitStructureDecorator;
+import org.apache.ignite.internal.cli.decorators.UnitInspectDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-/** Command to show deployment unit structure in REPL mode. */
-@Command(name = "structure", description = "Shows the structure of a deployed unit")
-public class NodeUnitStructureReplCommand extends BaseCommand implements Runnable {
+/** Command to inspect deployment unit in REPL mode. */
+@Command(name = "inspect", description = "Inspects the structure of a deployed unit")
+public class NodeUnitInspectReplCommand extends BaseCommand implements Runnable {
 
     @Parameters(index = "0", description = "Deployment unit id")
     private String unitId;
@@ -53,7 +53,7 @@ public class NodeUnitStructureReplCommand extends BaseCommand implements Runnabl
     private boolean plain;
 
     @Inject
-    private NodeUnitStructureCall call;
+    private NodeUnitInspectCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
@@ -61,14 +61,14 @@ public class NodeUnitStructureReplCommand extends BaseCommand implements Runnabl
     @Override
     public void run() {
         runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(url -> UnitStructureCallInput.builder()
+                .map(url -> UnitInspectCallInput.builder()
                         .unitId(unitId)
                         .version(version)
                         .url(url)
                         .build())
                 .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot get unit structure"))
-                .print(new UnitStructureDecorator(plain))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot inspect unit"))
+                .print(new UnitInspectDecorator(plain))
         );
     }
 }

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.cli.commands.unit;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.junit.jupiter.api.BeforeEach;
 
-/** Integration test for node unit structure command in REPL mode. */
-class ItNodeUnitStructureReplCommandTest extends ItNodeUnitStructureCommandTest {
+/** Integration test for node unit inspect command in REPL mode. */
+class ItNodeUnitInspectReplCommandTest extends ItNodeUnitInspectCommandTest {
     @BeforeEach
     void connect() {
         connect(NODE_URL);

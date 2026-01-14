@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.call.unit;
 
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
-/** Input for unit structure call. */
-public class UnitStructureCallInput implements CallInput {
+/** Input for unit inspect call. */
+public class UnitInspectCallInput implements CallInput {
 
     private final String unitId;
 
@@ -28,14 +28,14 @@ public class UnitStructureCallInput implements CallInput {
 
     private final String url;
 
-    private UnitStructureCallInput(String unitId, String version, String url) {
+    private UnitInspectCallInput(String unitId, String version, String url) {
         this.unitId = unitId;
         this.version = version;
         this.url = url;
     }
 
-    public static UnitStructureCallInputBuilder builder() {
-        return new UnitStructureCallInputBuilder();
+    public static UnitInspectCallInputBuilder builder() {
+        return new UnitInspectCallInputBuilder();
     }
 
     public String unitId() {
@@ -50,31 +50,31 @@ public class UnitStructureCallInput implements CallInput {
         return url;
     }
 
-    /** Builder for {@link UnitStructureCallInput}. */
-    public static class UnitStructureCallInputBuilder {
+    /** Builder for {@link UnitInspectCallInput}. */
+    public static class UnitInspectCallInputBuilder {
         private String unitId;
 
         private String version;
 
         private String url;
 
-        public UnitStructureCallInputBuilder unitId(String unitId) {
+        public UnitInspectCallInputBuilder unitId(String unitId) {
             this.unitId = unitId;
             return this;
         }
 
-        public UnitStructureCallInputBuilder version(String version) {
+        public UnitInspectCallInputBuilder version(String version) {
             this.version = version;
             return this;
         }
 
-        public UnitStructureCallInputBuilder url(String url) {
+        public UnitInspectCallInputBuilder url(String url) {
             this.url = url;
             return this;
         }
 
-        public UnitStructureCallInput build() {
-            return new UnitStructureCallInput(unitId, version, url);
+        public UnitInspectCallInput build() {
+            return new UnitInspectCallInput(unitId, version, url);
         }
     }
 }

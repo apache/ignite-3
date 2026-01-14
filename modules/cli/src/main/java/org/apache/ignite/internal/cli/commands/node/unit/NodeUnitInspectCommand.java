@@ -24,21 +24,21 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.node.unit.NodeUnitStructureCall;
-import org.apache.ignite.internal.cli.call.unit.UnitStructureCallInput;
+import org.apache.ignite.internal.cli.call.node.unit.NodeUnitInspectCall;
+import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.decorators.UnitStructureDecorator;
+import org.apache.ignite.internal.cli.decorators.UnitInspectDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-/** Command to show deployment unit structure. */
-@Command(name = "structure", description = "Shows the structure of a deployed unit")
-public class NodeUnitStructureCommand extends BaseCommand implements Callable<Integer> {
+/** Command to inspect deployment unit. */
+@Command(name = "inspect", description = "Inspects the structure of a deployed unit")
+public class NodeUnitInspectCommand extends BaseCommand implements Callable<Integer> {
 
     @Parameters(index = "0", description = "Deployment unit id")
     private String unitId;
@@ -53,18 +53,18 @@ public class NodeUnitStructureCommand extends BaseCommand implements Callable<In
     private boolean plain;
 
     @Inject
-    private NodeUnitStructureCall call;
+    private NodeUnitInspectCall call;
 
     @Override
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> UnitStructureCallInput.builder()
+                .inputProvider(() -> UnitInspectCallInput.builder()
                         .unitId(unitId)
                         .version(version)
                         .url(nodeUrl.getNodeUrl())
                         .build())
-                .decorator(new UnitStructureDecorator(plain))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot get unit structure"))
+                .decorator(new UnitInspectDecorator(plain))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot inspect unit"))
         );
     }
 }

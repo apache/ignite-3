@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.call.node.unit;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.call.unit.UnitStructureCallInput;
+import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -28,17 +28,17 @@ import org.apache.ignite.rest.client.api.DeploymentApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.UnitFolder;
 
-/** Get unit structure on the node call. */
+/** Inspect unit on the node call. */
 @Singleton
-public class NodeUnitStructureCall implements Call<UnitStructureCallInput, UnitFolder> {
+public class NodeUnitInspectCall implements Call<UnitInspectCallInput, UnitFolder> {
     private final ApiClientFactory clientFactory;
 
-    public NodeUnitStructureCall(ApiClientFactory clientFactory) {
+    public NodeUnitInspectCall(ApiClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
     @Override
-    public CallOutput<UnitFolder> execute(UnitStructureCallInput input) {
+    public CallOutput<UnitFolder> execute(UnitInspectCallInput input) {
         try {
             DeploymentApi api = new DeploymentApi(clientFactory.getClient(input.url()));
             UnitFolder structure = api.unitContent(input.unitId(), input.version());

@@ -19,17 +19,18 @@ package org.apache.ignite.internal.cli.decorators;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.is;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.rest.client.model.UnitEntry;
 import org.apache.ignite.rest.client.model.UnitFile;
 import org.apache.ignite.rest.client.model.UnitFolder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class UnitStructureDecoratorTest {
+class UnitInspectDecoratorTest {
 
     @Test
     @DisplayName("Tree view should display folder with files")
@@ -39,19 +40,16 @@ class UnitStructureDecoratorTest {
                 createFile("file1.txt", 100),
                 createFile("file2.txt", 200));
 
-        UnitStructureDecorator decorator = new UnitStructureDecorator(false);
+        UnitInspectDecorator decorator = new UnitInspectDecorator(false);
 
         // When
         String output = decorator.decorate(folder).toTerminalString();
 
         // Then
-        assertThat(output, containsString("test-unit"));
-        assertThat(output, containsString("file1.txt"));
-        assertThat(output, containsString("file2.txt"));
-        assertThat(output, containsString("100 B"));
-        assertThat(output, containsString("200 B"));
-        assertThat(output, containsString("+--"));
-        assertThat(output, containsString("\\--"));
+        String expected = "test-unit\n"
+                + "+-- file1.txt (100 B)\n"
+                + "\\-- file2.txt (200 B)\n";
+        assertThat(output, is(expected));
     }
 
     @Test
@@ -69,17 +67,16 @@ class UnitStructureDecoratorTest {
                 .name("root")
                 .children(List.of(subFolderEntry));
 
-        UnitStructureDecorator decorator = new UnitStructureDecorator(false);
+        UnitInspectDecorator decorator = new UnitInspectDecorator(false);
 
         // When
         String output = decorator.decorate(rootFolder).toTerminalString();
 
         // Then
-        assertThat(output, containsString("root"));
-        assertThat(output, containsString("subfolder"));
-        assertThat(output, containsString("nested.txt"));
-        assertThat(output, containsString("\\--"));
-        assertThat(output, containsString("    \\--")); // Nested indent
+        String expected = "root\n"
+                + "\\-- subfolder\n"
+                + "    \\-- nested.txt (50 B)\n";
+        assertThat(output, is(expected));
     }
 
     @Test
@@ -90,19 +87,15 @@ class UnitStructureDecoratorTest {
                 createFile("file1.txt", 100),
                 createFile("file2.txt", 200));
 
-        UnitStructureDecorator decorator = new UnitStructureDecorator(true);
+        UnitInspectDecorator decorator = new UnitInspectDecorator(true);
 
         // When
         String output = decorator.decorate(folder).toTerminalString();
 
         // Then
-        assertThat(output, containsString("file1.txt"));
-        assertThat(output, containsString("file2.txt"));
-        assertThat(output, containsString("100"));
-        assertThat(output, containsString("200"));
-        // Should not contain tree characters in plain mode
-        assertThat(output, not(containsString("├──")));
-        assertThat(output, not(containsString("└──")));
+        String expected = "file1.txt 100\n"
+                + "file2.txt 200\n";
+        assertThat(output, is(expected));
     }
 
     @Test
@@ -120,14 +113,14 @@ class UnitStructureDecoratorTest {
                 .name("root")
                 .children(List.of(subFolderEntry));
 
-        UnitStructureDecorator decorator = new UnitStructureDecorator(true);
+        UnitInspectDecorator decorator = new UnitInspectDecorator(true);
 
         // When
         String output = decorator.decorate(rootFolder).toTerminalString();
 
         // Then
-        assertThat(output, containsString("subfolder/nested.txt"));
-        assertThat(output, containsString("50"));
+        String expected = "subfolder/nested.txt 50\n";
+        assertThat(output, is(expected));
     }
 
     @Test
@@ -139,7 +132,7 @@ class UnitStructureDecoratorTest {
                 createFile("medium.txt", 2048),
                 createFile("large.txt", 1024 * 1024 * 2));
 
-        UnitStructureDecorator decorator = new UnitStructureDecorator(false);
+        UnitInspectDecorator decorator = new UnitInspectDecorator(false);
 
         // When
         String output = decorator.decorate(folder).toTerminalString();
@@ -159,23 +152,17 @@ class UnitStructureDecoratorTest {
                 .name("empty-folder")
                 .children(List.of());
 
-        UnitStructureDecorator decorator = new UnitStructureDecorator(false);
+        UnitInspectDecorator decorator = new UnitInspectDecorator(false);
 
         // When
         String output = decorator.decorate(folder).toTerminalString();
 
         // Then
-        assertThat(output, containsString("empty-folder"));
+        assertThat(output, is("empty-folder\n"));
     }
 
-    private UnitFolder createFolderWithFiles(String name, UnitFile... files) {
-        List<UnitEntry> children = new ArrayList<>();
-
-        for (UnitFile file : files) {
-            UnitEntry entry = new UnitEntry();
-            entry.setActualInstance(file);
-            children.add(entry);
-        }
+    private static UnitFolder createFolderWithFiles(String name, UnitFile... files) {
+        List<UnitEntry> children = Arrays.stream(files).map(UnitEntry::new).collect(Collectors.toList());
 
         return new UnitFolder()
                 .type(UnitFolder.TypeEnum.FOLDER)
@@ -183,7 +170,7 @@ class UnitStructureDecoratorTest {
                 .children(children);
     }
 
-    private UnitFile createFile(String name, long size) {
+    private static UnitFile createFile(String name, long size) {
         return new UnitFile()
                 .type(UnitFile.TypeEnum.FILE)
                 .name(name)

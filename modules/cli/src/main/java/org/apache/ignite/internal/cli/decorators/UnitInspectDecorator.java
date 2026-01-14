@@ -26,8 +26,8 @@ import org.apache.ignite.rest.client.model.UnitEntry;
 import org.apache.ignite.rest.client.model.UnitFile;
 import org.apache.ignite.rest.client.model.UnitFolder;
 
-/** Decorates unit structure as a tree. */
-public class UnitStructureDecorator implements Decorator<UnitFolder, TerminalOutput> {
+/** Decorates unit inspect result as a tree. */
+public class UnitInspectDecorator implements Decorator<UnitFolder, TerminalOutput> {
 
     private static final String TREE_BRANCH = "+-- ";
     private static final String TREE_LAST = "\\-- ";
@@ -36,7 +36,7 @@ public class UnitStructureDecorator implements Decorator<UnitFolder, TerminalOut
 
     private final boolean plain;
 
-    public UnitStructureDecorator(boolean plain) {
+    public UnitInspectDecorator(boolean plain) {
         this.plain = plain;
     }
 
