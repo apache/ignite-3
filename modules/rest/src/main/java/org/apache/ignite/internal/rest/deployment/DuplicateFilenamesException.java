@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.exception;
+package org.apache.ignite.internal.rest.deployment;
 
-import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
+import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_NON_UNIQUE_FILENAMES_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when trying to deploy unit which already exists.
+ * Thrown when trying to deploy non-zip unit with duplicate filenames.
  */
-public class DeploymentUnitAlreadyExistsException extends IgniteException {
+public class DuplicateFilenamesException extends IgniteException {
     /**
      * Constructor.
-     *
-     * @param message Error message.
      */
-    public DeploymentUnitAlreadyExistsException(String message) {
-        super(CodeDeployment.UNIT_ALREADY_EXISTS_ERR, message);
+    DuplicateFilenamesException(String message) {
+        super(UNIT_NON_UNIQUE_FILENAMES_ERR, message);
     }
 }
