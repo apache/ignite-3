@@ -117,6 +117,12 @@ public class ExecutionContext {
         return arg;
     }
 
+    /**
+     * Gets the observable timestamp from the job initiator client.
+     * This ensures that the job sees the changes made by the client up to the point of job submission.
+     *
+     * @return Observable timestamp or {@link HybridTimestamp#NULL_HYBRID_TIMESTAMP} if not set.
+     */
     public long observableTimestamp() {
         if (arg == null) {
             return HybridTimestamp.NULL_HYBRID_TIMESTAMP;
