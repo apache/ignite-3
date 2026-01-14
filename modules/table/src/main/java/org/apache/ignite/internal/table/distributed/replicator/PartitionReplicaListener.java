@@ -3360,7 +3360,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             @Nullable HybridTimestamp timestamp,
             Supplier<@Nullable TimedBinaryRow> lastCommitted
     ) {
-        if (isCommittedVersion(readResult)) {
+        if (!readResult.isWriteIntent()) {
             return completedFuture(new TimedBinaryRow(readResult.binaryRow(), readResult.commitTimestamp()));
         } else {
             // RW write intent resolution.
