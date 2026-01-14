@@ -18,16 +18,14 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import okhttp3.Call;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -62,32 +60,41 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
         Path path = input.path();
         if (Files.notExists(path)) {
-            return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(path.toString())));
-        }
-        List<File> files;
-        try (Stream<Path> stream = Files.walk(path, 1)) {
-            files = stream
-                    .filter(Files::isRegularFile)
-                    .map(Path::toFile)
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            return completedFuture(DefaultCallOutput.failure(e));
+            return completedFuture(failure(new FileNotFoundException(path.toString())));
         }
 
+        try {
+            DeploymentContent content = input.recursive()
+                    ? ZipDeploymentContent.fromDirectory(path)
+                    : FilesDeploymentContent.fromPath(path);
+            return executeDeploy(input, api, content);
+        } catch (IOException e) {
+            return completedFuture(failure(e));
+        }
+    }
+
+    private CompletableFuture<CallOutput<String>> executeDeploy(
+            DeployUnitCallInput input,
+            DeployUnitClient api,
+            DeploymentContent content
+    ) {
         TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
         String ver = input.version() == null ? "" : input.version();
         DeployMode deployMode = inferDeployMode(input.nodes());
         List<String> initialNodes = deployMode == null ? input.nodes() : null;
-        Call call = api.deployUnitAsync(input.id(), files, ver, deployMode, initialNodes, callback);
+
+        Call call = content.deploy(api, input.id(), ver, deployMode, initialNodes, callback);
 
         return CompletableFuture.supplyAsync(() -> {
             try {
                 callback.awaitDone();
             } catch (InterruptedException e) {
-                return DefaultCallOutput.failure(e);
+                return failure(e);
+            } finally {
+                content.cleanup();
             }
             if (call.isCanceled()) {
-                return DefaultCallOutput.failure(new RuntimeException("Unit deployment process was canceled"));
+                return failure(new RuntimeException("Unit deployment process was canceled"));
             } else if (callback.exception() != null) {
                 return handleException(callback.exception(), input);
             } else {
@@ -102,13 +109,13 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
             if (apiException.getCode() == 409) {
                 // special case when cluster is not initialized
                 if (apiException.getResponseBody().contains("Cluster is not initialized")) {
-                    return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
+                    return failure(new IgniteCliApiException(exception, input.clusterUrl()));
                 }
-                return DefaultCallOutput.failure(new UnitAlreadyExistsException(input.id(), input.version()));
+                return failure(new UnitAlreadyExistsException(input.id(), input.version()));
             }
         }
 
-        return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
+        return failure(new IgniteCliApiException(exception, input.clusterUrl()));
     }
 
     @Nullable
