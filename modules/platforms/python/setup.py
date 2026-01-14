@@ -89,6 +89,7 @@ class CMakeBuild(build_ext):
             ext_dir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
             cfg = 'Release'
             ext_file = os.path.splitext(os.path.basename(self.get_ext_filename(ext.name)))[0]
+            python_dir = os.path.dirname(sys.executable) if sys.executable else ""
 
             cmake_args = [
                 f'-DCMAKE_BUILD_TYPE={cfg}',
@@ -96,6 +97,7 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
                 f'-DEXTENSION_FILENAME={ext_file}',
                 f'-DIGNITE_VERSION={cmake_project_version(version)}',
+                f'-DPython3_ROOT_DIR={python_dir}'
             ]
 
             if platform.system() == 'Windows':

@@ -173,6 +173,7 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.DISABLE_DECORRELATION.name(), (hint, rel) -> true)
                                     .build()
                     )
             )

@@ -55,6 +55,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.okhttp.core
+    integrationTestImplementation libs.awaitility
 }
 
 description = 'ignite-system-disaster-recovery'
