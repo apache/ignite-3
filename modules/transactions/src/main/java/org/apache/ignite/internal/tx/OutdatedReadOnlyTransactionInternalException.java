@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_OUTDATED_RO_TXN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -34,6 +34,6 @@ public class OutdatedReadOnlyTransactionInternalException extends IgniteInternal
      * @param txId Transaction id.
      */
     public OutdatedReadOnlyTransactionInternalException(UUID txId) {
-        super(TX_OUTDATED_RO_TXN_ERR, "Outdated read-only transaction [txId" + txId + "].");
+        super(TX_READ_ONLY_TOO_OLD_ERR, "Outdated read-only transaction [txId" + txId + "].");
     }
 }

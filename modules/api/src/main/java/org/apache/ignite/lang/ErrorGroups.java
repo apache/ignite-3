@@ -459,9 +459,6 @@ public class ErrorGroups {
 
         /** Operation failed due to replication delayed ack failure. */
         public static final int TX_DELAYED_ACK_ERR = TX_ERR_GROUP.registerErrorCode((short) 17);
-
-        /** Read-only transaction requested data that is already cleaned up by GC due to data availability timeout. */
-        public static final int TX_OUTDATED_RO_TXN_ERR = TX_ERR_GROUP.registerErrorCode((short) 18);
     }
 
     /** Replicator error group. */
