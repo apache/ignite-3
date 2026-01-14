@@ -925,7 +925,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     void checkTimeouts(long now) {
         for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
-            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+            TimeoutObject<ClientMessageUnpacker> timeoutObject = req.getValue();
 
             if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
                 // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
@@ -939,7 +939,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Timeout object wrapper for the completable future.
      */
-    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<ClientMessageUnpacker>> {
+    private static class TimeoutObjectImpl implements TimeoutObject<ClientMessageUnpacker> {
         /** End time (milliseconds since Unix epoch). */
         private final long endTime;
 

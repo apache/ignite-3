@@ -288,7 +288,7 @@ public final class PlannerHelper {
             return null;
         }
 
-        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+        IgniteSqlToRelConverter converter = planner.sqlToRelConverter();
         RelOptTable targetTable = converter.getTargetTable(insertNode);
         IgniteTable igniteTable = targetTable.unwrap(IgniteTable.class);
 
@@ -470,7 +470,7 @@ public final class PlannerHelper {
 
         assert select.getFrom() != null : "FROM is missing";
 
-        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+        IgniteSqlToRelConverter converter = planner.sqlToRelConverter();
 
         // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
         SqlNode from = SqlUtil.stripAs(select.getFrom());

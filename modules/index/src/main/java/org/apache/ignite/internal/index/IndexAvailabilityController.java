@@ -175,8 +175,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
             // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
             // TODO: IGNITE-22656 Potentially dangerous to take the latest version as the tables and indexes might no longer present
             //  in the catalog.
-            int catalogVersion = catalogManager.latestCatalogVersion();
-            Catalog catalog = catalogManager.catalog(catalogVersion);
+            Catalog catalog = catalogManager.latestCatalog();
 
             List<CompletableFuture<?>> futures = catalog.indexes().stream()
                     .map(indexDescriptor -> {
@@ -232,7 +231,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexId();
 
-            Catalog catalog = catalogManager.catalog(parameters.catalogVersion());
+            Catalog catalog = catalogManager.latestCatalog();
 
             assert catalog != null : "Catalog is null for version: " + parameters.catalogVersion();
 

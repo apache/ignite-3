@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.rest.health;
+
+import static io.micronaut.health.HealthStatus.UP;
+
+import io.micronaut.management.health.indicator.HealthIndicator;
+import io.micronaut.management.health.indicator.HealthResult;
+import io.micronaut.management.health.indicator.annotation.Liveness;
+import jakarta.inject.Singleton;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 
 /**
- * Allows reacting to logical topology changes.
+ * Health indicator that always responds with the UP status.
  */
-public interface JoinedNodes {
-
-    /**
-     * Called when the node joins logical topology.
-     *
-     * @param node Node.
-     */
-    void onJoined(InternalClusterNode node);
-
-    /**
-     * Called when the node leaves logical topology.
-     *
-     * @param node Node.
-     */
-    void onLeft(InternalClusterNode node);
+@Singleton
+@Liveness
+public class NodeLivenessIndicator implements HealthIndicator {
+    @Override
+    public Publisher<HealthResult> getResult() {
+        return Flux.just(HealthResult.builder("node", UP).build());
+    }
 }

@@ -26,7 +26,7 @@ import org.apache.ignite.internal.network.message.ClusterNodeMessage;
  * This message is sent from an initiator to an acceptor as a response to the {@link HandshakeStartMessage}.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
-public interface HandshakeStartResponseMessage extends InternalMessage {
+public interface HandshakeStartResponseMessage extends StaleNodeHandlingParameters, InternalMessage {
     /** Returns the initiator node that sends this. */
     ClusterNodeMessage clientNode();
 
@@ -43,4 +43,7 @@ public interface HandshakeStartResponseMessage extends InternalMessage {
      * @return Number of received messages.
      */
     long receivedCount();
+
+    @Override
+    long topologyVersion();
 }

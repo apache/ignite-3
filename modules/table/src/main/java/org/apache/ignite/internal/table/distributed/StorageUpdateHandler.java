@@ -106,10 +106,14 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Starts the handler doing necessary recovery.
+     * Starts the handler.
+     *
+     * @param onNodeRecovery {@code true} if called on node recovery, {@code false} otherwise.
      */
-    public void start() {
-        recoverPendingRows();
+    public void start(boolean onNodeRecovery) {
+        if (onNodeRecovery) {
+            recoverPendingRows();
+        }
     }
 
     private void recoverPendingRows() {

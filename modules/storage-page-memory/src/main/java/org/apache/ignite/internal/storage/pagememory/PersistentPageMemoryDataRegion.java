@@ -101,6 +101,8 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     private final int pageSize;
 
+    private volatile long regionSize;
+
     private final FilePageStoreManager filePageStoreManager;
 
     private final PartitionMetaManager partitionMetaManager;
@@ -165,6 +167,8 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                     cfg.name().value(), cfg.sizeBytes().key(), sizeBytes
             );
         }
+
+        this.regionSize = sizeBytes;
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
@@ -515,5 +519,10 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         FilePageStore store = filePageStoreManager.getStore(new GroupPartitionId(tableId, partitionId));
 
         return store == null ? 0 : store.pages();
+    }
+
+    @Override
+    public long regionSize() {
+        return regionSize;
     }
 }
