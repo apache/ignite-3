@@ -54,6 +54,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
@@ -909,6 +910,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         createTestTableWithOneRow();
 
         HybridTimestamp localObservableTs = currentObservableTimestamp();
+        assertNotNull(localObservableTs);
 
         JobExecution<Long> execution = submit(
                 JobTarget.node(clusterNode(node(1))),
