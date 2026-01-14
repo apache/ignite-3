@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.tx;
+package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_OUTDATED_RO_TXN_ERR;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Exception thrown when read-only transaction appears to be outdated due to its read timestamp that is less than low watermark.
  */
-public class OutdatedReadOnlyTransactionException extends TransactionException {
-    private static final long serialVersionUID = -7192328914800703670L;
+public class OutdatedReadOnlyTransactionInternalException extends IgniteInternalException {
+    private static final long serialVersionUID = 3136265772703827255L;
 
     /**
      * Constructor.
      *
      * @param txId Transaction id.
      */
-    public OutdatedReadOnlyTransactionException(UUID txId) {
+    public OutdatedReadOnlyTransactionInternalException(UUID txId) {
         super(TX_OUTDATED_RO_TXN_ERR, "Outdated read-only transaction [txId" + txId + "].");
     }
 }

@@ -370,6 +370,9 @@ namespace Apache.Ignite
 
             /// <summary> TxDelayedAck error. </summary>
             public const int TxDelayedAck = (GroupCode << 16) | (17 & 0xFFFF);
+
+            /// <summary> TxOutdatedRoTxn error. </summary>
+            public const int TxOutdatedRoTxn = (GroupCode << 16) | (18 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

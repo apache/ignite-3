@@ -224,6 +224,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -251,7 +252,6 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.QualifiedName;
-import org.apache.ignite.tx.OutdatedReadOnlyTransactionException;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
@@ -2913,7 +2913,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         boolean newestAbsent = false;
         boolean newestPresent = true;
 
-        var outdatedError = new IgniteBiTuple<>(OutdatedReadOnlyTransactionException.class, null);
+        var outdatedError = new IgniteBiTuple<>(OutdatedReadOnlyTransactionInternalException.class, null);
         var pending = expectedTxStateArg(PENDING, null);
         var aborted = expectedTxStateArg(ABORTED, null);
         var committedBeforeReadTs = expectedTxStateArg(COMMITTED, new HybridTimestamp(70, 0));

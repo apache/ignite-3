@@ -186,6 +186,7 @@ import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -206,7 +207,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.tx.OutdatedReadOnlyTransactionException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -2269,7 +2269,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      *       <li>
      *         if read timestamp is not {@link ClockService#after(HybridTimestamp, HybridTimestamp)} low watermark or
      *         newest commit timestamp is not {@link ClockService#after(HybridTimestamp, HybridTimestamp)} low watermark then throw
-     *         {@link OutdatedReadOnlyTransactionException};
+     *         {@link OutdatedReadOnlyTransactionInternalException};
      *       </li>
      *       <li>
      *         there is only committed version(s) with timestamp greater than the newest commit timestamp and greater than
@@ -2381,7 +2381,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return builder(PENDING).build();
         } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
             // In this case we can't be sure about anything that happened before read timestamp.
-            throw new OutdatedReadOnlyTransactionException(txId);
+            throw new OutdatedReadOnlyTransactionInternalException(txId);
         } else if (anyCommittedAfterReadTs != null) {
             // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
             // contain tx id.
