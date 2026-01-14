@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.partition.replicator.raft.CommandResult
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 
 import java.util.HashSet;
@@ -531,11 +530,13 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     }
 
     private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
-        txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, full ? COMMITTED : PENDING)
-                .txCoordinatorId(txCoordinatorId)
-                .commitTimestamp(full ? commitTimestamp : null)
-                .build()
-        );
+        // Saving state is not needed for full transactions.
+        if (!full) {
+            txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)
+                    .txCoordinatorId(txCoordinatorId)
+                    .build()
+            );
+        }
     }
 
     /**
