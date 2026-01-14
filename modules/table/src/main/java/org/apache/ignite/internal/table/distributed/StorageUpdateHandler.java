@@ -108,8 +108,10 @@ public class StorageUpdateHandler {
     /**
      * Starts the handler doing necessary recovery.
      */
-    public void start() {
-        recoverPendingRows();
+    public void start(boolean onNodeStart) {
+        if (onNodeStart) {
+            recoverPendingRows();
+        }
     }
 
     private void recoverPendingRows() {
