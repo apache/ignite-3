@@ -18,6 +18,7 @@
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
 using Apache.Ignite;
+using Apache.Ignite.Sql;
 using Apache.Ignite.Table;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
@@ -313,19 +314,22 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.IsNotNull(await cache.GetAsync("x2"));
 
         // Wait for expiration.
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
 
-        // Verify items are gone through the cache API.
+        // Check cache.
         Assert.IsNull(await cache.GetAsync("x1"));
         Assert.IsNull(await cache.GetAsync("x2"));
 
-        // Verify items are cleaned up from the underlying table.
-        await Task.Delay(3000); // TODO: WaitForCondition
-
-        await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {cacheOptions.TableName}");
-        var rows = await resultSet.ToListAsync();
-
-        Assert.IsEmpty(rows, "Expired items should be cleaned up from the table");
+        // Check the underlying table.
+        await TestUtils.WaitForConditionAsync(
+            async () =>
+            {
+                var sql = $"SELECT * FROM {cacheOptions.TableName}";
+                await using var resultSet = await Client.Sql.ExecuteAsync(null, sql);
+                return await resultSet.CountAsync() == 0;
+            },
+            timeoutMs: 3000,
+            messageFactory: () => "Expired items should be cleaned up from the table");
     }
 
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
