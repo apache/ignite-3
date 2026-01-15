@@ -32,9 +32,4 @@ DEFAULT_JVM_OPTS="-Dfile.encoding=UTF-8 \
     -XX:+ExitOnOutOfMemoryError \
     -XX:HeapDumpPath=${LOG_DIR}"
 
-# --enable-native-access is only supported in Java 16+
-if [ "${JAVA_VER}" -ge "16" ]; then
-    DEFAULT_JVM_OPTS="${DEFAULT_JVM_OPTS} --enable-native-access=ALL-UNNAMED"
-fi
-
 ${JAVACMD} ${DEFAULT_JVM_OPTS} ${IGNITE3_OPTS} -classpath ${CLASSPATH} ${MAIN_CLASS} "$@"
