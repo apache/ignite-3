@@ -12,10 +12,10 @@ These tests verify:
 
 ## Building the Tests
 
-Each test cmake can build two tests: `test_client` and `test_odbc`, there are corresponding cmake options: 
+Each test configuration can build two executables: `test_client` and `test_odbc`; there are corresponding CMake options:
  * `ENABLE_CLIENT`
  * `ENABLE_ODBC`
-These options could be used together. Each cmake configuration should build two tests (if `ENABLE_CLIENT=ON` and `ENABLE_ODBC=ON` specified).
+These options can be used together. Each CMake configuration should build two tests (if `ENABLE_CLIENT=ON` and `ENABLE_ODBC=ON` are specified).
 Successful compilation of these tests means we have found Ignite components, include directories and libraries to link with.
 
 ### `cmake_package`
@@ -28,8 +28,8 @@ Build command:
 
 ### `cmake_package_install`
 
-This test will search for the Ignite installation. For test purposes install will be done in the directory inside build directory.
-Test will search `ignite-config.cmake` in the installation directory. 
+This test will search for the Ignite installation. For test purposes, the install will be done in a directory inside the build directory.
+The Test will search for `ignite-config.cmake` in the installation directory. 
 
 Build command:
 `cmake -DENABLE_CLIENT=ON -DENABLE_ODBC=ON -S ../tests/package-test/cmake_package_install/ -B build_package_install && cmake --build build_package_install`

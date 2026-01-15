@@ -86,6 +86,7 @@ set(PUBLIC_HEADERS
     table/tables.h
     transaction/transaction.h
     transaction/transactions.h
+    transaction/transaction_options.h
 )
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
