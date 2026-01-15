@@ -15,14 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node.unit;
+package org.apache.ignite.internal.cli.commands.unit;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.BeforeEach;
 
-/** Manages deployment units on node level in REPL mode. */
-@Command(name = "unit",
-        subcommands = {NodeUnitListReplCommand.class, NodeUnitInspectReplCommand.class},
-        description = "Manages deployment units")
-public class NodeUnitReplCommand extends BaseCommand {
+/** Integration test for node unit inspect command in REPL mode. */
+class ItNodeUnitInspectReplCommandTest extends ItNodeUnitInspectCommandTest {
+    @BeforeEach
+    void connect() {
+        connect(NODE_URL);
+    }
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
+
+    @Override
+    protected int errorExitCode() {
+        return 0;
+    }
 }
