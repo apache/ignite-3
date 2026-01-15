@@ -30,6 +30,12 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 {
+    /** Absolute expiration timestamp, milliseconds since Unix epoch. */
+    private const string ExpirationColumnName = "EXPIRATION";
+
+    /** Sliding expiration, milliseconds. */
+    private const string SlidingExpirationColumnName = "SLIDING_EXPIRATION";
+
     [SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Not owned, injected.")]
     private readonly IgniteClientGroup _igniteClientGroup;
 
@@ -38,10 +44,6 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     private readonly CacheEntryMapper _cacheEntryMapper;
 
     private readonly SemaphoreSlim _initLock = new(1);
-
-    private readonly CancellationTokenSource _cleanupCts = new();
-
-    private readonly Task? _cleanupTask;
 
     private volatile IKeyValueView<string, CacheEntry>? _view;
 
@@ -75,11 +77,6 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         _options = options;
         _cacheEntryMapper = new CacheEntryMapper(options);
         _igniteClientGroup = igniteClientGroup;
-
-        if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
-        {
-            _cleanupTask = Task.Run(() => CleanupLoopAsync(_cleanupCts.Token));
-        }
     }
 
     /// <inheritdoc/>
@@ -93,20 +90,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         var view = await GetViewAsync().ConfigureAwait(false);
 
-        var (val, hasVal) = await view.GetAsync(null, key).ConfigureAwait(false);
-        if (!hasVal)
-        {
-            return null;
-        }
-
-        // TODO: Update sliding expiration?
-        // Check expiration
-        if (val.ExpiresAt is { } exp && exp <= UtcNowMillis())
-        {
-            return null;
-        }
-
-        return val.Value;
+        (CacheEntry val, bool hasVal) = await view.GetAsync(null, key).ConfigureAwait(false);
+        return hasVal ? val.Value : null;
     }
 
     /// <inheritdoc/>
@@ -120,13 +105,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        long? expiresAt = GetAbsoluteExpiration(options);
+        if (options.AbsoluteExpiration != null || options.SlidingExpiration != null || options.AbsoluteExpirationRelativeToNow != null)
+        {
+            // TODO: IGNITE-23973 Add expiration support
+            throw new ArgumentException("Expiration is not supported.", nameof(options));
+        }
 
-        long? slidingExpiration = options.SlidingExpiration is { } slidingExp
-            ? (long)slidingExp.TotalMilliseconds
-            : null;
-
-        var entry = new CacheEntry(value, expiresAt, slidingExpiration);
+        var entry = new CacheEntry(value);
 
         IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
 
@@ -167,41 +152,6 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     public void Dispose()
     {
         _initLock.Dispose();
-        _cleanupCts.Cancel();
-        if (_cleanupTask != null)
-        {
-            try
-            {
-                _cleanupTask.Wait();
-            }
-            catch (AggregateException ex) when (ex.InnerExceptions.Count == 1 && ex.InnerException is OperationCanceledException)
-            {
-                // ignore expected cancellation
-            }
-        }
-
-        _cleanupCts.Dispose();
-    }
-
-    private static long UtcNowMillis() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-    private static long? GetAbsoluteExpiration(DistributedCacheEntryOptions options)
-    {
-        long absExpAt = options.AbsoluteExpiration is { } absExp
-            ? absExp.ToUnixTimeMilliseconds()
-            : long.MaxValue;
-
-        long absExpAtRel = options.AbsoluteExpirationRelativeToNow is { } absExpRel
-            ? UtcNowMillis() + (long)absExpRel.TotalMilliseconds
-            : long.MaxValue;
-
-        long? expiresAt = Math.Min(absExpAt, absExpAtRel) switch
-        {
-            var min when min != long.MaxValue => min,
-            _ => null
-        };
-
-        return expiresAt;
     }
 
     private async Task<IKeyValueView<string, CacheEntry>> GetViewAsync()
@@ -230,8 +180,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             var sql = $"CREATE TABLE IF NOT EXISTS {tableName} (" +
                       $"{_options.KeyColumnName} VARCHAR PRIMARY KEY, " +
                       $"{_options.ValueColumnName} VARBINARY, " +
-                      $"{_options.ExpirationColumnName} BIGINT, " +
-                      $"{_options.SlidingExpirationColumnName} BIGINT" +
+                      $"{ExpirationColumnName} BIGINT, " +
+                      $"{SlidingExpirationColumnName} BIGINT" +
                       ")";
 
             await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
@@ -248,34 +198,5 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         {
             _initLock.Release();
         }
-    }
-
-    private async Task CleanupLoopAsync(CancellationToken token)
-    {
-        while (!token.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(_options.ExpiredItemsCleanupInterval, token).ConfigureAwait(false);
-                await CleanupExpiredEntriesAsync().ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-
-            // Ignore all other errors in cleanup (do not catch general Exception).
-            // TODO: ???
-        }
-    }
-
-    private async Task CleanupExpiredEntriesAsync()
-    {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var expirationCol = _options.ExpirationColumnName;
-        var sql = $"DELETE FROM {_options.TableName} WHERE {expirationCol} IS NOT NULL AND {expirationCol} <= ?";
-
-        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
-        await ignite.Sql.ExecuteAsync(null, sql, now).ConfigureAwait(false);
     }
 }

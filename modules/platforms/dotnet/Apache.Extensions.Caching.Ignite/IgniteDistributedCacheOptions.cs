@@ -35,27 +35,17 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
 
     /// <summary>
-    /// Gets or sets the name of the key column. The column type should be VARCHAR.
+    /// Gets or sets the name of the key column. Column type should be VARCHAR.
     /// </summary>
     public string KeyColumnName { get; set; } = "KEY";
 
     /// <summary>
-    /// Gets or sets the name of the value column. The column type should be VARBINARY.
+    /// Gets or sets the name of the value column. Column type should be VARBINARY.
     /// </summary>
     public string ValueColumnName { get; set; } = "VAL";
 
     /// <summary>
-    /// Gets or sets the name of the expiration column. The column type should be BIGINT.
-    /// </summary>
-    public string ExpirationColumnName { get; set; } = "EXPIRATION";
-
-    /// <summary>
-    /// Gets or sets the name of the sliding expiration column. The column type should be BIGINT.
-    /// </summary>
-    public string SlidingExpirationColumnName { get; set; } = "SLIDING_EXPIRATION";
-
-    /// <summary>
-    /// Gets or sets optional cache key prefix. Allows using the same table for multiple caches.
+    /// Gets or sets optional cache key prefix. Allows to use the same table for multiple caches.
     /// </summary>
     public string? CacheKeyPrefix { get; set; }
 
@@ -64,19 +54,6 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     /// from the service provider.
     /// </summary>
     public object? IgniteClientGroupServiceKey { get; set; }
-
-    /// <summary>
-    /// Gets or sets the interval for expired items cleanup.
-    /// <para />
-    /// Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable automatic cleanup.
-    /// <para />
-    /// Default is <see cref="Timeout.InfiniteTimeSpan"/> (disabled).
-    /// <para />
-    /// NOTE: Every cache instance performs its own cleanup task.
-    /// In a distributed environment, where N instances of the application exist, this means N times more cleanup operations,
-    /// roughly equivalent to N times shorter cleanup interval.
-    /// </summary>
-    public TimeSpan ExpiredItemsCleanupInterval { get; set; } = Timeout.InfiniteTimeSpan;
 
     /// <inheritdoc/>
     IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;
