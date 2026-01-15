@@ -82,6 +82,8 @@ namespace Apache.Ignite.Tests
 
         protected bool UseMapper { get; }
 
+        protected ConsoleLogger Logger => _logger;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {

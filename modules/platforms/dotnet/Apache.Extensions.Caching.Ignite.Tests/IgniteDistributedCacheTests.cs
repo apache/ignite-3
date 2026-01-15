@@ -38,7 +38,11 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InitClientGroup()
     {
-        _clientGroup = new IgniteClientGroup(new IgniteClientGroupConfiguration { ClientConfiguration = GetConfig() });
+        _clientGroup = new IgniteClientGroup(new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = GetConfig(Logger)
+        });
+
         Client = await _clientGroup.GetIgniteAsync();
     }
 
