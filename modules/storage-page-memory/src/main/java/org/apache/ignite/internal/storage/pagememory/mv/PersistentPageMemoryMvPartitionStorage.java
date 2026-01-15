@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -99,6 +100,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private final Object leaseInfoLock = new Object();
 
+    /** Count of currently active runConsistently calls. */
+    private final AtomicInteger activeRunConsistentlyCount = new AtomicInteger(0);
+
+    /** Storage consistency metrics. */
+    final StorageConsistencyMetrics consistencyMetrics;
+
     /**
      * Constructor.
      *
@@ -110,6 +117,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @param failureProcessor Failure processor.
+     * @param consistencyMetrics Metric source for storage consistency operations.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -120,7 +128,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            StorageConsistencyMetrics consistencyMetrics
     ) {
         super(
                 partitionId,
@@ -166,6 +175,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+
+        this.consistencyMetrics = consistencyMetrics;
     }
 
     /**
@@ -193,6 +204,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
+                long startTime = System.nanoTime();
+                consistencyMetrics.runConsistentlyActiveCount().increment();
+
                 LocalLocker locker0 = new PersistentPageMemoryLocker();
 
                 checkpointTimeoutLock.checkpointReadLock();
@@ -208,6 +222,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     locker0.unlockAll();
 
                     checkpointTimeoutLock.checkpointReadUnlock();
+
+                    long duration = System.nanoTime() - startTime;
+                    consistencyMetrics.recordRunConsistentlyDuration(duration);
+                    consistencyMetrics.runConsistentlyActiveCount().decrement();
                 }
             });
         }
