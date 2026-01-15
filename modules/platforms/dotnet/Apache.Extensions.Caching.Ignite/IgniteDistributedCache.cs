@@ -107,6 +107,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             return null;
         }
 
+        if (val.SlidingExpiration != null)
+        {
+            await RefreshAsync(key, token).ConfigureAwait(false);
+        }
+
         return val.Value;
     }
 

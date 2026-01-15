@@ -285,7 +285,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.IsNotNull(await cache.GetAsync("x"));
 
         // Wait for expiration without accessing.
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
         Assert.IsNull(await cache.GetAsync("x"));
     }
 
