@@ -35,27 +35,27 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
 
     /// <summary>
-    /// Gets or sets the name of the key column. Column type should be VARCHAR.
+    /// Gets or sets the name of the key column. The column type should be VARCHAR.
     /// </summary>
     public string KeyColumnName { get; set; } = "KEY";
 
     /// <summary>
-    /// Gets or sets the name of the value column. Column type should be VARBINARY.
+    /// Gets or sets the name of the value column. The column type should be VARBINARY.
     /// </summary>
     public string ValueColumnName { get; set; } = "VAL";
 
     /// <summary>
-    /// Gets or sets the name of the expiration column. Column type should be BIGINT.
+    /// Gets or sets the name of the expiration column. The column type should be BIGINT.
     /// </summary>
     public string ExpirationColumnName { get; set; } = "EXPIRATION";
 
     /// <summary>
-    /// Gets or sets the name of the sliding expiration column. Column type should be BIGINT.
+    /// Gets or sets the name of the sliding expiration column. The column type should be BIGINT.
     /// </summary>
     public string SlidingExpirationColumnName { get; set; } = "SLIDING_EXPIRATION";
 
     /// <summary>
-    /// Gets or sets optional cache key prefix. Allows to use the same table for multiple caches.
+    /// Gets or sets optional cache key prefix. Allows using the same table for multiple caches.
     /// </summary>
     public string? CacheKeyPrefix { get; set; }
 
