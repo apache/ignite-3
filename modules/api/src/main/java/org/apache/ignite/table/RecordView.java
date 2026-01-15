@@ -428,17 +428,19 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @return {@code True} if a record was found and replaced successfully, {@code false} otherwise.
      */
     default boolean replace(R rec) {
-        return replace((Transaction) null, rec);
+        return replace(null, rec);
     }
 
     /**
      * Replaces an expected record in the table with the given new one.
+     * Deprecated: use {@link #replaceExact(Transaction, Object, Object)} instead.
      *
      * @param tx     Transaction or {@code null} for implicit transaction.
      * @param oldRec Record to replace. The record cannot be {@code null}.
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
+    @Deprecated(forRemoval = true)
     boolean replace(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
@@ -449,8 +451,20 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
-    default boolean replace(R oldRec, R newRec) {
+    default boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec) {
         return replace(null, oldRec, newRec);
+    }
+
+    /**
+     * Replaces an expected record in the table with the given new one.
+     * Opens implicit transaction.
+     *
+     * @param oldRec Record to replace. The record cannot be {@code null}.
+     * @param newRec Record to replace with. The record cannot be {@code null}.
+     * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
+     */
+    default boolean replaceExact(R oldRec, R newRec) {
+        return replaceExact(null, oldRec, newRec);
     }
 
     /**
@@ -475,12 +489,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
 
     /**
      * Asynchronously replaces an existing record in the table with the given new one.
+     * Deprecated: use {@link #replaceExactAsync(Transaction, Object, Object)} instead.
      *
      * @param tx     Transaction or {@code null} for implicit transaction.
      * @param oldRec Record to replace. The record cannot be {@code null}.
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
+    @Deprecated(forRemoval = true)
     CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
@@ -491,8 +507,20 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    default CompletableFuture<Boolean> replaceAsync(R oldRec, R newRec) {
-        return replaceAsync(null, oldRec, newRec);
+    default CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx,  R oldRec, R newRec) {
+        return replaceAsync(tx, oldRec, newRec);
+    }
+
+    /**
+     * Asynchronously replaces an existing record in the table with the given new one.
+     * Opens implicit transaction.
+     *
+     * @param oldRec Record to replace. The record cannot be {@code null}.
+     * @param newRec Record to replace with. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
+     */
+    default CompletableFuture<Boolean> replaceExactAsync(R oldRec, R newRec) {
+        return replaceExactAsync(null, oldRec, newRec);
     }
 
     /**
@@ -668,18 +696,6 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
-     * Removes from a table records with the same key column values as the given one.
-     * Opens implicit transaction.
-     *
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Records with the key columns set that did not exist. The order of collection elements is guaranteed to be the same as the
-     *         order of {@code keyRecs}. If a record is removed, the element will be excluded from the collection result.
-     */
-    default List<R> deleteAll(Collection<R> keyRecs) {
-        return deleteAll(null, keyRecs);
-    }
-
-    /**
      * Removes all entries from a table records.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
@@ -691,7 +707,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * Opens implicit transaction.
      */
     default void deleteAll() {
-        deleteAll((Transaction) null);
+        deleteAll(null);
     }
 
     /**
@@ -703,19 +719,6 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *         If a record is removed, the element will be excluded from the collection result.
      */
     CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
-
-    /**
-     * Asynchronously removes from a table records with the same key column values as the given one.
-     * Opens implicit transaction.
-     *
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code keyRecs}. If a record is removed, the element will be
-     *         excluded from the collection result.
-     */
-    default CompletableFuture<List<R>> deleteAllAsync(Collection<R> keyRecs) {
-        return deleteAllAsync(null, keyRecs);
-    }
 
     /**
      * Asynchronously removes all entries from a table records.
@@ -732,7 +735,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @return Future represents the pending completion of the operation.
      */
     default CompletableFuture<Void> deleteAllAsync() {
-        return deleteAllAsync((Transaction) null);
+        return deleteAllAsync(null);
     }
 
     /**

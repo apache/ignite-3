@@ -611,6 +611,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
 
     /**
      * Removes from a table an expected value associated with the given key.
+     * Deprecated: use {@link #removeExact(Transaction, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
@@ -618,6 +619,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
+    @Deprecated(forRemoval = true)
     boolean remove(@Nullable Transaction tx, K key, V val);
 
     /**
@@ -629,7 +631,20 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    default boolean remove(K key, V val) {
+    default boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return remove(null, key, val);
+    }
+
+    /**
+     * Removes from a table an expected value associated with the given key.
+     * Opens implicit transaction.
+     *
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
+     * @param val Expected value.
+     * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
+     * @throws MarshallerException if the key and/or the value doesn't match the schema.
+     */
+    default boolean removeExact(K key, V val) {
         return remove(null, key, val);
     }
 
@@ -691,7 +706,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * Opens implicit transaction.
      */
     default void removeAll() {
-        removeAll((Transaction) null);
+        removeAll(null);
     }
 
     /**
@@ -705,18 +720,6 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
     Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys);
 
     /**
-     * Removes from a table values associated with the given keys.
-     * Opens implicit transaction.
-     *
-     * @param keys Keys whose values are to be removed from the table. The keys cannot be {@code null}.
-     * @return Keys that did not exist.
-     * @throws MarshallerException if one of keys doesn't match the schema.
-     */
-    default Collection<K> removeAll(Collection<K> keys) {
-        return removeAll(null, keys);
-    }
-
-    /**
      * Asynchronously remove from a table values associated with the given keys.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
@@ -725,18 +728,6 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if one of the keys doesn't match the schema.
      */
     CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys);
-
-    /**
-     * Asynchronously remove from a table values associated with the given keys.
-     * Opens implicit transaction.
-     *
-     * @param keys Keys whose values are to be removed from the table. The keys cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
-     * @throws MarshallerException if one of the keys doesn't match the schema.
-     */
-    default CompletableFuture<Collection<K>> removeAllAsync(Collection<K> keys) {
-        return removeAllAsync(null, keys);
-    }
 
     /**
      * Asynchronously remove all entries from a table.
@@ -750,7 +741,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * Opens implicit transaction.
      */
     default CompletableFuture<Void> removeAllAsync() {
-        return removeAllAsync((Transaction) null);
+        return removeAllAsync(null);
     }
 
     /**
