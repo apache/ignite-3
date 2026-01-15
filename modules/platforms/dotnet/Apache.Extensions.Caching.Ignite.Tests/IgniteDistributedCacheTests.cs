@@ -246,19 +246,84 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestAbsoluteExpirationRelativeToNow()
     {
-        await Task.Delay(1);
+        var options = new IgniteDistributedCacheOptions();
+        IDistributedCache cache = GetCache(options);
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpiration = DateTimeOffset.UtcNow.AddSeconds(0.5)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
+
+        Assert.IsNull(await cache.GetAsync("x"));
     }
 
     [Test]
     public async Task TestSlidingExpiration()
     {
-        await Task.Delay(1);
+        var options = new IgniteDistributedCacheOptions();
+        IDistributedCache cache = GetCache(options);
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromSeconds(0.5)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        // Access before expiration to reset the timer.
+        await Task.Delay(TimeSpan.FromSeconds(0.3));
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        // Wait less than the sliding window - should still be available.
+        await Task.Delay(TimeSpan.FromSeconds(0.3));
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        // Wait for expiration without accessing.
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
+        Assert.IsNull(await cache.GetAsync("x"));
     }
 
     [Test]
     public async Task TestExpiredItemsCleanup()
     {
-        await Task.Delay(1);
+        var cacheOptions = new IgniteDistributedCacheOptions
+        {
+            ExpiredItemsCleanupInterval = TimeSpan.FromSeconds(1),
+            TableName = nameof(TestExpiredItemsCleanup)
+        };
+
+        IDistributedCache cache = GetCache(cacheOptions);
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(0.5)
+        };
+
+        // Set multiple items with expiration.
+        await cache.SetAsync("x1", [1], entryOptions);
+        await cache.SetAsync("x2", [2], entryOptions);
+
+        Assert.IsNotNull(await cache.GetAsync("x1"));
+        Assert.IsNotNull(await cache.GetAsync("x2"));
+
+        // Wait for expiration.
+        await Task.Delay(TimeSpan.FromSeconds(1));
+
+        // Verify items are gone through the cache API.
+        Assert.IsNull(await cache.GetAsync("x1"));
+        Assert.IsNull(await cache.GetAsync("x2"));
+
+        // Verify items are cleaned up from the underlying table.
+        await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {cacheOptions.TableName}");
+        var rows = await resultSet.ToListAsync();
+
+        Assert.IsEmpty(rows, "Expired items should be cleaned up from the table");
     }
 
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
