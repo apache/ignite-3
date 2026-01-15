@@ -320,6 +320,8 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.IsNull(await cache.GetAsync("x2"));
 
         // Verify items are cleaned up from the underlying table.
+        await Task.Delay(3000); // TODO: WaitForCondition
+
         await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {cacheOptions.TableName}");
         var rows = await resultSet.ToListAsync();
 
