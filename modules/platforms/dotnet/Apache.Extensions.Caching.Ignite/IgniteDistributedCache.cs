@@ -23,7 +23,6 @@ using Apache.Ignite.Table;
 using Internal;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 
 /// <summary>
@@ -36,9 +35,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private readonly IgniteDistributedCacheOptions _options;
 
-    private readonly ObjectPool<IgniteTuple> _tuplePool = new DefaultObjectPool<IgniteTuple>(
-        new IgniteTuplePooledObjectPolicy(),
-        maximumRetained: Environment.ProcessorCount * 10);
+    private readonly CacheEntryMapper _cacheEntryMapper;
 
     private readonly SemaphoreSlim _initLock = new(1);
 
@@ -46,7 +43,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private readonly Task? _cleanupTask;
 
-    private volatile ITable? _table;
+    private volatile IKeyValueView<string, CacheEntry>? _view;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
@@ -76,7 +73,9 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(igniteClientGroup);
 
         _options = options;
+        _cacheEntryMapper = new CacheEntryMapper(options);
         _igniteClientGroup = igniteClientGroup;
+
         if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
         {
             _cleanupTask = Task.Run(() => CleanupLoopAsync(_cleanupCts.Token));
@@ -93,36 +92,21 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(key);
 
         var view = await GetViewAsync().ConfigureAwait(false);
-        var tuple = GetKey(key);
 
-        try
+        var (val, hasVal) = await view.GetAsync(null, key).ConfigureAwait(false);
+        if (!hasVal)
         {
-            var (val, hasVal) = await view.GetAsync(null, tuple).ConfigureAwait(false);
-            if (!hasVal)
-            {
-                return null;
-            }
-
-            // Check expiration
-            var expirationCol = _options.ExpirationColumnName;
-            var colIdx = val.GetOrdinal(expirationCol);
-            if (colIdx != -1 && val[expirationCol] is long exp && exp > 0)
-            {
-                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                if (exp <= now)
-                {
-                    // Optionally remove expired entry
-                    await view.DeleteAsync(null, tuple).ConfigureAwait(false);
-                    return null;
-                }
-            }
-
-            return (byte[]?)val[_options.ValueColumnName];
+            return null;
         }
-        finally
+
+        // TODO: Update sliding expiration?
+        // Check expiration
+        if (val.ExpiresAt is { } exp && exp <= UtcNowMillis())
         {
-            _tuplePool.Return(tuple);
+            return null;
         }
+
+        return val.Value;
     }
 
     /// <inheritdoc/>
@@ -136,17 +120,17 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        IRecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
-        IgniteTuple tuple = GetKeyVal(key, value);
+        long? expiresAt = GetAbsoluteExpiration(options);
 
-        try
-        {
-            await view.UpsertAsync(null, tuple).ConfigureAwait(false);
-        }
-        finally
-        {
-            _tuplePool.Return(tuple);
-        }
+        long? slidingExpiration = options.SlidingExpiration is { } slidingExp
+            ? (long)slidingExp.TotalMilliseconds
+            : null;
+
+        var entry = new CacheEntry(value, expiresAt, slidingExpiration);
+
+        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
+
+        await view.PutAsync(transaction: null, key, entry).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -175,17 +159,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var view = await GetViewAsync().ConfigureAwait(false);
-        var tuple = GetKey(key);
-
-        try
-        {
-            await view.DeleteAsync(null, tuple).ConfigureAwait(false);
-        }
-        finally
-        {
-            _tuplePool.Return(tuple);
-        }
+        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
+        await view.RemoveAsync(null, key).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -208,38 +183,43 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         _cleanupCts.Dispose();
     }
 
-    private IgniteTuple GetKey(string key)
+    private static long UtcNowMillis() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    private static long? GetAbsoluteExpiration(DistributedCacheEntryOptions options)
     {
-        IgniteTuple tuple = _tuplePool.Get();
-        tuple[_options.KeyColumnName] = _options.CacheKeyPrefix + key;
+        long absExpAt = options.AbsoluteExpiration is { } absExp
+            ? absExp.ToUnixTimeMilliseconds()
+            : long.MaxValue;
 
-        return tuple;
-    }
+        long absExpAtRel = options.AbsoluteExpirationRelativeToNow is { } absExpRel
+            ? UtcNowMillis() + (long)absExpRel.TotalMilliseconds
+            : long.MaxValue;
 
-    private IgniteTuple GetKeyVal(string key, byte[] val)
-    {
-        IgniteTuple tuple = GetKey(key);
-        tuple[_options.ValueColumnName] = val;
-
-        return tuple;
-    }
-
-    private async Task<IRecordView<IIgniteTuple>> GetViewAsync()
-    {
-        var table = _table;
-        if (table != null)
+        long? expiresAt = Math.Min(absExpAt, absExpAtRel) switch
         {
-            return table.RecordBinaryView;
+            var min when min != long.MaxValue => min,
+            _ => null
+        };
+
+        return expiresAt;
+    }
+
+    private async Task<IKeyValueView<string, CacheEntry>> GetViewAsync()
+    {
+        var view = _view;
+        if (view != null)
+        {
+            return view;
         }
 
         await _initLock.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            table = _table;
-            if (table != null)
+            view = _view;
+            if (view != null)
             {
-                return table.RecordBinaryView;
+                return view;
             }
 
             IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
@@ -256,11 +236,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
             await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
 
-            table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
+            var table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("Table not found: " + tableName);
 
-            _table = table ?? throw new InvalidOperationException("Table not found: " + tableName);
+            view = table.GetKeyValueView(_cacheEntryMapper);
+            _view = view;
 
-            return table.RecordBinaryView;
+            return view;
         }
         finally
         {
