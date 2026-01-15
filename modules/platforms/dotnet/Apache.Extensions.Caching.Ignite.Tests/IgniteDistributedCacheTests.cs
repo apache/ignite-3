@@ -33,7 +33,7 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
     private IgniteClientGroup _clientGroup = null!;
 
     // Override the base client to avoid causality issues due to a separate client instance.
-    private new IIgnite Client { get; set; }
+    private new IIgnite Client { get; set; } = null!;
 
     [OneTimeSetUp]
     public async Task InitClientGroup()
@@ -163,8 +163,7 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         {
             TableName = tableName,
             KeyColumnName = "K",
-            ValueColumnName = "V",
-            CacheKeyPrefix = keyPrefix
+            ValueColumnName = "V"
         };
 
         IDistributedCache cache = GetCache(options);
@@ -190,7 +189,7 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
     {
         var cacheOptions = new IgniteDistributedCacheOptions
         {
-            TableName = nameof(TestCustomTableAndColumnNames),
+            TableName = keyPrefix + nameof(TestCustomTableAndColumnNames),
             KeyColumnName = "_K",
             ValueColumnName = "_V",
             CacheKeyPrefix = keyPrefix
