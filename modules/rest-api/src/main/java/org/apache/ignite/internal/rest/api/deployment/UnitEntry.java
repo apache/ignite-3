@@ -19,10 +19,12 @@ package org.apache.ignite.internal.rest.api.deployment;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
@@ -80,6 +82,7 @@ public interface UnitEntry {
      */
     @Schema(name = "UnitFile", description = "Unit content file.")
     public class UnitFile implements UnitEntry {
+        @SuppressFBWarnings(value = "SS_SHOULD_BE_STATIC", justification = "Instance field required for JSON serialization")
         @Schema(description = "Entry type discriminator.", requiredMode = RequiredMode.REQUIRED, allowableValues = "file")
         private final String type = "file";
 
@@ -149,6 +152,7 @@ public interface UnitEntry {
      */
     @Schema(name = "UnitFolder", description = "Unit content folder.")
     public class UnitFolder implements UnitEntry {
+        @SuppressFBWarnings(value = "SS_SHOULD_BE_STATIC", justification = "Instance field required for JSON serialization")
         @Schema(description = "Entry type discriminator.", requiredMode = RequiredMode.REQUIRED, allowableValues = "folder")
         private final String type = "folder";
 
@@ -156,6 +160,7 @@ public interface UnitEntry {
         private final String name;
 
         @Schema(description = "Unit content folder elements.", requiredMode = RequiredMode.REQUIRED)
+        @JsonInclude(JsonInclude.Include.ALWAYS)
         private final List<UnitEntry> children;
 
         @Schema(description = "Total size of folder contents in bytes (computed as sum of all children).",

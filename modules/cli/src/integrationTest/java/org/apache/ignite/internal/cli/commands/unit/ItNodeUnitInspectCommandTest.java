@@ -111,9 +111,9 @@ public class ItNodeUnitInspectCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Should display unit structure with tree view")
     void structureTreeView() {
-        // Given deployed unit
+        // Given deployed unit with recursive option to include subdirectories
         String id = "test.structure.unit.1";
-        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testDirectory.toString());
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testDirectory.toString(), "--recursive");
 
         await().untilAsserted(() -> {
             execute("cluster", "unit", "list", "--plain", id);
@@ -151,9 +151,9 @@ public class ItNodeUnitInspectCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Should display unit structure with plain view")
     void structurePlainView() {
-        // Given deployed unit
+        // Given deployed unit with recursive option to include subdirectories
         String id = "test.structure.unit.2";
-        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testDirectory.toString());
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testDirectory.toString(), "--recursive");
 
         await().untilAsserted(() -> {
             execute("cluster", "unit", "list", "--plain", id);
