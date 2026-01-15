@@ -20,12 +20,9 @@ package org.apache.ignite.internal.metrics.exporters.log;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
-import static org.apache.ignite.internal.util.IgniteUtils.formatUptimeHms;
 import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 
 import com.google.auto.service.AutoService;
-import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -47,19 +44,10 @@ public class LogPushExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "logPush";
 
     /** Padding for individual metric output in multiline mode. */
-    private static final String PADDING = "  ";
-
-    private final RuntimeMXBean runtimeMxBean;
+    private static final String PADDING = "  ^-- ";
 
     private volatile boolean oneLinePerMetricSource;
     private volatile List<String> enabledMetrics;
-
-    /**
-     * Constructor.
-     */
-    public LogPushExporter() {
-        this.runtimeMxBean = ManagementFactory.getRuntimeMXBean();
-    }
 
     @Override
     protected long period(ExporterView exporterView) {
@@ -83,21 +71,26 @@ public class LogPushExporter extends PushMetricExporter {
             return;
         }
 
-        var report = new StringBuilder("Metrics for local node: ");
-
-        appendNodeInfo(report, metricSets);
-
-        boolean initialized = isNodeInitialized(metricSets);
-        report.append(", state=").append(initialized ? "initialized" : "uninitialized");
+        var report = new StringBuilder("Metrics for local node:");
 
         UUID clusterId = clusterIdSupplier().get();
         if (clusterId != null) {
-            report.append(", clusterId=").append(clusterId);
+            if (oneLinePerMetricSource) {
+                report.append(System.lineSeparator()).append(PADDING);
+            } else {
+                report.append(", ");
+            }
+            report.append("clusterId=").append(clusterId);
         }
 
         int nodeCount = getClusterNodeCount(metricSets);
         if (nodeCount > 0) {
-            report.append(", topology=").append(nodeCount).append(" nodes");
+            if (oneLinePerMetricSource) {
+                report.append(System.lineSeparator()).append(PADDING);
+            } else {
+                report.append(", ");
+            }
+            report.append("topology=").append(nodeCount).append(" nodes");
         }
 
         appendNetworkInfo(report, metricSets);
@@ -111,116 +104,20 @@ public class LogPushExporter extends PushMetricExporter {
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
                 if (oneLinePerMetricSource) {
-                    report.append(", ").append(metricSet.name()).append('=');
+                    report.append(System.lineSeparator()).append(PADDING).append(metricSet.name()).append(' ');
                     appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
                 } else {
-                    report.append('\n').append(metricSet.name()).append(':');
-                    appendMetricsMultiline(report, metricSet, hasMetricsWhiteList);
+                    report.append(", ").append(metricSet.name()).append(' ');
+                    appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
                 }
             }
         }
 
-        if (oneLinePerMetricSource) {
+        if (!oneLinePerMetricSource) {
             appendThreadPoolMetrics(report, metricSets);
         }
 
         log.info(report.toString());
-    }
-
-    /**
-     * Appends node information to the report.
-     *
-     * @param report Report string builder.
-     * @param metricSets Collection of metric sets.
-     */
-    private void appendNodeInfo(StringBuilder report, Collection<MetricSet> metricSets) {
-        String ephemeralId = getEphemeralNodeId(metricSets);
-        String nodeName = nodeName();
-        String version = getNodeVersion(metricSets);
-
-        long uptimeMs = runtimeMxBean.getUptime();
-
-        report.append("Node [");
-
-        boolean needComma = false;
-
-        if (ephemeralId != null && !ephemeralId.isEmpty()) {
-            report.append("id=").append(ephemeralId);
-            needComma = true;
-        }
-
-        if (nodeName != null && !nodeName.isEmpty()) {
-            if (needComma) {
-                report.append(", ");
-            }
-            report.append("name=").append(nodeName);
-            needComma = true;
-        }
-
-        if (version != null && !version.isEmpty()) {
-            if (needComma) {
-                report.append(", ");
-            }
-            report.append("version=").append(version);
-            needComma = true;
-        }
-
-        if (needComma) {
-            report.append(", ");
-        }
-        report.append("uptime=").append(formatUptimeHms(uptimeMs))
-                .append(']');
-    }
-
-    /**
-     * Checks if the node is initialized based on the presence of key metrics.
-     *
-     * @param metricSets Collection of metric sets.
-     * @return True if the node is initialized, false otherwise.
-     */
-    private boolean isNodeInitialized(Collection<MetricSet> metricSets) {
-        boolean hasMetastorage = metricSets.stream().anyMatch(ms -> ms.name().startsWith("metastorage"));
-        boolean hasPlacementDriver = metricSets.stream().anyMatch(ms -> ms.name().startsWith("placement-driver"));
-        return hasMetastorage && hasPlacementDriver;
-    }
-
-    /**
-     * Gets the ephemeral node ID from topology metrics.
-     *
-     * @param metricSets Collection of metric sets.
-     * @return Ephemeral node ID or null if not available.
-     */
-    private String getEphemeralNodeId(Collection<MetricSet> metricSets) {
-        // Try to find node ID from topology.local metric source.
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("topology.local")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("NodeId")) {
-                        return metric.getValueAsString();
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Gets the node version from topology metrics.
-     *
-     * @param metricSets Collection of metric sets.
-     * @return Node version or null if not available.
-     */
-    private String getNodeVersion(Collection<MetricSet> metricSets) {
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("topology.local")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("NodeVersion")) {
-                        return metric.getValueAsString();
-                    }
-                }
-            }
-        }
-        return null;
     }
 
     /**
@@ -264,7 +161,12 @@ public class LogPushExporter extends PushMetricExporter {
                 }
 
                 if (address != null && !address.isEmpty() && port != null && port > 0) {
-                    report.append(", Network [addrs=[").append(address).append(']')
+                    if (oneLinePerMetricSource) {
+                        report.append(System.lineSeparator()).append(PADDING);
+                    } else {
+                        report.append(", ");
+                    }
+                    report.append("Network [addrs=[").append(address).append(']')
                             .append(", commPort=").append(port)
                             .append(']');
                     break;
@@ -310,7 +212,13 @@ public class LogPushExporter extends PushMetricExporter {
             return;
         }
 
-        report.append(", CPU [CPUs=").append(cpuCount);
+        if (oneLinePerMetricSource) {
+            report.append(System.lineSeparator()).append(PADDING);
+        } else {
+            report.append(", ");
+        }
+
+        report.append("CPU [CPUs=").append(cpuCount);
 
         if (curLoad != null && curLoad >= 0) {
             report.append(", curLoad=").append(String.format("%.2f%%", curLoad * 100));
@@ -358,7 +266,13 @@ public class LogPushExporter extends PushMetricExporter {
             return;
         }
 
-        report.append(", Heap [used=").append(readableSize(used, false))
+        if (oneLinePerMetricSource) {
+            report.append(System.lineSeparator()).append(PADDING);
+        } else {
+            report.append(", ");
+        }
+
+        report.append("Heap [used=").append(readableSize(used, false))
                 .append(", free=").append(String.format("%.2f%%", freePercent))
                 .append(", comm=").append(readableSize(committed, false))
                 .append(']');
@@ -386,24 +300,6 @@ public class LogPushExporter extends PushMetricExporter {
             sb.append(m.name()).append('=').append(m.getValueAsString());
         }
         sb.append(']');
-    }
-
-    /**
-     * Appends metrics in multiline format.
-     *
-     * @param sb String builder.
-     * @param metricSet Metric set.
-     * @param hasMetricsWhiteList Whether metrics whitelist is present.
-     */
-    private void appendMetricsMultiline(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList) {
-        List<Metric> metrics = StreamSupport.stream(metricSet.spliterator(), false)
-                .sorted(comparing(Metric::name))
-                .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
-                .collect(toList());
-
-        for (Metric m : metrics) {
-            sb.append('\n').append(PADDING).append(m.name()).append(": ").append(m.getValueAsString());
-        }
     }
 
     /**

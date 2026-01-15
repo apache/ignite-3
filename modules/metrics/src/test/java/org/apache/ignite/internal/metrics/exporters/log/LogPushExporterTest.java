@@ -76,7 +76,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.exporters {log {"
             + "exporterName = logPush, "
             + "periodMillis = 300, "
-            + "oneLinePerMetricSource = true,"
+            + "oneLinePerMetricSource = false,"
             + "enabledMetrics = ["
             + "  " + SRC_NAME + ", "
             + "  " + ADDITIONAL_SRC_NAME + ", "
@@ -233,69 +233,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testUptimeIncluded() {
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().matches(".*Node \\[.*uptime=[0-9:]+\\.[0-9]+\\].*"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testStateIncluded() {
-        // Register metastorage and placement-driver metrics to trigger "initialized" state.
-        var metastorageMetricSet = new MetricSet("metastorage", Map.of(
-                "TestMetric", new IntGauge("TestMetric", "", () -> 1)
-        ));
-        var placementDriverMetricSet = new MetricSet("placement-driver", Map.of(
-                "TestMetric", new IntGauge("TestMetric", "", () -> 1)
-        ));
-
-        metricManager.registerSource(new TestMetricSource(metastorageMetricSet));
-        metricManager.registerSource(new TestMetricSource(placementDriverMetricSet));
-        metricManager.enable(metastorageMetricSet.name());
-        metricManager.enable(placementDriverMetricSet.name());
-
-        mutateConfiguration(metricConfiguration, change ->
-                change.changeExporters().update("log", exporterChange ->
-                        exporterChange.convert(LogPushExporterChange.class)
-                                .changeEnabledMetrics("testSource", "metastorage", "placement-driver")
-                )
-        );
-
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().contains("state=initialized"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testStateInitializing() {
-        // Don't register metastorage or placement-driver metrics.
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().contains("state=uninitialized"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
     void testCpuInfoIncluded() {
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().matches(".*CPU \\[CPUs=[0-9]+.*GC=[0-9.]+%\\].*"),
@@ -314,51 +251,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage()
                         .matches(".*Heap \\[used=[0-9.]+ [KMG]iB, free=[0-9.]+%, comm=[0-9.]+ [KMG]iB\\].*"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testNodeIdIncluded() {
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().matches(".*Node \\[.*name=nodeName.*\\].*"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testEphemeralNodeIdIncluded() {
-        UUID ephemeralId = UUID.randomUUID();
-        var topologyLocalMetricSet = new MetricSet("topology.local", Map.of(
-                "NodeId", new UuidGauge("NodeId", "", () -> ephemeralId),
-                "NodeName", new StringGauge("NodeName", "", () -> "nodeName")
-        ));
-
-        metricManager.registerSource(new TestMetricSource(topologyLocalMetricSet));
-        metricManager.enable(topologyLocalMetricSet.name());
-
-        mutateConfiguration(metricConfiguration, change ->
-                change.changeExporters().update("log", exporterChange ->
-                        exporterChange.convert(LogPushExporterChange.class)
-                                .changeEnabledMetrics("testSource", "topology.local")
-                )
-        );
-
-        String expectedId = ephemeralId.toString();
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().matches(".*Node \\[id=" + expectedId + ".*\\].*"),
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
 
@@ -444,7 +336,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
-                                .changeOneLinePerMetricSource(true)
+                                .changeOneLinePerMetricSource(false)
                                 .changeEnabledMetrics("testSource", "thread.pools.*")
                 )
         );
@@ -478,7 +370,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
-                                .changeOneLinePerMetricSource(true)
+                                .changeOneLinePerMetricSource(false)
                                 .changeEnabledMetrics("testSource", "thread.pools.*")
                 )
         );
@@ -505,14 +397,14 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
-                                .changeOneLinePerMetricSource(true)
+                                .changeOneLinePerMetricSource(false)
                 )
         );
 
         withLogInspector(
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
-                    return msg.contains("Metrics for local node") && !msg.contains("\n");
+                    return msg.contains("Metrics for local node") && !msg.contains(System.lineSeparator());
                 },
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
@@ -529,7 +421,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
-                                .changeOneLinePerMetricSource(false)
+                                .changeOneLinePerMetricSource(true)
                 )
         );
 
@@ -538,8 +430,8 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     String msg = evt.getMessage().getFormattedMessage();
                     // Check that metrics are formatted with newlines and padding
                     return msg.contains("Metrics for local node")
-                            && msg.contains("\n" + SRC_NAME + ":")
-                            && msg.contains("\n  ");
+                            && msg.contains(System.lineSeparator() + "  ^-- " + SRC_NAME + " ")
+                            && msg.contains(System.lineSeparator() + "  ^-- ");
                 },
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
@@ -576,12 +468,8 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
                     return msg.contains("Metrics for local node:")
-                            && msg.contains("Node [")
-                            && msg.contains("uptime=")
-                            && msg.contains("state=")
                             && msg.contains("CPU [")
                             && msg.contains("Heap [")
-                            && msg.contains("name=")
                             && msg.contains("clusterId=");
                 },
                 logInspector -> {
@@ -756,12 +644,18 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     logInspector.addHandler(evt -> evtMatches(evt, "IgnoredMetric"), () -> ignoredMetric.set(true));
 
                     logInspector.addHandler(
-                            evt -> evtMatches(evt, "full=[FullMetricInt=42, FullMetricLong=42]"),
+                            evt -> evtMatches(evt, ", full [FullMetricInt=42, FullMetricLong=42]"),
                             () -> fullMetricSingleString.set(true)
                     );
 
-                    logInspector.addHandler(evt -> evtMatches(evt, "  FullMetricInt: 42"), () -> fullMetricIntOneString.set(true));
-                    logInspector.addHandler(evt -> evtMatches(evt, "  FullMetricLong: 42"), () -> fullMetricLongOneString.set(true));
+                    logInspector.addHandler(
+                            evt -> evtMatches(evt, "  ^-- full [FullMetricInt=42, FullMetricLong=42]"),
+                            () -> fullMetricIntOneString.set(true)
+                    );
+                    logInspector.addHandler(
+                            evt -> evtMatches(evt, "  ^-- full [FullMetricInt=42, FullMetricLong=42]"),
+                            () -> fullMetricLongOneString.set(true)
+                    );
 
                     Awaitility.await()
                             .atMost(Duration.ofMillis(2000L))
@@ -779,13 +673,13 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     assertFalse(ignoredMetric.get());
 
                     if (oneLinePerMetricSource) {
-                        assertTrue(fullMetricSingleString.get());
-                        assertFalse(fullMetricIntOneString.get());
-                        assertFalse(fullMetricLongOneString.get());
-                    } else {
                         assertFalse(fullMetricSingleString.get());
                         assertTrue(fullMetricIntOneString.get());
                         assertTrue(fullMetricLongOneString.get());
+                    } else {
+                        assertTrue(fullMetricSingleString.get());
+                        assertFalse(fullMetricIntOneString.get());
+                        assertFalse(fullMetricLongOneString.get());
                     }
                 }
         );
