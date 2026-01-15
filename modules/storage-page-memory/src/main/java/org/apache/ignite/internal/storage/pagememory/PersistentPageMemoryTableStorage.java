@@ -47,6 +47,8 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetricSource;
+import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetrics;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
@@ -65,6 +67,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     private final FailureProcessor failureProcessor;
 
+    private final StorageConsistencyMetrics consistencyMetrics;
+
     /**
      * Constructor.
      *
@@ -73,6 +77,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
      * @param failureProcessor Failure processor.
+     * @param consistencyMetricSource Metric source for storage consistency operations.
      */
     public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
@@ -80,7 +85,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion,
             ExecutorService destructionExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            StorageConsistencyMetrics consistencyMetrics
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
@@ -88,6 +94,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
         this.failureProcessor = failureProcessor;
+        this.consistencyMetrics = consistencyMetrics;
     }
 
     @Override
@@ -144,7 +151,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexMetaTree,
                     gcQueue,
                     destructionExecutor,
-                    failureProcessor
+                    failureProcessor,
+                    consistencyMetrics
             );
         });
     }
