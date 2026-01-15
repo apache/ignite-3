@@ -248,7 +248,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             try
             {
                 await Task.Delay(_options.ExpiredItemsCleanupInterval, _cleanupCts.Token).ConfigureAwait(false);
-                await CleanupExpiredEntriesAsync().ConfigureAwait(false);
+                await CleanupExpiredEntriesAsync(_cleanupCts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -262,13 +262,12 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         }
     }
 
-    private async Task CleanupExpiredEntriesAsync()
+    private async Task CleanupExpiredEntriesAsync(CancellationToken token)
     {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var expirationCol = _options.ExpirationColumnName;
-        var sql = $"DELETE FROM {_options.TableName} WHERE {expirationCol} IS NOT NULL AND {expirationCol} <= ?";
+        var expireAtCol = _options.ExpirationColumnName;
+        var sql = $"DELETE FROM {_options.TableName} WHERE {expireAtCol} IS NOT NULL AND {expireAtCol} <= ?";
 
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
-        await ignite.Sql.ExecuteAsync(null, sql, now).ConfigureAwait(false);
+        await ignite.Sql.ExecuteAsync(null, sql, token, UtcNowMillis()).ConfigureAwait(false);
     }
 }
