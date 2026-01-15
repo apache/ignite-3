@@ -9,8 +9,8 @@ object Docker : BuildType({
     name = "Docker Images"
 
     artifactRules = """
-        ignite:*-amd64.tar.gz => ignite-docker
-        ignite:*-arm64.tar.gz => ignite-docker
+        ignite-*-amd64.tar.gz => ignite-docker
+        ignite-*-arm64.tar.gz => ignite-docker
     """.trimIndent()
 
     steps {
