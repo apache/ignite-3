@@ -267,7 +267,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public byte byteValue(int columnIndex) {
-            Number number = getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
 
             return TypeConversionUtils.castToByte(number);
         }
@@ -275,7 +275,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public short shortValue(String columnName) {
-            Number number = getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
 
             return TypeConversionUtils.castToShort(number);
         }
@@ -283,7 +283,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public short shortValue(int columnIndex) {
-            Number number = getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
 
             return TypeConversionUtils.castToShort(number);
         }
@@ -291,7 +291,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public int intValue(String columnName) {
-            Number number = getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
 
             return TypeConversionUtils.castToInt(number);
         }
@@ -299,7 +299,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public int intValue(int columnIndex) {
-            Number number = getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
 
             return TypeConversionUtils.castToInt(number);
         }
@@ -307,7 +307,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public long longValue(String columnName) {
-            Number number = getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
 
             return TypeConversionUtils.castToLong(number);
         }
@@ -315,7 +315,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public long longValue(int columnIndex) {
-            Number number = getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
 
             return TypeConversionUtils.castToLong(number);
         }
@@ -323,7 +323,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public float floatValue(String columnName) {
-            Number number = getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
 
             return TypeConversionUtils.castToFloat(number);
         }
@@ -331,7 +331,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public float floatValue(int columnIndex) {
-            Number number = getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
 
             return TypeConversionUtils.castToFloat(number);
         }
@@ -339,7 +339,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public double doubleValue(String columnName) {
-            Number number = getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
 
             return TypeConversionUtils.castToDouble(number);
         }
@@ -347,7 +347,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public double doubleValue(int columnIndex) {
-            Number number = getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
 
             return TypeConversionUtils.castToDouble(number);
         }
