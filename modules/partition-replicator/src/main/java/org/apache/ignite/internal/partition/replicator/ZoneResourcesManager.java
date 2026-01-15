@@ -28,7 +28,6 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
@@ -102,6 +101,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     ZonePartitionResources allocateZonePartitionResources(
             ZonePartitionId zonePartitionId,
             int partitionCount,
+            SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
@@ -111,8 +111,6 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
         TxStatePartitionStorage txStatePartitionStorage = zoneResources.txStateStorage
                 .getOrCreatePartitionStorage(zonePartitionId.partitionId());
-
-        var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         var raftGroupListener = new ZonePartitionRaftListener(
                 zonePartitionId,
@@ -176,8 +174,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         busyLock.block();
 
         for (ZoneResources zoneResources : resourcesByZoneId.values()) {
-            zoneResources.txStateStorage.close();
-            zoneResources.resourcesByPartitionId.clear();
+            zoneResources.close();
         }
 
         resourcesByZoneId.clear();
@@ -255,6 +252,12 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         ZoneResources(TxStateStorage txStateStorage) {
             this.txStateStorage = txStateStorage;
         }
+
+        void close() {
+            txStateStorage.close();
+            resourcesByPartitionId.forEach((index, partitionResources) -> partitionResources.close());
+            resourcesByPartitionId.clear();
+        }
     }
 
     /**
@@ -319,9 +322,17 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             return replicaListenerFuture;
         }
 
+        /** Closes trackers. */
         public void closeTrackers() {
             safeTimeTracker.close();
             storageIndexTracker.close();
+        }
+
+        /** Closes all resources. */
+        public void close() {
+            closeTrackers();
+            raftListener.onShutdown();
+            txStatePartitionStorage.close();
         }
     }
 }

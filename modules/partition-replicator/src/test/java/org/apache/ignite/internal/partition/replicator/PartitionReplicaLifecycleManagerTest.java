@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
@@ -53,6 +54,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.annotation.Retention;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -308,8 +311,12 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() {
-        List<IgniteComponent> components = List.of(partitionReplicaLifecycleManager, replicaManager, catalogManager, metaStorageManager);
+    void tearDown(TestInfo testInfo) {
+        List<IgniteComponent> components = new ArrayList<>(List.of(replicaManager, catalogManager, metaStorageManager));
+
+        if (!testInfo.getTestMethod().orElseThrow().isAnnotationPresent(ManagerIsStoppedByTest.class)) {
+            components.add(0, partitionReplicaLifecycleManager);
+        }
 
         components.forEach(IgniteComponent::beforeNodeStop);
 
@@ -421,6 +428,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @ManagerIsStoppedByTest
     public void partitionLifecycleManagerStopsCorrectWhenTxStatePartitionStoragesAreStoppedExceptionally() throws Exception {
         doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(any());
 
@@ -443,5 +451,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
 
         defaultZoneResources.forEach(resources -> verify(resources.txStatePartitionStorage(), atLeastOnce()).close());
+    }
+
+    @Retention(RUNTIME)
+    private @interface ManagerIsStoppedByTest {
     }
 }
