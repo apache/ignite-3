@@ -31,12 +31,6 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 {
-    /** Absolute expiration timestamp, milliseconds since Unix epoch. */
-    private const string ExpirationColumnName = "EXPIRATION";
-
-    /** Sliding expiration, milliseconds. */
-    private const string SlidingExpirationColumnName = "SLIDING_EXPIRATION";
-
     [SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Not owned, injected.")]
     private readonly IgniteClientGroup _igniteClientGroup;
 
@@ -48,6 +42,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private readonly SemaphoreSlim _initLock = new(1);
 
+    private readonly CancellationTokenSource _cleanupCts = new();
+
+    private readonly Task? _cleanupTask;
+
     private volatile ITable? _table;
 
     /// <summary>
@@ -58,12 +56,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     public IgniteDistributedCache(
         IOptions<IgniteDistributedCacheOptions> optionsAccessor,
         IServiceProvider serviceProvider)
+        : this(
+            options: optionsAccessor.Value,
+            igniteClientGroup: serviceProvider.GetRequiredKeyedService<IgniteClientGroup>(optionsAccessor.Value.IgniteClientGroupServiceKey))
     {
-        ArgumentNullException.ThrowIfNull(optionsAccessor);
-        ArgumentNullException.ThrowIfNull(serviceProvider);
-
-        _options = optionsAccessor.Value;
-        _igniteClientGroup = serviceProvider.GetRequiredKeyedService<IgniteClientGroup>(_options.IgniteClientGroupServiceKey);
+        // No-op.
     }
 
     /// <summary>
@@ -80,6 +77,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         _options = options;
         _igniteClientGroup = igniteClientGroup;
+        if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
+        {
+            _cleanupTask = Task.Run(() => CleanupLoopAsync(_cleanupCts.Token));
+        }
     }
 
     /// <inheritdoc/>
@@ -97,8 +98,26 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         try
         {
             var (val, hasVal) = await view.GetAsync(null, tuple).ConfigureAwait(false);
+            if (!hasVal)
+            {
+                return null;
+            }
 
-            return hasVal ? (byte[]?)val[_options.ValueColumnName] : null;
+            // Check expiration
+            var expirationCol = _options.ExpirationColumnName;
+            var colIdx = val.GetOrdinal(expirationCol);
+            if (colIdx != -1 && val[expirationCol] is long exp && exp > 0)
+            {
+                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                if (exp <= now)
+                {
+                    // Optionally remove expired entry
+                    await view.DeleteAsync(null, tuple).ConfigureAwait(false);
+                    return null;
+                }
+            }
+
+            return (byte[]?)val[_options.ValueColumnName];
         }
         finally
         {
@@ -177,8 +196,24 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose() =>
+    public void Dispose()
+    {
         _initLock.Dispose();
+        _cleanupCts.Cancel();
+        if (_cleanupTask != null)
+        {
+            try
+            {
+                _cleanupTask.Wait();
+            }
+            catch (AggregateException ex) when (ex.InnerExceptions.Count == 1 && ex.InnerException is OperationCanceledException)
+            {
+                // ignore expected cancellation
+            }
+        }
+
+        _cleanupCts.Dispose();
+    }
 
     private IgniteTuple GetKey(string key)
     {
@@ -222,8 +257,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             var sql = $"CREATE TABLE IF NOT EXISTS {tableName} (" +
                       $"{_options.KeyColumnName} VARCHAR PRIMARY KEY, " +
                       $"{_options.ValueColumnName} VARBINARY, " +
-                      $"{ExpirationColumnName} BIGINT, " +
-                      $"{SlidingExpirationColumnName} BIGINT" +
+                      $"{_options.ExpirationColumnName} BIGINT, " +
+                      $"{_options.SlidingExpirationColumnName} BIGINT" +
                       ")";
 
             await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
@@ -238,5 +273,34 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         {
             _initLock.Release();
         }
+    }
+
+    private async Task CleanupLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(_options.ExpiredItemsCleanupInterval, token).ConfigureAwait(false);
+                await CleanupExpiredEntriesAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            // Ignore all other errors in cleanup (do not catch general Exception).
+            // TODO: ???
+        }
+    }
+
+    private async Task CleanupExpiredEntriesAsync()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var expirationCol = _options.ExpirationColumnName;
+        var sql = $"DELETE FROM {_options.TableName} WHERE {expirationCol} IS NOT NULL AND {expirationCol} <= ?";
+
+        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
+        await ignite.Sql.ExecuteAsync(null, sql, now).ConfigureAwait(false);
     }
 }
