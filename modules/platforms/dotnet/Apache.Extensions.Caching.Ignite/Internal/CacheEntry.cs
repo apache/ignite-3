@@ -17,21 +17,12 @@
 
 namespace Apache.Extensions.Caching.Ignite.Internal;
 
-using Apache.Ignite.Table;
-using Microsoft.Extensions.ObjectPool;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
-/// Ignite tuple pooled object policy.
+/// Cache entry DTO.
 /// </summary>
-internal sealed class IgniteTuplePooledObjectPolicy : PooledObjectPolicy<IgniteTuple>
-{
-    /// <inheritdoc/>
-    public override IgniteTuple Create() => new();
-
-    /// <inheritdoc/>
-    public override bool Return(IgniteTuple obj)
-    {
-        obj.Clear();
-        return true;
-    }
-}
+/// <param name="Value">Value bytes.</param>
+[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Internal DTO")]
+internal record struct CacheEntry(
+    byte[] Value);
