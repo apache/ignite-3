@@ -45,6 +45,16 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     public string ValueColumnName { get; set; } = "VAL";
 
     /// <summary>
+    /// Gets or sets the name of the expiration column. Column type should be BIGINT.
+    /// </summary>
+    public string ExpirationColumnName { get; set; } = "EXPIRATION";
+
+    /// <summary>
+    /// Gets or sets the name of the sliding expiration column. Column type should be BIGINT.
+    /// </summary>
+    public string SlidingExpirationColumnName { get; set; } = "SLIDING_EXPIRATION";
+
+    /// <summary>
     /// Gets or sets optional cache key prefix. Allows to use the same table for multiple caches.
     /// </summary>
     public string? CacheKeyPrefix { get; set; }
@@ -54,6 +64,15 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     /// from the service provider.
     /// </summary>
     public object? IgniteClientGroupServiceKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the interval for expired items cleanup.
+    /// <para />
+    /// Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable automatic cleanup.
+    /// <para />
+    /// Default is <see cref="Timeout.InfiniteTimeSpan"/> (disabled).
+    /// </summary>
+    public TimeSpan ExpiredItemsCleanupInterval { get; set; } = Timeout.InfiniteTimeSpan;
 
     /// <inheritdoc/>
     IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;
