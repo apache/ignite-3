@@ -201,14 +201,17 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         CollectionAssert.AreEqual(new[] { 1 }, await cache.GetAsync("x"));
 
         await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {cacheOptions.TableName}");
+
         var rows = await resultSet.ToListAsync();
+        Assert.AreEqual(1, rows.Count, "Expected exactly one row in the table: " + string.Join(", ", rows));
+
         var row = rows.Single();
 
         Assert.AreEqual(4, row.FieldCount);
         Assert.AreEqual("_K", row.GetName(0));
         Assert.AreEqual("_V", row.GetName(1));
 
-        Assert.AreEqual("x", row[0]);
+        Assert.AreEqual(keyPrefix + "x", row[0]);
         Assert.AreEqual(new[] { 1 }, (byte[]?)row[1]);
     }
 
