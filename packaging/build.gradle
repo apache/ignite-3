@@ -126,7 +126,7 @@ def dockerCli = tasks.register('dockerCli', Exec) {
     workingDir "$buildDir/docker-cli"
 
     def imageTag = project.docker_cli_image_name
-    def dockerArgs = ['docker', 'build', '-f', 'Dockerfile.cli', '-t', imageTag]
+    def dockerArgs = ['docker', 'buildx', 'build', '-f', 'Dockerfile.cli', '-t', imageTag]
 
     if (project.hasProperty('target_platform')) {
         dockerArgs.addAll(['--platform', project.properties["target_platform"]])

@@ -68,6 +68,12 @@ object ReleaseBuild : BuildType({
                 artifactRules = "deb => ignite-deb"
             }
         }
+        dependency(Docker) {
+            snapshot {}
+            artifacts {
+                artifactRules = "ignite-docker => ignite-docker"
+            }
+        }
         dependency(Docs) {
             snapshot {}
             artifacts {

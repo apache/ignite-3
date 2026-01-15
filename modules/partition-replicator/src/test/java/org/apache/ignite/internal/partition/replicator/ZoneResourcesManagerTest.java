@@ -27,6 +27,8 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +38,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.TopologyService;
@@ -49,6 +52,7 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,9 +66,6 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
     private TxStateRocksDbSharedStorage sharedStorage;
 
     private ZoneResourcesManager manager;
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Ensure that tracker is closed.
-    private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     @BeforeEach
     void init(
@@ -97,10 +98,11 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 executor,
                 replicaManager
         );
-
-        storageIndexTracker = new PendingComparableValuesTracker<>(0L);
-
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
+    }
+
+    private static PendingComparableValuesTracker<Long, Void> newStorageIndexTracker() {
+        return new PendingComparableValuesTracker<>(0L);
     }
 
     @AfterEach
@@ -112,7 +114,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
     @Test
     void allocatesResources() {
-        ZonePartitionResources resources = allocatePartitionResources(new ZonePartitionId(1, 1), 10, storageIndexTracker);
+        ZonePartitionResources resources = allocatePartitionResources(new ZonePartitionId(1, 1), 10);
 
         assertThat(resources.txStatePartitionStorage(), is(notNullValue()));
         assertThat(resources.raftListener(), is(notNullValue()));
@@ -120,25 +122,60 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
         assertThat(resources.replicaListenerFuture().isDone(), is(false));
     }
 
+    private static SafeTimeValuesTracker newSafeTimeTracker() {
+        return new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
+    }
+
     @Test
     void closesResourcesOnShutdown() {
-        ZonePartitionResources zone1storage1 = allocatePartitionResources(new ZonePartitionId(1, 1), 10, storageIndexTracker);
-        ZonePartitionResources zone1storage5 = allocatePartitionResources(new ZonePartitionId(1, 5), 10, storageIndexTracker);
-        ZonePartitionResources zone2storage3 = allocatePartitionResources(new ZonePartitionId(2, 3), 10, storageIndexTracker);
+        SafeTimeValuesTracker zone1SafeTimeTracker1 = spy(newSafeTimeTracker());
+        SafeTimeValuesTracker zone1SafeTimeTracker5 = spy(newSafeTimeTracker());
+        SafeTimeValuesTracker zone2SafeTimeTracker3 = spy(newSafeTimeTracker());
+
+        PendingComparableValuesTracker<Long, Void> zone1IndexTracker1 = spy(newStorageIndexTracker());
+        PendingComparableValuesTracker<Long, Void> zone1IndexTracker5 = spy(newStorageIndexTracker());
+        PendingComparableValuesTracker<Long, Void> zone2IndexTracker3 = spy(newStorageIndexTracker());
+
+        ZonePartitionResources zone1storage1 = allocatePartitionResources(
+                new ZonePartitionId(1, 1),
+                10,
+                zone1SafeTimeTracker1,
+                zone1IndexTracker1
+        );
+        ZonePartitionResources zone1storage5 = allocatePartitionResources(
+                new ZonePartitionId(1, 5),
+                10,
+                zone1SafeTimeTracker5,
+                zone1IndexTracker5
+        );
+        ZonePartitionResources zone2storage3 = allocatePartitionResources(
+                new ZonePartitionId(2, 3),
+                10,
+                zone2SafeTimeTracker3,
+                zone2IndexTracker3
+        );
 
         manager.close();
 
         assertThatStorageIsStopped(zone1storage1);
         assertThatStorageIsStopped(zone1storage5);
         assertThatStorageIsStopped(zone2storage3);
+
+        verify(zone1SafeTimeTracker1).close();
+        verify(zone1SafeTimeTracker5).close();
+        verify(zone2SafeTimeTracker3).close();
+
+        verify(zone1IndexTracker1).close();
+        verify(zone1IndexTracker5).close();
+        verify(zone2IndexTracker3).close();
     }
 
     @Test
     void removesTxStatePartitionStorageOnDestroy() {
         int zoneId = 1;
 
-        allocatePartitionResources(new ZonePartitionId(zoneId, 1), 10, storageIndexTracker);
-        allocatePartitionResources(new ZonePartitionId(zoneId, 2), 10, storageIndexTracker);
+        allocatePartitionResources(new ZonePartitionId(zoneId, 1), 10);
+        allocatePartitionResources(new ZonePartitionId(zoneId, 2), 10);
 
         assertThat(manager.txStatePartitionStorage(zoneId, 1), is(notNullValue()));
         assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
@@ -156,8 +193,9 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
         CompletableFuture<?>[] futures = IntStream.range(0, partCount)
                 .mapToObj(partId -> runAsync(
-                        () -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount, storageIndexTracker), executor)
-                )
+                        () -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount),
+                        executor
+                ))
                 .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(futures), willCompleteSuccessfully());
@@ -174,12 +212,21 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
     private ZonePartitionResources allocatePartitionResources(
             ZonePartitionId zonePartitionId,
+            int partitionCount
+    ) {
+        return allocatePartitionResources(zonePartitionId, partitionCount, newSafeTimeTracker(), newStorageIndexTracker());
+    }
+
+    private ZonePartitionResources allocatePartitionResources(
+            ZonePartitionId zonePartitionId,
             int partitionCount,
+            SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         return bypassingThreadAssertions(() -> manager.allocateZonePartitionResources(
                 zonePartitionId,
                 partitionCount,
+                safeTimeTracker,
                 storageIndexTracker
         ));
     }

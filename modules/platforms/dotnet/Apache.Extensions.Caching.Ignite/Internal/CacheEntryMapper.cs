@@ -104,7 +104,7 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
 
         if (_options.CacheKeyPrefix is { } prefix && key.StartsWith(prefix, StringComparison.Ordinal))
         {
-            key = key[_options.CacheKeyPrefix.Length..];
+            key = key[prefix.Length..];
         }
 
         return KeyValuePair.Create(key, new CacheEntry(value, expiresAt, slidingExpiration));
