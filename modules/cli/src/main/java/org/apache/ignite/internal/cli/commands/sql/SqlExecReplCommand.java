@@ -54,6 +54,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializ
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
@@ -219,10 +220,13 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     }
 
     private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
+        // Use CommandLineContextProvider to get the current REPL's output writer,
+        // not the outer command's writer. This ensures SQL output goes through
+        // the nested REPL's output capture for proper pager support.
         return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                 .inputProvider(() -> new StringCallInput(line))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+                .output(CommandLineContextProvider.getContext().out())
+                .errOutput(CommandLineContextProvider.getContext().err())
                 .decorator(new SqlQueryResultDecorator(plain, timed))
                 .verbose(verbose)
                 .exceptionHandler(SqlExceptionHandler.INSTANCE)
@@ -234,8 +238,8 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
             String line) {
         return CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new StringCallInput(dropSemicolon(line)))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+                .output(CommandLineContextProvider.getContext().out())
+                .errOutput(CommandLineContextProvider.getContext().err())
                 .exceptionHandlers(exceptionHandlers)
                 .verbose(verbose)
                 .build();

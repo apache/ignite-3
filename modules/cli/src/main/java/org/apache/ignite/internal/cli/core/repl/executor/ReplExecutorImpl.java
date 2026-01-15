@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
@@ -34,8 +37,10 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.DeployUnitsOpti
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContext;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
+import org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
 import org.jline.reader.Highlighter;
@@ -58,9 +63,15 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
  */
 public class ReplExecutorImpl implements ReplExecutor {
 
-    private Parser parser = new DefaultParser().escapeChars(null);
+    /** Maximum number of tab completion candidates to display. */
+    private static final int MAX_TAB_COMPLETION_CANDIDATES = 50;
 
-    private final Supplier<Path> workDirProvider = () -> Paths.get(System.getProperty("user.dir"));
+    /** Number of lines for tail tip widget descriptions. */
+    private static final int TAIL_TIP_DESCRIPTION_LINES = 5;
+
+    private static final Supplier<Path> WORK_DIR_PROVIDER = () -> Paths.get(System.getProperty("user.dir"));
+
+    private final Parser parser = new DefaultParser().escapeChars(null);
 
     private final AtomicBoolean interrupted = new AtomicBoolean();
 
@@ -70,30 +81,52 @@ public class ReplExecutorImpl implements ReplExecutor {
 
     private final Terminal terminal;
 
+    private final PagerSupport pagerSupport;
+
+    private TailTipWidgets tailTipWidgets;
+
     /**
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
      * @param terminal terminal instance.
+     * @param configManagerProvider configuration manager provider for pager settings.
      */
-    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal) {
+    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal, ConfigManagerProvider configManagerProvider) {
         this.factory = commandsFactory;
         this.terminal = terminal;
+        this.pagerSupport = new PagerSupport(terminal, configManagerProvider);
     }
 
-    private static void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
-        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
+    private void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
+        tailTipWidgets = new TailTipWidgets(reader, registry::commandDescription, TAIL_TIP_DESCRIPTION_LINES,
                 TailTipWidgets.TipType.COMPLETER);
-        widgets.enable();
+        tailTipWidgets.enable();
         // Workaround for the scroll truncation issue in windows terminal
         // Turn off tailtip widgets before printing to the output
         CommandLineContextProvider.setPrintWrapper(printer -> {
-            widgets.disable();
+            tailTipWidgets.disable();
             printer.run();
-            widgets.enable();
+            tailTipWidgets.enable();
         });
         // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
         registry.setScriptDescription(cmdLine -> null);
+    }
+
+    /**
+     * Displays output, using pager if needed. Disables TailTipWidgets during output
+     * to prevent visual glitches.
+     */
+    private void outputWithPager(String output) {
+        if (tailTipWidgets != null) {
+            tailTipWidgets.disable();
+        }
+
+        pagerSupport.write(output);
+
+        if (tailTipWidgets != null) {
+            tailTipWidgets.enable();
+        }
     }
 
     /**
@@ -103,69 +136,52 @@ public class ReplExecutorImpl implements ReplExecutor {
      */
     @Override
     public void execute(Repl repl) {
+        // Save the previous context to restore it when this REPL exits.
+        // This is important for nested REPLs (e.g., SQL REPL inside main REPL).
+        CommandLineContext previousContext = CommandLineContextProvider.getContext();
         try {
             repl.customizeTerminal(terminal);
 
             IgnitePicocliCommands picocliCommands = createPicocliCommands(repl);
-            SystemRegistryImpl registry = new SystemRegistryImpl(
-                    repl.getParser() == null
-                            ? parser
-                            : repl.getParser(),
-                    terminal,
-                    workDirProvider,
-                    null
-            );
-
+            SystemRegistryImpl registry = createRegistry(repl);
             registry.setCommandRegistries(picocliCommands);
 
-            LineReader reader = createReader(
-                    repl.getCompleter() != null
-                            ? repl.getCompleter()
-                            : registry.completer(),
-                    repl.getHighlighter() != null
-                            ? repl.getHighlighter()
-                            : new DefaultHighlighter(),
-                    repl.getParser() != null
-                            ? repl.getParser()
-                            : parser
-            );
-            if (repl.getHistoryFileName() != null) {
-                reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
-            }
-
+            LineReader reader = createReader(repl, registry);
             RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
 
             setupWidgets(repl, registry, reader);
-
             repl.onStart();
 
-            while (!interrupted.get()) {
-                try {
-                    executor.cleanUp();
-                    String prompt = repl.getPromptProvider().getPrompt();
-                    String line = reader.readLine(prompt, null, (MaskingCallback) null, null);
-                    if (line.isEmpty()) {
-                        continue;
-                    }
+            runReplLoop(repl, picocliCommands, executor, reader);
 
-                    repl.getPipeline(executor, exceptionHandlers, line).runPipeline();
-                } catch (Throwable t) {
-                    exceptionHandlers.handleException(System.err::println, t);
-                }
-            }
             reader.getHistory().save();
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
+        } finally {
+            // Restore the previous context so the parent REPL continues to work correctly
+            CommandLineContextProvider.setContext(previousContext);
         }
     }
 
-    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
-        if (repl.isTailTipWidgetsEnabled()) {
-            createTailTipWidgets(registry, reader);
-        } else if (repl.isAutosuggestionsWidgetsEnabled()) {
-            AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
-            widgets.enable();
+    private SystemRegistryImpl createRegistry(Repl repl) {
+        return new SystemRegistryImpl(
+                repl.getParser() != null ? repl.getParser() : parser,
+                terminal,
+                WORK_DIR_PROVIDER,
+                null
+        );
+    }
+
+    private LineReader createReader(Repl repl, SystemRegistryImpl registry) {
+        LineReader reader = createReader(
+                repl.getCompleter() != null ? repl.getCompleter() : registry.completer(),
+                repl.getHighlighter() != null ? repl.getHighlighter() : new DefaultHighlighter(),
+                repl.getParser() != null ? repl.getParser() : parser
+        );
+        if (repl.getHistoryFileName() != null) {
+            reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
         }
+        return reader;
     }
 
     private LineReader createReader(Completer completer, Highlighter highlighter, Parser parser) {
@@ -175,10 +191,73 @@ public class ReplExecutorImpl implements ReplExecutor {
                 .highlighter(highlighter)
                 .parser(parser)
                 .expander(new NoopExpander())
-                .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
+                .variable(LineReader.LIST_MAX, MAX_TAB_COMPLETION_CANDIDATES)
                 .build();
         result.setAutosuggestion(SuggestionType.COMPLETER);
         return result;
+    }
+
+    /**
+     * Main REPL loop. Reads commands, executes them, and displays output with pager support.
+     *
+     * <p>Output capture flow:
+     * <ol>
+     *   <li>Command output is redirected to a StringWriter instead of the terminal</li>
+     *   <li>After the command completes, we have the full output as a string</li>
+     *   <li>PagerSupport decides: if output exceeds terminal height, pipe through pager (e.g., less);
+     *       otherwise, print directly to terminal</li>
+     * </ol>
+     *
+     * <p>This approach allows us to measure output size before displaying it.
+     */
+    private void runReplLoop(Repl repl, IgnitePicocliCommands picocliCommands, RegistryCommandExecutor executor, LineReader reader) {
+        while (!interrupted.get()) {
+            try {
+                executor.cleanUp();
+                String line = reader.readLine(repl.getPromptProvider().getPrompt(), null, (MaskingCallback) null, null);
+                if (line.isEmpty()) {
+                    continue;
+                }
+
+                String output = executeCommandWithOutputCapture(repl, picocliCommands, executor, line);
+                if (!output.isEmpty()) {
+                    outputWithPager(output);
+                }
+            } catch (Throwable t) {
+                exceptionHandlers.handleException(System.err::println, t);
+            }
+        }
+    }
+
+    /**
+     * Executes a command and captures its output to a string.
+     *
+     * <p>Temporarily redirects picocli's output writer to a StringWriter,
+     * executes the command pipeline, then restores the original terminal writer.
+     */
+    private String executeCommandWithOutputCapture(Repl repl, IgnitePicocliCommands picocliCommands,
+            RegistryCommandExecutor executor, String line) {
+        StringWriter capturedOutput = new StringWriter();
+        PrintWriter capturedWriter = new PrintWriter(capturedOutput);
+
+        picocliCommands.getCmd().setOut(capturedWriter);
+        try {
+            repl.getPipeline(executor, exceptionHandlers, line).runPipeline();
+        } finally {
+            picocliCommands.getCmd().setOut(terminal.writer());
+        }
+
+        capturedWriter.flush();
+        return capturedOutput.toString();
+    }
+
+    private void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
+        if (repl.isTailTipWidgetsEnabled()) {
+            createTailTipWidgets(registry, reader);
+        } else if (repl.isAutosuggestionsWidgetsEnabled()) {
+            AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
+            widgets.enable();
+        }
     }
 
     private IgnitePicocliCommands createPicocliCommands(Repl repl) throws Exception {
