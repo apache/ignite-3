@@ -121,16 +121,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        long? expiresAt = GetAbsoluteExpiration(options);
-
-        long? slidingExpiration = options.SlidingExpiration is { } slidingExp
-            ? (long)slidingExp.TotalMilliseconds
-            : null;
-
-        var entry = new CacheEntry(value, expiresAt, slidingExpiration);
+        (long? expiresAt, long? sliding) = GetExpiration(options);
+        var entry = new CacheEntry(value, expiresAt, sliding);
 
         IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
-
         await view.PutAsync(transaction: null, key, entry).ConfigureAwait(false);
     }
 
@@ -180,7 +174,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private static long UtcNowMillis() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-    private static long? GetAbsoluteExpiration(DistributedCacheEntryOptions options)
+    private static (long? Absolute, long? Sliding) GetExpiration(DistributedCacheEntryOptions options)
     {
         long absExpAt = options.AbsoluteExpiration is { } absExp
             ? absExp.ToUnixTimeMilliseconds()
@@ -190,13 +184,18 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             ? UtcNowMillis() + (long)absExpRel.TotalMilliseconds
             : long.MaxValue;
 
+        // TODO
+        long? sliding = options.SlidingExpiration is { } slidingExp
+            ? (long)slidingExp.TotalMilliseconds
+            : null;
+
         long? expiresAt = Math.Min(absExpAt, absExpAtRel) switch
         {
             var min when min != long.MaxValue => min,
             _ => null
         };
 
-        return expiresAt;
+        return (expiresAt, sliding);
     }
 
     private async Task<IKeyValueView<string, CacheEntry>> GetViewAsync()
