@@ -41,8 +41,6 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private readonly CancellationTokenSource _cleanupCts = new();
 
-    private readonly Task? _cleanupTask;
-
     private volatile IKeyValueView<string, CacheEntry>? _view;
 
     /// <summary>
@@ -78,7 +76,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
         {
-            _cleanupTask = Task.Run(() => CleanupLoopAsync(_cleanupCts.Token));
+            _ = CleanupLoopAsync();
         }
     }
 
@@ -166,20 +164,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        _initLock.Dispose();
-        _cleanupCts.Cancel();
-        if (_cleanupTask != null)
+        if (_cleanupCts.IsCancellationRequested)
         {
-            try
-            {
-                _cleanupTask.Wait();
-            }
-            catch (AggregateException ex) when (ex.InnerExceptions.Count == 1 && ex.InnerException is OperationCanceledException)
-            {
-                // ignore expected cancellation
-            }
+            return;
         }
 
+        _cleanupCts.Cancel();
+        _initLock.Dispose();
         _cleanupCts.Dispose();
     }
 
@@ -250,22 +241,25 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         }
     }
 
-    private async Task CleanupLoopAsync(CancellationToken token)
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Background loop.")]
+    private async Task CleanupLoopAsync()
     {
-        while (!token.IsCancellationRequested)
+        while (!_cleanupCts.Token.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(_options.ExpiredItemsCleanupInterval, token).ConfigureAwait(false);
+                await Task.Delay(_options.ExpiredItemsCleanupInterval, _cleanupCts.Token).ConfigureAwait(false);
                 await CleanupExpiredEntriesAsync().ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 break;
             }
-
-            // Ignore all other errors in cleanup (do not catch general Exception).
-            // TODO: ???
+            catch (Exception)
+            {
+                // Swallow exceptions - might be intermittent connection errors.
+                // Client will log the error and retry on the next iteration.
+            }
         }
     }
 
