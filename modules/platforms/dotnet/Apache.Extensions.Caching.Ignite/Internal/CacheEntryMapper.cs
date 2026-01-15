@@ -39,7 +39,7 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
         {
             if (column.Name == _options.KeyColumnName)
             {
-                rowWriter.WriteString(obj.Key);
+                rowWriter.WriteString(_options.CacheKeyPrefix + obj.Key);
             }
             else if (column.Name == _options.ValueColumnName)
             {
@@ -92,11 +92,21 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
             }
         }
 
-        return new KeyValuePair<string, CacheEntry>(
-            key ?? throw new InvalidOperationException("Key column is missing."),
-            new CacheEntry(
-                value ?? throw new InvalidOperationException("Value column is missing."),
-                expiresAt,
-                slidingExpiration));
+        if (key == null)
+        {
+            throw new InvalidOperationException("Key column is missing.");
+        }
+
+        if (value == null)
+        {
+            throw new InvalidOperationException("Value column is missing.");
+        }
+
+        if (_options.CacheKeyPrefix != null && key.StartsWith(_options.CacheKeyPrefix, StringComparison.Ordinal))
+        {
+            key = key[_options.CacheKeyPrefix.Length..];
+        }
+
+        return KeyValuePair.Create(key, new CacheEntry(value, expiresAt, slidingExpiration));
     }
 }
