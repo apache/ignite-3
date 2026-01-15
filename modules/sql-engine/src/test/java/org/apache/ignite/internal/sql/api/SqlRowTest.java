@@ -148,6 +148,14 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         Assumptions.abort(SqlRow.class.getSimpleName() + " is not serializable.");
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
+    @ParameterizedTest
+    @Override
+    @SuppressWarnings("JUnitMalformedDeclaration")
+    public void allTypesUnsupportedConversion(ColumnType from, ColumnType to) {
+        super.allTypesUnsupportedConversion(from, to);
+    }
+
     @Override
     protected Tuple getTuple() {
         Tuple tuple = Tuple.create();

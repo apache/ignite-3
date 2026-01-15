@@ -19,6 +19,7 @@ package org.apache.ignite.table;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -691,22 +692,33 @@ public abstract class AbstractImmutableTupleTest {
 
     @ParameterizedTest(name = "{0} -> {1}")
     @MethodSource("allTypesUnsupportedConversionArgs")
-    void allTypesUnsupportedConversion(ColumnType from, ColumnType to) {
+    public void allTypesUnsupportedConversion(ColumnType from, ColumnType to) {
         Object value = generateMaxValue(from);
         String columnName = "VALUE";
         Tuple tuple = createTupleOfSingleColumn(from, columnName, value);
 
-        assertThrows(ClassCastException.class, () -> readValue(tuple, to, columnName));
+        {
+            ClassCastException ex = assertThrows(ClassCastException.class, () -> readValue(tuple, to, columnName, null));
+            String template = "Column with name '%s' has type %s but %s was requested";
+            assertThat(ex.getMessage(), containsString(String.format(template, columnName, from.name(), to.name())));
+        }
+
+        {
+            ClassCastException ex = assertThrows(ClassCastException.class, () -> readValue(tuple, to, null, 0));
+            String template = "Column with index %d has type %s but %s was requested";
+            assertThat(ex.getMessage(), containsString(String.format(template, 0, from.name(), to.name())));
+        }
     }
 
     @ParameterizedTest(name = "{0} -> {1}")
     @MethodSource("allTypesDowncastOverflowArgs")
-    void allTypesDowncastOverflow(ColumnType from, ColumnType to) {
+    public void allTypesDowncastOverflow(ColumnType from, ColumnType to) {
         Object value = generateMaxValue(from);
         String columnName = "VALUE";
         Tuple tuple = createTupleOfSingleColumn(from, columnName, value);
 
-        assertThrows(ArithmeticException.class, () -> readValue(tuple, to, columnName));
+        assertThrows(ArithmeticException.class, () -> readValue(tuple, to, columnName, null));
+        assertThrows(ArithmeticException.class, () -> readValue(tuple, to, null, 0));
     }
 
     /**
@@ -902,38 +914,40 @@ public abstract class AbstractImmutableTupleTest {
         );
     }
 
-    private static Object readValue(Tuple tuple, ColumnType type, String column) {
+    private static Object readValue(Tuple tuple, ColumnType type, @Nullable String colName, @Nullable Integer index) {
+        assert colName == null ^ index == null;
+
         switch (type) {
             case TIME:
-                return tuple.timeValue(column);
+                return colName == null ? tuple.timeValue(index) : tuple.timeValue(colName);
             case TIMESTAMP:
-                return tuple.timestampValue(column);
+                return colName == null ? tuple.timestampValue(index) : tuple.timestampValue(colName);
             case DATE:
-                return tuple.dateValue(column);
+                return colName == null ? tuple.dateValue(index) : tuple.dateValue(colName);
             case DATETIME:
-                return tuple.datetimeValue(column);
+                return colName == null ? tuple.datetimeValue(index) : tuple.datetimeValue(colName);
             case INT8:
-                return tuple.byteValue(column);
+                return colName == null ? tuple.byteValue(index) : tuple.byteValue(colName);
             case INT16:
-                return tuple.shortValue(column);
+                return colName == null ? tuple.shortValue(index) : tuple.shortValue(colName);
             case INT32:
-                return tuple.intValue(column);
+                return colName == null ? tuple.intValue(index) : tuple.intValue(colName);
             case INT64:
-                return tuple.longValue(column);
+                return colName == null ? tuple.longValue(index) : tuple.longValue(colName);
             case FLOAT:
-                return tuple.floatValue(column);
+                return colName == null ? tuple.floatValue(index) : tuple.floatValue(colName);
             case DOUBLE:
-                return tuple.doubleValue(column);
+                return colName == null ? tuple.doubleValue(index) : tuple.doubleValue(colName);
             case UUID:
-                return tuple.uuidValue(column);
+                return colName == null ? tuple.uuidValue(index) : tuple.uuidValue(colName);
             case STRING:
-                return tuple.stringValue(column);
+                return colName == null ? tuple.stringValue(index) : tuple.stringValue(colName);
             case BOOLEAN:
-                return tuple.booleanValue(column);
+                return colName == null ? tuple.booleanValue(index) : tuple.booleanValue(colName);
             case DECIMAL:
-                return tuple.decimalValue(column);
+                return colName == null ? tuple.decimalValue(index) : tuple.decimalValue(colName);
             case BYTE_ARRAY:
-                return tuple.bytesValue(column);
+                return colName == null ? tuple.bytesValue(index) : tuple.bytesValue(colName);
             default:
                 throw new UnsupportedOperationException("Unexpected type: " + type);
         }

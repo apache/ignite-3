@@ -37,7 +37,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.lang.util.NumericTypeCastUtils;
+import org.apache.ignite.lang.util.TypeConversionUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -259,9 +259,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public byte byteValue(String columnName) {
-            Number number = getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
 
-            return NumericTypeCastUtils.castToByte(number);
+            return TypeConversionUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
@@ -269,7 +269,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public byte byteValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return NumericTypeCastUtils.castToByte(number);
+            return TypeConversionUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
@@ -277,7 +277,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public short shortValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return NumericTypeCastUtils.castToShort(number);
+            return TypeConversionUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
@@ -285,7 +285,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public short shortValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return NumericTypeCastUtils.castToShort(number);
+            return TypeConversionUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
@@ -293,7 +293,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public int intValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return NumericTypeCastUtils.castToInt(number);
+            return TypeConversionUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
@@ -301,7 +301,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public int intValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return NumericTypeCastUtils.castToInt(number);
+            return TypeConversionUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
@@ -309,7 +309,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public long longValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return NumericTypeCastUtils.castToLong(number);
+            return TypeConversionUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
@@ -317,7 +317,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public long longValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return NumericTypeCastUtils.castToLong(number);
+            return TypeConversionUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
@@ -325,7 +325,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public float floatValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return NumericTypeCastUtils.castToFloat(number);
+            return TypeConversionUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
@@ -333,7 +333,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public float floatValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return NumericTypeCastUtils.castToFloat(number);
+            return TypeConversionUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
@@ -341,7 +341,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public double doubleValue(String columnName) {
             Number number = getValueNotNull(columnName);
 
-            return NumericTypeCastUtils.castToDouble(number);
+            return TypeConversionUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
@@ -349,7 +349,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public double doubleValue(int columnIndex) {
             Number number = getValueNotNull(columnIndex);
 
-            return NumericTypeCastUtils.castToDouble(number);
+            return TypeConversionUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */

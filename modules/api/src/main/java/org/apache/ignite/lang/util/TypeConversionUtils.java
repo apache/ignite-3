@@ -29,7 +29,7 @@ package org.apache.ignite.lang.util;
  *     if the value cannot be represented as FLOAT without precision loss.</li>
  * </ul>
  */
-public class NumericTypeCastUtils {
+public class TypeConversionUtils {
     /**
      * Casts a {@link Number} to {@code byte}.
      *
@@ -38,14 +38,14 @@ public class NumericTypeCastUtils {
      * @throws ClassCastException If the provided {@code number} is of unsupported type.
      * @throws ArithmeticException if value overflows {@code byte} range.
      */
-    public static byte castToByte(Number number) {
+    public static byte castToByte(Object number) {
         if (number instanceof Byte) {
             return (byte) number;
         }
 
         if (number instanceof Long || number instanceof Integer || number instanceof Short) {
-            long longVal = number.longValue();
-            byte byteVal = number.byteValue();
+            long longVal = ((Number) number).longValue();
+            byte byteVal = ((Number) number).byteValue();
 
             if (longVal == byteVal) {
                 return byteVal;
@@ -65,14 +65,14 @@ public class NumericTypeCastUtils {
      * @throws ClassCastException If the provided {@code number} is of unsupported type.
      * @throws ArithmeticException if value overflows {@code short} range.
      */
-    public static short castToShort(Number number) {
+    public static short castToShort(Object number) {
         if (number instanceof Short) {
             return (short) number;
         }
 
         if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
-            long longVal = number.longValue();
-            short shortVal = number.shortValue();
+            long longVal = ((Number) number).longValue();
+            short shortVal = ((Number) number).shortValue();
 
             if (longVal == shortVal) {
                 return shortVal;
@@ -92,14 +92,14 @@ public class NumericTypeCastUtils {
      * @throws ClassCastException If the provided {@code number} is of unsupported type.
      * @throws ArithmeticException If the value overflows {@code int} range.
      */
-    public static int castToInt(Number number) {
+    public static int castToInt(Object number) {
         if (number instanceof Integer) {
             return (int) number;
         }
 
         if (number instanceof Long || number instanceof Short || number instanceof Byte) {
-            long longVal = number.longValue();
-            int intVal = number.intValue();
+            long longVal = ((Number) number).longValue();
+            int intVal = ((Number) number).intValue();
 
             if (longVal == intVal) {
                 return intVal;
@@ -118,9 +118,9 @@ public class NumericTypeCastUtils {
      * @return Long primitive value.
      * @throws ClassCastException If the provided {@code number} is of unsupported type.
      */
-    public static long castToLong(Number number) {
+    public static long castToLong(Object number) {
         if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
-            return number.longValue();
+            return ((Number) number).longValue();
         }
 
         throw new ClassCastException(number.getClass() + " cannot be cast to " + long.class);
@@ -134,14 +134,14 @@ public class NumericTypeCastUtils {
      * @throws ClassCastException If the provided {@code number} is of unsupported type.
      * @throws ArithmeticException If the value overflows {@code float} range.
      */
-    public static float castToFloat(Number number) {
+    public static float castToFloat(Object number) {
         if (number instanceof Float) {
             return (float) number;
         }
 
         if (number instanceof Double) {
-            double doubleVal = number.doubleValue();
-            float floatVal = number.floatValue();
+            double doubleVal = ((Number) number).doubleValue();
+            float floatVal = ((Number) number).floatValue();
 
             //noinspection FloatingPointEquality
             if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
@@ -161,9 +161,9 @@ public class NumericTypeCastUtils {
      * @return Double primitive value.
      * @throws ClassCastException If the provided {@code number} is of unsupported type.
      */
-    public static double castToDouble(Number number) {
+    public static double castToDouble(Object number) {
         if (number instanceof Double || number instanceof Float) {
-            return number.doubleValue();
+            return ((Number) number).doubleValue();
         }
 
         throw new ClassCastException(number.getClass() + " cannot be cast to " + double.class);

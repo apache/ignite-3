@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.lang.util.NumericTypeCastUtils;
+import org.apache.ignite.lang.util.TypeConversionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -197,97 +197,97 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        Number number = valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
 
-        return NumericTypeCastUtils.castToByte(number);
+        return TypeConversionUtils.castToByte(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        Number number = valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
 
-        return NumericTypeCastUtils.castToByte(number);
+        return TypeConversionUtils.castToByte(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        Number number = valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
 
-        return NumericTypeCastUtils.castToShort(number);
+        return TypeConversionUtils.castToShort(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        Number number = valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
 
-        return NumericTypeCastUtils.castToShort(number);
+        return TypeConversionUtils.castToShort(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        Number number = valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
 
-        return NumericTypeCastUtils.castToInt(number);
+        return TypeConversionUtils.castToInt(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        Number number = valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
 
-        return NumericTypeCastUtils.castToInt(number);
+        return TypeConversionUtils.castToInt(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        Number number = valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
 
-        return NumericTypeCastUtils.castToLong(number);
+        return TypeConversionUtils.castToLong(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        Number number = valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
 
-        return NumericTypeCastUtils.castToLong(number);
+        return TypeConversionUtils.castToLong(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        Number number = valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
 
-        return NumericTypeCastUtils.castToFloat(number);
+        return TypeConversionUtils.castToFloat(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        Number number = valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
 
-        return NumericTypeCastUtils.castToFloat(number);
+        return TypeConversionUtils.castToFloat(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        Number number = valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
 
-        return NumericTypeCastUtils.castToDouble(number);
+        return TypeConversionUtils.castToDouble(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        Number number = valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
 
-        return NumericTypeCastUtils.castToDouble(number);
+        return TypeConversionUtils.castToDouble(number);
     }
 
     /** {@inheritDoc} */
