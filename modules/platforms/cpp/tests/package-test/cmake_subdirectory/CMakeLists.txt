@@ -19,7 +19,10 @@ cmake_minimum_required(VERSION 3.18)
 
 project(ignite_subdirectory)
 
-set(IGNITE_DIR ../../../)
+option(ENABLE_CLIENT "Build Ignite.C++ Client module" OFF)
+option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
+
+set(IGNITE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../)
 
 add_subdirectory(${IGNITE_DIR} build)
 

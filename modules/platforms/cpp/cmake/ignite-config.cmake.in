@@ -19,12 +19,6 @@
 
 set(ignite_VERSION @PROJECT_VERSION@)
 
-cmake_policy(SET CMP0057 NEW)
-
-# Compute installation paths
-get_filename_component(ignite_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-set(ignite_INCLUDE_DIR "${ignite_CMAKE_DIR}/..")
-
 # Available components
 set(ignite_AVAILABLE_COMPONENTS @IGNITE_AVAILABLE_COMPONENTS@)
 
@@ -43,9 +37,13 @@ endforeach()
 
 # Include component-specific target files
 foreach(_comp ${ignite_FIND_COMPONENTS})
-    set(_target_file "${ignite_CMAKE_DIR}/ignite-${_comp}-targets.cmake")
+    set(_target_file "${CMAKE_CURRENT_LIST_DIR}/ignite-${_comp}-targets.cmake")
+    set(_target_file_no_install "${CMAKE_CURRENT_LIST_DIR}/../ignite/${_comp}/cmake/ignite-${_comp}-targets.cmake")
     if(EXISTS "${_target_file}")
         include("${_target_file}")
+        set(ignite_${_comp}_FOUND TRUE)
+    elseif(EXISTS "${_target_file_no_install}")
+        include("${_target_file_no_install}")
         set(ignite_${_comp}_FOUND TRUE)
     else()
         set(ignite_${_comp}_FOUND FALSE)
@@ -60,11 +58,9 @@ check_required_components(ignite)
 
 # Set legacy variables for compatibility
 if(ignite_client_FOUND)
-    set(ignite_client_INCLUDE_DIR "${ignite_INCLUDE_DIR}")
     set(ignite_client_LIBRARIES ignite::client)
 endif()
 
 if(ignite_odbc_FOUND)
-    set(ignite_odbc_INCLUDE_DIR "${ignite_INCLUDE_DIR}")
     set(ignite_odbc_LIBRARIES ignite::odbc)
 endif()

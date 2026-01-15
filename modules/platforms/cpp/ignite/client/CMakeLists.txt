@@ -111,43 +111,40 @@ foreach(_target_lib IN LISTS _target_libs)
     set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
     set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
-    if (WIN32)
-        set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-    endif()
-
-    target_link_libraries(${_target_lib}
-            PRIVATE ignite-tuple ignite-network ignite-protocol uni-algo::uni-algo
-            INTERFACE ignite-common)
+    target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
+    target_include_directories(${_target_lib}
+        PUBLIC $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
+               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/>
+    )
 endforeach()
 unset(_target_libs)
-
 
 add_library(ignite::client ALIAS ${TARGET})
 add_library(ignite::client-static ALIAS ${TARGET}-static)
 
-if (${INSTALL_IGNITE_FILES})
-    get_target_property(IGNITE_CLIENT_INCLUDES ${TARGET} INCLUDE_DIRECTORIES)
-    install(TARGETS ${TARGET} ignite-common tfpsacrypto
-            EXPORT ignite-client-targets
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    )
+install(TARGETS ${TARGET}
+    EXPORT ignite-client-targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
-    export(EXPORT ignite-client-targets
-            NAMESPACE ignite::
-            FILE "${CMAKE_BINARY_DIR}/cmake/ignite-client-targets.cmake"
-    )
+export(
+    EXPORT ignite-client-targets
+    NAMESPACE ignite::
+    FILE "cmake/ignite-client-targets.cmake"
+)
 
-    install(EXPORT ignite-client-targets
-            NAMESPACE ignite::
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
-            FILE "ignite-client-targets.cmake"
-    )
+install(
+    EXPORT ignite-client-targets
+    NAMESPACE ignite::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+    COMPONENT client
+    FILE "ignite-client-targets.cmake"
+)
 
-    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
-endif()
+ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
 
 ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(name_utils_test DISCOVER SOURCES detail/table/name_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})

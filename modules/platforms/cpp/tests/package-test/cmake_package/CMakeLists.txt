@@ -19,6 +19,9 @@ cmake_minimum_required(VERSION 3.18)
 
 project(ignite_package_test)
 
+option(ENABLE_CLIENT "Build Ignite.C++ Client module" OFF)
+option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
+
 set(IGNITE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../")
 set(IGNITE_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/cmake_package")
 
@@ -28,14 +31,25 @@ execute_process(
     "-B${IGNITE_BINARY_DIR}"
     "-DENABLE_ODBC=${ENABLE_ODBC}"
     "-DENABLE_CLIENT=${ENABLE_CLIENT}"
+    RESULT_VARIABLE CONFIGURE_RESULT
+    ERROR_VARIABLE CONFIGURE_ERROR
 )
+
+if(NOT CONFIGURE_RESULT EQUAL 0)
+    message(FATAL_ERROR "CMake configure step failed: ${CONFIGURE_ERROR}")
+endif()
 
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
         --build "${IGNITE_BINARY_DIR}"
+    RESULT_VARIABLE BUILD_RESULT
+    ERROR_VARIABLE BUILD_ERROR
 )
 
-set(ignite_DIR "${IGNITE_BINARY_DIR}/cmake/")
+if(NOT BUILD_RESULT EQUAL 0)
+    message(FATAL_ERROR "CMake build step failed: ${BUILD_ERROR}")
+endif()
+
 set(IGNITE_COMPONENTS "")
 if(ENABLE_CLIENT)
     list(APPEND IGNITE_COMPONENTS client)
@@ -44,6 +58,7 @@ if(ENABLE_ODBC)
     list(APPEND IGNITE_COMPONENTS odbc)
 endif()
 
+set(ignite_DIR "${IGNITE_BINARY_DIR}/cmake/")
 find_package(ignite REQUIRED COMPONENTS ${IGNITE_COMPONENTS})
 
 if(NOT ignite_FOUND)

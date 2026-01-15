@@ -27,6 +27,7 @@ set(PUBLIC_HEADERS
     detail/bits.h
     detail/bytes.h
     detail/config.h
+    detail/byte_traits.h
     detail/mpi.h
     end_point.h
     error_codes.h

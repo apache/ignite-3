@@ -56,7 +56,7 @@ set(EXTRA_FILES)
 
 if (WIN32)
     string(REPLACE "." "," CMAKE_PROJECT_VERSION_COMMAS ${CMAKE_PROJECT_VERSION})
-    configure_file(${IGNITE_CMAKE_TOP_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+    configure_file(${IGNITE_CMAKE_TOP_DIR}/ignite/odbc/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
     set(EXTRA_FILES ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
 endif()
 
@@ -95,32 +95,37 @@ foreach(_target_lib IN LISTS _target_libs)
     endif()
 
     target_include_directories(${_target_lib} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
+    target_include_directories(${_target_lib}
+        INTERFACE $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
+                  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/>
+    )
     target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
 endforeach()
 unset(_target_libs)
 
 add_library(ignite::odbc ALIAS ${TARGET})
 
-if (${INSTALL_IGNITE_FILES})
-    install(TARGETS ${TARGET}
-            EXPORT ignite-odbc-targets
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    )
+install(TARGETS ${TARGET}
+    EXPORT ignite-odbc-targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
-    export(EXPORT ignite-odbc-targets
-            NAMESPACE ignite::
-            FILE "${CMAKE_BINARY_DIR}/cmake/ignite-odbc-targets.cmake"
-    )
+export(
+    EXPORT ignite-odbc-targets
+    NAMESPACE ignite::
+    FILE "cmake/ignite-odbc-targets.cmake"
+)
 
-    install(EXPORT ignite-odbc-targets
-            NAMESPACE ignite::
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
-            FILE "ignite-odbc-targets.cmake"
-    )
-endif()
+install(
+    EXPORT ignite-odbc-targets
+    NAMESPACE ignite::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+    COMPONENT odbc
+    FILE "ignite-odbc-targets.cmake"
+)
 
 ignite_test(connection_info_test DISCOVER SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(config_tools_test DISCOVER SOURCES config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
