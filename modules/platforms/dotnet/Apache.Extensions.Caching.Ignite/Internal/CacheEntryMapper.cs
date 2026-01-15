@@ -84,9 +84,9 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
             throw new InvalidOperationException("Value column is missing.");
         }
 
-        if (_options.CacheKeyPrefix != null && key.StartsWith(_options.CacheKeyPrefix, StringComparison.Ordinal))
+        if (_options.CacheKeyPrefix is { } prefix && key.StartsWith(prefix, StringComparison.Ordinal))
         {
-            key = key[_options.CacheKeyPrefix.Length..];
+            key = key[prefix.Length..];
         }
 
         return KeyValuePair.Create(key, new CacheEntry(value));
