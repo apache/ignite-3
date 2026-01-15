@@ -71,6 +71,10 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     /// Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable automatic cleanup.
     /// <para />
     /// Default is <see cref="Timeout.InfiniteTimeSpan"/> (disabled).
+    /// <para />
+    /// NOTE: Every cache instance performs its own cleanup task.
+    /// In a distributed environment, where N instances of the application exist, this means N times more cleanup operations,
+    /// roughly equivalent to N times shorter cleanup interval.
     /// </summary>
     public TimeSpan ExpiredItemsCleanupInterval { get; set; } = Timeout.InfiniteTimeSpan;
 
