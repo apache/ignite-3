@@ -97,8 +97,6 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             return null;
         }
 
-        // TODO: Update sliding expiration?
-        // Check expiration
         if (val.ExpiresAt is { } exp && exp <= UtcNowMillis())
         {
             return null;
@@ -132,12 +130,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Refresh(string key)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-
-        // TODO: IGNITE-23973 Add expiration support
-    }
+    public void Refresh(string key) =>
+        RefreshAsync(key, CancellationToken.None).GetAwaiter().GetResult();
 
     /// <inheritdoc/>
     public Task RefreshAsync(string key, CancellationToken token)
