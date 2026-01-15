@@ -18,7 +18,6 @@
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
 using Apache.Ignite;
-using Apache.Ignite.Sql;
 using Apache.Ignite.Table;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
@@ -27,7 +26,9 @@ using Microsoft.Extensions.Caching.Distributed;
 /// <summary>
 /// Tests for <see cref="IgniteDistributedCache"/>.
 /// </summary>
-public class IgniteDistributedCacheTests : IgniteTestsBase
+[TestFixture(null)]
+[TestFixture("myPrefix_")]
+public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
 {
     private IgniteClientGroup _clientGroup = null!;
 
@@ -162,7 +163,8 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         {
             TableName = tableName,
             KeyColumnName = "K",
-            ValueColumnName = "V"
+            ValueColumnName = "V",
+            CacheKeyPrefix = keyPrefix
         };
 
         IDistributedCache cache = GetCache(options);
@@ -177,7 +179,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {tableName}");
 
-        IDistributedCache cache = GetCache(new() { TableName = tableName });
+        IDistributedCache cache = GetCache(new() { TableName = tableName, CacheKeyPrefix = keyPrefix});
 
         await cache.SetAsync("x", [1]);
         Assert.AreEqual(new[] { 1 }, await cache.GetAsync("x"));
@@ -190,7 +192,8 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         {
             TableName = nameof(TestCustomTableAndColumnNames),
             KeyColumnName = "_K",
-            ValueColumnName = "_V"
+            ValueColumnName = "_V",
+            CacheKeyPrefix = keyPrefix
         };
 
         IDistributedCache cache = GetCache(cacheOptions);
@@ -228,8 +231,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestAbsoluteExpiration()
     {
-        var options = new IgniteDistributedCacheOptions();
-        IDistributedCache cache = GetCache(options);
+        IDistributedCache cache = GetCache();
 
         var entryOptions = new DistributedCacheEntryOptions
         {
@@ -247,8 +249,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestAbsoluteExpirationRelativeToNow()
     {
-        var options = new IgniteDistributedCacheOptions();
-        IDistributedCache cache = GetCache(options);
+        IDistributedCache cache = GetCache();
 
         var entryOptions = new DistributedCacheEntryOptions
         {
@@ -266,8 +267,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestSlidingExpiration()
     {
-        var options = new IgniteDistributedCacheOptions();
-        IDistributedCache cache = GetCache(options);
+        IDistributedCache cache = GetCache();
 
         var entryOptions = new DistributedCacheEntryOptions
         {
@@ -296,7 +296,8 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         var cacheOptions = new IgniteDistributedCacheOptions
         {
             ExpiredItemsCleanupInterval = TimeSpan.FromSeconds(1),
-            TableName = nameof(TestExpiredItemsCleanup)
+            TableName = nameof(TestExpiredItemsCleanup),
+            CacheKeyPrefix = keyPrefix
         };
 
         IDistributedCache cache = GetCache(cacheOptions);
@@ -333,5 +334,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
-        new IgniteDistributedCache(options ?? new IgniteDistributedCacheOptions(), _clientGroup);
+        new IgniteDistributedCache(
+            options ?? new IgniteDistributedCacheOptions { CacheKeyPrefix = keyPrefix },
+            _clientGroup);
 }
