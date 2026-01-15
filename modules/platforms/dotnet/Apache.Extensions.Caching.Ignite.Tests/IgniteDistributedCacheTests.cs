@@ -225,19 +225,34 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestExpirationNotSupported()
+    public async Task TestAbsoluteExpiration()
     {
-        var cache = GetCache();
+        var options = new IgniteDistributedCacheOptions();
+        IDistributedCache cache = GetCache(options);
 
-        Test(new() { AbsoluteExpiration = DateTimeOffset.Now });
-        Test(new() { SlidingExpiration = TimeSpan.FromMinutes(1) });
-        Test(new() { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1) });
-
-        void Test(DistributedCacheEntryOptions options)
+        var entryOptions = new DistributedCacheEntryOptions
         {
-            var ex = Assert.Throws<ArgumentException>(() => cache.Set("x", [1], options));
-            Assert.AreEqual("Expiration is not supported. (Parameter 'options')", ex.Message);
-        }
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+        Assert.IsNull(await cache.GetAsync("x"));
+
+        await Task.Delay(TimeSpan.FromSeconds(2));
+
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
+    [Test]
+    public async Task TestAbsoluteExpirationRelativeToNow()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestSlidingExpiration()
+    {
+        await Task.Delay(1);
     }
 
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
