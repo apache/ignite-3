@@ -39,6 +39,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -154,8 +155,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             if (rootSchema != null) {
                 SchemaPlus schemaPlus = rootSchema.root();
 
-                for (String name : schemaPlus.getSubSchemaNames()) {
-                    SchemaPlus subSchema = schemaPlus.getSubSchema(name);
+                for (String name : schemaPlus.subSchemas().getNames(LikePattern.any())) {
+                    SchemaPlus subSchema = schemaPlus.subSchemas().get(name);
 
                     assert subSchema != null : name;
 
