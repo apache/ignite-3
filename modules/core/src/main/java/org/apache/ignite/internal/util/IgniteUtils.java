@@ -328,23 +328,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Formats uptime in HH:MM:SS.mmm format.
-     *
-     * @param uptimeMs Uptime in milliseconds.
-     * @return Formatted uptime string.
-     */
-    public static String formatUptimeHms(long uptimeMs) {
-        long milliseconds = uptimeMs % 1000;
-        long totalSeconds = uptimeMs / 1000;
-        long seconds = totalSeconds % 60;
-        long totalMinutes = totalSeconds / 60;
-        long minutes = totalMinutes % 60;
-        long hours = totalMinutes / 60;
-
-        return String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
-    }
-
-    /**
      * Gets absolute value for integer. If integer is {@link Integer#MIN_VALUE}, then {@code 0} is returned.
      *
      * @param i Integer.
