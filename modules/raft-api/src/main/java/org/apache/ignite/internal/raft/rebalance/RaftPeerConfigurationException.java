@@ -25,9 +25,9 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
  *
  * <p>This exception is non-recoverable and should not be retried.
  */
-public class RaftConfigurationException extends IgniteInternalCheckedException {
+public class RaftPeerConfigurationException extends IgniteInternalCheckedException {
 
-    public RaftConfigurationException(String message) {
+    public RaftPeerConfigurationException(String message) {
         super(message);
     }
 }

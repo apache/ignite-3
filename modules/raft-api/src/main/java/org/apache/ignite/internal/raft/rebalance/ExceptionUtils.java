@@ -38,6 +38,6 @@ public class ExceptionUtils {
                 NodeStoppingException.class,
                 ComponentStoppingException.class,
                 RaftStaleUpdateException.class,
-                RaftConfigurationException.class);
+                RaftPeerConfigurationException.class);
     }
 }

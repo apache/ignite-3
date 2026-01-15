@@ -99,7 +99,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.rebalance.RaftCommandWithRetry;
-import org.apache.ignite.internal.raft.rebalance.RaftConfigurationException;
+import org.apache.ignite.internal.raft.rebalance.RaftPeerConfigurationException;
 import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -817,7 +817,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             // EPERM (node not active) and EINVAL (invalid args) are not retriable.
-            throw new IgniteException(INTERNAL_ERR, new RaftConfigurationException("Failed to reset peers: " + status));
+            throw new IgniteException(INTERNAL_ERR, new RaftPeerConfigurationException("Failed to reset peers: " + status));
         }
     }
 
