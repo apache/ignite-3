@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -171,7 +172,10 @@ public class ClientSqlRowTest extends AbstractImmutableTupleTest {
 
             binaryTupleSchema.appendValue(binaryTupleBuilder, i, value);
 
-            columnsMeta.add(new ColumnMetadataImpl(field.name(), field.type().spec(), -1, -1, field.nullable(), null));
+            int precision = ClientTableCommon.getPrecision(field.type());
+            int scale = ClientTableCommon.getDecimalScale(field.type());
+
+            columnsMeta.add(new ColumnMetadataImpl(field.name(), field.type().spec(), precision, scale, field.nullable(), null));
         }
 
         BinaryTupleReader binaryTuple = new BinaryTupleReader(valuesTuple.columnCount(), binaryTupleBuilder.build());
