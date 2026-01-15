@@ -232,13 +232,13 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
 
         var entryOptions = new DistributedCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1)
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(0.5)
         };
 
         await cache.SetAsync("x", [1], entryOptions);
-        Assert.IsNull(await cache.GetAsync("x"));
+        Assert.IsNotNull(await cache.GetAsync("x"));
 
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
 
         Assert.IsNull(await cache.GetAsync("x"));
     }
