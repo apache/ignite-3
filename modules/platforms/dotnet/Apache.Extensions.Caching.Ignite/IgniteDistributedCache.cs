@@ -148,7 +148,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
                   $"SET {_options.ExpirationColumnName} = {_options.SlidingExpirationColumnName} + ? " +
                   $"WHERE {_options.KeyColumnName} = ? AND {_options.SlidingExpirationColumnName} IS NOT NULL";
 
-        await ignite.Sql.ExecuteAsync(null, sql, token, UtcNowMillis(), key).ConfigureAwait(false);
+        var actualKey = _options.CacheKeyPrefix + key;
+        await ignite.Sql.ExecuteAsync(null, sql, token, UtcNowMillis(), actualKey).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
