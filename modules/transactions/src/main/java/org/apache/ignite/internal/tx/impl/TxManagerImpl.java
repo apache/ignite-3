@@ -40,7 +40,6 @@ import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,7 +70,6 @@ import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -101,6 +99,7 @@ import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
+import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -513,9 +512,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         boolean lockAcquired = lowWatermark.tryLock(txId, readTimestamp);
         if (!lockAcquired) {
-            throw new IgniteInternalException(
-                    TX_READ_ONLY_TOO_OLD_ERR,
-                    "Attempted to read data below the garbage collection watermark: [readTimestamp={}, gcTimestamp={}]",
+            throw new OutdatedReadOnlyTransactionInternalException(
+                    "Attempted to read data below the garbage collection watermark",
                     readTimestamp,
                     lowWatermark.getLowWatermark());
         }

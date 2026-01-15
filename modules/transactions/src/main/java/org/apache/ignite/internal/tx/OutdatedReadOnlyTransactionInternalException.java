@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception thrown when read-only transaction appears to be outdated due to its read timestamp that is less than low watermark.
@@ -31,9 +33,21 @@ public class OutdatedReadOnlyTransactionInternalException extends IgniteInternal
     /**
      * Constructor.
      *
-     * @param txId Transaction id.
+     * @param readTimestamp Read timestamp.
+     * @param lwm Low watermark.
      */
-    public OutdatedReadOnlyTransactionInternalException(UUID txId) {
-        super(TX_READ_ONLY_TOO_OLD_ERR, "Outdated read-only transaction [txId" + txId + "].");
+    public OutdatedReadOnlyTransactionInternalException(HybridTimestamp readTimestamp, HybridTimestamp lwm) {
+        this("Outdated read-only transaction", readTimestamp, lwm);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Message.
+     * @param readTimestamp Read timestamp.
+     * @param lwm Low watermark.
+     */
+    public OutdatedReadOnlyTransactionInternalException(String message, HybridTimestamp readTimestamp, @Nullable HybridTimestamp lwm) {
+        super(TX_READ_ONLY_TOO_OLD_ERR, format("{} [readTimestamp={}, gcTimestamp={}].", message, readTimestamp, lwm));
     }
 }

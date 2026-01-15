@@ -58,7 +58,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1801,9 +1800,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
             if (lwm != null && opStartTimestamp.compareTo(lwm) < 0) {
-                throw new IgniteInternalException(
-                        TX_READ_ONLY_TOO_OLD_ERR,
-                        "Attempted to read data below the garbage collection watermark: [readTimestamp={}, gcTimestamp={}]",
+                throw new OutdatedReadOnlyTransactionInternalException(
+                        "Attempted to read data below the garbage collection watermark",
                         opStartTimestamp,
                         lowWatermark.getLowWatermark());
             }
@@ -2381,7 +2379,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return builder(PENDING).build();
         } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
             // In this case we can't be sure about anything that happened before read timestamp.
-            throw new OutdatedReadOnlyTransactionInternalException(txId);
+            throw new OutdatedReadOnlyTransactionInternalException(readTimestamp, lowWatermark.getLowWatermark());
         } else if (anyCommittedAfterReadTs != null) {
             // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
             // contain tx id.
