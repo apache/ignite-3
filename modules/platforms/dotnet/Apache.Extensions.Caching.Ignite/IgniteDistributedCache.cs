@@ -76,6 +76,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
         {
+            if (_options.ExpiredItemsCleanupInterval <= TimeSpan.Zero)
+            {
+                throw new ArgumentException("ExpiredItemsCleanupInterval must be positive or Timeout.InfiniteTimeSpan.", nameof(options));
+            }
+
             _ = CleanupLoopAsync();
         }
     }
