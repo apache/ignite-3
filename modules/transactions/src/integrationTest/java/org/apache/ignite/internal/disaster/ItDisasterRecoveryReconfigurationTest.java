@@ -1481,9 +1481,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertInsertedValuesOnSpecificNodes(table.name(), dataNodeNames, partId, 0);
 
-        Set<String> nodes012 = nodeNames(0, 1, 2);
-
-        Assignments link2Assignments = peersFrom(timestamp, nodes012);
+        Assignments link2Assignments = peersFrom(timestamp, 0, 1, 2);
 
         AtomicBoolean blockedLink2 = new AtomicBoolean(true);
 
@@ -1497,15 +1495,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         stopNodesInParallel(3, 4, 5, 6);
 
-        // Wait for first phase of reset to complete.
-        // The reset selects the node with the highest raft log index (or lexicographically first on tie).
-        await().atMost(60, SECONDS)
-                .until(() -> {
-                    Assignments stable = getStableAssignments(node0, partId);
-                    return stable != null
-                            && stable.nodes().size() == 1
-                            && nodes012.contains(stable.nodes().iterator().next().consistentId());
-                });
+        awaitStableContainsSingleNode(node0, partId);
 
         // Read the actual stable assignments - this is what the system selected.
         Assignments link2FirstPhaseReset = getStableAssignments(node0, partId);
@@ -1572,8 +1562,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertInsertedValuesOnSpecificNodes(table.name(), dataNodes, partId, 0);
 
-        Set<String> nodes012 = nodeNames(0, 1, 2);
-        Assignments blockedRebalance = peersFrom(timestamp, nodes012);
+        Assignments blockedRebalance = peersFrom(timestamp, 0, 1, 2);
 
         blockRebalanceStableSwitch(partId, blockedRebalance);
 
@@ -1586,15 +1575,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(updateFuture, willCompleteSuccessfully());
 
         // First phase of reset. The second phase stable switch is blocked.
-        // Wait for stable assignments to contain exactly one node from the alive set.
-        // The reset selects the node with the highest raft log index (or lexicographically first on tie).
-        await().atMost(30, SECONDS)
-                .until(() -> {
-                    Assignments stable = getStableAssignments(node0, partId);
-                    return stable != null
-                            && stable.nodes().size() == 1
-                            && nodes012.contains(stable.nodes().iterator().next().consistentId());
-                });
+        awaitStableContainsSingleNode(node0, partId);
 
         // Read the actual stable assignments - this is what the system selected.
         Assignments link2Assignments = getStableAssignments(node0, partId);
@@ -2058,6 +2039,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .collect(toSet());
 
         return Assignments.of(peerSet, timestamp);
+    }
+
+    private void awaitStableContainsSingleNode(IgniteImpl node0, int partId) {
+        // Wait for first phase of reset to complete.
+        // The reset selects the node with the highest raft log index (or lexicographically first on tie).
+        await().atMost(60, SECONDS)
+                .until(() -> getStableAssignments(node0, partId).nodes().size() == 1);
     }
 
     /**
