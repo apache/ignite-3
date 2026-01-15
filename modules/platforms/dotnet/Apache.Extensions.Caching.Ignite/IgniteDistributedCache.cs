@@ -134,12 +134,17 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         RefreshAsync(key, CancellationToken.None).GetAwaiter().GetResult();
 
     /// <inheritdoc/>
-    public Task RefreshAsync(string key, CancellationToken token)
+    public async Task RefreshAsync(string key, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        // TODO: IGNITE-23973 Add expiration support
-        return Task.CompletedTask;
+        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
+
+        var sql = $"UPDATE {_options.TableName} " +
+                  $"SET {_options.ExpirationColumnName} = {_options.SlidingExpirationColumnName} + ? " +
+                  $"WHERE {_options.KeyColumnName} = ? AND {_options.SlidingExpirationColumnName} IS NOT NULL";
+
+        await ignite.Sql.ExecuteAsync(null, sql, token, UtcNowMillis(), key).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
