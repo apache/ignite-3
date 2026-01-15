@@ -102,14 +102,20 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             return null;
         }
 
-        if (val.ExpiresAt is { } exp && exp <= UtcNowMillis())
+        var now = UtcNowMillis();
+        if (val.ExpiresAt is { } exp)
         {
-            return null;
-        }
+            var diff = exp - now;
 
-        if (val.SlidingExpiration != null)
-        {
-            await RefreshAsync(key, token).ConfigureAwait(false);
+            if (diff <= 0)
+            {
+                return null;
+            }
+
+            if (val.SlidingExpiration is { } sliding && diff < sliding)
+            {
+                await RefreshAsync(key, token).ConfigureAwait(false);
+            }
         }
 
         return val.Value;
