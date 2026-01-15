@@ -184,12 +184,15 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             ? UtcNowMillis() + (long)absExpRel.TotalMilliseconds
             : long.MaxValue;
 
-        // TODO
         long? sliding = options.SlidingExpiration is { } slidingExp
             ? (long)slidingExp.TotalMilliseconds
             : null;
 
-        long? expiresAt = Math.Min(absExpAt, absExpAtRel) switch
+        long absExpAtSliding = sliding is { } sliding0
+            ? UtcNowMillis() + sliding0
+            : long.MaxValue;
+
+        long? expiresAt = Math.Min(Math.Min(absExpAt, absExpAtRel), absExpAtSliding) switch
         {
             var min when min != long.MaxValue => min,
             _ => null
