@@ -23,6 +23,7 @@ import static java.util.Map.of;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -1077,7 +1078,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         Set<Assignment> peers = nodesNamesForFinalAssignments.stream()
                 .map(Assignment::forPeer)
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
 
@@ -1224,7 +1225,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         Set<Assignment> peers = nodesNamesForFinalAssignments.stream()
                 .map(Assignment::forPeer)
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
 
@@ -1463,11 +1464,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
-        Collection<String> dataNodeNames = new HashSet<>();
-        for (int i = 0; i < 7; i++) {
-            dataNodeNames.add(node(i).name());
-        }
-
+        Collection<String> dataNodeNames = nodeNames(0, 1, 2, 3, 4, 5, 6);
         logger().info("Zone {}", zone);
 
         Set<Assignment> allAssignmentsSet = calculateAssignmentForPartition(
@@ -1484,11 +1481,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertInsertedValuesOnSpecificNodes(table.name(), dataNodeNames, partId, 0);
 
-        Assignments link2Assignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name())
-        ), timestamp);
+        Set<String> nodes012 = nodeNames(0, 1, 2);
+
+        Assignments link2Assignments = peersFrom(timestamp, nodes012);
 
         AtomicBoolean blockedLink2 = new AtomicBoolean(true);
 
@@ -1504,13 +1499,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Wait for first phase of reset to complete.
         // The reset selects the node with the highest raft log index (or lexicographically first on tie).
-        Set<String> aliveNodes = Set.of(node(0).name(), node(1).name(), node(2).name());
         await().atMost(60, SECONDS)
                 .until(() -> {
                     Assignments stable = getStableAssignments(node0, partId);
                     return stable != null
                             && stable.nodes().size() == 1
-                            && aliveNodes.contains(stable.nodes().iterator().next().consistentId());
+                            && nodes012.contains(stable.nodes().iterator().next().consistentId());
                 });
 
         // Read the actual stable assignments - this is what the system selected.
@@ -1532,9 +1526,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{1, 2}));
         stopNodesInParallel(1, 2);
 
-        Assignments link3Assignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name())
-        ), timestamp);
+        Assignments link3Assignments = peersFrom(timestamp, 0);
 
         assertStableAssignments(node0, partId, link3Assignments, 30_000);
 
@@ -1561,10 +1553,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
-        Collection<String> dataNodes = new HashSet<>();
-        for (int i = 0; i < 7; i++) {
-            dataNodes.add(node(i).name());
-        }
+        Collection<String> dataNodes = nodeNames(0, 1, 2, 3, 4, 5, 6);
 
         logger().info("Zone {}", zone);
 
@@ -1583,11 +1572,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertInsertedValuesOnSpecificNodes(table.name(), dataNodes, partId, 0);
 
-        Assignments blockedRebalance = Assignments.of(timestamp,
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name())
-        );
+        Set<String> nodes012 = nodeNames(0, 1, 2);
+        Assignments blockedRebalance = peersFrom(timestamp, nodes012);
 
         blockRebalanceStableSwitch(partId, blockedRebalance);
 
@@ -1602,13 +1588,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // First phase of reset. The second phase stable switch is blocked.
         // Wait for stable assignments to contain exactly one node from the alive set.
         // The reset selects the node with the highest raft log index (or lexicographically first on tie).
-        Set<String> aliveNodes = Set.of(node(0).name(), node(1).name(), node(2).name());
         await().atMost(30, SECONDS)
                 .until(() -> {
                     Assignments stable = getStableAssignments(node0, partId);
                     return stable != null
                             && stable.nodes().size() == 1
-                            && aliveNodes.contains(stable.nodes().iterator().next().consistentId());
+                            && nodes012.contains(stable.nodes().iterator().next().consistentId());
                 });
 
         // Read the actual stable assignments - this is what the system selected.
@@ -2056,6 +2041,25 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         }, 250, SECONDS.toMillis(60)));
     }
 
+    private Set<String> nodeNames(int... indices) {
+        return Arrays.stream(indices)
+                .mapToObj(idx -> node(idx).name())
+                .collect(toSet());
+    }
+
+    private Assignments peersFrom(long timestamp, int... indices) {
+        return peersFrom(timestamp, nodeNames(indices));
+    }
+
+    private Assignments peersFrom(long timestamp, Set<String> nodeNames) {
+        Set<Assignment> peerSet = nodeNames
+                .stream()
+                .map(Assignment::forPeer)
+                .collect(toSet());
+
+        return Assignments.of(peerSet, timestamp);
+    }
+
     /**
      * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes
      * from stable and pending, for example, when rebalance is in progress.
@@ -2140,7 +2144,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         Set<IgniteImpl> nodes = cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
                 .filter(node -> nodesNames.contains(node.name()))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         for (IgniteImpl node : nodes) {
             Table table = node.tables().table(tableName);
