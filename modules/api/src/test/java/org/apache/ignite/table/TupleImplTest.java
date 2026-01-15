@@ -94,7 +94,7 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27577")
     @ParameterizedTest
     @Override
     @SuppressWarnings("JUnitMalformedDeclaration")

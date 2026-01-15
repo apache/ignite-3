@@ -148,7 +148,7 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         Assumptions.abort(SqlRow.class.getSimpleName() + " is not serializable.");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27577")
     @ParameterizedTest
     @Override
     @SuppressWarnings("JUnitMalformedDeclaration")
