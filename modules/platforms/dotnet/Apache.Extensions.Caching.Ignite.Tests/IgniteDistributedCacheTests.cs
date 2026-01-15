@@ -255,6 +255,12 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         await Task.Delay(1);
     }
 
+    [Test]
+    public async Task TestExpiredItemsCleanup()
+    {
+        await Task.Delay(1);
+    }
+
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
         new IgniteDistributedCache(options ?? new IgniteDistributedCacheOptions(), _clientGroup);
 }
