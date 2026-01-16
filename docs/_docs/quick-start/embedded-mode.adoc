@@ -16,9 +16,12 @@
 
 In most scenarios, you would use Ignite CLI tool to start and manage your Ignite cluster. However, in some scenarios it is preferable to manage the cluster from a Java project. Starting and working with the cluster from code is called "embedded mode".
 
-This tutorial covers how you can start Ignite 3 from your Java project.
+This tutorial covers how you can start Ignite 3 from your Java project, including advanced scenarios like Docker/Kubernetes and Spring Boot integration.
+
 
 NOTE: Unlike in Ignite 2, nodes in Ignite 3 are not separated into client and server nodes. Nodes started from embedded mode will be used to store data by default.
+
+TIP: Methods of the `IgniteServer` interface are not thread-safe and shouldn't be called from different threads.
 
 == Prerequisites
 
@@ -27,7 +30,7 @@ include::includes/prereqs.adoc[]
 == Add Ignite to Your Project
 
 
-First, you need to add Ignite to your project. The easiest way to do this is by using Maven:
+First, you need to add Ignite to your project. The easiest way to do this is add Ignite to your project is by using Maven:
 
 [source, xml, subs="attributes,specialchars"]
 ----
@@ -48,20 +51,20 @@ First, you need to add Ignite to your project. The easiest way to do this is by 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-api</artifactId>
-        <version>3.1.0</version>
+        <version>3.0.0</version>
     </dependency>
 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-runner</artifactId>
-        <version>3.1.0</version>
+        <version>3.0.0</version>
     </dependency>
 </dependencies>
 ----
 
 == Prepare Ignite Configuration
 
-To start an Ignite node, you will need an Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.1.0/etc/ignite-config.conf` file.
+To start a Ignite node, you will need a Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.0.0/etc/ignite-config.conf` file.
 
 == Pass JVM Parameters
 
@@ -85,18 +88,40 @@ The following JVM parameters need to be passed to your application to make propr
 
 == Start Ignite Server Nodes
 
-To start an Ignite node, use the following code snippet:
+To start a Ignite node, use the following code snippet:
 
 [source, java]
 ----
 IgniteServer node = IgniteServer.start("node", configFilePath, workDir);
 ----
 
-This code snippet starts an Ignite node with the name `node1`, that uses the configuration from the file specified in the `configFilePath` path parameter and uses the folder specified in the `workDir` path parameter to store data. When the node is started, this method returns an instance of `IgniteServer` class that can be used to work with the node.
+This code snippet starts a Ignite node with the name `node`, that uses the configuration from the file specified in the `configFilePath` path parameter and uses the folder specified in the `workDir` path parameter to store data. When the node is started, this method returns an instance of `IgniteServer` class that can be used to work with the node.
+
+=== Asynchronous Start
+
+You can also start the node asynchronously:
+
+[source, java]
+----
+CompletableFuture<IgniteServer> nodeFuture = IgniteServer.startAsync("node", configFilePath, workDir);
+IgniteServer node = nodeFuture.join();
+----
+
+=== Using Builder
+
+For more advanced configuration (e.g., custom class loader or async executor), use the builder:
+
+[source, java]
+----
+IgniteServer node = IgniteServer.builder("node", configFilePath, workDir)
+    .asyncContinuationExecutor(ForkJoinPool.commonPool())
+    .build();
+node.start();
+----
 
 == Initiate a Cluster
 
-Started nodes find each other by default, but they do not form an operational cluster unless the cluster is initiated. You need to initiate the cluster to activate the node. If there are multiple nodes, once the cluster is activated, they will form a topology and automatically distribute workload between each other.
+Started nodes find each other by default, but they do not form an intractable cluster unless the cluster is initiated. You need to initiate the cluster to activate the node. If there are multiple nodes, once the cluster is activated, they will form a topology and automatically distribute workload between each other.
 
 Use the code snippet below to initiate a cluster:
 
@@ -105,10 +130,47 @@ Use the code snippet below to initiate a cluster:
 InitParameters initParameters = InitParameters.builder()
     .metaStorageNodeNames("node")
     .clusterName("cluster")
+    .clusterConfiguration({config-with-license})
     .build();
 
 node.initCluster(initParameters);
 ----
+
+You can also use `initClusterAsync` for asynchronous initialization.
+
+NOTE: Initialization should only be performed on one node. If you have multiple nodes, other nodes should wait for initialization:
+
+[source, java]
+----
+// On other nodes that didn't run initCluster
+node.waitForInitAsync().join();
+----
+
+=== Cluster Initialization Strategy
+
+When running multiple nodes (e.g., in a Docker Swarm or Kubernetes StatefulSet), you need a strategy to decide which node performs the initialization.
+
+1.  **Idempotency**: The `initCluster` method is idempotent *if the parameters are identical*. If multiple nodes attempt to initialize with the exact same configuration (same consistent ID, same CMG nodes, same cluster name), it will succeed. However, if parameters differ, an exception will be thrown.
+
+2.  **Dedicated Initializer**: To avoid confusion, it is best practice to designate a specific node (e.g., the first node in a list, or a node with a specific flag) to perform initialization.
+
+[source, java]
+----
+boolean isSeed = Boolean.parseBoolean(System.getenv("IGNITE_CLUSTER_SEED"));
+
+if (isSeed) {
+    InitParameters initParameters = InitParameters.builder()
+        .metaStorageNodes("node-1", "node-2", "node-3")
+        .clusterName("my-cluster")
+        .build();
+    node.initCluster(initParameters);
+} else {
+    node.waitForInitAsync().join();
+}
+----
+
+
+NOTE: To start a Ignite 3 cluster, you need to provide a license together with the cluster configuration in the `clusterConfiguration` parameter.
 
 == Get an Ignite Instance
 
@@ -137,9 +199,213 @@ try (ResultSet<SqlRow> rs = ignite.sql().execute(null, "SELECT id, name, age fro
 }
 ----
 
+== Stop Ignite Server Nodes
+
+To stop the node, use the `shutdown` method:
+
+[source, java]
+----
+node.shutdown();
+----
+
+Or asynchronously:
+
+[source, java]
+----
+node.shutdownAsync().join();
+----
+
+== Advanced Scenarios
+
+=== Running in Docker/Kubernetes
+
+When running embedded Ignite in containers, network configuration is critical.
+
+1.  **Network Configuration**:
+    Configure the node to use a `StaticNodeFinder` that points to other potential nodes. `StaticNodeFinder` resolves DNS names to multiple IP addresses, making it suitable for Kubernetes Headless Services or Docker Compose aliases.
++
+[source, hocon]
+----
+ignite {
+  network {
+    port: 3344
+    nodeFinder {
+      netClusterNodes: [ "ignite-service:3344" ]
+    }
+  }
+  clientConnector.port: 10800
+  rest.port: 10300
+}
+----
+
+2.  **Dockerfile**:
+    Ensure you expose the necessary ports and provide the configuration file.
++
+[source, dockerfile]
+----
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY target/my-app.jar /app/app.jar
+COPY ignite-config.conf /app/ignite-config.conf
+
+# Expose ports: 3344 (Communication), 10300 (REST), 10800 (Client)
+EXPOSE 3344 10300 10800
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+----
+
+=== Spring Boot Integration
+
+To integrate Ignite Embedded with Spring Boot, manage the `IgniteServer` lifecycle as a Spring Bean.
+
+[source, java]
+----
+@Service
+public class IgniteService implements DisposableBean {
+    private IgniteServer igniteServer;
+
+    public CompletableFuture<Void> startIgnite() {
+        Path configPath = Path.of("ignite-config.conf");
+        Path workDir = Path.of("work");
+
+        igniteServer = IgniteServer.builder("my-node", configPath, workDir)
+                .build();
+        
+        return igniteServer.startAsync();
+    }
+
+    public Ignite api() {
+        return igniteServer.api();
+    }
+
+    @Override
+    public void destroy() {
+        if (igniteServer != null) {
+            igniteServer.shutdown();
+        }
+    }
+}
+----
+
+=== Managing Topology
+
+*   **Adding Nodes**: To scale out, simply start a new node (e.g., a new Docker container) with the same `clusterName` in `initParameters` (if initializing) or simply join the existing cluster by pointing `netClusterNodes` to running nodes.
+*   **Removing Nodes**: Call `shutdown()` on the node. The cluster will detect the node leaving and rebalance data if necessary.
+*   **Cluster Initialization**: Remember that `initCluster` should only be called *once* for the entire cluster. In a dynamic environment, you might designate a "seed" node to run initialization, or check if the cluster is already initialized using the REST API or client before attempting initialization.
+
 NOTE: Session is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep cursor open.
 
 More examples of working with Ignite can be found in the link:https://github.com/apache/ignite-3/tree/main/examples[examples] repository.
+
+
+== Configuration Reference
+
+Ignite uses HOCON (Human-Optimized Config Object Notation) as its primary configuration format. JSON is also supported as it is a valid subset of HOCON.
+
+=== HOCON Configuration Example
+
+Here is a comprehensive HOCON configuration file with explanations for key fields:
+
+[source, hocon]
+----
+ignite {
+    # Network configuration (Communication between nodes)
+    network {
+        # Port for node-to-node communication
+        port: 3344
+        
+        # Node discovery
+        nodeFinder {
+            # Use STATIC to list addresses manually (or DNS names)
+            # Use MULTICAST for automatic discovery
+            type: STATIC
+            netClusterNodes: [
+                "localhost:3344",
+                "other-node:3344" 
+            ]
+        }
+    }
+
+    # Client Connector (JDBC, ODBC, Thin Client)
+    clientConnector {
+        port: 10800
+        # Idle timeout for client connections
+        idleTimeout: 30000 
+    }
+
+    # REST API (Management & Metrics)
+    rest {
+        port: 10300
+    }
+    
+    # Compute Grid
+    compute {
+        threadPoolSize: 8
+    }
+}
+----
+
+=== JSON Configuration Example
+
+Equivalent configuration in JSON:
+
+[source, json]
+----
+{
+  "ignite": {
+    "network": {
+      "port": 3344,
+      "nodeFinder": {
+        "type": "STATIC",
+        "netClusterNodes": ["localhost:3344", "other-node:3344"]
+      }
+    },
+    "clientConnector": {
+      "port": 10800,
+      "idleTimeout": 30000
+    },
+    "rest": {
+      "port": 10300
+    },
+    "compute": {
+      "threadPoolSize": 8
+    }
+  }
+}
+----
+
+=== Using Variables in Configuration
+
+Ignite's embedded mode reads the configuration file from disk. To dynamically inject values (like environment variables) into your configuration in embedded mode, the most robust approach is to pre-process the configuration string in Java before starting the node.
+
+[source, java]
+----
+// 1. Define your template (or read from a file like 'ignite-config.template.conf')
+String configTemplate = "ignite {\n" +
+        "  network {\n" +
+        "    port: ${PORT}\n" +
+        "    nodeFinder {\n" +
+        "      netClusterNodes: [ \"${SEED_NODE}:3344\" ]\n" +
+        "    }\n" +
+        "  }\n" +
+        "}";
+
+// 2. Perform substitution using Java's environment or custom logic
+String port = System.getenv().getOrDefault("IGNITE_PORT", "3344");
+String seedNode = System.getenv().getOrDefault("IGNITE_SEED_NODE", "localhost");
+
+String resolvedConfig = configTemplate
+        .replace("${PORT}", port) // Replace placeholder with value
+        .replace("${SEED_NODE}", seedNode);
+
+// 3. Write to a temporary file
+Path configPath = Path.of("work/ignite-config.conf");
+Files.createDirectories(configPath.getParent());
+Files.writeString(configPath, resolvedConfig);
+
+// 4. Start Ignite with the resolved configuration
+IgniteServer node = IgniteServer.start("my-node", configPath, Path.of("work"));
+----
 
 == Next Steps
 
