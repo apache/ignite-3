@@ -168,8 +168,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         string actualKey = _options.CacheKeyPrefix + key;
         long now = UtcNowMillis();
 
-        await holder.Ignite.Sql.ExecuteAsync(
-            transaction: null,
+        await holder.Ignite.Sql.ExecuteScriptAsync(
             _refreshSql,
             token,
             args: [now, actualKey, now]).ConfigureAwait(false);
@@ -298,7 +297,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
                       $"{_options.SlidingExpirationColumnName} BIGINT" +
                       ")";
 
-            await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
+            await ignite.Sql.ExecuteScriptAsync(sql).ConfigureAwait(false);
 
             var table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false)
                         ?? throw new InvalidOperationException("Table not found: " + tableName);
@@ -341,8 +340,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         var holder = await EnsureInitAsync().ConfigureAwait(false);
 
-        await holder.Ignite.Sql.ExecuteAsync(
-            transaction: null,
+        await holder.Ignite.Sql.ExecuteScriptAsync(
             _cleanupSql,
             token,
             args: UtcNowMillis()).ConfigureAwait(false);
