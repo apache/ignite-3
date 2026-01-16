@@ -163,7 +163,12 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
 
         var actualKey = _options.CacheKeyPrefix + key;
-        await ignite.Sql.ExecuteAsync(transaction: null, _refreshSql, token, args: [UtcNowMillis(), actualKey]).ConfigureAwait(false);
+
+        await ignite.Sql.ExecuteAsync(
+            transaction: null,
+            _refreshSql,
+            token,
+            args: [UtcNowMillis(), actualKey]).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -292,6 +297,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     private async Task CleanupExpiredEntriesAsync(CancellationToken token)
     {
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
-        await ignite.Sql.ExecuteAsync(transaction: null, _cleanupSql, token, args: UtcNowMillis()).ConfigureAwait(false);
+
+        await ignite.Sql.ExecuteAsync(
+            transaction: null,
+            _cleanupSql,
+            token,
+            args: UtcNowMillis()).ConfigureAwait(false);
     }
 }
