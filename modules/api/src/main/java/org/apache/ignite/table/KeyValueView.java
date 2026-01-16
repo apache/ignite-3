@@ -884,6 +884,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
 
     /**
      * Replaces an expected value for a key. This is equivalent to
+     * Deprecated: use {@link #replaceExact(Transaction, Object, Object, Object)} instead.
      * <pre><code>
      * if (cache.get(tx, key) == oldValue) {
      *   cache.put(tx, key, newValue);
@@ -901,7 +902,31 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
+    @Deprecated(forRemoval = true)
     boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue);
+
+    /**
+     * Replaces an expected value for a key. This is equivalent to
+     * <pre><code>
+     * if (cache.get(tx, key) == oldValue) {
+     *   cache.put(tx, key, newValue);
+     *   return true;
+     * } else {
+     *   return false;
+     * }</code></pre>
+     * except the action is performed atomically.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
+     * @param oldValue Expected value associated with the specified key. Can be {@code null} when mapped to a single column
+     *     with a simple type.
+     * @param newValue Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
+     * @return {@code True} if an old value was replaced, {@code false} otherwise.
+     * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
+     */
+    default boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return replace(tx, key, oldValue, newValue);
+    }
 
     /**
      * Replaces an expected value for a key. This is equivalent to
@@ -922,8 +947,8 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    default boolean replace(K key, @Nullable V oldValue, @Nullable V newValue) {
-        return replace(null, key, oldValue, newValue);
+    default boolean replaceExact(K key, @Nullable V oldValue, @Nullable V newValue) {
+        return replaceExact(null, key, oldValue, newValue);
     }
 
     /**
@@ -952,6 +977,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
 
     /**
      * Asynchronously replaces an expected value for a key. See {@link #replace(Transaction, Object, Object, Object)}
+     * Deprecated: use {@link #replaceExactAsync(Transaction, Object, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
@@ -961,10 +987,26 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
+    @Deprecated(forRemoval = true)
     CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal);
 
     /**
-     * Asynchronously replaces an expected value for a key. See {@link #replace(Object, Object, Object)}
+     * Asynchronously replaces an expected value for a key. See {@link #replaceExact(Transaction, Object, Object, Object)}
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
+     * @param oldVal Expected value associated with the specified key. Can be {@code null} when mapped to a single column
+     *     with a simple type.
+     * @param newVal Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
+     */
+    default CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+        return replaceAsync(tx, key, oldVal, newVal);
+    }
+
+    /**
+     * Asynchronously replaces an expected value for a key. See {@link #replaceExact(Object, Object, Object)}
      * Opens implicit transaction.
      *
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
@@ -974,7 +1016,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    default CompletableFuture<Boolean> replaceAsync(K key, @Nullable V oldVal, @Nullable V newVal) {
+    default CompletableFuture<Boolean> replaceExactAsync(K key, @Nullable V oldVal, @Nullable V newVal) {
         return replaceAsync(null, key, oldVal, newVal);
     }
 
