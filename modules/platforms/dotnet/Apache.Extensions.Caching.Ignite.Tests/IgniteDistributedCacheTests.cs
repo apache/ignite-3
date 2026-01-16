@@ -350,14 +350,12 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
 
         await cache.SetAsync("x", [1], entryOptions);
 
-        // Wait until entry is close to expiration.
-        await Task.Delay(TimeSpan.FromSeconds(0.8));
-
-        // Refresh should extend the expiration.
+        // Wait and refresh to extend expiration.
+        await Task.Delay(TimeSpan.FromSeconds(0.6));
         await cache.RefreshAsync("x");
 
-        // Wait another 0.8 seconds - entry should still be available because we refreshed.
-        await Task.Delay(TimeSpan.FromSeconds(0.8));
+        // Wait and check.
+        await Task.Delay(TimeSpan.FromSeconds(0.6));
         Assert.IsNotNull(await cache.GetAsync("x"));
 
         // Wait for final expiration.
