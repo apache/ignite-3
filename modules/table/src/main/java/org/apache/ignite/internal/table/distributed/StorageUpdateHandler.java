@@ -117,8 +117,6 @@ public class StorageUpdateHandler {
     }
 
     private void recoverPendingRows() {
-        LOG.info("Recovering pending rows [tableId={}, partitionIndex={}]", storage.tableId(), storage.partitionId());
-
         long startNanos = System.nanoTime();
 
         int count = 0;
@@ -138,13 +136,15 @@ public class StorageUpdateHandler {
             }
         }
 
-        LOG.info(
-                "Recovered pending rows [tableId={}, partitionIndex={}, count={}, duration={}ms]",
-                storage.tableId(),
-                storage.partitionId(),
-                count,
-                NANOSECONDS.toMillis(System.nanoTime() - startNanos)
-        );
+        if (count != 0 && LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Recovered pending rows [tableId={}, partitionId={}, count={}, duration={}ms]",
+                    storage.tableId(),
+                    storage.partitionId(),
+                    count,
+                    NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+            );
+        }
     }
 
     /**
