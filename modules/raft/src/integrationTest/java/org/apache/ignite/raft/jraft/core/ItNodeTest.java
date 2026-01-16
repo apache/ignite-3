@@ -57,6 +57,7 @@ import static org.mockito.Mockito.verify;
 import com.codahale.metrics.ConsoleReporter;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
+import io.netty.buffer.ByteBufAllocator;
 import java.io.File;
 import java.io.Serializable;
 import java.lang.reflect.Field;
@@ -108,6 +109,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownExcepti
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -178,8 +180,11 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
+ * Integration tests for raft cluster. TODO asch get rid of sleeps wherever possible IGNITE-14832
  */
+// Default allocator in Netty 4.2.+ consumes too much direct memory, which breaks some tests in this class, so we use the older
+// default.
+@WithSystemProperty(key = "io.netty.allocator.type", value = "pooled")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger log = Loggers.forClass(ItNodeTest.class);
@@ -249,6 +254,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+        log.info("io.netty.allocator.type: " + System.getProperty("io.netty.allocator.type"));
+        log.info("Using the following allocator: " + ByteBufAllocator.DEFAULT);
+
         log.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
 
         this.testInfo = testInfo;
@@ -4152,7 +4160,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     @Test
     public void testChangePeersAndLearnersChaosWithSnapshot() throws Exception {
         // start cluster
@@ -4199,7 +4206,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     public void testChangePeersAndLearnersChaosWithoutSnapshot() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
@@ -4247,7 +4253,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     public void testChangePeersAndLearnersChaosApplyTasks() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();

@@ -118,4 +118,6 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor
+    // FIXME: this is temporary code!!!
+    integrationTestImplementation libs.netty.buffer
 }
