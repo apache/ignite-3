@@ -804,7 +804,7 @@ public abstract class AbstractImmutableTupleTest {
         return new BigInteger("10").pow(NANOS_IN_SECOND - precision).intValue();
     }
 
-    private static @Nullable Object generateValue(Random rnd, ColumnType type) {
+    protected @Nullable Object generateValue(Random rnd, ColumnType type) {
         switch (type) {
             case NULL:
                 return null;
@@ -862,7 +862,7 @@ public abstract class AbstractImmutableTupleTest {
         }
     }
 
-    private static Object generateMaxValue(ColumnType type) {
+    private Object generateMaxValue(ColumnType type) {
         switch (type) {
             case INT8:
                 return Byte.MAX_VALUE;

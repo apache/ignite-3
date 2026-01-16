@@ -31,8 +31,10 @@ import static org.apache.ignite.internal.type.NativeTypes.datetime;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -59,6 +61,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.AbstractImmutableTupleTest;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -127,21 +130,6 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         return createSqlRow(schema, Tuple.create().set("ID", 1).set("VAL", null));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
-    @Test
-    @Override
-    public void testTupleEquality() {
-        super.testTupleEquality();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27537")
-    @ParameterizedTest
-    @Override
-    @SuppressWarnings("JUnitMalformedDeclaration")
-    public void testTupleColumnsEquality(ColumnType type) {
-        super.testTupleColumnsEquality(type);
-    }
-
     @Test
     @Override
     public void testSerialization() {
@@ -184,6 +172,17 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         Tuple tuple = Tuple.create().set(columnName, value);
 
         return createSqlRow(schema, tuple);
+    }
+
+    @Override
+    protected @Nullable Object generateValue(Random rnd, ColumnType type) {
+        if (type == ColumnType.TIME) {
+            // SQL currently support only milliseconds.
+            return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
+                    rnd.nextInt(1_000) * 1_000_000);
+        }
+
+        return super.generateValue(rnd, type);
     }
 
     private static Tuple createSqlRow(SchemaDescriptor descriptor, Tuple valuesTuple) {

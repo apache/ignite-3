@@ -461,6 +461,27 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         /** {@inheritDoc} */
         @Override
+        public int hashCode() {
+            return Tuple.hashCode(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+
+            //noinspection SimplifiableIfStatement
+            if (obj instanceof Tuple) {
+                return Tuple.equals(this, (Tuple) obj);
+            }
+
+            return false;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public String toString() {
             return S.tupleToString(this);
         }
