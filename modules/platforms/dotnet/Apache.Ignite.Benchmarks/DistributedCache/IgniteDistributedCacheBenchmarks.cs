@@ -20,6 +20,7 @@ namespace Apache.Ignite.Benchmarks.DistributedCache;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using BenchmarkDotNet.Attributes;
 using Extensions.Caching.Ignite;
 using DistributedCacheEntryOptions = Microsoft.Extensions.Caching.Distributed.DistributedCacheEntryOptions;
 
@@ -67,4 +68,16 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 
         await base.GlobalCleanup();
     }
+
+    [Benchmark]
+    public async Task Get() =>
+        await _cache.GetAsync(Key, CancellationToken.None);
+
+    [Benchmark]
+    public async Task Set() =>
+        await _cache.SetAsync(Key, [1], new DistributedCacheEntryOptions(), CancellationToken.None);
+
+    [Benchmark]
+    public async Task Refresh() =>
+        await _cache.RefreshAsync(KeySliding, CancellationToken.None);
 }
