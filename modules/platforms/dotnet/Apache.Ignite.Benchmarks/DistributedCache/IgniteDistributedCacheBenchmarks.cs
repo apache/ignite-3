@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Benchmarks.DistributedCache;
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -29,11 +28,11 @@ using DistributedCacheEntryOptions = Microsoft.Extensions.Caching.Distributed.Di
 /// Benchmarks for <see cref="IgniteDistributedCache"/>.
 /// <para />
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
-/// | Method  | Mean        | Error     | StdDev     | Median      | Allocated |
-/// |-------- |------------:|----------:|-----------:|------------:|----------:|
-/// | Get     |    47.55 us |  1.251 us |   3.548 us |    47.04 us |   3.91 KB |
-/// | Set     |   102.55 us |  2.605 us |   7.391 us |   100.93 us |    2.8 KB |
-/// | Refresh | 1,316.49 us | 42.580 us | 121.484 us | 1,254.74 us |   2.38 KB |.
+/// | Method  | Mean        | Error     | StdDev    | Allocated |
+/// |-------- |------------:|----------:|----------:|----------:|
+/// | Get     |    48.35 us |  0.960 us |  1.179 us |   2.95 KB |
+/// | Set     |   108.16 us |  2.133 us |  3.563 us |   2.73 KB |
+/// | Refresh | 1,388.33 us | 27.221 us | 48.385 us |   2.38 KB |.
 /// </summary>
 [MemoryDiagnoser]
 public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
@@ -42,7 +41,9 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 
     private const string KeySliding = "keySliding";
 
-    private static readonly byte[] Val = Enumerable.Range(1, 1000).Select(x => (byte)x).ToArray();
+    private static readonly DistributedCacheEntryOptions DefaultOpts = new();
+
+    private static readonly byte[] Val = [1, 2, 3];
 
     private IgniteClientGroup _clientGroup = null!;
 
@@ -62,7 +63,7 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 
         _cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
 
-        await _cache.SetAsync(Key, Val, new DistributedCacheEntryOptions(), CancellationToken.None);
+        await _cache.SetAsync(Key, Val, DefaultOpts, CancellationToken.None);
 
         var slidingOpts = new DistributedCacheEntryOptions
         {
@@ -86,7 +87,7 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 
     [Benchmark]
     public async Task Set() =>
-        await _cache.SetAsync(Key, Val, new DistributedCacheEntryOptions(), CancellationToken.None);
+        await _cache.SetAsync(Key, Val, DefaultOpts, CancellationToken.None);
 
     [Benchmark]
     public async Task Refresh() =>
