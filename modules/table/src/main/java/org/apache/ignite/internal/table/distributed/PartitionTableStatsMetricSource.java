@@ -26,19 +26,23 @@ import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Metrics related to {@link PartitionModificationCounter partition modification counter}.
+ * Metrics related to table partition statistics.
+ *
+ * <p>This source includes {@link PartitionModificationCounter partition modification counter} metrics and
+ * the {@link #METRIC_PENDING_WRITE_INTENTS pending write intents} metric.
  */
-public class PartitionModificationCounterMetricSource implements MetricSource {
+public class PartitionTableStatsMetricSource implements MetricSource {
     public static final String METRIC_COUNTER = "modificationCount";
     public static final String METRIC_NEXT_MILESTONE = "nextMilestone";
     public static final String METRIC_LAST_MILESTONE_TIMESTAMP = "lastMilestoneTimestamp";
+    public static final String METRIC_PENDING_WRITE_INTENTS = "pendingWriteIntents";
 
     private final Map<String, Metric> metrics = new HashMap<>();
     private final String metricSourceName;
 
     private boolean enabled;
 
-    public PartitionModificationCounterMetricSource(int tableId, int partitionId) {
+    public PartitionTableStatsMetricSource(int tableId, int partitionId) {
         this.metricSourceName = formatSourceName(tableId, partitionId);
     }
 

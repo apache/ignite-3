@@ -20,9 +20,10 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_COUNTER;
-import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
-import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE;
+import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_COUNTER;
+import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
+import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_NEXT_MILESTONE;
+import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_PENDING_WRITE_INTENTS;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -37,7 +38,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource;
+import org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.Transaction;
@@ -47,9 +48,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link PartitionModificationCounter partition modification counter} metrics.
+ * Integration tests for table partition statistics metrics exposed via {@link PartitionTableStatsMetricSource}.
+ *
+ * <p>Includes {@link PartitionModificationCounter partition modification counter} metrics
+ * as well as {@link PartitionTableStatsMetricSource#METRIC_PENDING_WRITE_INTENTS pending write intents}.
  */
-public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegrationTest {
+public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
     private static final String ZONE_1_PART_NO_REPLICAS = "zone_single_partition_no_replicas";
     private static final String ZONE_1_PART_REPLICAS = "zone_single_partition";
     private static final String ZONE_8_PART_NO_REPLICAS = "zone_multi_partition";
@@ -276,8 +280,41 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         }
     }
 
+    @Test
+    void pendingWriteIntentsMetric() {
+        String tabName = "test_table_pending_wi";
+
+        sql(format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tabName, ZONE_1_PART_NO_REPLICAS));
+
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+
+        int inserts = 3;
+
+        try {
+            for (int i = 0; i < inserts; i++) {
+                sql(tx, format("INSERT INTO {} VALUES(?, ?);", tabName), i, i);
+            }
+
+            expectPendingWriteIntents(tabName, inserts);
+
+            // The writes are still uncommitted, so the modification counter must not change yet.
+            expectModsCount(tabName, 0);
+        } finally {
+            tx.commit();
+        }
+
+        expectPendingWriteIntents(tabName, 0);
+
+        // After commit, the modification counter should reflect the committed writes.
+        expectModsCount(tabName, inserts);
+    }
+
     private void expectModsCount(String tableName, long value) {
         expectLongValue(tableName, value, METRIC_COUNTER);
+    }
+
+    private void expectPendingWriteIntents(String tableName, long value) {
+        expectLongValue(tableName, value, METRIC_PENDING_WRITE_INTENTS);
     }
 
     static void expectNextMilestone(String tableName, long value) {
@@ -297,7 +334,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
                 int tableId = tableIdByName(QualifiedName.parse(tableName));
 
                 String metricSourceName =
-                        PartitionModificationCounterMetricSource.formatSourceName(tableId, part);
+                        PartitionTableStatsMetricSource.formatSourceName(tableId, part);
 
                 boolean metricFound = false;
 
@@ -346,7 +383,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         int tableId = tableIdByName(QualifiedName.parse(tableName));
 
         String metricSourceName =
-                PartitionModificationCounterMetricSource.formatSourceName(tableId, partId);
+                PartitionTableStatsMetricSource.formatSourceName(tableId, partId);
 
         MetricManager metricManager = unwrapIgniteImpl(node(nodeIdx)).metricManager();
 

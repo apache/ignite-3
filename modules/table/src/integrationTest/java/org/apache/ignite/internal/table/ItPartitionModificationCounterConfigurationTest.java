@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.ItPartitionModificationCounterMetricsTest.expectNextMilestone;
+import static org.apache.ignite.internal.table.ItPartitionTableStatsMetricTest.expectNextMilestone;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
