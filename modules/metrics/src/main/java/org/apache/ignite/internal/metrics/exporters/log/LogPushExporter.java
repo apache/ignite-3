@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metrics.exporters.log;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
-import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
 
 import com.google.auto.service.AutoService;
 import java.util.Arrays;
@@ -42,11 +41,10 @@ import org.apache.ignite.internal.util.CollectionUtils;
 public class LogPushExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "logPush";
 
-    /** Padding for individual metric output. */
-    private static final String PADDING = "  ";
+    /** Padding for individual metric output in multiline mode. */
+    private static final String PADDING = "  ^-- ";
 
     private volatile boolean oneLinePerMetricSource;
-
     private volatile List<String> enabledMetrics;
 
     @Override
@@ -71,52 +69,58 @@ public class LogPushExporter extends PushMetricExporter {
             return;
         }
 
-        var report = new StringBuilder("Metric report:");
-
+        var report = new StringBuilder("Metrics for local node:");
+        if (!oneLinePerMetricSource) {
+            report.append(' ');
+        }
+        boolean needSeparator = oneLinePerMetricSource;
         for (MetricSet metricSet : metricSets) {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                report.append('\n').append(metricSet.name()).append(oneLinePerMetricSource ? ' ' : ':');
-
-                appendMetrics(report, metricSet, hasMetricsWhiteList);
+                needSeparator = appendMetricsOneLine(report, metricSet, hasMetricsWhiteList, needSeparator);
             }
         }
-
         log.info(report.toString());
     }
 
-    private void appendMetrics(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList) {
+    private void addSeparatorIfNeeded(StringBuilder report, boolean needSeparator) {
+        if (needSeparator) {
+            if (oneLinePerMetricSource) {
+                report.append(System.lineSeparator()).append(PADDING);
+            } else {
+                report.append(", ");
+            }
+        }
+    }
+
+    /**
+     * Appends metrics in one-line format.
+     *
+     * @param sb String builder.
+     * @param metricSet Metric set.
+     * @param hasMetricsWhiteList Whether metrics whitelist is present.
+     * @return True if separator is needed for next item.
+     */
+    private boolean appendMetricsOneLine(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList, boolean needSeparator) {
         List<Metric> metrics = StreamSupport.stream(metricSet.spliterator(), false)
                 .sorted(comparing(Metric::name))
                 .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
                 .collect(toList());
-
-        sb.append(metricSetPrefix());
-
-        forEachIndexed(metrics, (m, i) -> appendMetricWithValue(oneLinePerMetricSource, sb, m, i));
-
-        sb.append(metricSetPostfix());
-    }
-
-    private static String commaInEnum(int i) {
-        return i == 0 ? "" : ", ";
-    }
-
-    private String metricSetPrefix() {
-        return oneLinePerMetricSource ? "[" : "";
-    }
-
-    private String metricSetPostfix() {
-        return oneLinePerMetricSource ? "]" : "";
-    }
-
-    private static void appendMetricWithValue(boolean oneLinePerMetricSource, StringBuilder sb, Metric m, int index) {
-        if (oneLinePerMetricSource) {
-            sb.append(commaInEnum(index)).append(m.name()).append('=').append(m.getValueAsString());
-        } else {
-            sb.append('\n').append(PADDING).append(m.name()).append(": ").append(m.getValueAsString());
+        if (metrics.isEmpty()) {
+            return needSeparator;
         }
+        addSeparatorIfNeeded(sb, needSeparator);
+        sb.append(metricSet.name()).append(' ').append('[');
+        for (int i = 0; i < metrics.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            Metric m = metrics.get(i);
+            sb.append(m.name()).append('=').append(m.getValueAsString());
+        }
+        sb.append(']');
+        return true;
     }
 
     private boolean metricEnabled(String name) {
