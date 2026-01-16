@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.lang.util.TypeConversionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -199,7 +198,7 @@ class TupleImpl implements Tuple, Serializable {
     public byte byteValue(String columnName) {
         Object number = valueNotNull(columnName);
 
-        return TypeConversionUtils.castToByte(number);
+        return castToByte(number);
     }
 
     /** {@inheritDoc} */
@@ -207,7 +206,7 @@ class TupleImpl implements Tuple, Serializable {
     public byte byteValue(int columnIndex) {
         Object number = valueNotNull(columnIndex);
 
-        return TypeConversionUtils.castToByte(number);
+        return castToByte(number);
     }
 
     /** {@inheritDoc} */
@@ -215,7 +214,7 @@ class TupleImpl implements Tuple, Serializable {
     public short shortValue(String columnName) {
         Object number = valueNotNull(columnName);
 
-        return TypeConversionUtils.castToShort(number);
+        return castToShort(number);
     }
 
     /** {@inheritDoc} */
@@ -223,7 +222,7 @@ class TupleImpl implements Tuple, Serializable {
     public short shortValue(int columnIndex) {
         Object number = valueNotNull(columnIndex);
 
-        return TypeConversionUtils.castToShort(number);
+        return castToShort(number);
     }
 
     /** {@inheritDoc} */
@@ -231,7 +230,7 @@ class TupleImpl implements Tuple, Serializable {
     public int intValue(String columnName) {
         Object number = valueNotNull(columnName);
 
-        return TypeConversionUtils.castToInt(number);
+        return castToInt(number);
     }
 
     /** {@inheritDoc} */
@@ -239,7 +238,7 @@ class TupleImpl implements Tuple, Serializable {
     public int intValue(int columnIndex) {
         Object number = valueNotNull(columnIndex);
 
-        return TypeConversionUtils.castToInt(number);
+        return castToInt(number);
     }
 
     /** {@inheritDoc} */
@@ -247,7 +246,7 @@ class TupleImpl implements Tuple, Serializable {
     public long longValue(String columnName) {
         Object number = valueNotNull(columnName);
 
-        return TypeConversionUtils.castToLong(number);
+        return castToLong(number);
     }
 
     /** {@inheritDoc} */
@@ -255,7 +254,7 @@ class TupleImpl implements Tuple, Serializable {
     public long longValue(int columnIndex) {
         Object number = valueNotNull(columnIndex);
 
-        return TypeConversionUtils.castToLong(number);
+        return castToLong(number);
     }
 
     /** {@inheritDoc} */
@@ -263,7 +262,7 @@ class TupleImpl implements Tuple, Serializable {
     public float floatValue(String columnName) {
         Object number = valueNotNull(columnName);
 
-        return TypeConversionUtils.castToFloat(number);
+        return castToFloat(number);
     }
 
     /** {@inheritDoc} */
@@ -271,7 +270,7 @@ class TupleImpl implements Tuple, Serializable {
     public float floatValue(int columnIndex) {
         Object number = valueNotNull(columnIndex);
 
-        return TypeConversionUtils.castToFloat(number);
+        return castToFloat(number);
     }
 
     /** {@inheritDoc} */
@@ -279,7 +278,7 @@ class TupleImpl implements Tuple, Serializable {
     public double doubleValue(String columnName) {
         Object number = valueNotNull(columnName);
 
-        return TypeConversionUtils.castToDouble(number);
+        return castToDouble(number);
     }
 
     /** {@inheritDoc} */
@@ -287,7 +286,7 @@ class TupleImpl implements Tuple, Serializable {
     public double doubleValue(int columnIndex) {
         Object number = valueNotNull(columnIndex);
 
-        return TypeConversionUtils.castToDouble(number);
+        return castToDouble(number);
     }
 
     /** {@inheritDoc} */
@@ -444,25 +443,6 @@ class TupleImpl implements Tuple, Serializable {
         return (idx == null) ? def : (T) colValues.get(idx);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        // Keep the same as IgniteToStringBuilder.toString().
-        StringBuilder b = new StringBuilder();
-
-        b.append(getClass().getSimpleName()).append(" [");
-        for (int i = 0; i < columnCount(); i++) {
-            if (i > 0) {
-                b.append(", ");
-            }
-            Object value = value(i);
-            b.append(columnName(i)).append('=').append(value);
-        }
-        b.append(']');
-
-        return b.toString();
-    }
-
     private <T> T valueNotNull(int columnIndex) {
         T value = value(columnIndex);
 
@@ -483,5 +463,123 @@ class TupleImpl implements Tuple, Serializable {
         }
 
         return value;
+    }
+
+    /** Casts a {@link Number} to {@code byte}. */
+    private static byte castToByte(Object number) {
+        if (number instanceof Byte) {
+            return (byte) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Short) {
+            long longVal = ((Number) number).longValue();
+            byte byteVal = ((Number) number).byteValue();
+
+            if (longVal == byteVal) {
+                return byteVal;
+            }
+
+            throw new ArithmeticException("Byte value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + byte.class);
+    }
+
+    /** Casts a {@link Number} to {@code short}. */
+    private static short castToShort(Object number) {
+        if (number instanceof Short) {
+            return (short) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            short shortVal = ((Number) number).shortValue();
+
+            if (longVal == shortVal) {
+                return shortVal;
+            }
+
+            throw new ArithmeticException("Short value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + short.class);
+    }
+
+    /** Casts a {@link Number} to {@code int}. */
+    private static int castToInt(Object number) {
+        if (number instanceof Integer) {
+            return (int) number;
+        }
+
+        if (number instanceof Long || number instanceof Short || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            int intVal = ((Number) number).intValue();
+
+            if (longVal == intVal) {
+                return intVal;
+            }
+
+            throw new ArithmeticException("Int value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + int.class);
+    }
+
+    /** Casts a {@link Number} to {@code long}. */
+    private static long castToLong(Object number) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
+            return ((Number) number).longValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + long.class);
+    }
+
+    /** Casts a {@link Number} to {@code float}. */
+    private static float castToFloat(Object number) {
+        if (number instanceof Float) {
+            return (float) number;
+        }
+
+        if (number instanceof Double) {
+            double doubleVal = ((Number) number).doubleValue();
+            float floatVal = ((Number) number).floatValue();
+
+            //noinspection FloatingPointEquality
+            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
+                return floatVal;
+            }
+
+            throw new ArithmeticException("Float value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + float.class);
+    }
+
+    /** Casts a {@link Number} to {@code double}. */
+    private static double castToDouble(Object number) {
+        if (number instanceof Double || number instanceof Float) {
+            return ((Number) number).doubleValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + double.class);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        // Keep the same as IgniteToStringBuilder.toString().
+        StringBuilder b = new StringBuilder();
+
+        b.append(getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < columnCount(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            Object value = value(i);
+            b.append(columnName(i)).append('=').append(value);
+        }
+        b.append(']');
+
+        return b.toString();
     }
 }
