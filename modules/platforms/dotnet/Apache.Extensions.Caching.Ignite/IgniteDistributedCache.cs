@@ -75,6 +75,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(igniteClientGroup);
 
+        Validate(options);
+
         _options = options;
         _cacheEntryMapper = new CacheEntryMapper(options);
         _igniteClientGroup = igniteClientGroup;
@@ -88,11 +90,6 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
         {
-            if (_options.ExpiredItemsCleanupInterval <= TimeSpan.Zero)
-            {
-                throw new ArgumentException("ExpiredItemsCleanupInterval must be positive or Timeout.InfiniteTimeSpan.", nameof(options));
-            }
-
             _ = CleanupLoopAsync();
         }
     }
@@ -196,6 +193,14 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         _cleanupCts.Cancel();
         _initLock.Dispose();
         _cleanupCts.Dispose();
+    }
+
+    private static void Validate(IgniteDistributedCacheOptions options)
+    {
+        if (options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan && options.ExpiredItemsCleanupInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentException("ExpiredItemsCleanupInterval must be positive or Timeout.InfiniteTimeSpan.", nameof(options));
+        }
     }
 
     private static long UtcNowMillis() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
