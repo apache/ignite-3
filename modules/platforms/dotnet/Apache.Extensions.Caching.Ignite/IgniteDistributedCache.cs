@@ -168,6 +168,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         string actualKey = _options.CacheKeyPrefix + key;
         long now = UtcNowMillis();
 
+        // TODO: Measure if ExecuteScript is faster here.
         await ignite.Sql.ExecuteAsync(
             transaction: null,
             _refreshSql,

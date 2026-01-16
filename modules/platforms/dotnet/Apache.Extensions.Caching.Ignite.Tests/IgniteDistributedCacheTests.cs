@@ -351,9 +351,9 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         await cache.SetAsync("x", [1], entryOptions);
 
         // Refresh multiple times to extend expiration.
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 10; i++)
         {
-            await Task.Delay(TimeSpan.FromSeconds(0.3));
+            await Task.Delay(TimeSpan.FromSeconds(0.1));
             await cache.RefreshAsync("x");
         }
 
