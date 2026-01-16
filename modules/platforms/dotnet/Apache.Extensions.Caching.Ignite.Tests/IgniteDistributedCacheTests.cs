@@ -235,7 +235,7 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAbsoluteExpiration()
+    public async Task TestAbsoluteExpirationRelativeToNow()
     {
         IDistributedCache cache = GetCache();
 
@@ -247,15 +247,14 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         await cache.SetAsync("x", [1], entryOptions);
         Assert.IsNotNull(await cache.GetAsync("x"));
 
-        await Task.Delay(TimeSpan.FromSeconds(0.7));
-
-        Assert.IsNull(await cache.GetAsync("x"));
+        await TestUtils.WaitForConditionAsync(async () => await cache.GetAsync("x") == null);
     }
 
     [Test]
-    public async Task TestAbsoluteExpirationRelativeToNow()
+    public async Task TestAbsoluteExpiration()
     {
         IDistributedCache cache = GetCache();
+        await cache.SetAsync("x", [1]); // Warm up without expiration.
 
         var entryOptions = new DistributedCacheEntryOptions
         {

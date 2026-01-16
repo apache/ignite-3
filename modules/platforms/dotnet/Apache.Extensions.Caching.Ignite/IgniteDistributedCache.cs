@@ -144,10 +144,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
+        // Important to get the view first and calculate expiration after.
+        // Initialization can take time.
+        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
+
         (long? expiresAt, long? sliding) = GetExpiration(options);
         var entry = new CacheEntry(value, expiresAt, sliding);
 
-        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
         await view.PutAsync(transaction: null, key, entry).ConfigureAwait(false);
     }
 
