@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Benchmarks.DistributedCache;
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -32,6 +33,8 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
     private const string Key = "key1";
 
     private const string KeySliding = "keySliding";
+
+    private static readonly byte[] Val = Enumerable.Range(1, 1000).Select(x => (byte)x).ToArray();
 
     private IgniteClientGroup _clientGroup = null!;
 
@@ -51,14 +54,14 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 
         _cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
 
-        await _cache.SetAsync(Key, [1], new DistributedCacheEntryOptions(), CancellationToken.None);
+        await _cache.SetAsync(Key, Val, new DistributedCacheEntryOptions(), CancellationToken.None);
 
         var slidingOpts = new DistributedCacheEntryOptions
         {
             SlidingExpiration = TimeSpan.FromHours(1)
         };
 
-        await _cache.SetAsync(KeySliding, [1], slidingOpts, CancellationToken.None);
+        await _cache.SetAsync(KeySliding, Val, slidingOpts, CancellationToken.None);
     }
 
     public override async Task GlobalCleanup()
@@ -75,7 +78,7 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 
     [Benchmark]
     public async Task Set() =>
-        await _cache.SetAsync(Key, [1], new DistributedCacheEntryOptions(), CancellationToken.None);
+        await _cache.SetAsync(Key, Val, new DistributedCacheEntryOptions(), CancellationToken.None);
 
     [Benchmark]
     public async Task Refresh() =>
