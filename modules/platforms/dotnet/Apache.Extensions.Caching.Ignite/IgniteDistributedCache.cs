@@ -19,6 +19,7 @@ namespace Apache.Extensions.Caching.Ignite;
 
 using System.Diagnostics.CodeAnalysis;
 using Apache.Ignite;
+using Apache.Ignite.Sql;
 using Apache.Ignite.Table;
 using Internal;
 using Microsoft.Extensions.Caching.Distributed;
@@ -40,6 +41,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     private readonly SemaphoreSlim _initLock = new(1);
 
     private readonly CancellationTokenSource _cleanupCts = new();
+
+    private readonly SqlStatement _refreshSql;
+
+    private readonly SqlStatement _cleanupSql;
 
     private volatile IKeyValueView<string, CacheEntry>? _view;
 
@@ -73,6 +78,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         _options = options;
         _cacheEntryMapper = new CacheEntryMapper(options);
         _igniteClientGroup = igniteClientGroup;
+
+        _refreshSql = $"UPDATE {_options.TableName} " +
+                      $"SET {_options.ExpirationColumnName} = {_options.SlidingExpirationColumnName} + ? " +
+                      $"WHERE {_options.KeyColumnName} = ? AND {_options.SlidingExpirationColumnName} IS NOT NULL";
+
+        var expireAtCol = _options.ExpirationColumnName;
+        _cleanupSql = $"DELETE FROM {_options.TableName} WHERE {expireAtCol} IS NOT NULL AND {expireAtCol} <= ?";
 
         if (_options.ExpiredItemsCleanupInterval != Timeout.InfiniteTimeSpan)
         {
@@ -150,12 +162,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
 
-        var sql = $"UPDATE {_options.TableName} " +
-                  $"SET {_options.ExpirationColumnName} = {_options.SlidingExpirationColumnName} + ? " +
-                  $"WHERE {_options.KeyColumnName} = ? AND {_options.SlidingExpirationColumnName} IS NOT NULL";
-
         var actualKey = _options.CacheKeyPrefix + key;
-        await ignite.Sql.ExecuteAsync(null, sql, token, UtcNowMillis(), actualKey).ConfigureAwait(false);
+        await ignite.Sql.ExecuteAsync(transaction: null, _refreshSql, token, args: [UtcNowMillis(), actualKey]).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -283,10 +291,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private async Task CleanupExpiredEntriesAsync(CancellationToken token)
     {
-        var expireAtCol = _options.ExpirationColumnName;
-        var sql = $"DELETE FROM {_options.TableName} WHERE {expireAtCol} IS NOT NULL AND {expireAtCol} <= ?";
-
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
-        await ignite.Sql.ExecuteAsync(null, sql, token, UtcNowMillis()).ConfigureAwait(false);
+        await ignite.Sql.ExecuteAsync(transaction: null, _cleanupSql, token, args: UtcNowMillis()).ConfigureAwait(false);
     }
 }
