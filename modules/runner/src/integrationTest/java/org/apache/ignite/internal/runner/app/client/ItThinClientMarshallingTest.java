@@ -145,7 +145,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testKvMissingValPojoFields() {
         String tableName = "tableWithExtraField";
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR, EXTRA VARCHAR)");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR, EXTRA VARCHAR)");
         Table table = ignite().tables().table(tableName);
 
         var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo2.class);
@@ -168,7 +168,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testMissingValTupleFields() {
         var tableName = "testMissingValTupleFields";
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
@@ -189,7 +189,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testKvMissingValTupleFields() {
         var tableName = "testKvMissingValTupleFields";
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.keyValueView();
@@ -204,8 +204,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testMissingTupleFieldsWithDefaultValue() {
         var tableName = "testMissingTupleFieldsWithDefaultValue";
-        ignite().sql().execute(null,
-                "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL DEFAULT 'def')");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL DEFAULT 'def')");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
@@ -243,7 +242,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testIncompatibleTupleElementType() {
         var tableName = "testIncompatibleTupleElementType";
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
@@ -295,7 +294,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testNullValTupleFields() {
         var tableName = "testNullValTupleFields";
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
@@ -317,7 +316,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testKvNullValTupleFields() {
         var tableName = "testKvNullValTupleFields";
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.keyValueView();
@@ -333,7 +332,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     public void testVarcharColumnOverflow() {
         var tableName = "testVarcharColumnOverflow";
 
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR(10))");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR(10))");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.keyValueView();
@@ -350,7 +349,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     public void testDecimalColumnOverflow() {
         var tableName = "testDecimalColumnOverflow";
 
-        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL DECIMAL(3,1))");
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL DECIMAL(3,1))");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.keyValueView();

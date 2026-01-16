@@ -654,7 +654,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(1L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(1L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         } else {
             tx.commit();
@@ -663,7 +663,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 2, 2);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(2L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(2L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         }
     }

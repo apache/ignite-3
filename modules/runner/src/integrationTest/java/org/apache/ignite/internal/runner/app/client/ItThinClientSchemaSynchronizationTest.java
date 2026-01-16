@@ -51,7 +51,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Create table, insert data.
         String tableName = "testClientUsesLatestSchemaOnWrite" + id;
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
 
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
@@ -60,7 +60,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert data - client will use old schema, receive error, retry with new schema, fail due to an extra column.
         // The process is transparent for the user: updated schema is in effect immediately.
-        sql.execute(null, "ALTER TABLE " + tableName + " DROP COLUMN NAME");
+        sql.execute("ALTER TABLE " + tableName + " DROP COLUMN NAME");
 
         Tuple rec2 = Tuple.create().set("ID", id).set("NAME", "name2");
         Throwable ex = assertThrowsWithCause(() -> recordView.upsert(null, rec2), IllegalArgumentException.class);
@@ -74,7 +74,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Create table, insert data.
         String tableName = "testClientUsesLatestSchemaOnRead";
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
@@ -83,7 +83,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, read data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
-        sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR DEFAULT 'def_name'");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR DEFAULT 'def_name'");
         assertEquals("def_name", recordView.get(null, rec).stringValue(1));
     }
 
@@ -94,7 +94,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Create table, insert data.
         String tableName = "testClientUsesLatestSchemaOnReadWithNotNullColumn";
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
@@ -103,7 +103,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table and get old row.
         // It still has null value in the old column, even though it is not allowed by the new schema.
-        sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         assertNull(recordView.get(null, rec).stringValue(1));
     }
 
@@ -113,7 +113,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         String tableName = "testObservableTimeUpdatesAfterSchemaChange";
 
-        client.sql().execute(null, "CREATE TABLE " + tableName + " (id INT PRIMARY KEY)");
+        client.sql().execute("CREATE TABLE " + tableName + " (id INT PRIMARY KEY)");
 
         Transaction tx = client.transactions().begin(new TransactionOptions().readOnly(true));
 
@@ -135,7 +135,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         IgniteSql sql = client.sql();
 
         String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException_" + useGetAndUpsert;
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
@@ -150,7 +150,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         action.run();
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
@@ -163,7 +163,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         IgniteSql sql = client.sql();
 
         String tableName = "testClientReloadsKvTupleSchemaOnUnmappedColumnException_" + useGetAndPut;
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         KeyValueView<Tuple, Tuple> kvView = client.tables().table(tableName).keyValueView();
 
@@ -180,7 +180,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         action.run();
 
         assertEquals("name", kvView.get(null, key).stringValue(0));
@@ -193,7 +193,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         IgniteSql sql = client.sql();
 
         String tableName = "testClientReloadsPojoSchemaOnUnmappedColumnException_" + useGetAndUpsert;
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         RecordView<Pojo> recordView = client.tables().table(tableName).recordView(Mapper.of(Pojo.class));
 
@@ -211,7 +211,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         action.run();
 
         assertEquals("name", recordView.get(null, rec).name);
@@ -224,7 +224,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         IgniteSql sql = client.sql();
 
         String tableName = "testClientReloadsKvPojoSchemaOnUnmappedColumnException_" + useGetAndPut;
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         KeyValueView<Integer, ValPojo> kvView = client.tables().table(tableName)
                 .keyValueView(Mapper.of(Integer.class), Mapper.of(ValPojo.class));
@@ -246,7 +246,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         action.run();
 
         assertEquals("name", kvView.get(null, key).name);

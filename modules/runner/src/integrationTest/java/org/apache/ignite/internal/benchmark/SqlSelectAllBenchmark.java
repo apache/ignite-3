@@ -81,7 +81,7 @@ public class SqlSelectAllBenchmark extends AbstractTpcBenchmark {
     /** Benchmark that measures performance of queries from TPC-H suite. */
     @Benchmark
     public void run(Blackhole bh) {
-        try (var rs = sql.execute(null, projection.query())) {
+        try (var rs = sql.execute(projection.query())) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

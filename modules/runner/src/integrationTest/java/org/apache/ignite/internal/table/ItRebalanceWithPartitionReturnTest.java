@@ -133,11 +133,10 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
         Ignite node0 = unwrapIgniteImpl(node(0));
 
         node0.sql().execute(
-                null,
                 createZoneSql(partCount, 1, 10_000, 10_000, filter, STORAGE_PROFILES, ConsistencyMode.STRONG_CONSISTENCY)
         );
 
-        node0.sql().execute(null, createTableSql());
+        node0.sql().execute(createTableSql());
 
         // First transaction.
         StringBuilder sqlInsert = new StringBuilder("INSERT INTO " + TABLE_NAME + " (key, val) VALUES \n");
@@ -149,7 +148,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             }
         }
 
-        node0.sql().execute(null, sqlInsert.toString());
+        node0.sql().execute(sqlInsert.toString());
 
         // Second transaction.
         sqlInsert = new StringBuilder("INSERT INTO " + TABLE_NAME + " (key, val) VALUES \n");
@@ -161,10 +160,10 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             }
         }
 
-        node0.sql().execute(null, sqlInsert.toString());
+        node0.sql().execute(sqlInsert.toString());
 
         String changedFilter = "$[?(@.region == \"US\")]";
-        node0.sql().execute(null, alterZoneSql(changedFilter));
+        node0.sql().execute(alterZoneSql(changedFilter));
 
         IgniteImpl igniteImpl = unwrapIgniteImpl(node0);
         TableImpl tableImpl = unwrapTableImpl(node0.tables().table(TABLE_NAME));
@@ -207,7 +206,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
 
         // Check count.
         countThroughJdbc(rowCount);
-        try (ResultSet<SqlRow> rs = node0.sql().execute(null, "SELECT COUNT(*) FROM " + TABLE_NAME)) {
+        try (ResultSet<SqlRow> rs = node0.sql().execute("SELECT COUNT(*) FROM " + TABLE_NAME)) {
             SqlRow row = rs.next();
             log.info("SRV result is " + row.longValue(0));
             assertEquals(rowCount, row.longValue(0));
@@ -231,7 +230,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
                 .filter(Objects::nonNull)
                 .count();
 
-        node0.sql().execute(null, alterZoneSql(DEFAULT_FILTER));
+        node0.sql().execute(alterZoneSql(DEFAULT_FILTER));
 
         assertTrue(waitForCondition(() -> {
             Set<String> nodeNames = new HashSet<>();
@@ -263,13 +262,13 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
 
         // Check count.
         countThroughJdbc(rowCount);
-        try (ResultSet<SqlRow> rs = node0.sql().execute(null, "SELECT COUNT(*) FROM " + TABLE_NAME)) {
+        try (ResultSet<SqlRow> rs = node0.sql().execute("SELECT COUNT(*) FROM " + TABLE_NAME)) {
             SqlRow row = rs.next();
             log.info("SRV result is " + row.longValue(0));
             assertEquals(rowCount, row.longValue(0));
         }
 
-        try (ResultSet<SqlRow> rs = node0.sql().execute(null, "SELECT * FROM " + TABLE_NAME + " order by key limit 10;")) {
+        try (ResultSet<SqlRow> rs = node0.sql().execute("SELECT * FROM " + TABLE_NAME + " order by key limit 10;")) {
             while (rs.hasNext()) {
                 SqlRow row = rs.next();
                 log.info("Rows: " + row.intValue(0) + ", " + row.stringValue(1));

@@ -195,7 +195,7 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         // stuck with timeouts. We don't need to wait for the operation to complete, as we wait for the necessary invariants further
         // below.
         cluster.aliveNode().sql()
-                .executeAsync(null, format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
+                .executeAsync(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         log.error("Failed to create index", ex);

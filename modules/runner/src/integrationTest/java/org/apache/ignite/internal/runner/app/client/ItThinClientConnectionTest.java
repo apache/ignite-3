@@ -86,10 +86,10 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     @Test
     void testAccessDroppedTableThrowsTableDoesNotExistsError() {
         IgniteSql sql = client().sql();
-        sql.execute(null, "CREATE TABLE IF NOT EXISTS DELME (key INTEGER PRIMARY KEY)");
+        sql.execute("CREATE TABLE IF NOT EXISTS DELME (key INTEGER PRIMARY KEY)");
 
         var table = client().tables().table("DELME");
-        sql.execute(null, "DROP TABLE DELME");
+        sql.execute("DROP TABLE DELME");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> table.recordView(Integer.class).delete(null, 1));
         assertEquals(TABLE_NOT_FOUND_ERR, ex.code(), ex.getMessage());
@@ -119,7 +119,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
     @Test
     void testExceptionHasHint() {
-        IgniteException ex = assertThrows(IgniteException.class, () -> client().sql().execute(null, "select x from bad"));
+        IgniteException ex = assertThrows(IgniteException.class, () -> client().sql().execute("select x from bad"));
         assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true",
                 ex.getCause().getCause().getCause().getCause().getMessage());
     }
@@ -131,13 +131,13 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         assertEquals("TBL1", table.qualifiedName().objectName());
 
         // Quoting is necessary.
-        client().sql().execute(null, "CREATE TABLE IF NOT EXISTS \"tbl-2\" (key INTEGER PRIMARY KEY)");
+        client().sql().execute("CREATE TABLE IF NOT EXISTS \"tbl-2\" (key INTEGER PRIMARY KEY)");
 
         try {
             Table table2 = client().tables().table("\"tbl-2\"");
             assertEquals("tbl-2", table2.qualifiedName().objectName());
         } finally {
-            client().sql().execute(null, "DROP TABLE \"tbl-2\"");
+            client().sql().execute("DROP TABLE \"tbl-2\"");
         }
     }
 }

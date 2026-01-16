@@ -921,7 +921,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
     private void updateTableSchemaAt(int nodeIndex) {
         cluster.doInSession(nodeIndex, session -> {
-            session.execute(null, "alter table test add column added int");
+            session.execute("alter table test add column added int");
         });
     }
 

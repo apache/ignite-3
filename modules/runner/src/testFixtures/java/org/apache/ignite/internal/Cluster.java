@@ -715,7 +715,7 @@ public class Cluster {
      */
     public <T> T query(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return doInSession(nodeIndex, session -> {
-            try (ResultSet<SqlRow> resultSet = session.execute(null, sql)) {
+            try (ResultSet<SqlRow> resultSet = session.execute(sql)) {
                 return extractor.apply(resultSet);
             }
         });

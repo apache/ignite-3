@@ -86,7 +86,7 @@ public class ItBuildIndexTest extends ItAbstractColocationTest {
             tableView.putAll(tx, Map.of(key, value));
         });
 
-        node.sql().execute(null, "CREATE INDEX TEST_INDEX ON TEST_TABLE (DOUBLEVAL)").close();
+        node.sql().execute("CREATE INDEX TEST_INDEX ON TEST_TABLE (DOUBLEVAL)").close();
 
         assertTrue(waitForCondition(() -> isIndexAvailable(node, "TEST_INDEX"), 10_000L));
     }

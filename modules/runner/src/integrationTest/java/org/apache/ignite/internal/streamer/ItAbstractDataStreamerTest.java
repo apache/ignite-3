@@ -370,7 +370,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         IgniteSql sql = ignite().sql();
 
         String tableName = "testSchemaUpdateWhileStreaming";
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
         RecordView<Tuple> view = ignite().tables().table(tableName).recordView();
 
         CompletableFuture<Void> streamerFut;
@@ -382,7 +382,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(1));
             waitForKey(view, tupleKey(1));
 
-            sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
+            sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
             publisher.submit(tupleKey(2));
         }
 
