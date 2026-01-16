@@ -82,8 +82,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         _igniteClientGroup = igniteClientGroup;
 
         _refreshSql = $"UPDATE {_options.TableName} " +
-                      $"SET {_options.ExpirationColumnName} = {_options.SlidingExpirationColumnName} + ? " +
-                      $"WHERE {_options.KeyColumnName} = ? AND {_options.SlidingExpirationColumnName} IS NOT NULL";
+                      $"SET {_options.ExpirationColumnName} = {_options.SlidingExpirationColumnName} + ? " + // expiration = sliding + now
+                      $"WHERE {_options.KeyColumnName} = ? " +
+                      $"AND {_options.SlidingExpirationColumnName} IS NOT NULL " + // Has sliding expiration
+                      $"AND {_options.ExpirationColumnName} > ?"; // Not expired
 
         var expireAtCol = _options.ExpirationColumnName;
         _cleanupSql = $"DELETE FROM {_options.TableName} WHERE {expireAtCol} IS NOT NULL AND {expireAtCol} <= ?";
@@ -160,13 +162,14 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
 
-        var actualKey = _options.CacheKeyPrefix + key;
+        string actualKey = _options.CacheKeyPrefix + key;
+        long now = UtcNowMillis();
 
         await ignite.Sql.ExecuteAsync(
             transaction: null,
             _refreshSql,
             token,
-            args: [UtcNowMillis(), actualKey]).ConfigureAwait(false);
+            args: [now, actualKey, now]).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
