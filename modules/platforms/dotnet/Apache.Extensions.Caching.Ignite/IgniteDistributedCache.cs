@@ -201,6 +201,36 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         {
             throw new ArgumentException("ExpiredItemsCleanupInterval must be positive or Timeout.InfiniteTimeSpan.", nameof(options));
         }
+
+        if (options.SlidingExpirationRefreshThreshold is < 0.0 or > 1.0)
+        {
+            throw new ArgumentException("SlidingExpirationRefreshThreshold must be between 0.0 and 1.0.", nameof(options));
+        }
+
+        if (string.IsNullOrWhiteSpace(options.TableName))
+        {
+            throw new ArgumentException("TableName cannot be null or whitespace.", nameof(options));
+        }
+
+        if (string.IsNullOrWhiteSpace(options.KeyColumnName))
+        {
+            throw new ArgumentException("KeyColumnName cannot be null or whitespace.", nameof(options));
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ValueColumnName))
+        {
+            throw new ArgumentException("ValueColumnName cannot be null or whitespace.", nameof(options));
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ExpirationColumnName))
+        {
+            throw new ArgumentException("ExpirationColumnName cannot be null or whitespace.", nameof(options));
+        }
+
+        if (string.IsNullOrWhiteSpace(options.SlidingExpirationColumnName))
+        {
+            throw new ArgumentException("SlidingExpirationColumnName cannot be null or whitespace.", nameof(options));
+        }
     }
 
     private static long UtcNowMillis() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
