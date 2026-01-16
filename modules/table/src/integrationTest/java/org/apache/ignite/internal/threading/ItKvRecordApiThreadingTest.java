@@ -42,7 +42,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.junit.jupiter.api.BeforeAll;
@@ -465,8 +464,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum CommonViewAsyncOperation {
-        QUERY_ASYNC(view -> view.queryAsync(null)),
-        QUERY_ASYNC_WITH_INDEX_NAME(view -> view.queryAsync((Criteria) null, null)),
+        QUERY_ASYNC(view -> view.queryAsync(null, null)),
+        QUERY_ASYNC_WITH_INDEX_NAME(view -> view.queryAsync(null, null, null)),
         QUERY_ASYNC_WITH_INDEX_NAME_AND_OPTS(view -> view.queryAsync(null, null, null, null));
 
         private final Function<CriteriaQuerySource<Object>, CompletableFuture<?>> action;

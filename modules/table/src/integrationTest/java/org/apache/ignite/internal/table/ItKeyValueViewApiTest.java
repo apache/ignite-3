@@ -530,9 +530,9 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
 
         testCase.checkNullKeyError(() -> view.put(null, null, val));
         testCase.checkNullKeyError(() -> view.putIfAbsent(null, null, val));
-        testCase.checkNullKeyError(() -> view.remove(null));
+        testCase.checkNullKeyError(() -> view.remove(null, null));
         testCase.checkNullKeyError(() -> view.remove(null, null, val));
-        testCase.checkNullKeyError(() -> view.replace(null, val));
+        testCase.checkNullKeyError(() -> view.replace(null, null, val));
         testCase.checkNullKeyError(() -> view.replace(null, null, val, val2));
 
         testCase.checkNullKeysError(() -> view.getAll(null, null));

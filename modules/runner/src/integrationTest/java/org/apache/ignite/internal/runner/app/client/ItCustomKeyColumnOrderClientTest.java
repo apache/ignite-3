@@ -106,7 +106,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val, resEntry);
 
         // Query mapper.
-        try (Cursor<Tuple> cursor = recView.query(null)) {
+        try (Cursor<Tuple> cursor = recView.query(null, null)) {
             Tuple curEntry = cursor.next();
             assertEquals(val, curEntry);
         }
@@ -118,7 +118,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
 
         // replace.
         recView.insert(null, val);
-        assertTrue(recView.replace(val2));
+        assertTrue(recView.replace(null, val2));
 
         // getAndReplace.
         Tuple getAndReplaceRes = recView.getAndReplace(null, val);
@@ -177,7 +177,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val.val2, resEntry.val2);
 
         // Query mapper.
-        try (Cursor<Pojo> cursor = recView.query(null)) {
+        try (Cursor<Pojo> cursor = recView.query(null, null)) {
             Pojo curEntry = cursor.next();
             assertEquals(val.key1, curEntry.key1);
             assertEquals(val.key2, curEntry.key2);
@@ -192,7 +192,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
 
         // replace.
         recView.insert(null, val);
-        assertTrue(recView.replace(val2));
+        assertTrue(recView.replace(null, val2));
 
         // getAndReplace.
         Pojo getAndReplaceRes = recView.getAndReplace(null, val);
@@ -244,7 +244,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val, resEntry.getValue());
 
         // Query mapper.
-        try (Cursor<Entry<Tuple, Tuple>> cursor = kvView.query(null)) {
+        try (Cursor<Entry<Tuple, Tuple>> cursor = kvView.query(null, null)) {
             Entry<Tuple, Tuple> curEntry = cursor.next();
             assertEquals(key, curEntry.getKey());
             assertEquals(val, curEntry.getValue());
@@ -257,7 +257,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
 
         // replace.
         kvView.put(null, key, val);
-        assertTrue(kvView.replace(key, val2));
+        assertTrue(kvView.replace(null, key, val2));
         assertTrue(kvView.replace(null, key, val2, val));
 
         // getAndReplace.
@@ -312,7 +312,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val.val2, resEntry.getValue().val2);
 
         // Query mapper.
-        try (Cursor<Entry<PojoKey, PojoVal>> cursor = kvView.query(null)) {
+        try (Cursor<Entry<PojoKey, PojoVal>> cursor = kvView.query(null, null)) {
             Entry<PojoKey, PojoVal> curEntry = cursor.next();
             assertEquals(key.key1, curEntry.getKey().key1);
             assertEquals(val.val1, curEntry.getValue().val1);

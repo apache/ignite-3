@@ -165,7 +165,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         assertNull(tbl.getNullable(null, 1L).get());
 
         // Remove KV pair.
-        tbl.remove(1L);
+        tbl.remove(null, 1L);
 
         assertNull(tbl.get(null, 1L));
         assertNull(tbl.getNullable(null, 1L));
@@ -201,7 +201,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         }
 
         // Remove KV pair.
-        tbl.remove(1L);
+        tbl.remove(null, 1L);
 
         assertNull(tbl.get(null, 1L));
         assertNull(tbl.getOrDefault(null, 1L, null));
@@ -270,7 +270,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         assertTrue(tbl.contains(null, 1L));
 
         // Delete key.
-        assertTrue(tbl.remove(1L));
+        assertTrue(tbl.remove(null, 1L));
         assertFalse(tbl.contains(null, 1L));
 
         // Put KV pair.
@@ -290,32 +290,32 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
         // Delete not existed key.
         assertFalse(tbl.contains(null, 1L));
-        assertFalse(tbl.remove(1L));
+        assertFalse(tbl.remove(null, 1L));
 
         // Put KV pair.
         tbl.put(null, 1L, 11L);
 
         // Delete existed key.
         assertEquals(11L, tbl.get(null, 1L));
-        assertTrue(tbl.remove(1L));
+        assertTrue(tbl.remove(null, 1L));
         assertNull(tbl.get(null, 1L));
 
         // Delete already deleted key.
-        assertFalse(tbl.remove(1L));
+        assertFalse(tbl.remove(null, 1L));
 
         // Put KV pair.
         tbl.put(null, 1L, 22L);
         assertEquals(22L, tbl.get(null, 1L));
 
         // Delete existed key.
-        assertTrue(tbl.remove(1L));
+        assertTrue(tbl.remove(null, 1L));
         assertNull(tbl.get(null, 1L));
 
         // Delete null-value.
         tbl.put(null, 1L, null);
         assertTrue(tbl.contains(null, 1L));
 
-        assertTrue(tbl.remove(1L));
+        assertTrue(tbl.remove(null, 1L));
         assertFalse(tbl.contains(null, 1L));
     }
 
@@ -435,22 +435,22 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(1L, 11L));
+        assertFalse(tbl.replace(null, 1L, 11L));
         assertNull(tbl.get(null, 1L));
 
         tbl.put(null, 1L, 11L);
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(1L, 22L));
+        assertTrue(tbl.replace(null, 1L, 22L));
         assertEquals(22L, tbl.get(null, 1L));
 
         // Replace with null-value.
-        assertTrue(tbl.replace(1L, null));
+        assertTrue(tbl.replace(null, 1L, null));
         assertTrue(tbl.contains(null, 1L));
         assertNull(tbl.getNullable(null, 1L).get());
 
         // Replace null-value
-        assertTrue(tbl.replace(1L, 33L));
+        assertTrue(tbl.replace(null, 1L, 33L));
         assertEquals(33L, tbl.get(null, 1L));
     }
 
@@ -825,9 +825,9 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
         testCase.checkNullKeyError(() -> tbl.put(null, null, 1L));
         testCase.checkNullKeyError(() -> tbl.putIfAbsent(null, null, 1L));
-        testCase.checkNullKeyError(() -> tbl.remove(null));
+        testCase.checkNullKeyError(() -> tbl.remove(null, null));
         testCase.checkNullKeyError(() -> tbl.remove(null, null, 1L));
-        testCase.checkNullKeyError(() -> tbl.replace(null, 1L));
+        testCase.checkNullKeyError(() -> tbl.replace(null, null, 1L));
         testCase.checkNullKeyError(() -> tbl.replace(null, null, 1L, 2L));
 
         testCase.checkNullKeysError(() -> tbl.getAll(null, null));
@@ -852,7 +852,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         testCase.checkNotNullableColumnError(() -> tbl.putIfAbsent(null, 1L, null));
         //noinspection DataFlowIssue
         testCase.checkNotNullableColumnError(() -> tbl.remove(null, 1L, null));
-        testCase.checkNotNullableColumnError(() -> tbl.replace(1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.replace(null, 1L, null));
         testCase.checkNotNullableColumnError(() -> tbl.replace(null, 1L, null, 2L));
         testCase.checkNotNullableColumnError(() -> tbl.replace(null, 1L, 1L, null));
 

@@ -40,8 +40,8 @@ import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Asynchronous API operation.
@@ -78,8 +78,8 @@ enum AsyncApiOperation {
         }
         return future;
     }),
-    KV_VIEW_QUERY(refs -> refs.kvView.queryAsync(null)),
-    KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.queryAsync((Criteria) null, null)),
+    KV_VIEW_QUERY(refs -> refs.kvView.queryAsync(null, null)),
+    KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.queryAsync(null, null, null)),
     KV_VIEW_QUERY_WITH_OPTIONS(refs -> refs.kvView.queryAsync(null, null, null, null)),
 
     TYPED_KV_VIEW_GET(refs -> refs.typedKvView.getAsync(null, 1)),
@@ -94,7 +94,7 @@ enum AsyncApiOperation {
     RECORD_VIEW_GET_AND_UPSERT(refs -> refs.recordView.getAndUpsertAsync(null, FULL_TUPLE)),
     RECORD_VIEW_INSERT(refs -> refs.recordView.insertAsync(null, FULL_TUPLE)),
     RECORD_VIEW_INSERT_ALL(refs -> refs.recordView.insertAllAsync(null, List.of(FULL_TUPLE))),
-    RECORD_VIEW_REPLACE(refs -> refs.recordView.replaceAsync(FULL_TUPLE)),
+    RECORD_VIEW_REPLACE(refs -> refs.recordView.replaceAsync(null, FULL_TUPLE)),
     RECORD_VIEW_REPLACE_EXACT(refs -> refs.recordView.replaceAsync(null, FULL_TUPLE, FULL_TUPLE)),
     RECORD_VIEW_GET_AND_REPLACE(refs -> refs.recordView.getAndReplaceAsync(null, FULL_TUPLE)),
     RECORD_VIEW_DELETE(refs -> refs.recordView.deleteAsync(null, KEY_TUPLE)),
@@ -110,8 +110,8 @@ enum AsyncApiOperation {
         }
         return future;
     }),
-    RECORD_VIEW_QUERY(refs -> refs.recordView.queryAsync(null)),
-    RECORD_VIEW_QUERY_WITH_INDEX(refs -> refs.recordView.queryAsync((Criteria) null, null)),
+    RECORD_VIEW_QUERY(refs -> refs.recordView.queryAsync(null, null)),
+    RECORD_VIEW_QUERY_WITH_INDEX(refs -> refs.recordView.queryAsync(null, null, null)),
     RECORD_VIEW_QUERY_WITH_OPTIONS(refs -> refs.recordView.queryAsync(null, null, null, null)),
 
     TYPED_RECORD_VIEW_GET(refs -> refs.typedRecordView.getAsync(null, new Record(1, ""))),
@@ -128,8 +128,8 @@ enum AsyncApiOperation {
     TRANSACTIONS_RUN_IN_TRANSACTION(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture())),
     TRANSACTIONS_RUN_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture(), null)),
 
-    SQL_EXECUTE(refs -> refs.sql.executeAsync(null, SELECT_IDS_QUERY)),
-    SQL_EXECUTE_STATEMENT(refs -> refs.sql.executeAsync(null, refs.selectIdsStatement)),
+    SQL_EXECUTE(refs -> refs.sql.executeAsync(SELECT_IDS_QUERY)),
+    SQL_EXECUTE_STATEMENT(refs -> refs.sql.executeAsync((Transaction) null, refs.selectIdsStatement)),
     // TODO: IGNITE-18695 - uncomment the following 2 lines.
     // SQL_EXECUTE_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), SELECT_IDS_QUERY)),
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), refs.selectIdsStatement)),

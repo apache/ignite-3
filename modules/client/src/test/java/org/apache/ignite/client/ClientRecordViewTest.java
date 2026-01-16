@@ -41,7 +41,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -400,8 +399,8 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
 
-        assertFalse(pojoView.replace((Transaction) null, new PersonPojo(-1L)));
-        assertTrue(pojoView.replace((Transaction) null, new PersonPojo(DEFAULT_ID, "new_name")));
+        assertFalse(pojoView.replace(null, new PersonPojo(-1L)));
+        assertTrue(pojoView.replace(null, new PersonPojo(DEFAULT_ID, "new_name")));
 
         assertNull(pojoView.get(null, new PersonPojo(-1L)));
         assertEquals("new_name", pojoView.get(null, new PersonPojo(DEFAULT_ID)).name);

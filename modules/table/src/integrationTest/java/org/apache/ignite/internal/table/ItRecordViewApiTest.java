@@ -225,18 +225,18 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
         RecordView<TestObjectWithAllTypes> tbl = testCase.view();
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(obj));
+        assertFalse(tbl.replace(null, obj));
         assertNull(tbl.get(null, key));
 
         // Insert new row.
         tbl.upsert(null, obj);
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj2));
+        assertTrue(tbl.replace(null, obj2));
         assertEquals(obj2, tbl.get(null, key));
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj3));
+        assertTrue(tbl.replace(null, obj3));
         assertEquals(obj3, tbl.get(null, key));
 
         // Remove existed row.

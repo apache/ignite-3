@@ -34,7 +34,6 @@ import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
@@ -78,17 +77,17 @@ enum SyncApiOperation {
     KV_VIEW_GET_AND_PUT(refs -> refs.kvView.getAndPut(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_PUT(refs -> refs.kvView.getNullableAndPut(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_PUT_IF_ABSENT(refs -> refs.kvView.putIfAbsent(null, KEY_TUPLE, VALUE_TUPLE)),
-    KV_VIEW_REMOVE(refs -> refs.kvView.remove(KEY_TUPLE)),
+    KV_VIEW_REMOVE(refs -> refs.kvView.remove(null, KEY_TUPLE)),
     KV_VIEW_REMOVE_EXACT(refs -> refs.kvView.remove(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REMOVE_ALL(refs -> refs.kvView.removeAll(null, List.of(KEY_TUPLE))),
     KV_VIEW_GET_AND_REMOVE(refs -> refs.kvView.getAndRemove(null, KEY_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_REMOVE(refs -> refs.kvView.getNullableAndRemove(null, KEY_TUPLE)),
-    KV_VIEW_REPLACE(refs -> refs.kvView.replace(KEY_TUPLE, VALUE_TUPLE)),
+    KV_VIEW_REPLACE(refs -> refs.kvView.replace(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REPLACE_EXACT(refs -> refs.kvView.replace(null, KEY_TUPLE, VALUE_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_AND_REPLACE(refs -> refs.kvView.getAndReplace(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_REPLACE(refs -> refs.kvView.getNullableAndReplace(null, KEY_TUPLE, VALUE_TUPLE)),
-    KV_VIEW_QUERY(refs -> refs.kvView.query(null)),
-    KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.query((Criteria) null, null)),
+    KV_VIEW_QUERY(refs -> refs.kvView.query(null, null)),
+    KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.query(null, null, null)),
     KV_VIEW_QUERY_WITH_OPTIONS(refs -> refs.kvView.query(null, null, null, null)),
 
     TYPED_KV_VIEW_GET(refs -> refs.typedKvView.get(null, 1)),
@@ -103,7 +102,7 @@ enum SyncApiOperation {
     RECORD_VIEW_GET_AND_UPSERT(refs -> refs.recordView.getAndUpsert(null, FULL_TUPLE)),
     RECORD_VIEW_INSERT(refs -> refs.recordView.insert(null, FULL_TUPLE)),
     RECORD_VIEW_INSERT_ALL(refs -> refs.recordView.insertAll(null, List.of(FULL_TUPLE))),
-    RECORD_VIEW_REPLACE(refs -> refs.recordView.replace(FULL_TUPLE)),
+    RECORD_VIEW_REPLACE(refs -> refs.recordView.replace(null, FULL_TUPLE)),
     RECORD_VIEW_REPLACE_EXACT(refs -> refs.recordView.replace(null, FULL_TUPLE, FULL_TUPLE)),
     RECORD_VIEW_GET_AND_REPLACE(refs -> refs.recordView.getAndReplace(null, FULL_TUPLE)),
     RECORD_VIEW_DELETE(refs -> refs.recordView.delete(null, KEY_TUPLE)),

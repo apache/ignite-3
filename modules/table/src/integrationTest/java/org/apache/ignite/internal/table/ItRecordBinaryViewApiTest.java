@@ -282,7 +282,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertNull(tbl.get(null, keyTuple));
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(tuple));
+        assertFalse(tbl.replace(null, tuple));
 
         assertNull(tbl.get(null, keyTuple));
 
@@ -290,7 +290,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         tbl.insert(null, tuple);
 
         // Replace existed row.
-        assertTrue(tbl.replace(tuple2));
+        assertTrue(tbl.replace(null, tuple2));
 
         assertEqualsRows(testCase.schema(), tuple2, tbl.get(null, keyTuple));
     }
@@ -309,7 +309,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertNull(tbl.get(null, keyTuple));
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(tuple));
+        assertFalse(tbl.replace(null, tuple));
         assertNull(tbl.get(null, keyTuple));
 
         // Insert row.
@@ -340,14 +340,14 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         String strTooLongErr = "Value too long [column='STR', type=STRING(3)]";
         String byteArrayTooLongErr = "Value too long [column='BLOB', type=BYTE_ARRAY(3)]";
 
-        testCase.checkInvalidTypeError(() -> tbl.replace(tuple0), strTooLongErr);
-        testCase.checkInvalidTypeError(() -> tbl.replace(tuple1), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple0), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
 
         testCase.checkInvalidTypeError(() -> tbl.insert(null, tuple0), strTooLongErr);
         testCase.checkInvalidTypeError(() -> tbl.insert(null, tuple1), byteArrayTooLongErr);
 
-        testCase.checkInvalidTypeError(() -> tbl.replace(tuple0), strTooLongErr);
-        testCase.checkInvalidTypeError(() -> tbl.replace(tuple1), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple0), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
     }
 
     @ParameterizedTest

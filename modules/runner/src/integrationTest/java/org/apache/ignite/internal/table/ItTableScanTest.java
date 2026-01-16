@@ -801,9 +801,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     public void testMvScan(boolean readOnly) throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        kvView.remove(Tuple.create().set("key", ROW_IDS.get(0)));
-        kvView.remove(Tuple.create().set("key", ROW_IDS.get(1)));
-        kvView.put(Tuple.create().set("key", ROW_IDS.get(2)), Tuple.create().set("valInt", 999).set("valStr", "Str_999"));
+        kvView.remove(null, Tuple.create().set("key", ROW_IDS.get(0)));
+        kvView.remove(null, Tuple.create().set("key", ROW_IDS.get(1)));
+        kvView.put(null, Tuple.create().set("key", ROW_IDS.get(2)), Tuple.create().set("valInt", 999).set("valStr", "Str_999"));
 
         int sortedIndexId = getSortedIndexId();
 

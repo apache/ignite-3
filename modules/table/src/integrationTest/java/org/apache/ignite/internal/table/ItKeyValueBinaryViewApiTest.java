@@ -130,7 +130,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         assertEqualsValues(testCase.schema(), val2, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Remove KV pair.
-        tbl.remove(key);
+        tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
 
@@ -241,14 +241,14 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         assertEquals(val, tbl.getOrDefault(null, key, null));
 
         // Remove KV pair.
-        tbl.remove(key);
+        tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
         assertNull(tbl.getOrDefault(null, key, null));
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
 
         // Remove KV pair.
-        tbl.remove(key);
+        tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
@@ -279,7 +279,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         assertTrue(tbl.contains(null, Tuple.create().set(keyName, 1L)));
 
         // Delete key.
-        assertTrue(tbl.remove(key));
+        assertTrue(tbl.remove(null, key));
         assertFalse(tbl.contains(null, Tuple.create().set(keyName, 1L)));
 
         // Put KV pair.
@@ -288,7 +288,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
         // Non-existed key.
         assertFalse(tbl.contains(null, Tuple.create().set(keyName, 2L)));
-        tbl.remove(Tuple.create().set(keyName, 2L));
+        tbl.remove(null, Tuple.create().set(keyName, 2L));
         assertFalse(tbl.contains(null, Tuple.create().set(keyName, 2L)));
     }
 
@@ -334,18 +334,18 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
         tbl.put(null, key, val);
         assertEquals(val, tbl.get(null, key));
-        assertTrue(tbl.remove(key));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(null, key));
+        assertNull(tbl.get(null, key));
 
-        assertFalse(tbl.remove(key));
+        assertFalse(tbl.remove(null, key));
 
-        tbl.put(key, val2);
+        tbl.put(null, key, val2);
         assertEquals(val2, tbl.get(null, key));
-        assertTrue(tbl.remove(key));
+        assertTrue(tbl.remove(null, key));
         assertNull(tbl.get(null, key));
 
         assertNull(tbl.get(null, key2));
-        assertFalse(tbl.remove(key2));
+        assertFalse(tbl.remove(null, key2));
     }
 
     @ParameterizedTest
@@ -401,14 +401,14 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         Tuple val2 = Tuple.create().set(valName, "jane");
         Tuple val3 = Tuple.create().set(valName, "mark");
 
-        assertFalse(tbl.replace(key, val));
+        assertFalse(tbl.replace(null, key, val));
         assertNull(tbl.get(null, key));
 
         tbl.put(null, key, val);
-        assertTrue(tbl.replace(key, val2));
+        assertTrue(tbl.replace(null, key, val2));
         assertEquals(val2, tbl.get(null, key));
 
-        assertFalse(tbl.replace(key2, val3));
+        assertFalse(tbl.replace(null, key2, val3));
         assertNull(tbl.get(null, key2));
 
         tbl.put(null, key, val3);
@@ -457,14 +457,14 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
         tbl.put(null, key, valTuple0);
 
-        testCase.checkInvalidTypeError(() -> tbl.replace(key, valTuple1), strTooLongErr);
-        testCase.checkInvalidTypeError(() -> tbl.replace(key, valTuple2), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple1), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple2), byteArrayTooLongErr);
 
-        testCase.checkInvalidTypeError(() -> tbl.put(key, valTuple1), strTooLongErr);
-        testCase.checkInvalidTypeError(() -> tbl.put(key, valTuple2), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.put(null, key, valTuple1), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.put(null, key, valTuple2), byteArrayTooLongErr);
 
-        testCase.checkInvalidTypeError(() -> tbl.replace(key, valTuple1), strTooLongErr);
-        testCase.checkInvalidTypeError(() -> tbl.replace(key, valTuple2), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple1), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple2), byteArrayTooLongErr);
     }
 
     @ParameterizedTest
@@ -506,9 +506,9 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         testCase.checkNullKeyError(() -> tbl.getOrDefault(null, null, val));
         testCase.checkNullKeyError(() -> tbl.put(null, null, val));
         testCase.checkNullKeyError(() -> tbl.putIfAbsent(null, null, val));
-        testCase.checkNullKeyError(() -> tbl.remove(null));
+        testCase.checkNullKeyError(() -> tbl.remove(null, null));
         testCase.checkNullKeyError(() -> tbl.remove(null, null, val));
-        testCase.checkNullKeyError(() -> tbl.replace(null, val));
+        testCase.checkNullKeyError(() -> tbl.replace(null, null, val));
         testCase.checkNullKeyError(() -> tbl.replace(null, null, val, val2));
         testCase.checkNullKeysError(() -> tbl.getAll(null, null));
         testCase.checkNullKeyError(() -> tbl.getAll(null, Collections.singleton(null)));
@@ -533,7 +533,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         testCase.checkNullValueError(() -> tbl.put(null, key, null));
         testCase.checkNullValueError(() -> tbl.putIfAbsent(null, key, null));
         testCase.checkNullValueError(() -> tbl.remove(null, key, null));
-        testCase.checkNullValueError(() -> tbl.replace(key, null));
+        testCase.checkNullValueError(() -> tbl.replace(null, key, null));
         BaseTestCase.checkNpeMessage(() -> tbl.replace(null, key, null, val), "oldVal");
         BaseTestCase.checkNpeMessage(() -> tbl.replace(null, key, val, null), "newVal");
         testCase.checkNullValueError(() -> tbl.putAll(null, Collections.singletonMap(key, null)));

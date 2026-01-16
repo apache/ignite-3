@@ -41,7 +41,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -145,7 +144,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         checkSchemaUpdate(recordView -> recordView.getAndUpsert(null, tuple(idGen.incrementAndGet())));
         checkSchemaUpdate(recordView -> recordView.insert(null, tuple(idGen.incrementAndGet())));
         checkSchemaUpdate(recordView -> recordView.insertAll(null, List.of(tuple(idGen.incrementAndGet()))));
-        checkSchemaUpdate(recordView -> recordView.replace((Transaction) null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.replace(null, tuple(idGen.incrementAndGet())));
         checkSchemaUpdate(recordView -> recordView.replace(null, tuple(idGen.incrementAndGet()), tuple(idGen.incrementAndGet())));
         checkSchemaUpdate(recordView -> recordView.getAndReplace(null, tuple(idGen.incrementAndGet())));
         checkSchemaUpdate(recordView -> recordView.delete(null, tuple(idGen.incrementAndGet())));
@@ -299,10 +298,10 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
         table.insert(null, tuple(1L, "1"));
 
-        assertFalse(table.replace((Transaction) null, tuple(3L, "3")));
+        assertFalse(table.replace(null, tuple(3L, "3")));
         assertNull(table.get(null, tuple(3L)));
 
-        assertTrue(table.replace((Transaction) null, tuple(1L, "2")));
+        assertTrue(table.replace(null, tuple(1L, "2")));
         assertEquals("2", table.get(null, tuple(1L)).value("name"));
     }
 
