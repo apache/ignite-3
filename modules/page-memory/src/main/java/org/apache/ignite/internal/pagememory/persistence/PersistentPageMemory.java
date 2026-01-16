@@ -50,11 +50,7 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
-import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
-import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
-import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
-import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
@@ -77,6 +73,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -1391,17 +1388,11 @@ public class PersistentPageMemory implements PageMemory {
         /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
-        /** Pointer to acquired pages integer counter. */
-        private static final int ACQUIRED_PAGES_SIZEOF = 4;
-
-        /** Padding to read from word beginning. */
-        private static final int ACQUIRED_PAGES_PADDING = 4;
-
         /** Page ID to relative pointer map. */
         private final LoadedPagesMap loadedPages;
 
-        /** Pointer to acquired pages integer counter. */
-        private final long acquiredPagesPtr;
+        /** Acquired pages counter. */
+        private final LongAdder acquiredPages = new LongAdder();
 
         /** Page pool. */
         private final PagePool pool;
@@ -1455,29 +1446,23 @@ public class PersistentPageMemory implements PageMemory {
 
             int pages = (int) (totalMemory / sysPageSize);
 
-            acquiredPagesPtr = region.address();
-
-            putIntVolatile(null, acquiredPagesPtr, 0);
-
-            int ldPagesMapOffInRegion = ACQUIRED_PAGES_SIZEOF + ACQUIRED_PAGES_PADDING;
-
-            long ldPagesAddr = region.address() + ldPagesMapOffInRegion;
+            long ldPagesAddr = region.address();
 
             memPerTbl = RobinHoodBackwardShiftHashMap.requiredMemory(pages);
 
             loadedPages = new RobinHoodBackwardShiftHashMap(ldPagesAddr, memPerTbl);
 
-            pages = (int) ((totalMemory - memPerTbl - ldPagesMapOffInRegion) / sysPageSize);
+            pages = (int) ((totalMemory - memPerTbl) / sysPageSize);
 
             memPerRepl = pageReplacementPolicyFactory.requiredMemory(pages);
 
-            DirectMemoryRegion poolRegion = region.slice(memPerTbl + memPerRepl + ldPagesMapOffInRegion);
+            DirectMemoryRegion poolRegion = region.slice(memPerTbl + memPerRepl);
 
             pool = new PagePool(idx, poolRegion, sysPageSize, rwLock);
 
             pageReplacementPolicy = pageReplacementPolicyFactory.create(
                     this,
-                    region.address() + memPerTbl + ldPagesMapOffInRegion,
+                    region.address() + memPerTbl,
                     pool.pages()
             );
 
@@ -1525,22 +1510,22 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         private void acquirePage(long absPtr) {
-            PageHeader.acquirePage(absPtr);
-
-            incrementAndGetInt(acquiredPagesPtr);
+            if (PageHeader.acquirePage(absPtr) == 1) {
+                acquiredPages.increment();
+            }
         }
 
         private void releasePage(long absPtr) {
-            PageHeader.releasePage(absPtr);
-
-            decrementAndGetInt(acquiredPagesPtr);
+            if (PageHeader.releasePage(absPtr) == 0) {
+                acquiredPages.decrement();
+            }
         }
 
         /**
          * Returns total number of acquired pages.
          */
         private int acquiredPages() {
-            return getInt(acquiredPagesPtr);
+            return acquiredPages.intValue();
         }
 
         /**
