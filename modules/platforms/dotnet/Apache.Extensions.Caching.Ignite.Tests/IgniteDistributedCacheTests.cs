@@ -342,6 +342,7 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
     public async Task TestRefreshExtendsSlidingExpiration()
     {
         IDistributedCache cache = GetCache();
+        await cache.RefreshAsync("x"); // Warm up (the first refresh query can take longer).
 
         var entryOptions = new DistributedCacheEntryOptions
         {
