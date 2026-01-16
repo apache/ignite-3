@@ -78,7 +78,6 @@ public class LogPushExporter extends PushMetricExporter {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                addSeparatorIfNeeded(report, needSeparator);
                 needSeparator = appendMetricsOneLine(report, metricSet, hasMetricsWhiteList, needSeparator);
             }
         }
@@ -108,7 +107,10 @@ public class LogPushExporter extends PushMetricExporter {
                 .sorted(comparing(Metric::name))
                 .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
                 .collect(toList());
-
+        if (metrics.isEmpty()) {
+            return needSeparator;
+        }
+        addSeparatorIfNeeded(sb, needSeparator);
         sb.append(metricSet.name()).append(' ').append('[');
         for (int i = 0; i < metrics.size(); i++) {
             if (i > 0) {
@@ -118,8 +120,7 @@ public class LogPushExporter extends PushMetricExporter {
             sb.append(m.name()).append('=').append(m.getValueAsString());
         }
         sb.append(']');
-        needSeparator = true;
-        return needSeparator;
+        return true;
     }
 
     private boolean metricEnabled(String name) {
