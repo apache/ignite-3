@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node.unit;
+package org.apache.ignite.internal.raft.rebalance;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
-/** Manages deployment units on node level in REPL mode. */
-@Command(name = "unit",
-        subcommands = {NodeUnitListReplCommand.class, NodeUnitInspectReplCommand.class},
-        description = "Manages deployment units")
-public class NodeUnitReplCommand extends BaseCommand {
+/**
+ * Exception thrown when a RAFT configuration change fails due to non-recoverable errors
+ * such as the node being in an invalid state (EPERM) or invalid arguments (EINVAL).
+ *
+ * <p>This exception is non-recoverable and should not be retried.
+ */
+public class RaftPeerConfigurationException extends IgniteInternalCheckedException {
+
+    public RaftPeerConfigurationException(String message) {
+        super(message);
+    }
 }

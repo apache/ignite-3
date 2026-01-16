@@ -15,15 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.cli.commands.unit;
 
-/** Interface for collecting page cache metrics. */
-public interface PageCacheMetrics {
-    /** Increases the page cache hit metric by one. */
-    void incrementPageCacheHit();
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.BeforeEach;
 
-    /** Increases the page cache miss metric by one. */
-    void incrementPageCacheMiss();
+/** Integration test for node unit inspect command in REPL mode. */
+class ItNodeUnitInspectReplCommandTest extends ItNodeUnitInspectCommandTest {
+    @BeforeEach
+    void connect() {
+        connect(NODE_URL);
+    }
 
-    void incrementPageReplacement();
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
+
+    @Override
+    protected int errorExitCode() {
+        return 0;
+    }
 }
