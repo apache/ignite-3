@@ -557,7 +557,9 @@ public class Node {
                 zoneId -> completedFuture(Set.of())
         );
 
-        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService, txStateVolatileStorage);
 
         var cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -620,7 +622,7 @@ public class Node {
                 clusterService,
                 replicaSvc,
                 lockManager,
-                new VolatileTxStateMetaStorage(),
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(address.port()),
                 placementDriverManager.placementDriver(),

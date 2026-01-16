@@ -45,9 +45,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-
         var key1 = key("test");
 
         assertThat(xlock(tx1, key1), willCompleteSuccessfully());
@@ -59,9 +56,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
     public void testSimpleConflict1() {
         var tx1 = beginTx();
         var tx2 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
 
         var key1 = key("test");
 
@@ -79,9 +73,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-
         var key1 = key("test");
 
         assertThat(slock(tx1, key1), willSucceedFast());
@@ -94,9 +85,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
     public void testSimpleConflictSlocks2() {
         var tx1 = beginTx();
         var tx2 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
 
         var key1 = key("test");
 
@@ -123,10 +111,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx2 = beginTx();
         var tx3 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-        addTxLabel(tx3, "tx3");
-
         var k = key("test");
 
         assertThat(slock(tx3, k), willSucceedFast());
@@ -149,9 +133,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-
         var k = key("test");
 
         assertThat(slock(tx2, k), willSucceedFast());
@@ -170,9 +151,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-
         var k = key("test");
 
         assertThat(slock(tx2, k), willSucceedFast());
@@ -185,8 +163,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
     public void testReenterAllowed() {
         var tx1 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-
         var k = key("test");
 
         assertThat(slock(tx1, k), willSucceedFast());
@@ -198,10 +174,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
         var tx3 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-        addTxLabel(tx3, "tx3");
 
         var k = key("test");
 
@@ -220,10 +192,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
         var tx3 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-        addTxLabel(tx3, "tx3");
 
         var k = key("test");
 
@@ -245,11 +213,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx2 = beginTx();
         var tx3 = beginTx();
         var tx4 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-        addTxLabel(tx3, "tx3");
-        addTxLabel(tx4, "tx4");
 
         var k = key("test");
 
@@ -276,11 +239,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx2 = beginTx();
         var tx3 = beginTx();
         var tx4 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-        addTxLabel(tx3, "tx3");
-        addTxLabel(tx4, "tx4");
 
         var k = key("test");
 
@@ -313,10 +271,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx2 = beginTx();
         var tx3 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-        addTxLabel(tx3, "tx3");
-
         var k = key("test");
 
         assertThat(xlock(tx3, k), willSucceedFast());
@@ -337,9 +291,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
     public void testIncompatibleLockRetry() {
         var tx1 = beginTx();
         var tx2 = beginTx();
-
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
 
         var k = key("test");
 

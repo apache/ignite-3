@@ -72,7 +72,11 @@ public class TxRecoveryMessageHandler {
             return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
         }
 
-        LOG.info("Orphan transaction has to be aborted [{}, meta={}].", TransactionLogUtils.formatTxInfo(txId, txManager), txMeta);
+        LOG.info(
+                "Orphan transaction has to be aborted [{}, meta={}].",
+                TransactionLogUtils.formatTxInfo(txId, txManager, false),
+                txMeta
+        );
 
         return txRecoveryEngine.triggerTxRecovery(txId, senderId);
     }

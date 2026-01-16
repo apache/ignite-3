@@ -46,9 +46,6 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        addTxLabel(tx1, "tx1");
-        addTxLabel(tx2, "tx2");
-
         var key = key("test");
 
         for (LockMode m1 : LockMode.values()) {
@@ -97,10 +94,6 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
         var tx0 = beginTx();
         var tx1 = beginTx();
 
-        // Add labels to see them in logs when exceptions occur
-        addTxLabel(tx0, "tx0");
-        addTxLabel(tx1, "tx1");
-
         var key = key("test0");
 
         assertThat(slock(tx0, key), willSucceedFast());
@@ -114,9 +107,6 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
     public void allowNoWaitOnDeadlockOnTwoKeys() {
         var tx0 = beginTx();
         var tx1 = beginTx();
-
-        addTxLabel(tx0, "tx0");
-        addTxLabel(tx1, "tx1");
 
         var key0 = key("test0");
         var key1 = key("test1");

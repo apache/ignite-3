@@ -193,7 +193,7 @@ public class TxCleanupRequestHandler {
                                         .whenComplete((retryRes, retryEx) -> {
                                             if (retryEx != null && writeIntentSwitchFailureShouldBeLogged(retryEx)) {
                                                 LOG.warn(
-                                                        "Second cleanup attempt failed (the transaction outcome is not affected) [{}]",
+                                                        "Second cleanup attempt failed (the transaction outcome is not affected) {}.",
                                                         retryEx,
                                                         formatTxInfo(txCleanupMessage.txId(), volatileTxStateMetaStorage)
                                                 );

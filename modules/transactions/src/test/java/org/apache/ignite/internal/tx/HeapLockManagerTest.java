@@ -43,9 +43,8 @@ import org.junit.jupiter.api.Test;
 public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockManager newInstance(SystemLocalConfiguration systemLocalConfiguration) {
-        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
         HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
-        txStateVolatileStorage.start();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
@@ -59,8 +58,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTableOverflow() throws Exception {
         int maxSlots = 16;
 
-        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
-        txStateVolatileStorage.start();
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
         HeapLockManager lockManager = new HeapLockManager(maxSlots, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
@@ -97,9 +95,8 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTooManyKeysInTx() throws Exception {
         int maxSlots = 16;
 
-        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
         HeapLockManager lockManager = new HeapLockManager(maxSlots, txStateVolatileStorage);
-        txStateVolatileStorage.start();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID txId = TestTransactionIds.newTransactionId();
@@ -135,7 +132,9 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
             @InjectConfiguration("mock.properties: { lockMapSize: \"42\" }")
             SystemLocalConfiguration systemLocalConfiguration
     ) {
-        var lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        var lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
 
         lockManager.start(DeadlockPreventionPolicy.NO_OP);
 

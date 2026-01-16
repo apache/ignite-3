@@ -204,9 +204,10 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = new TestClockService(clock);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
 
-        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
+
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,
@@ -481,7 +482,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

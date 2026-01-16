@@ -41,9 +41,7 @@ public class DelayedAckException extends IgniteInternalException {
     public DelayedAckException(UUID txId, Throwable cause, TxManager txManager) {
         super(
                 TX_DELAYED_ACK_ERR,
-                "Failed to commit the transaction due to failed replication acknowledgement ["
-                        + formatTxInfo(txId, txManager)
-                        + ']',
+                "Failed to commit the transaction due to failed replication acknowledgement " + formatTxInfo(txId, txManager),
                 cause
         );
         this.txId = txId;

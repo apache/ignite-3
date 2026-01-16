@@ -260,7 +260,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 systemCfg,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(placementDriver, CLOCK_SERVICE)
+                new TransactionInflights(placementDriver, CLOCK_SERVICE, VolatileTxStateMetaStorage.createStarted())
         );
     }
 
@@ -682,7 +682,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE, txStateVolatileStorage);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
@@ -690,7 +692,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 clusterService,
                 replicaSvc,
                 HeapLockManager.smallInstance(),
-                new VolatileTxStateMetaStorage(),
+                txStateVolatileStorage,
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,

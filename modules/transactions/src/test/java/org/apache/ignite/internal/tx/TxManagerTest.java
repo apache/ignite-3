@@ -177,9 +177,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        transactionInflights = new TransactionInflights(placementDriver, clockService);
+        VolatileTxStateMetaStorage volatileTxStateMetaStorage = VolatileTxStateMetaStorage.createStarted();
 
-        VolatileTxStateMetaStorage volatileTxStateMetaStorage = new VolatileTxStateMetaStorage();
+        transactionInflights = new TransactionInflights(placementDriver, clockService, volatileTxStateMetaStorage);
+
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,

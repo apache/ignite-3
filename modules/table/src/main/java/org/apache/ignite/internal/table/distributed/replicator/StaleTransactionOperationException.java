@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.tx.TransactionInternalException;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxManager;
 
 /** Error that occurs when a stale operation is detected. */
@@ -34,9 +34,7 @@ public class StaleTransactionOperationException extends TransactionInternalExcep
      */
     public StaleTransactionOperationException(UUID txId, TxManager txManager) {
         super(TX_STALE_OPERATION_ERR,
-                "Stale operation was detected: ["
-                        + TransactionLogUtils.formatTxInfo(txId, txManager)
-                        + "]"
+                "Stale operation was detected: " + formatTxInfo(txId, txManager)
         );
     }
 }

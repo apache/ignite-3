@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
@@ -205,8 +205,8 @@ public class WriteIntentSwitchRequestHandler {
                 .applyCommandWithExceptionHandling(wiSwitchCmd)
                 .whenComplete((res, ex) -> {
                     if (ex != null && !ReplicatorRecoverableExceptions.isRecoverable(ex)) {
-                        LOG.warn("Failed to complete transaction cleanup command [{}]", ex,
-                                TransactionLogUtils.formatTxInfo(request.txId(), txManager));
+                        LOG.warn("Failed to complete transaction cleanup command {}", ex,
+                                formatTxInfo(request.txId(), txManager));
                     }
                 });
     }

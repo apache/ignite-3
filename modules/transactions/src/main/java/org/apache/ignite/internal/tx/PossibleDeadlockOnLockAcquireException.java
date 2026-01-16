@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
@@ -48,10 +49,10 @@ public class PossibleDeadlockOnLockAcquireException extends LockException {
                 ACQUIRE_LOCK_ERR,
                 "Failed to acquire " + (abandonedLock ? "the abandoned " : "a ")
                         + "lock due to a possible deadlock ["
-                        + "failedToAcquireLockTransactionId="
-                        + TransactionLogUtils.formatTxInfo(failedToAcquireLockTxId, txStateMetaStorage)
-                        + ", currentLockHolderTransactionId="
-                        +  TransactionLogUtils.formatTxInfo(currentLockHolderTxId, txStateMetaStorage)
+                        + "failedToAcquireLockTransactionId txn "
+                        + formatTxInfo(failedToAcquireLockTxId, txStateMetaStorage)
+                        + ", currentLockHolderTransactionId txn"
+                        +  formatTxInfo(currentLockHolderTxId, txStateMetaStorage)
                         + ", attemptedLockModeToAcquireWith=" + attemptedLockModeToAcquireWith
                         + ", currentlyAcquiredLockMode=" + currentlyAcquiredLockMode
                         + "]."

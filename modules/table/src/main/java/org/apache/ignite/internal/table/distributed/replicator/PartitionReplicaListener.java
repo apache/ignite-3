@@ -34,8 +34,8 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -187,7 +187,6 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -1629,7 +1628,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return failedFuture(new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
+                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState)
             ));
         }
 
@@ -2516,9 +2515,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
-                            formatTxInfo(cmd.txId(), txManager),
+                            cmd.txId(),
                             cmd.leaseStartTime(),
-                            updateCommandResult.currentLeaseStartTime());
+                            updateCommandResult.currentLeaseStartTime(),
+                            replicationGroupId);
                 }
 
                 if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
@@ -2657,9 +2657,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 if (!updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
-                            formatTxInfo(cmd.txId(), txManager),
+                            cmd.txId(),
                             cmd.leaseStartTime(),
-                            updateCommandResult.currentLeaseStartTime()
+                            updateCommandResult.currentLeaseStartTime(),
+                            replicationGroupId
                     );
                 }
                 if (updateCommandResult.isPrimaryInPeersAndLearners()) {
@@ -3456,7 +3457,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             )).whenComplete((unused, e) -> {
                 if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
                     LOG.warn("Failed to complete transaction cleanup command {}", e,
-                            TransactionLogUtils.formatTxInfo(txId, txManager));
+                            formatTxInfo(txId, txManager));
                 }
             });
         });
@@ -3506,9 +3507,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return {@code true} if we can read from entries created in this transaction (when the transaction was committed and commit time <=
      *         read time).
      */
-    private static Boolean canReadFromWriteIntent(UUID txId, TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
+    private static Boolean canReadFromWriteIntent(UUID txId, TxManager txManager,
+            TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
         assert isFinalState(txMeta.txState()) || txMeta.txState() == PENDING || txMeta.txState() == UNKNOWN
-                : format("Unexpected state defined by write intent resolution [txId={}, txMeta={}].", txId, txMeta);
+                : format("Unexpected state defined by write intent resolution [{}, txMeta={}].",
+                formatTxInfo(txId, txManager, false), txMeta);
 
         if (txMeta.txState() == COMMITTED) {
             boolean readLatest = timestamp == null;

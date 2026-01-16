@@ -348,7 +348,7 @@ public class TxCleanupRequestSender {
                         TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) networkMessage;
                         if (writeIntentSwitchFailureShouldBeLogged(errorResponse.throwable())) {
                             LOG.warn(
-                                    "First cleanup attempt failed (the transaction outcome is not affected) [{}]",
+                                    "First cleanup attempt failed (the transaction outcome is not affected) {}.",
                                     errorResponse.throwable(), formatTxInfo(txId, txStateVolatileStorage)
                             );
                         }

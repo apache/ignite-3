@@ -524,7 +524,9 @@ public class ItTxTestCluster {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             txInflights.put(nodeName, transactionInflights);
 
@@ -538,6 +540,7 @@ public class ItTxTestCluster {
                     node,
                     placementDriver,
                     resourcesRegistry,
+                    txStateVolatileStorage,
                     transactionInflights,
                     lowWatermark
             );
@@ -599,6 +602,7 @@ public class ItTxTestCluster {
             InternalClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
+            VolatileTxStateMetaStorage txStateVolatileStorage,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark
     ) {
@@ -610,7 +614,7 @@ public class ItTxTestCluster {
                 clusterService.topologyService(),
                 replicaSvc,
                 HeapLockManager.smallInstance(),
-                new VolatileTxStateMetaStorage(),
+                txStateVolatileStorage,
                 clockService,
                 generator,
                 placementDriver,
@@ -1267,7 +1271,9 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService, txStateVolatileStorage);
 
         clientTxManager = new TxManagerImpl(
                 "client",
@@ -1277,7 +1283,7 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 clientReplicaSvc,
                 HeapLockManager.smallInstance(),
-                new VolatileTxStateMetaStorage(),
+                txStateVolatileStorage,
                 clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,

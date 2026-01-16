@@ -1040,9 +1040,11 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
-
         VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+
+        TransactionInflights transactionInflights =
+                new TransactionInflights(placementDriverMgr.placementDriver(), clockService, txStateVolatileStorage);
+
         LockManager lockMgr = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).

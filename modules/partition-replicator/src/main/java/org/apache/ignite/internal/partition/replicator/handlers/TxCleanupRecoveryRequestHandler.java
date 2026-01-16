@@ -153,7 +153,11 @@ public class TxCleanupRecoveryRequestHandler {
                 txMeta.commitTimestamp(),
                 txId
         ).exceptionally(throwable -> {
-            LOG.warn("Failed to cleanup transaction [{}].", throwable, TransactionLogUtils.formatTxInfo(txId, txManager));
+            LOG.warn(
+                    "Failed to cleanup transaction {}.",
+                    throwable,
+                    TransactionLogUtils.formatTxInfo(txId, txManager)
+            );
 
             return null;
         });

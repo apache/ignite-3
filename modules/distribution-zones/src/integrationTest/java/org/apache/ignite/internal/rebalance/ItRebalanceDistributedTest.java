@@ -1259,7 +1259,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterIdService
             );
 
-            VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
             lockManager = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
             MetricManager metricManager = new NoOpMetricManager();
@@ -1387,7 +1387,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 

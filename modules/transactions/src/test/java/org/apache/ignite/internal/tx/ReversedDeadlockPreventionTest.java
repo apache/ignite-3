@@ -61,9 +61,6 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
         var oldNormalTx = beginTx(TxPriority.NORMAL);
         var youngLowTx = beginTx(TxPriority.LOW);
 
-        addTxLabel(oldNormalTx, "oldNormalTx");
-        addTxLabel(youngLowTx, "youngLowTx");
-
         var key1 = key("test");
 
         assertThat(xlock(oldNormalTx, key1), willSucceedFast());
@@ -79,9 +76,6 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
     public void youngNormalTxShouldBeAborted() {
         var tx1 = beginTx(TxPriority.LOW);
         var tx2 = beginTx(TxPriority.NORMAL);
-
-        addTxLabel(tx1, "tx1-low");
-        addTxLabel(tx2, "tx2-normal");
 
         var key1 = key("test");
 

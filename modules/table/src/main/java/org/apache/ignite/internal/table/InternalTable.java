@@ -325,7 +325,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-only.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-27293 improve test coverage for this method.
     Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx);
 
     /**
@@ -385,7 +384,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @throws TransactionException If proposed {@code tx} is read-only.
      * @see #scan(int, InternalTransaction)
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-27293 improve test coverage for this method.
     Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,

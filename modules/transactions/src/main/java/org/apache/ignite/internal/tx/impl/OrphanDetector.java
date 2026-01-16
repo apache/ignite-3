@@ -220,7 +220,7 @@ public class OrphanDetector {
                             .build());
                 }).exceptionally(throwable -> {
                     if (throwable != null) {
-                        LOG.warn("A recovery message for the transaction was handled with the error [{}].",
+                        LOG.warn("A recovery message for the transaction was handled with the error {}.",
                                 throwable, formatTxInfo(txId, txLocalStateStorage));
                     }
 
