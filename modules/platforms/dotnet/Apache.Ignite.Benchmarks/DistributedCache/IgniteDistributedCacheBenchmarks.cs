@@ -17,15 +17,21 @@
 
 namespace Apache.Ignite.Benchmarks.DistributedCache;
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Extensions.Caching.Ignite;
+using DistributedCacheEntryOptions = Microsoft.Extensions.Caching.Distributed.DistributedCacheEntryOptions;
 
 /// <summary>
 /// Benchmarks for <see cref="IgniteDistributedCache"/>.
 /// </summary>
 public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
 {
+    private const string Key = "key1";
+
+    private const string KeySliding = "keySliding";
+
     private IgniteClientGroup _clientGroup = null!;
 
     private IgniteDistributedCache _cache = null!;
@@ -43,6 +49,15 @@ public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
         };
 
         _cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
+
+        await _cache.SetAsync(Key, [1], new DistributedCacheEntryOptions(), CancellationToken.None);
+
+        var slidingOpts = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromHours(1)
+        };
+
+        await _cache.SetAsync(KeySliding, [1], slidingOpts, CancellationToken.None);
     }
 
     public override async Task GlobalCleanup()
