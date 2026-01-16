@@ -70,20 +70,18 @@ public class LogPushExporter extends PushMetricExporter {
         }
 
         var report = new StringBuilder("Metrics for local node:");
+        if (!oneLinePerMetricSource) {
+            report.append(' ');
+        }
         boolean needSeparator = oneLinePerMetricSource;
         for (MetricSet metricSet : metricSets) {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                if (metricSet.name().startsWith("thread.pools.")) {
-                    continue;
-                }
                 addSeparatorIfNeeded(report, needSeparator);
                 needSeparator = appendMetricsOneLine(report, metricSet, hasMetricsWhiteList, needSeparator);
             }
         }
-
-        appendThreadPoolMetrics(report, metricSets, needSeparator);
         log.info(report.toString());
     }
 
@@ -122,54 +120,6 @@ public class LogPushExporter extends PushMetricExporter {
         sb.append(']');
         needSeparator = true;
         return needSeparator;
-    }
-
-    /**
-     * Appends thread pool metrics to the report.
-     *
-     * @param report Report string builder.
-     * @param metricSets Collection of metric sets.
-     * @param needSeparator Whether separator is needed.
-     * @return True if separator is needed for next item.
-     */
-    private boolean appendThreadPoolMetrics(StringBuilder report, Collection<MetricSet> metricSets, boolean needSeparator) {
-        // Find thread pool metrics (extensible for other pools in the future).
-        boolean hasThreadPools = false;
-
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().startsWith("thread.pools.")) {
-                if (report.length() > 0 && hasThreadPools) {
-                    report.append(", ");
-                }
-                if (!hasThreadPools) {
-                    addSeparatorIfNeeded(report, needSeparator);
-                    report.append("threadPools [");
-                    hasThreadPools = true;
-                }
-
-                String poolName = metricSet.name().substring("thread.pools.".length());
-                report.append(poolName).append('(');
-
-                List<Metric> poolMetrics = StreamSupport.stream(metricSet.spliterator(), false)
-                        .sorted(comparing(Metric::name))
-                        .collect(toList());
-
-                for (int i = 0; i < poolMetrics.size(); i++) {
-                    if (i > 0) {
-                        report.append(", ");
-                    }
-                    Metric m = poolMetrics.get(i);
-                    report.append(m.name()).append('=').append(m.getValueAsString());
-                }
-
-                report.append(')');
-            }
-        }
-
-        if (hasThreadPools) {
-            report.append(']');
-        }
-        return hasThreadPools || needSeparator;
     }
 
     private boolean metricEnabled(String name) {

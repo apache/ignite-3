@@ -270,7 +270,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         );
 
         withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().contains("threadPools [partitions-executor("),
+                evt -> evt.getMessage().getFormattedMessage().contains("thread.pools.partitions-executor ["),
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
 
@@ -306,9 +306,8 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         withLogInspector(
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
-                    return msg.contains("threadPools [")
-                            && msg.contains("partitions-executor(")
-                            && msg.contains("rebalance-scheduler(");
+                    return msg.contains("thread.pools.partitions-executor [")
+                            && msg.contains("thread.pools.rebalance-scheduler [");
                 },
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
@@ -542,7 +541,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     logInspector.addHandler(evt -> evtMatches(evt, "IgnoredMetric"), () -> ignoredMetric.set(true));
 
                     logInspector.addHandler(
-                            evt -> evtMatches(evt, ":full [FullMetricInt=42, FullMetricLong=42]"),
+                            evt -> evtMatches(evt, ": full [FullMetricInt=42, FullMetricLong=42]"),
                             () -> fullMetricSingleString.set(true)
                     );
 
