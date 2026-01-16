@@ -339,6 +339,59 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
             messageFactory: () => "Expired items should be cleaned up from the table");
     }
 
+    [Test]
+    public async Task TestRefreshExtendsSlidingExpiration()
+    {
+        IDistributedCache cache = GetCache();
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromSeconds(1)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+
+        // Wait until entry is close to expiration.
+        await Task.Delay(TimeSpan.FromSeconds(0.8));
+
+        // Refresh should extend the expiration.
+        await cache.RefreshAsync("x");
+
+        // Wait another 0.8 seconds - entry should still be available because we refreshed.
+        await Task.Delay(TimeSpan.FromSeconds(0.8));
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        // Wait for final expiration.
+        await Task.Delay(TimeSpan.FromSeconds(1.2));
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
+    [Test]
+    public void TestRefreshOnNonExistentKey()
+    {
+        Assert.DoesNotThrowAsync(async () => await GetCache().RefreshAsync("non-existent-key"));
+    }
+
+    [Test]
+    public async Task TestRefreshOnExpiredKey()
+    {
+        IDistributedCache cache = GetCache();
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromSeconds(0.1)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+
+        // Wait for expiration.
+        await TestUtils.WaitForConditionAsync(async () => await cache.GetAsync("x") == null);
+
+        // Refresh on an expired key should not resurrect it.
+        await cache.RefreshAsync("x");
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
         new IgniteDistributedCache(
             options ?? new IgniteDistributedCacheOptions { CacheKeyPrefix = keyPrefix },
