@@ -385,7 +385,8 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         await cache.SetAsync("x", [1], entryOptions);
 
         // Wait for expiration.
-        await TestUtils.WaitForConditionAsync(async () => await cache.GetAsync("x") == null);
+        await Task.Delay(TimeSpan.FromSeconds(0.3));
+        Assert.IsNull(await cache.GetAsync("x"));
 
         // Refresh on an expired key should not resurrect it.
         await cache.RefreshAsync("x");
