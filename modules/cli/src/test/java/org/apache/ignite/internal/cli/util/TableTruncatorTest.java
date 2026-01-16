@@ -48,7 +48,7 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellWithinLimit() {
-        TableTruncator truncator = new TableTruncator(TruncationConfig.disabled());
+        TableTruncator truncator = new TableTruncator(enabledConfig(50));
 
         String result = truncator.truncateCell("short", 10);
 
@@ -57,7 +57,7 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellExceedsLimit() {
-        TableTruncator truncator = new TableTruncator(TruncationConfig.disabled());
+        TableTruncator truncator = new TableTruncator(enabledConfig(50));
 
         String result = truncator.truncateCell("very long text that exceeds the limit", 10);
 
@@ -66,7 +66,7 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellExactlyAtLimit() {
-        TableTruncator truncator = new TableTruncator(TruncationConfig.disabled());
+        TableTruncator truncator = new TableTruncator(enabledConfig(50));
 
         String result = truncator.truncateCell("1234567890", 10);
 
@@ -75,7 +75,7 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellNullValue() {
-        TableTruncator truncator = new TableTruncator(TruncationConfig.disabled());
+        TableTruncator truncator = new TableTruncator(enabledConfig(50));
 
         String result = truncator.truncateCell(null, 10);
 
@@ -84,7 +84,7 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellMinimumWidth() {
-        TableTruncator truncator = new TableTruncator(TruncationConfig.disabled());
+        TableTruncator truncator = new TableTruncator(enabledConfig(50));
 
         String result = truncator.truncateCell("hello", 3);
 
@@ -93,7 +93,7 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellWidthLessThanEllipsis() {
-        TableTruncator truncator = new TableTruncator(TruncationConfig.disabled());
+        TableTruncator truncator = new TableTruncator(enabledConfig(50));
 
         String result = truncator.truncateCell("hello", 2);
 
@@ -201,7 +201,28 @@ class TableTruncatorTest {
         assertThat(result.header()[0], equalTo("very_lo..."));
     }
 
+    @Test
+    void truncateTableWithLongContentExceedingDefaultMaxWidth() {
+        // Content longer than default max column width (50 characters)
+        String longContent = "This is a very long string that exceeds the default maximum column width of fifty characters";
+        Table<String> table = createTable(
+                List.of("id", "description"),
+                List.of("1", longContent)
+        );
+        TruncationConfig config = new TruncationConfig(true, 50, 0);
+
+        Table<String> result = new TableTruncator(config).truncate(table);
+
+        String truncatedContent = (String) result.content()[0][1];
+        assertThat(truncatedContent.length(), is(50));
+        assertThat(truncatedContent, equalTo("This is a very long string that exceeds the def..."));
+    }
+
     private static Table<String> createTable(List<String> headers, List<String> content) {
         return new Table<>(headers, content);
+    }
+
+    private static TruncationConfig enabledConfig(int maxColumnWidth) {
+        return new TruncationConfig(true, maxColumnWidth, 0);
     }
 }
