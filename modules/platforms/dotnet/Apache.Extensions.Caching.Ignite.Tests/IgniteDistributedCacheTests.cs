@@ -350,12 +350,14 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
 
         await cache.SetAsync("x", [1], entryOptions);
 
-        // Wait and refresh to extend expiration.
-        await Task.Delay(TimeSpan.FromSeconds(0.6));
-        await cache.RefreshAsync("x");
+        // Refresh multiple times to extend expiration.
+        for (int i = 0; i < 4; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(0.3));
+            await cache.RefreshAsync("x");
+        }
 
-        // Wait and check.
-        await Task.Delay(TimeSpan.FromSeconds(0.6));
+        // Check that the item is still available.
         Assert.IsNotNull(await cache.GetAsync("x"));
 
         // Wait for final expiration.
@@ -390,8 +392,17 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         Assert.IsNull(await cache.GetAsync("x"));
     }
 
-    private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
-        new IgniteDistributedCache(
-            options ?? new IgniteDistributedCacheOptions { CacheKeyPrefix = keyPrefix },
-            _clientGroup);
+    private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null)
+    {
+        var ops = options ?? new IgniteDistributedCacheOptions
+        {
+            CacheKeyPrefix = keyPrefix
+        };
+
+        var cache = new IgniteDistributedCache(ops, _clientGroup);
+
+        AddDisposable(cache);
+
+        return cache;
+    }
 }

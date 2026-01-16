@@ -218,6 +218,8 @@ namespace Apache.Ignite.Tests
             return proxies;
         }
 
+        protected void AddDisposable(IDisposable disposable) => _disposables.Add(disposable);
+
         private void CheckPooledBufferLeak()
         {
             // Use WaitForCondition to check rented/returned buffers equality:
