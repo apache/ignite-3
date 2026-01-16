@@ -29,11 +29,11 @@ using DistributedCacheEntryOptions = Microsoft.Extensions.Caching.Distributed.Di
 /// Benchmarks for <see cref="IgniteDistributedCache"/>.
 /// <para />
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
-/// | Method  | Mean        | Error     | StdDev     | Median      |
-/// |-------- |------------:|----------:|-----------:|------------:|
-/// | Get     |    97.06 us |  1.940 us |   5.376 us |    96.49 us |
-/// | Set     |   161.88 us |  3.230 us |   9.109 us |   161.85 us |
-/// | Refresh | 1,506.29 us | 36.528 us | 107.129 us | 1,476.36 us |.
+/// | Method  | Mean        | Error     | StdDev     | Median      | Allocated |
+/// |-------- |------------:|----------:|-----------:|------------:|----------:|
+/// | Get     |    47.55 us |  1.251 us |   3.548 us |    47.04 us |   3.91 KB |
+/// | Set     |   102.55 us |  2.605 us |   7.391 us |   100.93 us |    2.8 KB |
+/// | Refresh | 1,316.49 us | 42.580 us | 121.484 us | 1,254.74 us |   2.38 KB |.
 /// </summary>
 [MemoryDiagnoser]
 public class IgniteDistributedCacheBenchmarks : ServerBenchmarkBase
