@@ -233,35 +233,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testCpuInfoIncluded() {
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().matches(".*CPU \\[CPUs=[0-9]+.*GC=[0-9.]+%\\].*"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testHeapMemoryIncluded() {
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage()
-                        .matches(".*Heap \\[used=[0-9.]+ [KMG]iB, free=[0-9.]+%, comm=[0-9.]+ [KMG]iB\\].*"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
     void testTopologyNodeCountIncluded() {
         var topologyClusterMetricSet = new MetricSet("topology.cluster", Map.of(
                 "TotalNodes", new IntGauge("TotalNodes", "", () -> 3),
@@ -276,49 +247,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                         exporterChange.convert(LogPushExporterChange.class)
                                 .changeEnabledMetrics("testSource", "topology.cluster")
                 )
-        );
-
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().contains("topology=3 nodes"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testClusterIdIncluded() {
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().matches(".*clusterId=[0-9a-f-]{36}.*"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testDetailedCpuFormat() {
-        withLogInspector(
-                evt -> {
-                    String msg = evt.getMessage().getFormattedMessage();
-                    return msg.contains("Metrics for local node")
-                            && msg.matches(".*CPU \\[CPUs=[0-9]+.*\\].*");
-                },
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
         );
     }
 
@@ -342,7 +270,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         );
 
         withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().contains("threadPools=[partitions-executor("),
+                evt -> evt.getMessage().getFormattedMessage().contains("threadPools [partitions-executor("),
                 logInspector -> {
                     metricManager.start(Map.of("logPush", exporter));
 
@@ -378,7 +306,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         withLogInspector(
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
-                    return msg.contains("threadPools=[")
+                    return msg.contains("threadPools [")
                             && msg.contains("partitions-executor(")
                             && msg.contains("rebalance-scheduler(");
                 },
@@ -463,23 +391,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                                 .changeEnabledMetrics("testSource", "metastorage", "placement-driver")
                 )
         );
-
-        withLogInspector(
-                evt -> {
-                    String msg = evt.getMessage().getFormattedMessage();
-                    return msg.contains("Metrics for local node:")
-                            && msg.contains("CPU [")
-                            && msg.contains("Heap [")
-                            && msg.contains("clusterId=");
-                },
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
     }
 
     @Test
@@ -499,19 +410,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                         exporterChange.convert(LogPushExporterChange.class)
                                 .changeEnabledMetrics("testSource", "topology.local")
                 )
-        );
-
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().matches(
-                        ".*Network \\[addrs=\\[10\\.2\\.51\\.131\\], commPort=3344\\].*"
-                ),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    Awaitility.await()
-                            .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
         );
     }
 
@@ -644,7 +542,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     logInspector.addHandler(evt -> evtMatches(evt, "IgnoredMetric"), () -> ignoredMetric.set(true));
 
                     logInspector.addHandler(
-                            evt -> evtMatches(evt, ", full [FullMetricInt=42, FullMetricLong=42]"),
+                            evt -> evtMatches(evt, ":full [FullMetricInt=42, FullMetricLong=42]"),
                             () -> fullMetricSingleString.set(true)
                     );
 

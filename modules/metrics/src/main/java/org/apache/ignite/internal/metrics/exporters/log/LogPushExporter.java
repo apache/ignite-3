@@ -20,13 +20,11 @@ package org.apache.ignite.internal.metrics.exporters.log;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
-import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 
 import com.google.auto.service.AutoService;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -72,210 +70,31 @@ public class LogPushExporter extends PushMetricExporter {
         }
 
         var report = new StringBuilder("Metrics for local node:");
-
-        UUID clusterId = clusterIdSupplier().get();
-        if (clusterId != null) {
-            if (oneLinePerMetricSource) {
-                report.append(System.lineSeparator()).append(PADDING);
-            } else {
-                report.append(", ");
-            }
-            report.append("clusterId=").append(clusterId);
-        }
-
-        int nodeCount = getClusterNodeCount(metricSets);
-        if (nodeCount > 0) {
-            if (oneLinePerMetricSource) {
-                report.append(System.lineSeparator()).append(PADDING);
-            } else {
-                report.append(", ");
-            }
-            report.append("topology=").append(nodeCount).append(" nodes");
-        }
-
-        appendNetworkInfo(report, metricSets);
-
-        appendCpuInfo(report, metricSets);
-
-        appendHeapInfo(report, metricSets);
-
+        boolean needSeparator = oneLinePerMetricSource;
         for (MetricSet metricSet : metricSets) {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                if (oneLinePerMetricSource) {
-                    report.append(System.lineSeparator()).append(PADDING).append(metricSet.name()).append(' ');
-                    appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
-                } else {
-                    report.append(", ").append(metricSet.name()).append(' ');
-                    appendMetricsOneLine(report, metricSet, hasMetricsWhiteList);
+                if (metricSet.name().startsWith("thread.pools.")) {
+                    continue;
                 }
+                addSeparatorIfNeeded(report, needSeparator);
+                needSeparator = appendMetricsOneLine(report, metricSet, hasMetricsWhiteList, needSeparator);
             }
         }
 
-        if (!oneLinePerMetricSource) {
-            appendThreadPoolMetrics(report, metricSets);
-        }
-
+        appendThreadPoolMetrics(report, metricSets, needSeparator);
         log.info(report.toString());
     }
 
-    /**
-     * Gets the cluster node count from topology metrics.
-     *
-     * @param metricSets Collection of metric sets.
-     * @return Number of nodes in the cluster or -1 if not available.
-     */
-    private int getClusterNodeCount(Collection<MetricSet> metricSets) {
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("topology.cluster")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("TotalNodes")) {
-                        return Integer.parseInt(metric.getValueAsString());
-                    }
-                }
+    private void addSeparatorIfNeeded(StringBuilder report, boolean needSeparator) {
+        if (needSeparator) {
+            if (oneLinePerMetricSource) {
+                report.append(System.lineSeparator()).append(PADDING);
+            } else {
+                report.append(", ");
             }
         }
-        return -1;
-    }
-
-    /**
-     * Appends network information to the report. Format: Network [addrs=[addr1, addr2, ...], commPort=YYYY].
-     *
-     * @param report Report string builder.
-     * @param metricSets Collection of metric sets.
-     */
-    private void appendNetworkInfo(StringBuilder report, Collection<MetricSet> metricSets) {
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("topology.local")) {
-                String address = null;
-                Integer port = null;
-
-                for (Metric metric : metricSet) {
-                    String metricName = metric.name();
-                    if (metricName.equals("NetworkAddress")) {
-                        address = metric.getValueAsString();
-                    } else if (metricName.equals("NetworkPort")) {
-                        port = Integer.parseInt(metric.getValueAsString());
-                    }
-                }
-
-                if (address != null && !address.isEmpty() && port != null && port > 0) {
-                    if (oneLinePerMetricSource) {
-                        report.append(System.lineSeparator()).append(PADDING);
-                    } else {
-                        report.append(", ");
-                    }
-                    report.append("Network [addrs=[").append(address).append(']')
-                            .append(", commPort=").append(port)
-                            .append(']');
-                    break;
-                }
-            }
-        }
-    }
-
-    /**
-     * Appends CPU information. Format: CPU [CPUs=20, curLoad=38.57%, avgLoad=16.53%, GC=0%].
-     *
-     * @param report Report string builder.
-     * @param metricSets Collection of metric sets.
-     */
-    private void appendCpuInfo(StringBuilder report, Collection<MetricSet> metricSets) {
-        Integer cpuCount = null;
-        Double curLoad = null;
-        Double avgLoad = null;
-        Double gcPercent = null;
-
-        // Get CPU metrics from os metric source.
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("os")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("AvailableProcessors")) {
-                        cpuCount = Integer.parseInt(metric.getValueAsString());
-                    } else if (metric.name().equals("CpuLoad")) {
-                        curLoad = Double.parseDouble(metric.getValueAsString());
-                    } else if (metric.name().equals("LoadAverage")) {
-                        avgLoad = Double.parseDouble(metric.getValueAsString());
-                    }
-                }
-            } else if (metricSet.name().equals("jvm")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("gc.CollectionTimePercent")) {
-                        gcPercent = Double.parseDouble(metric.getValueAsString());
-                    }
-                }
-            }
-        }
-
-        if (cpuCount == null || cpuCount <= 0) {
-            return;
-        }
-
-        if (oneLinePerMetricSource) {
-            report.append(System.lineSeparator()).append(PADDING);
-        } else {
-            report.append(", ");
-        }
-
-        report.append("CPU [CPUs=").append(cpuCount);
-
-        if (curLoad != null && curLoad >= 0) {
-            report.append(", curLoad=").append(String.format("%.2f%%", curLoad * 100));
-        }
-
-        if (avgLoad != null && avgLoad >= 0) {
-            report.append(", loadAvg=").append(String.format("%.2f", avgLoad));
-        }
-
-        if (gcPercent != null) {
-            report.append(", GC=").append(String.format("%.0f%%", gcPercent));
-        }
-
-        report.append(']');
-    }
-
-    /**
-     * Appends Heap memory information. Format: Heap [used=6950MB, free=43.44%, comm=12288MB].
-     *
-     * @param report Report string builder.
-     * @param metricSets Collection of metric sets.
-     */
-    private void appendHeapInfo(StringBuilder report, Collection<MetricSet> metricSets) {
-        Long used = null;
-        Long committed = null;
-        Double freePercent = null;
-
-        // Get heap memory metrics from jvm metric source.
-        for (MetricSet metricSet : metricSets) {
-            if (metricSet.name().equals("jvm")) {
-                for (Metric metric : metricSet) {
-                    if (metric.name().equals("memory.heap.Used")) {
-                        used = Long.parseLong(metric.getValueAsString());
-                    } else if (metric.name().equals("memory.heap.Committed")) {
-                        committed = Long.parseLong(metric.getValueAsString());
-                    } else if (metric.name().equals("memory.heap.FreePercent")) {
-                        freePercent = Double.parseDouble(metric.getValueAsString());
-                    }
-                }
-                break;
-            }
-        }
-
-        if (used == null || committed == null || freePercent == null) {
-            return;
-        }
-
-        if (oneLinePerMetricSource) {
-            report.append(System.lineSeparator()).append(PADDING);
-        } else {
-            report.append(", ");
-        }
-
-        report.append("Heap [used=").append(readableSize(used, false))
-                .append(", free=").append(String.format("%.2f%%", freePercent))
-                .append(", comm=").append(readableSize(committed, false))
-                .append(']');
     }
 
     /**
@@ -284,14 +103,15 @@ public class LogPushExporter extends PushMetricExporter {
      * @param sb String builder.
      * @param metricSet Metric set.
      * @param hasMetricsWhiteList Whether metrics whitelist is present.
+     * @return True if separator is needed for next item.
      */
-    private void appendMetricsOneLine(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList) {
+    private boolean appendMetricsOneLine(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList, boolean needSeparator) {
         List<Metric> metrics = StreamSupport.stream(metricSet.spliterator(), false)
                 .sorted(comparing(Metric::name))
                 .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
                 .collect(toList());
 
-        sb.append('[');
+        sb.append(metricSet.name()).append(' ').append('[');
         for (int i = 0; i < metrics.size(); i++) {
             if (i > 0) {
                 sb.append(", ");
@@ -300,6 +120,8 @@ public class LogPushExporter extends PushMetricExporter {
             sb.append(m.name()).append('=').append(m.getValueAsString());
         }
         sb.append(']');
+        needSeparator = true;
+        return needSeparator;
     }
 
     /**
@@ -307,8 +129,10 @@ public class LogPushExporter extends PushMetricExporter {
      *
      * @param report Report string builder.
      * @param metricSets Collection of metric sets.
+     * @param needSeparator Whether separator is needed.
+     * @return True if separator is needed for next item.
      */
-    private void appendThreadPoolMetrics(StringBuilder report, Collection<MetricSet> metricSets) {
+    private boolean appendThreadPoolMetrics(StringBuilder report, Collection<MetricSet> metricSets, boolean needSeparator) {
         // Find thread pool metrics (extensible for other pools in the future).
         boolean hasThreadPools = false;
 
@@ -318,7 +142,8 @@ public class LogPushExporter extends PushMetricExporter {
                     report.append(", ");
                 }
                 if (!hasThreadPools) {
-                    report.append("threadPools=[");
+                    addSeparatorIfNeeded(report, needSeparator);
+                    report.append("threadPools [");
                     hasThreadPools = true;
                 }
 
@@ -344,6 +169,7 @@ public class LogPushExporter extends PushMetricExporter {
         if (hasThreadPools) {
             report.append(']');
         }
+        return hasThreadPools || needSeparator;
     }
 
     private boolean metricEnabled(String name) {
