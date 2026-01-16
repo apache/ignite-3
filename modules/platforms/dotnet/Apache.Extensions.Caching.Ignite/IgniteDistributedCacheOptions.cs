@@ -78,6 +78,21 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     /// </summary>
     public TimeSpan ExpiredItemsCleanupInterval { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Gets or sets the threshold for sliding expiration refresh as a percentage of the sliding expiration period.
+    /// <para />
+    /// When getting a cache entry with sliding expiration, the entry will be refreshed only if the remaining time
+    /// until expiration is less than this threshold multiplied by the sliding expiration period.
+    /// <para />
+    /// For example, with a sliding expiration of 10 minutes and a threshold of 0.2 (20%), the entry will only
+    /// be refreshed if it has less than 2 minutes remaining before expiration.
+    /// <para />
+    /// The default is 0.5 (50%). Set to a lower value to reduce the number of refresh operations.
+    /// <para />
+    /// Valid range: 0.0 to 1.0.
+    /// </summary>
+    public double SlidingExpirationRefreshThreshold { get; set; } = 0.5;
+
     /// <inheritdoc/>
     IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;
 }

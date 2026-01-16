@@ -124,7 +124,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
                 return null;
             }
 
-            if (val.SlidingExpiration is { } sliding && diff < sliding)
+            if (val.SlidingExpiration is { } sliding &&
+                diff < sliding * _options.SlidingExpirationRefreshThreshold)
             {
                 await RefreshAsync(key, token).ConfigureAwait(false);
             }
