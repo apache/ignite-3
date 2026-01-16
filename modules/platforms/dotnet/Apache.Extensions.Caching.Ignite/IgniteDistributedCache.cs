@@ -46,7 +46,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private readonly SqlStatement _cleanupSql;
 
-    private volatile IKeyValueView<string, CacheEntry>? _view;
+    private volatile IgniteHolder? _tableHolder;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
@@ -105,9 +105,9 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var view = await GetViewAsync().ConfigureAwait(false);
+        var holder = await EnsureInitAsync().ConfigureAwait(false);
 
-        var (val, hasVal) = await view.GetAsync(null, key).ConfigureAwait(false);
+        var (val, hasVal) = await holder.View.GetAsync(null, key).ConfigureAwait(false);
         if (!hasVal)
         {
             return null;
@@ -144,14 +144,14 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        // Important to get the view first and calculate expiration after.
+        // Important to init first and calculate expiration after.
         // Initialization can take time.
-        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
+        var holder = await EnsureInitAsync().ConfigureAwait(false);
 
         (long? expiresAt, long? sliding) = GetExpiration(options);
         var entry = new CacheEntry(value, expiresAt, sliding);
 
-        await view.PutAsync(transaction: null, key, entry).ConfigureAwait(false);
+        await holder.View.PutAsync(transaction: null, key, entry).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -163,13 +163,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
+        var holder = await EnsureInitAsync().ConfigureAwait(false);
 
         string actualKey = _options.CacheKeyPrefix + key;
         long now = UtcNowMillis();
 
         // TODO: Measure if ExecuteScript is faster here.
-        await ignite.Sql.ExecuteAsync(
+        await holder.Ignite.Sql.ExecuteAsync(
             transaction: null,
             _refreshSql,
             token,
@@ -185,8 +185,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
-        await view.RemoveAsync(null, key).ConfigureAwait(false);
+        var holder = await EnsureInitAsync().ConfigureAwait(false);
+        await holder.View.RemoveAsync(null, key).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -269,22 +269,22 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         return (expiresAt, sliding);
     }
 
-    private async Task<IKeyValueView<string, CacheEntry>> GetViewAsync()
+    private async Task<IgniteHolder> EnsureInitAsync()
     {
-        var view = _view;
-        if (view != null)
+        var holder = _tableHolder;
+        if (holder != null)
         {
-            return view;
+            return holder;
         }
 
         await _initLock.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            view = _view;
-            if (view != null)
+            holder = _tableHolder;
+            if (holder != null)
             {
-                return view;
+                return holder;
             }
 
             IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
@@ -304,10 +304,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             var table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false)
                         ?? throw new InvalidOperationException("Table not found: " + tableName);
 
-            view = table.GetKeyValueView(_cacheEntryMapper);
-            _view = view;
+            var view = table.GetKeyValueView(_cacheEntryMapper);
+            holder = new IgniteHolder(view, ignite);
+            _tableHolder = holder;
 
-            return view;
+            return holder;
         }
         finally
         {
@@ -339,12 +340,14 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private async Task CleanupExpiredEntriesAsync(CancellationToken token)
     {
-        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
+        var holder = await EnsureInitAsync().ConfigureAwait(false);
 
-        await ignite.Sql.ExecuteAsync(
+        await holder.Ignite.Sql.ExecuteAsync(
             transaction: null,
             _cleanupSql,
             token,
             args: UtcNowMillis()).ConfigureAwait(false);
     }
+
+    private sealed record IgniteHolder(IKeyValueView<string, CacheEntry> View, IIgnite Ignite);
 }
