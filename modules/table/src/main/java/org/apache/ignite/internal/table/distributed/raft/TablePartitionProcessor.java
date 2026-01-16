@@ -512,7 +512,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storageLastAppliedIndex) {
-            LOG.warn("Skipping PrimaryReplicaChangeCommand - already applied [tableId={}, partId={}, commandIndex={}, "
+            LOG.debug("Skipping PrimaryReplicaChangeCommand - already applied [tableId={}, partId={}, commandIndex={}, "
                             + "storageLastAppliedIndex={}]",
                     storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex);
             return EMPTY_NOT_APPLIED_RESULT;
@@ -528,7 +528,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             return null;
         });
 
-        LOG.info("Successfully applied PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, leaseStartTime={}]",
+        LOG.debug("Successfully applied PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, leaseStartTime={}]",
                 storage.tableId(), storage.partitionId(), commandIndex, cmd.leaseStartTime());
 
         return EMPTY_APPLIED_RESULT;

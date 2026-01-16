@@ -211,7 +211,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof PrimaryReplicaChangeCommand) {
                     PrimaryReplicaChangeCommand cmd = (PrimaryReplicaChangeCommand) command;
-                    LOG.info("Processing PrimaryReplicaChangeCommand [groupId={}, commandIndex={}, commandTerm={}, "
+                    LOG.debug("Processing PrimaryReplicaChangeCommand [groupId={}, commandIndex={}, commandTerm={}, "
                                     + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
                             partitionKey.toReplicationGroupId(), commandIndex, commandTerm,
                             cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
@@ -219,7 +219,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
                     if (updateLeaseInfoInTxStorage(cmd, commandIndex, commandTerm)) {
-                        LOG.info("Updated lease info in tx storage [groupId={}, commandIndex={}, leaseStartTime={}]",
+                        LOG.debug("Updated lease info in tx storage [groupId={}, commandIndex={}, leaseStartTime={}]",
                                 partitionKey.toReplicationGroupId(), commandIndex, cmd.leaseStartTime());
                         result = EMPTY_APPLIED_RESULT;
                     }

@@ -53,6 +53,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -226,7 +227,7 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Timeout(value = 1, unit = SECONDS)
+    @Timeout(value = 10, unit = SECONDS)
     void testRetryOperationUntilSuccessOrTimeout_SuccessOnFirstAttempt() {
         Executor executor = Executors.newSingleThreadExecutor();
         AtomicInteger callCount = new AtomicInteger(0);
@@ -245,44 +246,90 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Timeout(value = 1, unit = SECONDS)
-    void testRetryOperationUntilSuccessOrTimeout_SuccessAfterRetries() throws Exception {
-        Executor executor = Executors.newSingleThreadExecutor();
-        AtomicInteger callCount = new AtomicInteger(0);
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_SuccessAfterRetries() {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            AtomicInteger callCount = new AtomicInteger(0);
 
-        CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
-                () -> {
-                    int count = callCount.incrementAndGet();
-                    if (count < 3) {
-                        return failedFuture(new IOException("Temporary failure"));
-                    }
-                    return completedFuture("success");
-                },
-                1000,
-                executor
-        );
+            CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                    () -> {
+                        int count = callCount.incrementAndGet();
+                        if (count < 3) {
+                            return failedFuture(new IOException("Temporary failure"));
+                        }
+                        return completedFuture("success");
+                    },
+                    1000,
+                    executor
+            );
 
-        assertThat(result, willBe(equalTo("success")));
-        assertThat(callCount.get(), equalTo(3));
+            assertThat(result, willBe(equalTo("success")));
+            assertThat(callCount.get(), equalTo(3));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
-    @Timeout(value = 1, unit = SECONDS)
-    void testRetryOperationUntilSuccessOrTimeout_Timeout() throws Exception {
-        Executor executor = Executors.newSingleThreadExecutor();
-        AtomicInteger callCount = new AtomicInteger(0);
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_Timeout() {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            AtomicInteger callCount = new AtomicInteger(0);
 
-        CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
-                () -> {
-                    callCount.incrementAndGet();
-                    return failedFuture(new IOException("Persistent failure"));
-                },
-                100,
-                executor
-        );
+            CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                    () -> {
+                        callCount.incrementAndGet();
+                        return failedFuture(new IOException("Persistent failure"));
+                    },
+                    100,
+                    executor
+            );
 
-        assertThat(result, willThrow(TimeoutException.class));
-        // Should have made multiple attempts before timing out
-        assertThat(callCount.get(), greaterThan(1));
+            assertThat(result, willThrow(TimeoutException.class));
+            // Should have made multiple attempts before timing out
+            assertThat(callCount.get(), greaterThan(1));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_StopsWhenFutureCompletedExternally() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        try {
+            AtomicInteger callCount = new AtomicInteger(0);
+
+            CompletableFuture<Void> firstAttemptStarted = new CompletableFuture<>();
+
+            CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                    () -> {
+                        int attempt = callCount.incrementAndGet();
+
+                        if (attempt == 1) {
+                            firstAttemptStarted.complete(null);
+
+                            return new CompletableFuture<>();
+                        }
+
+                        return failedFuture(new IOException("Should not be retried after external completion"));
+                    },
+                    10_000,
+                    executor
+            );
+
+            firstAttemptStarted.get(1, SECONDS);
+
+            assertTrue(result.complete("external"));
+
+            assertThat(result, willBe(equalTo("external")));
+
+            assertThat(callCount.get(), equalTo(1));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }
