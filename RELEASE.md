@@ -42,7 +42,7 @@ For all the commands going forward:
 2. Update RELEASE_NOTES.txt with the changes since the last release. Commit and push to the `main` branch.
 3. Update versions in `main` branch to the next development version (e.g., `x.y.z-SNAPSHOT`):
    * Update `gradle.properties` manually.
-   * Run `./gradlew :platforms:updateVersion` to update platforms versions (.NET, C++, Python, etc.)
+   * Run `./gradlew updateVersion` to update platforms versions (.NET, C++, Python, etc.) and version in the docker-compose.yml.
    * Commit and push changes.
 4. Create and push a new branch for the release `ignite-{version}`.
 5. Update versions in `ignite-{version}` branch to the current release version, remove `-SNAPSHOT` suffix - same steps as in point 3.
@@ -103,15 +103,14 @@ For all the commands going forward:
    ```
    cp packaging/build/release/* {dist.dev}/{version}-rc{rc}
    ```
-15. Check for ignite.version.full (TODO [IGNITE-IGNITE-26834](https://issues.apache.org/jira/browse/IGNITE-26834)), remove this step if it will be done automatically through gradle task.
-16. Commit ZIP and DEB\RPM packages:
+15. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ``` 
-17. Put the release on a vote on the developers mailing list.
-18. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don't forget to move `git tag` if there are code related changes `git tag -d {version}-rc{rc}; git tag -a {version}-rc{rc} -m '{version}-rc{rc}'; git push --tags`.
+16. Put the release on a vote on the developers mailing list.
+17. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don't forget to move `git tag` if there are code related changes `git tag -d {version}-rc{rc}; git tag -a {version}-rc{rc} -m '{version}-rc{rc}'; git push --tags`.
 
 ## Finalizing the Release
 

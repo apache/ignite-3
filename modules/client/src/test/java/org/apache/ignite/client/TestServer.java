@@ -52,7 +52,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -96,6 +95,8 @@ public class TestServer implements AutoCloseable {
 
     private final NettyBootstrapFactory bootstrapFactory;
 
+    private final UUID nodeId;
+
     private final String nodeName;
 
     private final ClientHandlerMetricSource metrics;
@@ -105,6 +106,10 @@ public class TestServer implements AutoCloseable {
     private final FakeCatalogService catalogService;
 
     private final FakeIgnite ignite;
+
+    public static Builder builder() {
+        return new Builder();
+    }
 
     /**
      * Constructor.
@@ -151,6 +156,8 @@ public class TestServer implements AutoCloseable {
                 securityConfiguration,
                 port,
                 true,
+                null,
+                null,
                 null
         );
     }
@@ -171,7 +178,9 @@ public class TestServer implements AutoCloseable {
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             boolean enableRequestHandling,
-            @Nullable BitSet features
+            @Nullable BitSet features,
+            String @Nullable [] listenAddresses,
+            @Nullable UUID nodeId
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -199,6 +208,7 @@ public class TestServer implements AutoCloseable {
                         .changePort(port != null ? port : getFreePort())
                         .changeIdleTimeoutMillis(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
+                        .changeListenAddresses(listenAddresses == null ? new String[0] : listenAddresses)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkExtensionConfiguration.KEY).network(), "TestServer-");
@@ -210,14 +220,16 @@ public class TestServer implements AutoCloseable {
         }
 
         this.nodeName = nodeName;
+        this.nodeId = nodeId == null ? getNodeId(nodeName) : nodeId;
+
         this.ignite = ignite;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(this.nodeId);
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
-        Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
+        Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName, this.nodeId));
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
-                i -> getClusterNode(i.getArgument(0, String.class)));
+                i -> getClusterNode(i.getArgument(0, String.class), getNodeId(i.getArgument(0, String.class))));
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
@@ -278,8 +290,8 @@ public class TestServer implements AutoCloseable {
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
-                        new SystemPropertiesNodeProperties(),
-                        Runnable::run
+                        Runnable::run,
+                        () -> true
                 );
 
         module.startAsync(componentContext).join();
@@ -318,15 +330,6 @@ public class TestServer implements AutoCloseable {
      */
     public String nodeName() {
         return nodeName;
-    }
-
-    /**
-     * Gets the node ID.
-     *
-     * @return Node ID.
-     */
-    public UUID nodeId() {
-        return getNodeId(nodeName);
     }
 
     /**
@@ -375,8 +378,8 @@ public class TestServer implements AutoCloseable {
         }
     }
 
-    private InternalClusterNode getClusterNode(String name) {
-        return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+    private static InternalClusterNode getClusterNode(String name, UUID nodeId) {
+        return new ClusterNodeImpl(nodeId, name, new NetworkAddress("127.0.0.1", 8080));
     }
 
     private static UUID getNodeId(String name) {
@@ -388,6 +391,106 @@ public class TestServer implements AutoCloseable {
             return serverSocket.getLocalPort();
         } catch (IOException e) {
             throw new IOError(e);
+        }
+    }
+
+    /**
+     * Builder.
+     */
+    public static class Builder {
+        private long idleTimeout = 1000;
+        private @Nullable FakeIgnite ignite;
+        private @Nullable Function<Integer, Boolean> shouldDropConnection;
+        private @Nullable Function<Integer, Integer> responseDelay;
+        private @Nullable String nodeName;
+        private UUID clusterId = UUID.randomUUID();
+        private @Nullable SecurityConfiguration securityConfiguration;
+        private @Nullable Integer port;
+        private boolean enableRequestHandling = true;
+        private @Nullable BitSet features;
+        private @Nullable String[] listenAddresses;
+        private @Nullable UUID nodeId;
+
+        public Builder idleTimeout(long idleTimeout) {
+            this.idleTimeout = idleTimeout;
+            return this;
+        }
+
+        public Builder ignite(FakeIgnite ignite) {
+            this.ignite = ignite;
+            return this;
+        }
+
+        public Builder shouldDropConnection(@Nullable Function<Integer, Boolean> shouldDropConnection) {
+            this.shouldDropConnection = shouldDropConnection;
+            return this;
+        }
+
+        public Builder responseDelay(@Nullable Function<Integer, Integer> responseDelay) {
+            this.responseDelay = responseDelay;
+            return this;
+        }
+
+        public Builder nodeName(@Nullable String nodeName) {
+            this.nodeName = nodeName;
+            return this;
+        }
+
+        public Builder clusterId(UUID clusterId) {
+            this.clusterId = clusterId;
+            return this;
+        }
+
+        public Builder securityConfiguration(@Nullable SecurityConfiguration securityConfiguration) {
+            this.securityConfiguration = securityConfiguration;
+            return this;
+        }
+
+        public Builder port(@Nullable Integer port) {
+            this.port = port;
+            return this;
+        }
+
+        public Builder enableRequestHandling(boolean enableRequestHandling) {
+            this.enableRequestHandling = enableRequestHandling;
+            return this;
+        }
+
+        public Builder features(@Nullable BitSet features) {
+            this.features = features;
+            return this;
+        }
+
+        public Builder listenAddresses(@Nullable String... listenAddresses) {
+            this.listenAddresses = listenAddresses;
+            return this;
+        }
+
+        public Builder nodeId(@Nullable UUID nodeId) {
+            this.nodeId = nodeId;
+            return this;
+        }
+
+        /**
+         * Builds the test server.
+         *
+         * @return Test server.
+         */
+        public TestServer build() {
+            return new TestServer(
+                    idleTimeout,
+                    ignite == null ? new  FakeIgnite() : ignite,
+                    shouldDropConnection,
+                    responseDelay,
+                    nodeName,
+                    clusterId != null ? clusterId : UUID.randomUUID(),
+                    securityConfiguration,
+                    port,
+                    enableRequestHandling,
+                    features,
+                    listenAddresses,
+                    nodeId
+            );
         }
     }
 }

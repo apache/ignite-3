@@ -51,7 +51,7 @@ public class AggregateRow<RowT> {
     /** Checks whether the given row matches a grouping set with the given id. */
     public static <RowT> boolean groupMatches(RowHandler<RowT> handler, RowT row, AggregateType type, byte groupId) {
         if (type == AggregateType.REDUCE) {
-            int columnCount = handler.columnCount(row);
+            int columnCount = handler.columnsCount(row);
             byte targetGroupId = (byte) handler.get(columnCount - 1, row);
 
             return targetGroupId == groupId;

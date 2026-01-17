@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -39,7 +39,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -196,7 +196,7 @@ public class OrphanDetector {
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      */
-    private void sendTxRecoveryMessage(ReplicationGroupId cmpPartGrp, UUID txId) {
+    private void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
                     InternalClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
@@ -212,7 +212,7 @@ public class OrphanDetector {
                     }
 
                     return replicaService.invoke(commitPartPrimaryNode, TX_MESSAGES_FACTORY.txRecoveryMessage()
-                            .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
+                            .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                             .txId(txId)
                             .build());

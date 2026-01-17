@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.digest;
+import static org.apache.ignite.internal.sql.engine.exec.exp.CodegenUtils.wrapWithConversionToEvaluationException;
+import static org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.structuredTypeFromRelTypeList;
 
@@ -27,6 +28,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.BlockStatement;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
@@ -38,15 +40,13 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.type.StructNativeType;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
 /** Implementor which implements {@link SqlJoinProjection}. */
 class JoinProjectionImplementor {
@@ -73,22 +73,21 @@ class JoinProjectionImplementor {
      * @param projections The list of projections, i.e. expressions used to compute a new row.
      * @param type The type of the input row as if rows from both sides will be joined.
      * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of join projection.
      * @see SqlJoinProjection
      */
-    <RowT> SqlJoinProjection<RowT> implement(List<RexNode> projections, RelDataType type, int firstRowSize) {
+    SqlJoinProjection implement(List<RexNode> projections, RelDataType type, int firstRowSize) {
         String digest = digest(SqlJoinProjection.class, projections, type, "firstRowSize=" + firstRowSize);
-        Cache<String, SqlJoinProjection<RowT>> cache = cast(this.cache);
+        Cache<String, SqlJoinProjection> cache = cast(this.cache);
 
         return cache.get(digest, key -> {
-            SqlJoinProjectionExt<RowT> projectionExt = implementInternal(projections, type, firstRowSize);
+            SqlJoinProjectionExt projectionExt = implementInternal(projections, type, firstRowSize);
 
-            return new SqlJoinProjectionImpl<>(projectionExt, structuredTypeFromRelTypeList(RexUtil.types(projections)));
+            return new SqlJoinProjectionImpl(projectionExt, structuredTypeFromRelTypeList(RexUtil.types(projections)));
         });
     }
 
-    private <RowT> SqlJoinProjectionExt<RowT> implementInternal(List<RexNode> projections, RelDataType type, int firstRowSize) {
+    private SqlJoinProjectionExt implementInternal(List<RexNode> projections, RelDataType type, int firstRowSize) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
         for (RexNode node : projections) {
@@ -101,7 +100,7 @@ class JoinProjectionImplementor {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
+        ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
         ParameterExpression left = Expressions.parameter(Object.class, "left");
         ParameterExpression right = Expressions.parameter(Object.class, "right");
         ParameterExpression outBuilder = Expressions.parameter(RowBuilder.class, "outBuilder");
@@ -124,19 +123,15 @@ class JoinProjectionImplementor {
             builder.add(Expressions.statement(addRowField));
         }
 
-        ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
-        Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
-        BlockBuilder tryCatchBlock = new BlockBuilder();
-
-        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
+        BlockStatement methodBody = wrapWithConversionToEvaluationException(builder.toBlock());
 
         List<ParameterExpression> params = List.of(ctx, left, right, outBuilder);
 
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, void.class, "project",
-                params, tryCatchBlock.toBlock());
+                Modifier.PUBLIC, void.class, "project", params, methodBody
+        );
 
-        Class<SqlJoinProjectionExt<RowT>> clazz = cast(SqlJoinProjectionExt.class);
+        Class<SqlJoinProjectionExt> clazz = cast(SqlJoinProjectionExt.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 
@@ -145,25 +140,25 @@ class JoinProjectionImplementor {
 
     /** Internal interface of this implementor. Need to be public due to visibility for compiler. */
     @FunctionalInterface
-    public interface SqlJoinProjectionExt<RowT> {
-        void project(ExecutionContext<RowT> context, RowT left, RowT right, RowBuilder<RowT> outBuilder);
+    public interface SqlJoinProjectionExt {
+        <RowT> void project(SqlEvaluationContext<RowT> context, RowT left, RowT right, RowBuilder<RowT> outBuilder);
     }
 
-    private static class SqlJoinProjectionImpl<RowT> implements SqlJoinProjection<RowT> {
-        private final SqlJoinProjectionExt<RowT> projection;
+    private static class SqlJoinProjectionImpl implements SqlJoinProjection {
+        private final SqlJoinProjectionExt projection;
         private final StructNativeType rowType;
 
-        private SqlJoinProjectionImpl(SqlJoinProjectionExt<RowT> projection, StructNativeType rowType) {
+        private SqlJoinProjectionImpl(SqlJoinProjectionExt projection, StructNativeType rowType) {
             this.projection = projection;
             this.rowType = rowType;
         }
 
-        private RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
-            return context.rowHandler().factory(rowType).rowBuilder();
+        private <RowT> RowBuilder<RowT> builder(SqlEvaluationContext<RowT> context) {
+            return context.rowFactoryFactory().create(rowType).rowBuilder();
         }
 
         @Override
-        public RowT project(ExecutionContext<RowT> context, RowT left, RowT right) {
+        public <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT left, RowT right) {
             RowBuilder<RowT> rowBuilder = builder(context);
 
             projection.project(context, left, right, rowBuilder);

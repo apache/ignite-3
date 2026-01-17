@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -35,6 +36,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -59,8 +61,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.EventListener;
@@ -87,9 +87,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
@@ -97,6 +95,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -223,8 +222,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
@@ -298,7 +295,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                new SystemPropertiesNodeProperties(),
                 metricManager
         );
     }
@@ -342,7 +338,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             MetricManager metricManager
     ) {
         this.txConfig = txConfig;
@@ -363,7 +358,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.replicaService = replicaService;
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.metricsManager = metricManager;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
@@ -404,16 +398,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<ReplicationGroupId> action
+            Consumer<ZonePartitionId> action
     ) {
-        assertReplicationGroupType(eventParameters.groupId());
+        assert eventParameters.groupId() instanceof ZonePartitionId :
+                "Invalid replication group type: " + eventParameters.groupId().getClass();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
-        if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
-            return falseCompletedFuture();
-        }
-
-        action.accept(eventParameters.groupId());
+        action.accept((ZonePartitionId) eventParameters.groupId());
 
         return falseCompletedFuture();
     }
@@ -433,7 +423,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
         if (readOnly) {
             return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
         }
@@ -441,7 +431,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
         var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
 
-        txStateVolatileStorage.initialize(tx);
+        txStateVolatileStorage.initialize(tx, txLabel);
         txMetrics.onTransactionStarted();
 
         return tx;
@@ -459,7 +449,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, txOptions);
         }
 
-        txStateVolatileStorage.initialize(tx);
+        txStateVolatileStorage.initialize(tx, txOptions.txLabel());
         txMetrics.onTransactionStarted();
 
         return tx;
@@ -469,8 +459,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker timestampTracker,
             HybridTimestamp beginTimestamp,
             boolean implicit,
-            InternalTxOptions options) {
-
+            InternalTxOptions options
+    ) {
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
         long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
@@ -481,8 +471,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txId,
                 localNodeId,
                 implicit,
-                timeout,
-                nodeProperties.colocationEnabled()
+                timeout
         );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
@@ -570,6 +559,33 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return txStateVolatileStorage.state(txId);
     }
 
+    @Override
+    public CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
+            TxStateMeta txMeta,
+            InternalTransaction tx,
+            long currentEnlistmentConsistencyToken,
+            ZonePartitionId senderGroupId
+    ) {
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
+
+        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+            // Remote partition already has different consistency token, so we can't commit this transaction anyway.
+            // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
+            // is not under lock.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
+            return tx.rollbackAsync()
+                    .thenApply(unused -> {
+                        TxStateMeta newMeta = stateMeta(tx.id());
+
+                        assert isFinalState(newMeta.txState());
+
+                        return newMeta;
+                    });
+        }
+
+        return completedFuture(txMeta);
+    }
+
     @TestOnly
     public Collection<TxStateMeta> states() {
         return txStateVolatileStorage.states();
@@ -600,15 +616,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old ->
-                new TxStateMeta(
-                        finalState,
-                        old == null ? null : old.txCoordinatorId(),
-                        old == null ? null : old.commitPartitionId(),
-                        ts,
-                        old == null ? null : old.tx(),
-                        timeoutExceeded
-                ));
+        updateTxMeta(txId, old -> builder(old, finalState)
+                .commitTimestamp(ts)
+                .finishedDueToTimeout(timeoutExceeded)
+                .build()
+        );
 
         txMetrics.onReadWriteTransactionFinished(txId, finalState == COMMITTED);
 
@@ -622,34 +634,26 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
-            @Nullable ReplicationGroupId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commitIntent,
             boolean timeout,
             boolean recovery,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commitIntent, txId, enlistedGroups, commitPartition);
-
-        if (commitPartition != null) {
-            assertReplicationGroupType(commitPartition);
-        }
-        for (ReplicationGroupId replicationGroupId : enlistedGroups.keySet()) {
-            assertReplicationGroupType(replicationGroupId);
-        }
 
         assert enlistedGroups != null;
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-            updateTxMeta(txId, old -> new TxStateMeta(
-                    commitIntent ? COMMITTED : ABORTED,
-                    localNodeId,
-                    commitPartition,
-                    commitTimestamp(commitIntent),
-                    old == null ? null : old.tx(),
-                    timeout
-            ));
+            updateTxMeta(txId, old -> builder(old, commitIntent ? COMMITTED : ABORTED)
+                    .txCoordinatorId(localNodeId)
+                    .commitPartitionId(commitPartition)
+                    .commitTimestamp(commitTimestamp(commitIntent))
+                    .finishedDueToTimeout(timeout)
+                    .build()
+            );
 
             txMetrics.onReadWriteTransactionFinished(txId, commitIntent);
 
@@ -670,7 +674,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         TxStateMetaFinishing finishingStateMeta =
                 txMeta == null
-                        ? new TxStateMetaFinishing(null, commitPartition, timeout)
+                        ? new TxStateMetaFinishing(null, commitPartition, timeout, null)
                         : txMeta.finishing(timeout);
 
         TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
@@ -711,12 +715,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         });
     }
 
-    private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert (nodeProperties.colocationEnabled() ? replicationGroupId instanceof ZonePartitionId
-                : replicationGroupId instanceof TablePartitionId)
-                : "Invalid replication group type: " + replicationGroupId.getClass();
-    }
-
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
         if ((stateMeta.txState() == COMMITTED) == commit) {
             return nullCompletedFuture();
@@ -730,12 +728,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
-            @Nullable ReplicationGroupId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture,
-            boolean unlock
+            boolean unlockOnly
     ) {
         HybridTimestamp commitTimestamp = commitTimestamp(commit);
         // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
@@ -748,25 +746,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            Map<ReplicationGroupId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
+                            Map<ZonePartitionId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
 
-                            if (unlock) {
+                            if (unlockOnly) {
                                 return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
                                         .thenAccept(ignored -> {
                                             // Don't keep useless state.
+                                            TxStateMeta previous = txStateVolatileStorage.state(txId);
                                             txStateVolatileStorage.updateMeta(txId, old -> null);
 
-                                            TxStateMeta meta = new TxStateMeta(
-                                                    verifiedCommit ? COMMITTED : ABORTED,
-                                                    localNodeId,
-                                                    null,
-                                                    commitTimestamp,
-                                                    null,
-                                                    null,
-                                                    System.currentTimeMillis(),
-                                                    null
-                                            );
+                                            TxStateMeta meta = builder(verifiedCommit ? COMMITTED : ABORTED)
+                                                    .txCoordinatorId(localNodeId)
+                                                    .commitTimestamp(commitTimestamp)
+                                                    .cleanupCompletionTimestamp(System.currentTimeMillis())
+                                                    .txLabel(previous == null ? null : previous.txLabel())
+                                                    .build();
 
                                             txFinishFuture.complete(meta);
                                         });
@@ -804,9 +799,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            ReplicationGroupId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -834,17 +829,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
                             TransactionResult result = transactionException.transactionResult();
 
-                            TxStateMeta updatedMeta = updateTxMeta(txId, old ->
-                                    new TxStateMeta(
-                                            result.transactionState(),
-                                            old == null ? null : old.txCoordinatorId(),
-                                            commitPartition,
-                                            result.commitTimestamp(),
-                                            old == null ? null : old.tx(),
-                                            old == null ? null : old.initialVacuumObservationTimestamp(),
-                                            old == null ? null : old.cleanupCompletionTimestamp(),
-                                            old == null ? null : old.isFinishedDueToTimeout()
-                                    )
+                            TxStateMeta updatedMeta = updateTxMeta(txId, old -> builder(old, result.transactionState())
+                                    .commitPartitionId(commitPartition)
+                                    .commitTimestamp(result.commitTimestamp())
+                                    .build()
                             );
 
                             txFinishFuture.complete(updatedMeta);
@@ -878,11 +866,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> sendFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
-            ReplicationGroupId commitPartition,
+            ZonePartitionId commitPartition,
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -902,17 +890,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 .thenAccept(txResult -> {
                     validateTxFinishedAsExpected(commit, txId, txResult);
 
-                    TxStateMeta updatedMeta = updateTxMeta(txId, old ->
-                            new TxStateMeta(
-                                    txResult.transactionState(),
-                                    localNodeId,
-                                    old == null ? null : old.commitPartitionId(),
-                                    txResult.commitTimestamp(),
-                                    old == null ? null : old.tx(),
-                                    old == null ? null : old.initialVacuumObservationTimestamp(),
-                                    old == null ? null : old.cleanupCompletionTimestamp(),
-                                    old == null ? null : old.isFinishedDueToTimeout()
-                            ));
+                    TxStateMeta updatedMeta = updateTxMeta(txId, old -> builder(old, txResult.transactionState())
+                            .txCoordinatorId(localNodeId)
+                            .commitTimestamp(txResult.commitTimestamp())
+                            .build()
+                    );
 
                     assert isFinalState(updatedMeta.txState()) :
                             "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
@@ -952,9 +934,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
-            Consumer<Throwable> cb) {
-        assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
+    public InternalTransaction beginRemote(
+            UUID txId,
+            ZonePartitionId commitPartId,
+            UUID coord,
+            long token,
+            long timeout,
+            Consumer<Throwable> cb
+    ) {
+        assert commitPartId.zoneId() >= 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
 
         // Switch to default timeout if needed.
         timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
@@ -1120,22 +1108,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            @Nullable ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            @Nullable ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        for (ReplicationGroupId replicationGroupId : enlistedPartitions.keySet()) {
-            assertReplicationGroupType(replicationGroupId);
-        }
-
         return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -1145,9 +1129,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
-        assertReplicationGroupType(commitPartitionId);
-
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
         return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
     }
 
@@ -1207,8 +1189,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return;
         }
 
-        // Ignore error responses here. A transaction will be rolled back in other place.
+        // Only removing the failed inflight here. A transaction will be rolled back in other place.
         if (message instanceof ErrorReplicaResponse) {
+            ErrorReplicaResponse response = (ErrorReplicaResponse) message;
+
+            Throwable err = response.throwable();
+
+            Throwable cause = ExceptionUtils.unwrapCause(err);
+
+            if (cause instanceof DelayedAckException) {
+                // Keep compatibility.
+                DelayedAckException err0 = (DelayedAckException) cause;
+
+                transactionInflights.removeInflight(err0.txId(), err0);
+            }
+
             return;
         }
 
@@ -1235,14 +1230,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @return Verification future.
      */
     private CompletableFuture<Void> verifyCommitTimestamp(
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             HybridTimestamp commitTimestamp
     ) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;
 
-        for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
-            ReplicationGroupId groupId = enlistedGroup.getKey();
+        for (Map.Entry<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
+            ZonePartitionId groupId = enlistedGroup.getKey();
             long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().consistencyToken();
 
             verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
@@ -1301,5 +1296,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         SystemPropertyView property = systemProperties.properties().value().get(name);
 
         return property == null ? defaultValue : Long.parseLong(property.propertyValue());
+    }
+
+    @TestOnly
+    public void clearLocalRwTxCounter() {
+        localRwTxCounter.clear();
     }
 }

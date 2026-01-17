@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.jetbrains.annotations.Nullable;
 
 /** A class with auxiliary constants and methods for the {@link ReplicaMessageGroup}. */
 public class ReplicaMessageUtils {
@@ -59,25 +59,21 @@ public class ReplicaMessageUtils {
     }
 
     /**
-     * Converts to a network message.
+     * Converts to a network message with null awareness.
      *
      * @param messagesFactory Messages factory.
-     * @param replicationGroupId Replication group ID for a given partition.
+     * @param zonePartitionId Zone replication group ID for a given partition.
      * @return New instance of network message.
      */
-    public static ReplicationGroupIdMessage toReplicationGroupIdMessage(
+    @Nullable
+    public static ZonePartitionIdMessage toZonePartitionIdMessageNullable(
             ReplicaMessagesFactory messagesFactory,
-            ReplicationGroupId replicationGroupId
+            @Nullable ZonePartitionId zonePartitionId
     ) {
-        assert replicationGroupId instanceof TablePartitionId || replicationGroupId instanceof ZonePartitionId :
-                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
-                        + ", value=" + replicationGroupId
-                        + ", requiredType=TablePartitionId or ZonePartitionId].";
-
-        if (replicationGroupId instanceof TablePartitionId) {
-            return toTablePartitionIdMessage(messagesFactory, (TablePartitionId) replicationGroupId);
-        } else {
-            return toZonePartitionIdMessage(messagesFactory, (ZonePartitionId) replicationGroupId);
+        if (zonePartitionId == null) {
+            return null;
         }
+
+        return toZonePartitionIdMessage(messagesFactory, zonePartitionId);
     }
 }

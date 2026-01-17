@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -114,6 +116,10 @@ public class WatchProcessor implements ManuallyCloseable {
     private final EntryReader entryReader;
 
     private volatile WatchEventHandlingCallback watchEventHandlingCallback;
+
+    // This field is used in assertions only. It was added in order to ease the debug of a tricky problem that is nearly impossible to
+    // reproduce.
+    private volatile long revision = -1;
 
     /** Executor for processing watch events. */
     private final ExecutorService watchExecutor;
@@ -252,6 +258,9 @@ public class WatchProcessor implements ManuallyCloseable {
     private CompletableFuture<Void> notifyWatchesInternal(long newRevision, List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
+        Set<Long> revisionsSet = updatedEntries.stream().map(Entry::revision).collect(Collectors.toUnmodifiableSet());
+        assert revisionsSet.size() <= 1 : "Update entries are associated with different revisions, revisions=" + revisionsSet;
+
         List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
                 .filter(WatchProcessor::isNotIdempotentCacheCommand)
                 .collect(toList());
@@ -274,7 +283,7 @@ public class WatchProcessor implements ManuallyCloseable {
             return newNotificationFuture;
         }, newNotificationFuture -> {
             invokeNotificationFutureListeners(newNotificationFuture, filteredUpdatedEntries, time);
-        }, updatedEntriesKeysInfo(updatedEntries));
+        }, updatedEntriesKeysInfo(newRevision, updatedEntries));
     }
 
     private void invokeNotificationFutureListeners(
@@ -287,10 +296,11 @@ public class WatchProcessor implements ManuallyCloseable {
         }
     }
 
-    private static Supplier<String> updatedEntriesKeysInfo(List<Entry> updatedEntries) {
+    private Supplier<String> updatedEntriesKeysInfo(long revision, List<Entry> updatedEntries) {
         return () -> updatedEntries.stream()
                 .map(entry -> new String(entry.key(), UTF_8))
-                .collect(joining(",", "Keys of updated entries: ", ""));
+                .collect(joining(", ", "Keys of revision: " + revision + " and previous revision: " + this.revision
+                        + "with updated entries: ", ""));
     }
 
     private static CompletableFuture<Void> performWatchesNotifications(
@@ -403,6 +413,8 @@ public class WatchProcessor implements ManuallyCloseable {
         watchEventHandlingCallback.onSafeTimeAdvanced(time);
 
         watchEventHandlingCallback.onRevisionApplied(revision);
+
+        this.revision = revision;
     }
 
     /**

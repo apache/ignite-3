@@ -21,26 +21,15 @@ import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when trying to deploy unit which already exist.
+ * Throws when trying to deploy unit which already exists.
  */
 public class DeploymentUnitAlreadyExistsException extends IgniteException {
     /**
-     * Unit identifier.
-     */
-    private final String id;
-
-    /**
      * Constructor.
      *
-     * @param id Unit identifier.
      * @param message Error message.
      */
-    public DeploymentUnitAlreadyExistsException(String id, String message) {
+    public DeploymentUnitAlreadyExistsException(String message) {
         super(CodeDeployment.UNIT_ALREADY_EXISTS_ERR, message);
-        this.id = id;
-    }
-
-    public String id() {
-        return id;
     }
 }

@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.network;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -41,6 +44,8 @@ import org.apache.ignite.network.NetworkAddress;
  */
 public class StaticNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
+    private static final long RETRY_WAIT_BASE_MILLIS = 500;
+    private static final int MAX_TRIES = 3;
 
     /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
@@ -56,12 +61,22 @@ public class StaticNodeFinder implements NodeFinder {
 
     @Override
     public Collection<NetworkAddress> findNodes() {
-        return addresses.parallelStream()
+        if (addresses.isEmpty()) {
+            return Set.of();
+        }
+
+        Collection<NetworkAddress> networkAddresses = addresses.parallelStream()
                 .flatMap(
                         originalAddress -> Arrays.stream(resolveAll(originalAddress.host()))
                                 .map(ip -> new NetworkAddress(ip, originalAddress.port()))
                 )
-                .collect(toList());
+                .collect(toSet());
+
+        if (networkAddresses.isEmpty()) {
+            throw new IgniteInternalException(ADDRESS_UNRESOLVED_ERR, "No network addresses resolved through any provided names");
+        }
+
+        return networkAddresses;
     }
 
     @Override
@@ -70,14 +85,34 @@ public class StaticNodeFinder implements NodeFinder {
     }
 
     private static String[] resolveAll(String host) {
-        InetAddress[] inetAddresses;
-        try {
-            inetAddresses = InetAddress.getAllByName(host);
-        } catch (UnknownHostException e) {
-            LOG.warn("Cannot resolve {}", host);
-            return ArrayUtils.STRING_EMPTY_ARRAY;
-        }
+        InetAddress[] inetAddresses = null;
 
+        int tryCount = 0;
+        boolean resolved = false;
+
+        do {
+            tryCount++;
+
+            try {
+                inetAddresses = InetAddress.getAllByName(host);
+                resolved = true;
+            } catch (UnknownHostException e) {
+                if (tryCount == MAX_TRIES) {
+                    LOG.warn("Cannot resolve {}", host);
+                    return ArrayUtils.STRING_EMPTY_ARRAY;
+                }
+
+                try {
+                    Thread.sleep(tryCount * RETRY_WAIT_BASE_MILLIS);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+
+                    return ArrayUtils.STRING_EMPTY_ARRAY;
+                }
+            }
+        } while (!resolved);
+
+        assert inetAddresses != null;
         String[] addresses = new String[inetAddresses.length];
         for (int i = 0; i < inetAddresses.length; i++) {
             InetAddress inetAddress = inetAddresses[i];

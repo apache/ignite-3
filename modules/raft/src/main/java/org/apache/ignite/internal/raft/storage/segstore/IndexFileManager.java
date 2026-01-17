@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Math.toIntExact;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
@@ -64,14 +65,16 @@ import org.jetbrains.annotations.Nullable;
  * +------------------------------------------------------------------+
  * </pre>
  *
- * <p>Raft group meta is as follows:
- * <pre>
- * +------------------------------------------------------------------------------------------------------------------------+-----+
- * |                                              Raft group 1 meta                                                         | ... |
- * +------------------------------------------------------------------------------------------------------------------------+-----+
- * | Group ID (8 bytes) | Flags (4 bytes) | Payload Offset (4 bytes) | First Log Index (8 bytes) | Last Log Index (8 bytes) | ... |
- * +------------------------------------------------------------------------------------------------------------------------+-----+
- * </pre>
+ * <p>Each Raft group meta is as follows (written as a list, because the table doesn't fit the configured line length):
+ * <ol>
+ *     <li>Group ID (8 bytes);</li>
+ *     <li>Flags (4 bytes);</li>
+ *     <li>Payload offset (4 bytes);</li>
+ *     <li>First log index (8 bytes, inclusive);</li>
+ *     <li>Last log index (8 bytes, exclusive);</li>
+ *     <li>First log index kept (8 bytes): used during prefix truncation, either equal to first index kept if prefix was truncated at least
+ *     once during the index file lifecycle, otherwise equal to {@code -1}.</li>
+ * </ol>
  *
  * <p>Payload of the index files has the following structure:
  * <pre>
@@ -101,11 +104,14 @@ class IndexFileManager {
 
     private static final String TMP_FILE_SUFFIX = ".tmp";
 
+    /** Size of the segment file offset entry (used as the payload of an index file). */
+    static final int SEGMENT_FILE_OFFSET_SIZE = Integer.BYTES;
+
     // Magic number + format version + number of Raft groups.
     static final int COMMON_META_SIZE = Integer.BYTES + Integer.BYTES + Integer.BYTES;
 
-    // Group ID + flags + file offset + start log index + end log index.
-    static final int GROUP_META_SIZE = Long.BYTES + Integer.BYTES + Integer.BYTES + Long.BYTES + Long.BYTES;
+    // Group ID + flags + file offset + start log index + end log index + first index kept.
+    static final int GROUP_META_SIZE = Long.BYTES + Integer.BYTES + Integer.BYTES + Long.BYTES + Long.BYTES + Long.BYTES;
 
     static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
@@ -167,27 +173,40 @@ class IndexFileManager {
      * <p>Must only be called by the checkpoint thread.
      */
     Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        return saveIndexMemtable(indexMemTable, ++curFileOrdinal);
+        return saveIndexMemtable(indexMemTable, ++curFileOrdinal, false);
     }
 
-    Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
+    private Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) throws IOException {
         String fileName = indexFileName(fileOrdinal, 0);
 
         Path tmpFilePath = indexFilesDir.resolve(fileName + TMP_FILE_SUFFIX);
 
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
-            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal);
+            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal, onRecovery);
 
             os.write(headerBytes);
 
             Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
 
             while (it.hasNext()) {
-                os.write(payload(it.next().getValue()));
+                SegmentInfo segmentInfo = it.next().getValue();
+
+                // Segment Info may not contain payload in case of suffix truncation, see "IndexMemTable#truncateSuffix".
+                if (segmentInfo.size() > 0) {
+                    os.write(payload(segmentInfo));
+                }
             }
         }
 
         return syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
+    }
+
+    /**
+     * This method is intended to be called during {@link SegmentFileManager} recovery in order to create index files that may have been
+     * lost due to a component stop before a checkpoint was able to complete.
+     */
+    void recoverIndexFile(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
+        saveIndexMemtable(indexMemTable, fileOrdinal, true);
     }
 
     /**
@@ -258,7 +277,7 @@ class IndexFileManager {
         return Files.exists(indexFilesDir.resolve(indexFileName(fileOrdinal, 0)));
     }
 
-    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal) {
+    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -285,16 +304,25 @@ class IndexFileManager {
 
             long lastLogIndexExclusive = segmentInfo.lastLogIndexExclusive();
 
-            var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
+            long firstIndexKept = segmentInfo.firstIndexKept();
 
-            putIndexFileMeta(groupId, indexFileMeta);
+            // On recovery we are only creating missing index files, in-memory meta will be created on Index File Manager start.
+            // (see recoverIndexFileMetas).
+            if (!onRecovery) {
+                IndexFileMeta indexFileMeta = createIndexFileMeta(
+                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal
+                );
+
+                putIndexFileMeta(groupId, indexFileMeta, firstIndexKept);
+            }
 
             headerBuffer
                     .putLong(groupId)
                     .putInt(0) // Flags.
                     .putInt(payloadOffset)
                     .putLong(firstLogIndexInclusive)
-                    .putLong(lastLogIndexExclusive);
+                    .putLong(lastLogIndexExclusive)
+                    .putLong(firstIndexKept);
 
             payloadOffset += payloadSize(segmentInfo);
         }
@@ -302,13 +330,51 @@ class IndexFileManager {
         return headerBuffer.array();
     }
 
-    private void putIndexFileMeta(Long groupId, IndexFileMeta indexFileMeta) {
+    private static @Nullable IndexFileMeta createIndexFileMeta(
+            long firstLogIndexInclusive,
+            long lastLogIndexExclusive,
+            long firstIndexKept,
+            int payloadOffset,
+            int fileOrdinal
+    ) {
+        if (firstLogIndexInclusive == -1) {
+            assert firstIndexKept != -1 : "Expected a prefix tombstone, but firstIndexKept is not set.";
+
+            // This is a "prefix tombstone", no need to create any meta, we will just truncate the prefix.
+            return null;
+        }
+
+        if (firstIndexKept == -1 || firstIndexKept <= firstLogIndexInclusive) {
+            // No prefix truncation required, simply create a new meta.
+            return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
+        }
+
+        // Create a meta with a truncated prefix.
+        int numEntriesToSkip = toIntExact(firstIndexKept - firstLogIndexInclusive);
+
+        int adjustedPayloadOffset = payloadOffset + numEntriesToSkip * SEGMENT_FILE_OFFSET_SIZE;
+
+        return new IndexFileMeta(firstIndexKept, lastLogIndexExclusive, adjustedPayloadOffset, fileOrdinal);
+    }
+
+    private void putIndexFileMeta(Long groupId, @Nullable IndexFileMeta indexFileMeta, long firstIndexKept) {
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 
         if (existingGroupIndexMeta == null) {
-            groupIndexMetas.put(groupId, new GroupIndexMeta(indexFileMeta));
+            if (indexFileMeta != null) {
+                groupIndexMetas.put(groupId, new GroupIndexMeta(indexFileMeta));
+            }
         } else {
-            existingGroupIndexMeta.addIndexMeta(indexFileMeta);
+            if (firstIndexKept != -1) {
+                existingGroupIndexMeta.truncatePrefix(firstIndexKept);
+            }
+
+            if (indexFileMeta != null) {
+                // New index meta must have already been truncated according to the prefix tombstone.
+                assert indexFileMeta.firstLogIndexInclusive() >= firstIndexKept : indexFileMeta;
+
+                existingGroupIndexMeta.addIndexMeta(indexFileMeta);
+            }
         }
     }
 
@@ -381,10 +447,13 @@ class IndexFileManager {
                 int payloadOffset = groupMetaBuffer.getInt();
                 long firstLogIndexInclusive = groupMetaBuffer.getLong();
                 long lastLogIndexExclusive = groupMetaBuffer.getLong();
+                long firstIndexKept = groupMetaBuffer.getLong();
 
-                var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, curFileOrdinal);
+                IndexFileMeta indexFileMeta = createIndexFileMeta(
+                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal
+                );
 
-                putIndexFileMeta(groupId, indexFileMeta);
+                putIndexFileMeta(groupId, indexFileMeta, firstIndexKept);
             }
         }
     }

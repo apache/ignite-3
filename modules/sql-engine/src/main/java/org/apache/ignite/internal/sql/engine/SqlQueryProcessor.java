@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.CreateTableDefaultsView;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -75,7 +75,8 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
@@ -84,6 +85,7 @@ import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.expressions.SqlExpressionFactoryAdapter;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -202,13 +204,13 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final TxManager txManager;
 
-    private final NodeProperties nodeProperties;
-
     private final TransactionalOperationTracker txTracker;
 
     private final ScheduledExecutorService commonScheduler;
 
     private final EventLog eventLog;
+
+    private final SqlExpressionFactory expressionFactory;
 
     /** Constructor. */
     public SqlQueryProcessor(
@@ -229,7 +231,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
             TxManager txManager,
-            NodeProperties nodeProperties,
             LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler,
             KillCommandHandler killCommandHandler,
@@ -252,21 +253,31 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.nodeCfg = nodeCfg;
         this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
         this.txManager = txManager;
-        this.nodeProperties = nodeProperties;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        StatisticAggregatorImpl statAggregator =
-                new StatisticAggregatorImpl(() -> logicalTopologyService.localLogicalTopology().nodes(),
-                        clusterSrvc.messagingService());
-        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
+        StatisticAggregatorImpl statAggregator = new StatisticAggregatorImpl(
+                () -> logicalTopologyService.localLogicalTopology().nodes(),
+                clusterSrvc.messagingService()
+        );
+        sqlStatisticManager = new SqlStatisticManagerImpl(
+                tableManager, 
+                catalogManager, 
+                lowWaterMark,
+                commonScheduler,
+                statAggregator,
+                clusterCfg.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
+        );
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                nodeProperties,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
+        );
+
+        expressionFactory = new SqlExpressionFactoryImpl(
+                Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
         );
     }
 
@@ -339,7 +350,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, nodeProperties, TABLE_CACHE_SIZE, CACHE_FACTORY
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE, CACHE_FACTORY
         );
 
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
@@ -357,8 +368,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager, nodeProperties),
-                nodeProperties,
+                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager),
                 taskExecutor
         );
 
@@ -376,6 +386,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 ddlCommandHandler,
                 taskExecutor,
                 SqlRowHandler.INSTANCE,
+                SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
@@ -383,12 +394,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
-                nodeProperties,
                 killCommandHandler,
-                new ExpressionFactoryImpl<>(
-                        Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
-                ),
-                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
+                expressionFactory,
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT,
+                SqlPlanToTxSchemaVersionValidator.create(schemaSyncService, catalogManager)
         ));
 
         queryExecutor = registerService(new QueryExecutor(
@@ -586,6 +595,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return sqlStatisticManager;
     }
 
+    @TestOnly
+    public SqlDistributedConfiguration clusterConfig() {
+        return clusterCfg;
+    }
+
     private ParsedResult parseAndCache(String sql) {
         ParsedResult result = queryExecutor.parse(sql);
 
@@ -629,6 +643,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @Override
     public CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
         return prepareSvc.invalidateCache(tableNames);
+    }
+
+    /** Returns an expression factory to create executable expressions. */
+    public ExpressionFactory expressionFactory() {
+        return new SqlExpressionFactoryAdapter(expressionFactory);
     }
 
     /** Completes the provided future when the callback is called. */

@@ -82,7 +82,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     /** {@inheritDoc} */
     @Override
     public void describeTo(Description description) {
-        description.appendText("is ").appendDescriptionOf(matcher);
+        description.appendText("is a future that completes successfully with ").appendDescriptionOf(matcher);
     }
 
     /** {@inheritDoc} */

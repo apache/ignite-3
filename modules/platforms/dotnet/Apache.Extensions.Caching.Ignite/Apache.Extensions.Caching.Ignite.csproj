@@ -9,6 +9,8 @@
         <AssemblyOriginatorKeyFile>Apache.Extensions.Caching.Ignite.snk</AssemblyOriginatorKeyFile>
 
         <IsPackable>true</IsPackable>
+        <IsTrimmable>true</IsTrimmable>
+
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RootNamespace>Apache.Extensions.Caching.Ignite</RootNamespace>
     </PropertyGroup>
@@ -16,7 +18,6 @@
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="[8.*,)" />
       <PackageReference Include="Microsoft.Extensions.Options" Version="[8.*,)" />
-      <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="[8.*,)" />
     </ItemGroup>
 
     <ItemGroup>

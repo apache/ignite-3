@@ -44,9 +44,8 @@ public class ItPublicSchemaTest extends ClusterPerTestIntegrationTest {
     @Test
     public void existsInEmptyCluster() {
         CatalogManager catalogManager = TestWrappers.unwrapIgniteImpl(cluster.node(0)).catalogManager();
-        int version = catalogManager.latestCatalogVersion();
 
-        assertNotNull(catalogManager.catalog(version).schema("PUBLIC"));
+        assertNotNull(catalogManager.latestCatalog().schema("PUBLIC"));
     }
 
     @Test

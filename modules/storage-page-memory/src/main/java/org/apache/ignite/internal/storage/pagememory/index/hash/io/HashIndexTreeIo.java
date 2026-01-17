@@ -174,13 +174,9 @@ public interface HashIndexTreeIo {
      */
     default int compare(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx, HashIndexRowKey rowKey)
             throws IgniteInternalCheckedException {
-        assert rowKey instanceof HashIndexRow;
-
-        HashIndexRow row = (HashIndexRow) rowKey;
-
         final int off = offset(idx);
 
-        int cmp = Integer.compare(getInt(pageAddr + off, HASH_OFFSET), row.indexColumnsHash());
+        int cmp = Integer.compare(getInt(pageAddr + off, HASH_OFFSET), rowKey.indexColumnsHash());
 
         if (cmp != 0) {
             return cmp;
@@ -193,7 +189,7 @@ public interface HashIndexTreeIo {
 
             ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
 
-            ByteBuffer rowIndexColumnsCopyForComparison = row.indexColumns().valueBuffer().rewind().duplicate();
+            ByteBuffer rowIndexColumnsCopyForComparison = rowKey.indexColumns().valueBuffer().rewind().duplicate();
 
             if (rowIndexColumnsCopyForComparison.capacity() > indexColumnsSize) {
                 rowIndexColumnsCopyForComparison.limit(indexColumnsSize);
@@ -209,18 +205,24 @@ public interface HashIndexTreeIo {
 
             CompareIndexColumnsValue compareIndexColumnsValue = new CompareIndexColumnsValue();
 
-            dataPageReader.traverse(link, compareIndexColumnsValue, row.indexColumns().valueBuffer().rewind().duplicate());
+            dataPageReader.traverse(link, compareIndexColumnsValue, rowKey.indexColumns().valueBuffer().rewind().duplicate());
 
             cmp = compareIndexColumnsValue.compareResult();
         } else {
             ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
 
-            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind());
+            cmp = indexColumnsBuffer.compareTo(rowKey.indexColumns().valueBuffer().rewind());
         }
 
         if (cmp != 0) {
             return cmp;
         }
+
+        if (!(rowKey instanceof HashIndexRow)) {
+            return 0;
+        }
+
+        HashIndexRow row = (HashIndexRow) rowKey;
 
         long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
 

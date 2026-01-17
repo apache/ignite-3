@@ -45,6 +45,31 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         assert result != null : "Query is expected to be parsed at this phase";
 
+        SqlOperationContext operationContext = buildContext(query, result);
+
+        CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationContext.operationTime())
+                .thenCompose(none -> query.executor.prepare(result, operationContext)
+                        .thenAccept(plan -> {
+                            if (query.txContext.explicitTx() == null) {
+                                // in case of implicit tx we have to update observable time to prevent tx manager to start
+                                // implicit transaction too much in the past where version of catalog we used to prepare the
+                                // plan was not yet available
+                                query.txContext.updateObservableTime(query.executor.deriveMinimalRequiredTime(plan));
+                            }
+
+                            query.plan = plan;
+                        }));
+
+        return Result.proceedAfter(awaitFuture);
+    }
+
+    private static SqlOperationContext buildContext(Query query, ParsedResult result) {
+        SqlOperationContext retryContext = query.operationContext;
+
+        if (retryContext != null) {
+            return retryContext;
+        }
+
         validateParsedStatement(query.properties, result);
         validateDynamicParameters(result.dynamicParamsCount(), query.params, true);
         ensureStatementMatchesTx(result.queryType(), query.txContext);
@@ -70,20 +95,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         query.operationContext = operationContext;
 
-        CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationTime)
-                .thenCompose(none -> query.executor.prepare(result, operationContext)
-                        .thenAccept(plan -> {
-                            if (query.txContext.explicitTx() == null) {
-                                // in case of implicit tx we have to update observable time to prevent tx manager to start
-                                // implicit transaction too much in the past where version of catalog we used to prepare the
-                                // plan was not yet available
-                                query.txContext.updateObservableTime(query.executor.deriveMinimalRequiredTime(plan));
-                            }
-
-                            query.plan = plan;
-                        }));
-
-        return Result.proceedAfter(awaitFuture);
+        return operationContext;
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */

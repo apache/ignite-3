@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
@@ -196,22 +195,32 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             String zone,
             Set<Integer> partitionIds
     ) throws InterruptedException {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+        awaitPartitionsToBeHealthy(CLUSTER, zone, partitionIds);
+    }
+
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param cluster The cluster to check.
+     * @param zone The name of the distribution zone to check.
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    public static void awaitPartitionsToBeHealthy(
+            Cluster cluster,
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         assertTrue(waitForCondition(() -> {
                     CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;
 
-                    if (colocationEnabled()) {
-                        globalPartitionStates = node.disasterRecoveryManager()
-                                .globalPartitionStates(Set.of(zone), partitionIds)
-                                .thenApply(map -> map.entrySet().stream()
-                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
-                    } else {
-                        globalPartitionStates = node.disasterRecoveryManager()
-                                .globalTablePartitionStates(Set.of(zone), partitionIds)
-                                .thenApply(map -> map.entrySet().stream()
-                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
-                    }
+                    globalPartitionStates = node.disasterRecoveryManager()
+                            .globalPartitionStates(Set.of(zone), partitionIds)
+                            .thenApply(map -> map.entrySet().stream()
+                                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
 
                     assertThat(globalPartitionStates, willCompleteSuccessfully());
 
@@ -233,13 +242,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Drops all non-system schemas. */
     protected static void dropAllSchemas() {
         Ignite aliveNode = CLUSTER.aliveNode();
-        IgniteImpl ignite = unwrapIgniteImpl(aliveNode);
-        CatalogManager catalogManager = ignite.catalogManager();
 
-        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-        assert latestCatalog != null;
-
-        String dropSchemasScript = latestCatalog.schemas().stream()
+        String dropSchemasScript = unwrapIgniteImpl(aliveNode).catalogManager().latestCatalog().schemas().stream()
                 .map(CatalogSchemaDescriptor::name)
                 .filter(Predicate.not(CatalogUtils.SYSTEM_SCHEMAS::contains))
                 .filter(Predicate.not(SqlCommon.DEFAULT_SCHEMA_NAME::equals))
@@ -253,8 +257,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible zones. */
     protected static void dropAllZonesExceptDefaultOne() {
-        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+        Catalog catalog = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog();
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         Predicate<String> isNotDefaultZone = defaultZone == null ? zoneName -> true
@@ -700,6 +703,10 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     protected static Ignite node(int index) {
         return CLUSTER.node(index);
+    }
+
+    protected static IgniteImpl igniteImpl(int index) {
+        return unwrapIgniteImpl(node(index));
     }
 
     protected static ClusterNode clusterNode(int index) {

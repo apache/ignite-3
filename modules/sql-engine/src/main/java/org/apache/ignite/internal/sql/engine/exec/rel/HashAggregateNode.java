@@ -32,9 +32,9 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
@@ -242,7 +242,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            RowHandler<RowT> handler = context().rowHandler();
+            RowHandler<RowT> handler = context().rowAccessor();
 
             if (!AggregateRow.groupMatches(handler, row, type, grpId)) {
                 return;

@@ -63,6 +63,8 @@ import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
@@ -94,11 +96,22 @@ import org.junit.jupiter.params.provider.ValueSource;
 public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrationTest {
     public static final String TABLE_NAME = "test_table";
 
+    private static final String TABLE_NAME_COMPOSITE_KEY = "test_table_composite_key";
+
+    private static final int STREAMER_TIMEOUT_SECONDS = 5;
+
     abstract Ignite ignite();
 
     @BeforeAll
     public void createTable() {
         createTable(TABLE_NAME, 2, 10);
+        sql("CREATE TABLE test_table_composite_key (\n"
+                + "    name VARCHAR,\n"
+                + "    data VARCHAR,\n"
+                + "    uniqueId VARCHAR,\n"
+                + "    foo VARCHAR,\n"
+                + "    PRIMARY KEY (uniqueId, name)\n"
+                + ")");
     }
 
     @BeforeEach
@@ -124,7 +137,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(tupleKey(3)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1)));
         assertNotNull(view.get(null, tupleKey(2)));
@@ -149,7 +162,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(new PersonPojo(3)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("foo", view.get(null, new PersonPojo(1)).name);
         assertEquals("bar", view.get(null, new PersonPojo(2)).name);
@@ -172,7 +185,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(Map.entry(tupleKey(3), Tuple.create())));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("foo", view.get(null, tupleKey(1)).stringValue("name"));
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
@@ -195,11 +208,132 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(Map.entry(3, new PersonValPojo("_"))));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("foo", view.get(null, 1).name);
         assertEquals("bar", view.get(null, 2).name);
         assertNull(view.get(null, 3));
+    }
+
+    @Test
+    public void testBasicStreamingCompositeKeyRecordBinaryView() {
+        RecordView<Tuple> view = compositeKeyTable().recordView();
+        view.upsert(null, compositeKeyTuple(1));
+        view.upsert(null, compositeKeyTuple(2));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(DataStreamerItem.of(compositeKeyTuple(3)));
+            publisher.submit(DataStreamerItem.of(compositeKeyTuple(4)));
+
+            publisher.submit(DataStreamerItem.removed(compositeKeyTupleKey(1)));
+        }
+
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+
+        assertNull(view.get(null, compositeKeyTupleKey(1)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(2)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(3)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(4)));
+
+        Tuple resTuple = view.get(null, compositeKeyTupleKey(3));
+        assertEquals("name3", resTuple.stringValue("name"));
+        assertEquals("data3", resTuple.stringValue("data"));
+        assertEquals("uniqueId3", resTuple.stringValue("uniqueId"));
+        assertEquals("foo3", resTuple.stringValue("foo"));
+    }
+
+    @Test
+    public void testBasicStreamingCompositeKeyRecordPojoView() {
+        RecordView<CompositeKeyPojo> view = compositeKeyTable().recordView(CompositeKeyPojo.class);
+        view.upsert(null, new CompositeKeyPojo(1, "data1", "foo1"));
+        view.upsert(null, new CompositeKeyPojo(2, "data2", "foo2"));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<CompositeKeyPojo>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(DataStreamerItem.of(new CompositeKeyPojo(3, "data3", "foo3")));
+            publisher.submit(DataStreamerItem.of(new CompositeKeyPojo(4, "data4", "foo4")));
+
+            publisher.submit(DataStreamerItem.removed(new CompositeKeyPojo(1)));
+        }
+
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+
+        assertNull(view.get(null, new CompositeKeyPojo(1)));
+        assertNotNull(view.get(null, new CompositeKeyPojo(2)));
+        assertNotNull(view.get(null, new CompositeKeyPojo(3)));
+        assertNotNull(view.get(null, new CompositeKeyPojo(4)));
+
+        CompositeKeyPojo resPojo = view.get(null, new CompositeKeyPojo(3));
+        assertEquals("name3", resPojo.name);
+        assertEquals("data3", resPojo.data);
+        assertEquals("uniqueId3", resPojo.uniqueId);
+        assertEquals("foo3", resPojo.foo);
+    }
+
+    @Test
+    public void testBasicStreamingCompositeKeyKvBinaryView() {
+        KeyValueView<Tuple, Tuple> view = compositeKeyTable().keyValueView();
+        view.put(null, compositeKeyTupleKey(1), compositeKeyTupleVal(1));
+        view.put(null, compositeKeyTupleKey(2), compositeKeyTupleVal(2));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Tuple, Tuple>>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(DataStreamerItem.of(Map.entry(compositeKeyTupleKey(3), compositeKeyTupleVal(3))));
+            publisher.submit(DataStreamerItem.of(Map.entry(compositeKeyTupleKey(4), compositeKeyTupleVal(4))));
+
+            publisher.submit(DataStreamerItem.removed(Map.entry(compositeKeyTupleKey(1), Tuple.create())));
+        }
+
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+
+        assertNull(view.get(null, compositeKeyTupleKey(1)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(2)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(3)));
+        assertNotNull(view.get(null, compositeKeyTupleKey(4)));
+
+        Tuple resValue = view.get(null, compositeKeyTupleKey(3));
+        assertEquals("data3", resValue.stringValue("data"));
+        assertEquals("foo3", resValue.stringValue("foo"));
+    }
+
+    @Test
+    public void testBasicStreamingCompositeKeyKvPojoView() {
+        KeyValueView<CompositeKeyKeyPojo, CompositeKeyValPojo> view = compositeKeyTable().keyValueView(
+                Mapper.of(CompositeKeyKeyPojo.class), Mapper.of(CompositeKeyValPojo.class));
+        view.put(null, new CompositeKeyKeyPojo(1), new CompositeKeyValPojo(1));
+        view.put(null, new CompositeKeyKeyPojo(2), new CompositeKeyValPojo(2));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<CompositeKeyKeyPojo, CompositeKeyValPojo>>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(DataStreamerItem.of(Map.entry(new CompositeKeyKeyPojo(3), new CompositeKeyValPojo(3))));
+            publisher.submit(DataStreamerItem.of(Map.entry(new CompositeKeyKeyPojo(4), new CompositeKeyValPojo(4))));
+
+            publisher.submit(DataStreamerItem.removed(Map.entry(new CompositeKeyKeyPojo(1), new CompositeKeyValPojo(1))));
+        }
+
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+
+        assertNull(view.get(null, new CompositeKeyKeyPojo(1)));
+        assertNotNull(view.get(null, new CompositeKeyKeyPojo(2)));
+        assertNotNull(view.get(null, new CompositeKeyKeyPojo(3)));
+        assertNotNull(view.get(null, new CompositeKeyKeyPojo(4)));
+
+        CompositeKeyValPojo resValue = view.get(null, new CompositeKeyKeyPojo(3));
+        assertEquals("data3", resValue.data);
+        assertEquals("foo3", resValue.foo);
     }
 
     @Test
@@ -248,7 +382,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(item);
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         assertThat(ex.getMessage(), containsString("Missed key column: ID"));
 
         DataStreamerException cause = (DataStreamerException) ex.getCause();
@@ -294,6 +428,36 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @Test
+    public void testManyItemsWithSql() {
+        ignite().sql().executeScript("delete from " + TABLE_NAME);
+
+        int count = 10_000;
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = view.streamData(publisher, options);
+
+            for (int i = 0; i < count; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
+            }
+        }
+
+        streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
+
+        ArrayList<String> sqlRes = new ArrayList<>(count);
+        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " order by id");
+        resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
+
+        assertEquals(count, sqlRes.size());
+
+        for (int i = 0; i < sqlRes.size(); i++) {
+            assertEquals("foo-" + i, sqlRes.get(i));
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"100, false", "100, true", "1000, false", "1000, true"})
     public void testSameItemMultipleUpdatesOrder(int pageSize, boolean existingKey) {
@@ -319,7 +483,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
         }
 
-        streamerFut.orTimeout(id, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("bar-99", view.get(null, tupleKey(id)).stringValue("name"));
     }
@@ -338,7 +502,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(tupleKey(key)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, tupleKey(key)));
     }
@@ -359,7 +523,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.of(tuple(key, "baz")));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("baz", view.get(null, tupleKey(key)).stringValue("name"));
     }
@@ -386,7 +550,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(2));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
@@ -513,7 +677,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         // Await primary replicas before streaming.
         Table table = defaultTable();
         RecordView<Tuple> view = table.recordView();
-        Map<Partition, ClusterNode> primaryReplicas = table.partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> primaryReplicas = table.partitionDistribution().primaryReplicasAsync().join();
 
         CompletableFuture<Void> streamerFut;
         int count = 10;
@@ -537,7 +701,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         for (int i = 0; i < count; i++) {
-            ClusterNode expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            ClusterNode expectedNode = table.partitionDistribution().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
             String actualNode = view.get(null, tupleKey(i)).stringValue("name");
 
             assertEquals(expectedNode.name(), actualNode);
@@ -564,7 +728,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(item);
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         assertThat(
                 ex.getCause().getMessage(),
                 containsString("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test"));
@@ -626,7 +790,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         Set<DataStreamerItem<Tuple>> failedItems = (Set<DataStreamerItem<Tuple>>) cause.failedItems();
 
@@ -796,7 +960,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit("val1");
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(10, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         DataStreamerException dsEx = (DataStreamerException) ex.getCause();
 
         assertThat(dsEx.getMessage(), containsString(
@@ -890,6 +1054,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         return ignite().tables().table(TABLE_NAME);
     }
 
+    private Table compositeKeyTable() {
+        return ignite().tables().table(TABLE_NAME_COMPOSITE_KEY);
+    }
+
     private static Tuple tuple(int id, String name) {
         return Tuple.create()
                 .set("id", id)
@@ -899,6 +1067,26 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static Tuple tupleKey(int id) {
         return Tuple.create()
                 .set("id", id);
+    }
+
+    private static Tuple compositeKeyTuple(int id) {
+        return Tuple.create()
+                .set("name", "name" + id)
+                .set("data", "data" + id)
+                .set("uniqueId", "uniqueId" + id)
+                .set("foo", "foo" + id);
+    }
+
+    private static Tuple compositeKeyTupleKey(int id) {
+        return Tuple.create()
+                .set("name", "name" + id)
+                .set("uniqueId", "uniqueId" + id);
+    }
+
+    private static Tuple compositeKeyTupleVal(int id) {
+        return Tuple.create()
+                .set("data", "data" + id)
+                .set("foo", "foo" + id);
     }
 
     @SuppressWarnings("unused")
@@ -934,6 +1122,63 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         PersonValPojo(String name) {
             this.name = name;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static class CompositeKeyPojo {
+        String name;
+        String data;
+        String uniqueId;
+        String foo;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        private CompositeKeyPojo() {
+            // No-op.
+        }
+
+        CompositeKeyPojo(int id) {
+            this.name = "name" + id;
+            this.uniqueId = "uniqueId" + id;
+        }
+
+        CompositeKeyPojo(int id, String data, String foo) {
+            this.name = "name" + id;
+            this.data = data;
+            this.uniqueId = "uniqueId" + id;
+            this.foo = foo;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static class CompositeKeyKeyPojo {
+        String name;
+        String uniqueId;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        private CompositeKeyKeyPojo() {
+            // No-op.
+        }
+
+        CompositeKeyKeyPojo(int id) {
+            this.name = "name" + id;
+            this.uniqueId = "uniqueId" + id;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static class CompositeKeyValPojo {
+        String data;
+        String foo;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        private CompositeKeyValPojo() {
+            // No-op.
+        }
+
+        CompositeKeyValPojo(int id) {
+            this.data = "data" + id;
+            this.foo = "foo" + id;
         }
     }
 

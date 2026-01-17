@@ -106,6 +106,8 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(12345L));
         }
+
+        assertThat(anotherEngine.requiredOffHeapMemorySize(), is(12345L));
     }
 
     @Override

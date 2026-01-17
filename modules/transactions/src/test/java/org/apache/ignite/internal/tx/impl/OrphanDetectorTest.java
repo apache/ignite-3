@@ -49,7 +49,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
@@ -172,18 +172,18 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerCommittedState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(tpId.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
         // Coordinator is dead.
         when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(null);
 
-        lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
+        lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), tpId, clock.now(), null, null);
+        TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), zonePartitionId, clock.now(), null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> committedState);
 
@@ -204,18 +204,18 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerAbortedState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(tpId.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
         // Coordinator is dead.
         when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(null);
 
-        lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
+        lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), tpId, null, null, null);
+        TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> abortedState);
 
@@ -236,15 +236,15 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerFinishingState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(tpId.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
-        lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
+        lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), tpId, null, null, null);
+        TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> finishingState);
 
@@ -268,15 +268,15 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerCoordinatorAlive() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(tpId.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
-        lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
+        lockManager.acquire(orphanTxId, new LockKey(zonePartitionId.zoneId(), rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -299,18 +299,20 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testTriggerOnLockConflictCoordinatorDead() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 0);
 
-        RowId rowId = new RowId(tpId.partitionId());
+        RowId rowId = new RowId(zonePartitionId.partitionId());
 
-        when(placementDriver.awaitPrimaryReplica(eq(tpId), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplica(eq(zonePartitionId), any(), anyLong(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
-        lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
+        int tableId = 2;
+
+        lockManager.acquire(orphanTxId, new LockKey(tableId, rowId), LockMode.X);
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), zonePartitionId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -318,7 +320,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(null);
 
         // Should trigger lock conflict listener in OrphanDetector.
-        CompletableFuture<Lock> acquire = lockManager.acquire(concurrentTxId, new LockKey(1, rowId), LockMode.X);
+        CompletableFuture<Lock> acquire = lockManager.acquire(concurrentTxId, new LockKey(tableId, rowId), LockMode.X);
 
         TxStateMeta orphanState = txStateMetaStorage.state(orphanTxId);
 

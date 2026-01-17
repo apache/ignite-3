@@ -21,7 +21,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.partition.Partition;
 
 /**
@@ -40,7 +39,7 @@ class PartitionNextWorkerSelector extends PrimaryReplicaNextWorkerSelector {
     ) {
         super(placementDriver, topologyService, clock);
 
-        this.partitionGroupId = new ZonePartitionId(zoneId, ((HashPartition) partition).partitionId());
+        this.partitionGroupId = new ZonePartitionId(zoneId, Math.toIntExact(partition.id()));
     }
 
     @Override

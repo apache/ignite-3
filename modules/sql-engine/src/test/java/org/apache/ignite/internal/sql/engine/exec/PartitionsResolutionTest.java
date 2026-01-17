@@ -24,7 +24,7 @@ import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -42,7 +42,7 @@ public class PartitionsResolutionTest {
     @Test
     public void partitionsResolver() {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
+        RowFactory<RowWrapper> factory = SqlRowHandler.INSTANCE.create(rowSchema);
         RowWrapper row = factory.create("1", 100, 200, 100);
 
         int part1 = getPartition(row, rowHandler, List.of(0, 1));
@@ -56,7 +56,7 @@ public class PartitionsResolutionTest {
     @Test
     public void rehashingPartitionsResolver() {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
+        RowFactory<RowWrapper> factory = SqlRowHandler.INSTANCE.create(rowSchema);
         RowWrapper row = factory.create("1", 100, 200, 100);
         int[] keys1 = {0, 1};
         int[] keys2 = {0, 2};
@@ -93,7 +93,7 @@ public class PartitionsResolutionTest {
         return extractor.partition(row);
     }
 
-    private final StructNativeType rowSchema = NativeTypes.rowBuilder()
+    private final StructNativeType rowSchema = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.STRING, true)
             .addField("C2", NativeTypes.INT32, true)
             .addField("C3", NativeTypes.INT32, true)

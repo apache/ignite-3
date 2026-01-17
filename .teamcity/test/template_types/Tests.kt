@@ -13,7 +13,7 @@ data class Tests(
     fun buildType(): List<BuildType> {
         val map = modules.map {
             ApacheIgnite3CustomBuildType.Builder(TestsModule(configuration, it))
-                .ignite3VCS().ignite3BuildDependency()
+                .ignite3VCS().ignite3BuildDependency().setupMavenProxy()
                 .defaultBuildTypeSettings().requireLinux()
                 .testsFailureCondition()
                 .build().buildType
@@ -21,7 +21,7 @@ data class Tests(
 
         if (enableOthers) {
             val otherModules = ApacheIgnite3CustomBuildType.Builder(OtherTestsModule(configuration, modules + excludeOnlyModules))
-                .ignite3VCS().ignite3BuildDependency()
+                .ignite3VCS().ignite3BuildDependency().setupMavenProxy()
                 .defaultBuildTypeSettings().requireLinux()
                 .testsFailureCondition()
                 .build().buildType

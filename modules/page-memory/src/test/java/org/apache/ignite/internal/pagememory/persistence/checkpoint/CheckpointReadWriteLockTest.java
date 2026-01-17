@@ -41,6 +41,10 @@ public class CheckpointReadWriteLockTest {
     @InjectExecutorService
     private ExecutorService executorService;
 
+    private final CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(
+            new CheckpointMetricSource("test")
+    );
+
     @Test
     void testReadLock() throws Exception {
         CheckpointReadWriteLock lock0 = newReadWriteLock();
@@ -167,7 +171,7 @@ public class CheckpointReadWriteLockTest {
     }
 
     private CheckpointReadWriteLock newReadWriteLock() {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(), executorService);
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(), executorService, metrics);
     }
 
     @Test

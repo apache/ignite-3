@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.digest;
+import static org.apache.ignite.internal.sql.engine.exec.exp.CodegenUtils.wrapWithConversionToEvaluationException;
+import static org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 
 import java.lang.reflect.Modifier;
@@ -26,6 +27,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.BlockStatement;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
@@ -36,13 +38,11 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
 /** Implementor which implements {@link SqlJoinPredicate}. */
 class JoinPredicateImplementor {
@@ -69,18 +69,17 @@ class JoinPredicateImplementor {
      * @param predicateExpression The expression to implement.
      * @param type The type of the input row as if rows from both sides will be joined.
      * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of join predicate.
      * @see SqlJoinPredicate
      */
-    <RowT> SqlJoinPredicate<RowT> implement(RexNode predicateExpression, RelDataType type, int firstRowSize) {
+    SqlJoinPredicate implement(RexNode predicateExpression, RelDataType type, int firstRowSize) {
         String digest = digest(SqlJoinPredicate.class, List.of(predicateExpression), type, "firstRowSize=" + firstRowSize);
-        Cache<String, SqlJoinPredicate<RowT>> cache = cast(this.cache);
+        Cache<String, SqlJoinPredicate> cache = cast(this.cache);
 
         return cache.get(digest, ignored -> implementInternal(predicateExpression, type, firstRowSize));
     }
 
-    private <RowT> SqlJoinPredicate<RowT> implementInternal(RexNode predicateExpression, RelDataType type, int firstRowSize) {
+    private SqlJoinPredicate implementInternal(RexNode predicateExpression, RelDataType type, int firstRowSize) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
         programBuilder.addCondition(predicateExpression);
@@ -89,7 +88,7 @@ class JoinPredicateImplementor {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
+        ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
         ParameterExpression left = Expressions.parameter(Object.class, "left");
         ParameterExpression right = Expressions.parameter(Object.class, "right");
 
@@ -109,19 +108,15 @@ class JoinPredicateImplementor {
 
         builder.add(condition);
 
-        ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
-        Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
-        BlockBuilder tryCatchBlock = new BlockBuilder();
-
-        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
+        BlockStatement methodBody = wrapWithConversionToEvaluationException(builder.toBlock());
 
         List<ParameterExpression> params = List.of(ctx, left, right);
 
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, boolean.class, "test",
-                params, tryCatchBlock.toBlock());
+                Modifier.PUBLIC, boolean.class, "test", params, methodBody
+        );
 
-        Class<SqlJoinPredicate<RowT>> clazz = cast(SqlJoinPredicate.class);
+        Class<SqlJoinPredicate> clazz = cast(SqlJoinPredicate.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 

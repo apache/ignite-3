@@ -23,7 +23,6 @@ using Apache.Ignite.Table;
 using Internal;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 
 /// <summary>
@@ -42,13 +41,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
     private readonly IgniteDistributedCacheOptions _options;
 
-    private readonly ObjectPool<IgniteTuple> _tuplePool = new DefaultObjectPool<IgniteTuple>(
-        new IgniteTuplePooledObjectPolicy(),
-        maximumRetained: Environment.ProcessorCount * 10);
+    private readonly CacheEntryMapper _cacheEntryMapper;
 
     private readonly SemaphoreSlim _initLock = new(1);
 
-    private volatile ITable? _table;
+    private volatile IKeyValueView<string, CacheEntry>? _view;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
@@ -58,12 +55,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     public IgniteDistributedCache(
         IOptions<IgniteDistributedCacheOptions> optionsAccessor,
         IServiceProvider serviceProvider)
+        : this(
+            options: optionsAccessor.Value,
+            igniteClientGroup: serviceProvider.GetRequiredKeyedService<IgniteClientGroup>(optionsAccessor.Value.IgniteClientGroupServiceKey))
     {
-        ArgumentNullException.ThrowIfNull(optionsAccessor);
-        ArgumentNullException.ThrowIfNull(serviceProvider);
-
-        _options = optionsAccessor.Value;
-        _igniteClientGroup = serviceProvider.GetRequiredKeyedService<IgniteClientGroup>(_options.IgniteClientGroupServiceKey);
+        // No-op.
     }
 
     /// <summary>
@@ -79,6 +75,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(igniteClientGroup);
 
         _options = options;
+        _cacheEntryMapper = new CacheEntryMapper(options);
         _igniteClientGroup = igniteClientGroup;
     }
 
@@ -92,18 +89,9 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(key);
 
         var view = await GetViewAsync().ConfigureAwait(false);
-        var tuple = GetKey(key);
 
-        try
-        {
-            var (val, hasVal) = await view.GetAsync(null, tuple).ConfigureAwait(false);
-
-            return hasVal ? (byte[]?)val[_options.ValueColumnName] : null;
-        }
-        finally
-        {
-            _tuplePool.Return(tuple);
-        }
+        (CacheEntry val, bool hasVal) = await view.GetAsync(null, key).ConfigureAwait(false);
+        return hasVal ? val.Value : null;
     }
 
     /// <inheritdoc/>
@@ -123,18 +111,11 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             throw new ArgumentException("Expiration is not supported.", nameof(options));
         }
 
-        var view = await GetViewAsync().ConfigureAwait(false);
+        var entry = new CacheEntry(value);
 
-        var tuple = GetKeyVal(key, value);
+        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
 
-        try
-        {
-            await view.UpsertAsync(null, tuple).ConfigureAwait(false);
-        }
-        finally
-        {
-            _tuplePool.Return(tuple);
-        }
+        await view.PutAsync(transaction: null, key, entry).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -163,55 +144,32 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var view = await GetViewAsync().ConfigureAwait(false);
-        var tuple = GetKey(key);
-
-        try
-        {
-            await view.DeleteAsync(null, tuple).ConfigureAwait(false);
-        }
-        finally
-        {
-            _tuplePool.Return(tuple);
-        }
+        IKeyValueView<string, CacheEntry> view = await GetViewAsync().ConfigureAwait(false);
+        await view.RemoveAsync(null, key).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public void Dispose() =>
+    public void Dispose()
+    {
         _initLock.Dispose();
-
-    private IgniteTuple GetKey(string key)
-    {
-        IgniteTuple tuple = _tuplePool.Get();
-        tuple[_options.KeyColumnName] = _options.CacheKeyPrefix + key;
-
-        return tuple;
     }
 
-    private IgniteTuple GetKeyVal(string key, byte[] val)
+    private async Task<IKeyValueView<string, CacheEntry>> GetViewAsync()
     {
-        IgniteTuple tuple = GetKey(key);
-        tuple[_options.ValueColumnName] = val;
-
-        return tuple;
-    }
-
-    private async Task<IRecordView<IIgniteTuple>> GetViewAsync()
-    {
-        var table = _table;
-        if (table != null)
+        var view = _view;
+        if (view != null)
         {
-            return table.RecordBinaryView;
+            return view;
         }
 
         await _initLock.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            table = _table;
-            if (table != null)
+            view = _view;
+            if (view != null)
             {
-                return table.RecordBinaryView;
+                return view;
             }
 
             IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
@@ -228,11 +186,13 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 
             await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
 
-            table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
+            var table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("Table not found: " + tableName);
 
-            _table = table ?? throw new InvalidOperationException("Table not found: " + tableName);
+            view = table.GetKeyValueView(_cacheEntryMapper);
+            _view = view;
 
-            return table.RecordBinaryView;
+            return view;
         }
         finally
         {

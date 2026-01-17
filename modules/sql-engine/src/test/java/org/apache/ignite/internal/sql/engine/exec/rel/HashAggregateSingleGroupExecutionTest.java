@@ -34,9 +34,10 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -294,16 +295,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             List<Integer> args,
             RelDataType resultType
     ) {
-        return AggregateCall.create(
-                func,
-                false,
-                false,
-                false,
-                args,
-                -1,
-                RelCollations.EMPTY,
-                resultType,
-                null
+        return AggregateCall.create(func,
+                false, false, false,
+                List.of(), args, -1,
+                null, RelCollations.EMPTY,
+                resultType, null
         );
     }
 
@@ -374,15 +370,20 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             AggregateCall call
     ) {
         List<AccumulatorWrapper<Object[]>> accumulators =
-                ctx.expressionFactory().accumulatorsFactory(aggregateType, List.of(call), inputType).get(ctx);
+                ctx.expressionFactory().<Object[]>accumulatorsFactory(aggregateType, List.of(call), inputType).get(ctx);
 
-        RowFactory<Object[]> rowFactory = rowHandler().factory(TypeUtils.convertStructuredType(outputType));
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(TypeUtils.convertStructuredType(outputType));
 
         return new HashAggregateNode<>(ctx, aggregateType, grpSets, accumulators, rowFactory);
     }
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

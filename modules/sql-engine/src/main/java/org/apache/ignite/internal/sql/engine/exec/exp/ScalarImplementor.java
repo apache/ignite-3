@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.digest;
+import static org.apache.ignite.internal.sql.engine.exec.exp.CodegenUtils.wrapWithConversionToEvaluationException;
+import static org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 
 import java.lang.reflect.Modifier;
@@ -25,6 +26,7 @@ import java.util.List;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.BlockStatement;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
@@ -38,15 +40,13 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
 /** Implementor which implements {@link SqlScalar}. */
 class ScalarImplementor {
@@ -75,25 +75,30 @@ class ScalarImplementor {
      * (which in turn may be of a complex type or collection).
      *
      * @param scalarExpression The expression to implement.
-     * @param <RowT> The type of the execution row.
      * @param <T> The type of the returned value by scalar.
      * @return An implemented scalar expression.
      * @see SqlScalar
      */
-    <RowT, T> SqlScalar<RowT, T> implement(RexNode scalarExpression) {
+    <T> SqlScalar<T> implement(RexNode scalarExpression) {
         if (scalarExpression instanceof RexLiteral) {
             Class<?> javaType = Primitives.wrap((Class<?>) typeFactory.getJavaClass(scalarExpression.getType()));
 
-            return context -> (T) RexUtils.literalValue(context, (RexLiteral) scalarExpression, javaType);
+            return new SqlScalar<>() {
+                @Override
+                public <RowT> T get(SqlEvaluationContext<RowT> context) {
+                    //noinspection DataFlowIssue
+                    return (T) RexUtils.literalValue(context, (RexLiteral) scalarExpression, javaType);
+                }
+            };
         }
 
         String digest = digest(SqlScalar.class, List.of(scalarExpression), null);
-        Cache<String, SqlScalar<RowT, T>> cache = cast(this.cache);
+        Cache<String, SqlScalar<T>> cache = cast(this.cache);
 
         return cache.get(digest, key -> implementInternal(scalarExpression));
     }
 
-    private <RowT, T> SqlScalar<RowT, T> implementInternal(RexNode scalarValue) {
+    private <T> SqlScalar<T> implementInternal(RexNode scalarValue) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(emptyType, rexBuilder);
 
         programBuilder.addProject(scalarValue, null);
@@ -102,7 +107,7 @@ class ScalarImplementor {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
+        ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
 
         Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
 
@@ -117,19 +122,15 @@ class ScalarImplementor {
 
         builder.add(projects.get(0));
 
-        ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
-        Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
-        BlockBuilder tryCatchBlock = new BlockBuilder();
-
-        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
+        BlockStatement methodBody = wrapWithConversionToEvaluationException(builder.toBlock());
 
         List<ParameterExpression> params = List.of(ctx);
 
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, Object.class, "get", params, tryCatchBlock.toBlock()
+                Modifier.PUBLIC, Object.class, "get", params, methodBody
         );
 
-        Class<SqlScalar<RowT, T>> clazz = cast(SqlScalar.class);
+        Class<SqlScalar<T>> clazz = cast(SqlScalar.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 

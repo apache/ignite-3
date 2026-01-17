@@ -22,11 +22,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Common.Compute;
+using Common.Table;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IPartitionManager"/>.
@@ -112,17 +115,19 @@ public class PartitionManagerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestGetPartitionForKey([Values(true, false)] bool poco)
+    public async Task TestGetPartitionForKey([Values(true, false)] bool poco, [Values(true, false)] bool withMapper)
     {
         var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
         for (int id = 0; id < 30; id++)
         {
             var partition = poco
-                ? await Table.PartitionManager.GetPartitionAsync(GetPoco(id))
+                ? withMapper
+                    ? await Table.PartitionManager.GetPartitionAsync(GetPoco(id), new PocoMapper())
+                    : await Table.PartitionManager.GetPartitionAsync(GetPoco(id))
                 : await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
 
-            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, ComputeTests.PartitionJob, id);
+            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
 
             Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);

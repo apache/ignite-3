@@ -153,6 +153,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::HANDSHAKE_HEADER:
             return sql_state::S08004_CONNECTION_REJECTED;
         case error::code::RESOURCE_NOT_FOUND:
+        case error::code::OPERATION_TIMEOUT:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Sql group. Group code: 4
@@ -208,6 +209,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_STALE_OPERATION:
         case error::code::TX_STALE_READ_ONLY_OPERATION:
         case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
+        case error::code::TX_DELAYED_ACK:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -222,6 +224,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
         case error::code::GROUP_OVERLOADED:
+        case error::code::GROUP_UNAVAILABLE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
@@ -258,6 +261,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNIT_UNAVAILABLE:
         case error::code::UNIT_ZIP:
         case error::code::UNIT_WRITE:
+        case error::code::UNIT_NON_UNIQUE_FILENAMES:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // GarbageCollector group. Group code: 14
@@ -312,6 +316,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NOT_ENOUGH_ALIVE_NODES:
         case error::code::ILLEGAL_NODES_SET:
         case error::code::REQUEST_FORWARD:
+        case error::code::REMOTE_NODE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21

@@ -20,14 +20,12 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
@@ -40,7 +38,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -101,6 +98,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.rebalance.RaftCommandWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftPeerConfigurationException;
 import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -422,7 +421,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 LOG.debug("Sending delayed response for replica request [request={}]", request);
 
                                 if (ex0 == null) {
-                                    msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
+                                    msg0 = prepareDelayedReplicaResponse(sendTimestamp, res0);
                                 } else {
                                     if (indicatesUnexpectedProblem(ex0)) {
                                         LOG.warn("Failed to process delayed response [request={}]", ex0, request);
@@ -652,7 +651,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 placementDriver,
                                 getPendingAssignmentsSupplier,
                                 failureProcessor,
-                                placementDriverMessageProcessor
+                                placementDriverMessageProcessor,
+                                busyLock,
+                                replicaLifecycleExecutor
                         );
                     }
             );
@@ -802,9 +803,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         Loza loza = (Loza) raftManager;
         Status status = loza.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
 
-        // Stale configuration change will not be retried.
-        if (!status.isOk() && status.getRaftError() == RaftError.ESTALE) {
-            throw new IgniteException(INTERNAL_ERR, new RaftStaleUpdateException(status.getErrorMsg()));
+        if (!status.isOk()) {
+            RaftError error = status.getRaftError();
+
+            // Stale configuration change will not be retried.
+            if (error == RaftError.ESTALE) {
+                throw new IgniteException(INTERNAL_ERR, new RaftStaleUpdateException(status.getErrorMsg()));
+            }
+
+            // EBUSY means there's an ongoing configuration change - retriable, will eventually complete.
+            if (error == RaftError.EBUSY) {
+                throw new IgniteException(INTERNAL_ERR, "Configuration change in progress, will retry: " + status);
+            }
+
+            // EPERM (node not active) and EINVAL (invalid args) are not retriable.
+            throw new IgniteException(INTERNAL_ERR, new RaftPeerConfigurationException("Failed to reset peers: " + status));
         }
     }
 
@@ -825,55 +838,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      */
     public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
-        var result = new CompletableFuture<Void>();
+        RaftCommandWithRetry resetCommand = new RaftCommandWithRetry(busyLock, replicaLifecycleExecutor);
 
-        resetWithRetry(replicaGrpId, peersAndLearners, result, sequenceToken, 1);
-
-        return result;
-    }
-
-    private void resetWithRetry(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners peersAndLearners,
-            CompletableFuture<Void> result,
-            long sequenceToken,
-            int iteration
-    ) {
-        if (iteration % 1000 == 0) {
-            LOG.info("Retrying reset [iter={}, groupId={}, peersAndLearners={}]", iteration, replicaGrpId, peersAndLearners);
-        }
-        runAsync(() -> inBusyLock(busyLock, () -> {
+        return resetCommand.execute(() -> {
             assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
             resetPeers(replicaGrpId, peersAndLearners, sequenceToken);
-        }), replicaLifecycleExecutor)
-                .whenComplete((resetSuccessful, ex) -> {
-                    if (ex != null) {
-                        if (recoverable(ex)) {
-                            LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
-                            resetWithRetryThrottling(replicaGrpId, peersAndLearners, result, sequenceToken, iteration);
-                        } else {
-                            result.completeExceptionally(ex);
-                        }
-                    } else {
-                        result.complete(null);
-                    }
-                });
-    }
-
-    private void resetWithRetryThrottling(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners peersAndLearners,
-            CompletableFuture<Void> result,
-            long sequenceToken,
-            int iteration
-    ) {
-        replicaLifecycleExecutor.schedule(
-                () -> resetWithRetry(replicaGrpId, peersAndLearners, result, sequenceToken, iteration + 1),
-                500,
-                TimeUnit.MILLISECONDS
-        );
+            return nullCompletedFuture();
+        });
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
@@ -1144,12 +1117,27 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestamp(clockService.now())
+                    .timestamp(clockService.current())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
                     .errorReplicaResponse()
                     .throwable(ex)
+                    .build();
+        }
+    }
+
+    private NetworkMessage prepareDelayedReplicaResponse(boolean sendTimestamp, Object result) {
+        if (sendTimestamp) {
+            return REPLICA_MESSAGES_FACTORY
+                    .timestampAwareReplicaResponse()
+                    .result(result)
+                    .timestamp(clockService.current())
+                    .build();
+        } else {
+            return REPLICA_MESSAGES_FACTORY
+                    .replicaResponse()
+                    .result(result)
                     .build();
         }
     }

@@ -147,14 +147,10 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTimeoutKvGet() {
-        AsyncSqlCursor<?> cursor = gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT * FROM my_table WHERE id = ?", 2);
-
-        assertThat(
-                cursor.requestNextAsync(1),
-                willThrowWithCauseOrSuppressed(
-                        QueryCancelledException.class,
-                        QueryCancelledException.TIMEOUT_MSG
-                )
+        assertThrows(
+                SqlException.class,
+                () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT * FROM my_table WHERE id = ?", 2),
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 

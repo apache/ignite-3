@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -112,7 +113,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      * Schema of the rows used in the tests. All data providers created within this test class must
      * conform to this row schema.
      */
-    private static final StructNativeType ROW_SCHEMA = NativeTypes.rowBuilder()
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.structBuilder()
             .addField("C1", NativeTypes.INT32, true)
             .addField("C2", NativeTypes.INT32, true)
             .build();
@@ -516,8 +517,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(ROW_SCHEMA),
-                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator,
+                targetCtx.rowFactoryFactory().create(ROW_SCHEMA), SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);
@@ -765,6 +766,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

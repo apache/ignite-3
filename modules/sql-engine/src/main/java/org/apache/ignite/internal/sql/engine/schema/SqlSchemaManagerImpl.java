@@ -39,6 +39,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
@@ -79,7 +80,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
     private final SqlStatisticManager sqlStatisticManager;
-    private final NodeProperties nodeProperties;
 
     private final Cache<Integer, IgniteSchemas> schemaCache;
 
@@ -100,12 +100,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             CatalogManager catalogManager,
             SqlStatisticManager sqlStatisticManager,
-            NodeProperties nodeProperties,
             CacheFactory factory,
-            int cacheSize) {
+            int cacheSize
+    ) {
         this.catalogManager = catalogManager;
         this.sqlStatisticManager = sqlStatisticManager;
-        this.nodeProperties = nodeProperties;
         this.schemaCache = factory.create(cacheSize);
         this.tableCache = factory.create(cacheSize);
         this.indexCache = factory.create(cacheSize);
@@ -156,8 +155,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             if (rootSchema != null) {
                 SchemaPlus schemaPlus = rootSchema.root();
 
-                for (String name : schemaPlus.getSubSchemaNames()) {
-                    SchemaPlus subSchema = schemaPlus.getSubSchema(name);
+                for (String name : schemaPlus.subSchemas().getNames(LikePattern.any())) {
+                    SchemaPlus subSchema = schemaPlus.subSchemas().get(name);
 
                     assert subSchema != null : name;
 
@@ -312,8 +311,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         // Add virtual column.
-        colDescriptors.add(createPartitionVirtualColumn(columns.size(), Commons.PART_COL_NAME));
-        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 1, Commons.PART_COL_NAME_LEGACY));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size(), Commons.PART_COL_NAME, NativeTypes.INT64));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 1, Commons.PART_COL_NAME_LEGACY1, NativeTypes.INT32));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 2, Commons.PART_COL_NAME_LEGACY2, NativeTypes.INT32));
 
         CatalogZoneDescriptor zoneDescriptor = Objects.requireNonNull(catalog.zone(descriptor.zoneId()));
         CatalogSchemaDescriptor schemaDescriptor = Objects.requireNonNull(catalog.schema(descriptor.schemaId()));
@@ -334,9 +334,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         String label = TraitUtils.affinityDistributionLabel(schemaName, descriptor.name(), zoneName);
 
-        return nodeProperties.colocationEnabled()
-                ? IgniteDistributions.affinity(colocationColumns, tableId, zoneId, label)
-                : IgniteDistributions.affinity(colocationColumns, tableId, tableId, label);
+        return IgniteDistributions.affinity(colocationColumns, tableId, zoneId, label);
     }
 
     private static Object2IntMap<String> buildColumnToIndexMap(List<CatalogTableColumnDescriptor> columns) {
@@ -350,7 +348,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return columnToIndex;
     }
 
-    private static ColumnDescriptorImpl createPartitionVirtualColumn(int logicalIndex, String partColName) {
+    private static ColumnDescriptorImpl createPartitionVirtualColumn(int logicalIndex, String partColName, NativeType type) {
         return new ColumnDescriptorImpl(
                 partColName,
                 false,
@@ -358,7 +356,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 true,
                 true,
                 logicalIndex,
-                NativeTypes.INT32,
+                type,
                 DefaultValueStrategy.DEFAULT_COMPUTED,
                 () -> {
                     throw new AssertionError("Partition virtual column is generated by a function");

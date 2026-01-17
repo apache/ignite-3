@@ -20,11 +20,13 @@ package org.apache.ignite.internal.cluster.management.metrics;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.StringGauge;
 import org.apache.ignite.internal.metrics.UuidGauge;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,7 +118,23 @@ public class LocalTopologyMetricsSource extends AbstractMetricSource<LocalTopolo
                 "Unique name of the local node",
                 () -> physicalTopology.localMember().name());
 
-        private final List<Metric> metrics = List.of(localNodeName, localNodeId, localNodeVersion);
+        private final StringGauge networkAddress = new StringGauge(
+                "NetworkAddress",
+                "Network address of the local node",
+                () -> {
+                    NetworkAddress addr = physicalTopology.localMember().address();
+                    return addr != null ? addr.host() : "";
+                });
+
+        private final IntGauge networkPort = new IntGauge(
+                "NetworkPort",
+                "Network port of the local node",
+                () -> {
+                    NetworkAddress addr = physicalTopology.localMember().address();
+                    return addr != null ? addr.port() : 0;
+                });
+
+        private final List<Metric> metrics = List.of(localNodeName, localNodeId, localNodeVersion, networkAddress, networkPort);
 
         @Override
         public Iterable<Metric> metrics() {

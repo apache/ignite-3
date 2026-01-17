@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.SystemRangeTableFunction;
@@ -109,6 +110,11 @@ public class SystemRangeTableFunctionTest extends AbstractExecutionTest<Object[]
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

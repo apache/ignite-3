@@ -24,9 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -35,6 +33,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.TablePartitionReplicaProcessorFactory;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.ReplicaSafeTimeSyncRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
@@ -57,6 +56,8 @@ import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -64,6 +65,7 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -95,6 +97,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
     private final ReplicaSafeTimeSyncRequestHandler replicaSafeTimeSyncRequestHandler;
+    private final TransactionStateResolver transactionStateResolver;
 
     /**
      * The constructor.
@@ -114,12 +117,14 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             InternalClusterNode localNode,
-            ZonePartitionId replicationGroupId
+            ZonePartitionId replicationGroupId,
+            TransactionStateResolver transactionStateResolver,
+            TxMessageSender txMessageSender
     ) {
         this.raftClient = raftClient;
         this.failureProcessor = failureProcessor;
+        this.transactionStateResolver = transactionStateResolver;
 
         this.replicationGroupId = replicationGroupId;
 
@@ -133,8 +138,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
-                schemaSyncService,
-                nodeProperties
+                schemaSyncService
         );
 
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
@@ -174,7 +178,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 txManager,
                 clusterNodeResolver,
                 localNode,
-                txRecoveryEngine
+                txRecoveryEngine,
+                txMessageSender
         );
 
         txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
@@ -305,10 +310,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * Add table partition replica processor to the current zone replica listener.
      *
      * @param tableId Table id.
-     * @param replicaListener Table replica listener.
+     * @param replicaListenerFactory Table replica listener factory.
      */
-    public void addTableReplicaProcessor(int tableId, Function<RaftCommandRunner, ReplicaTableProcessor> replicaListener) {
-        replicaProcessors.put(tableId, replicaListener.apply(raftClient));
+    public void addTableReplicaProcessor(int tableId, TablePartitionReplicaProcessorFactory replicaListenerFactory) {
+        replicaProcessors.put(tableId, replicaListenerFactory.createProcessor(raftClient, transactionStateResolver));
     }
 
     /**
@@ -318,6 +323,18 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     public void removeTableReplicaProcessor(int tableId) {
         replicaProcessors.remove(tableId);
+    }
+
+    public @Nullable TableTxRwOperationTracker txRwOperationTracker(int tableId) {
+        ReplicaTableProcessor processor = replicaProcessors.get(tableId);
+        return processor == null ? null : processor.txRwOperationTracker();
+    }
+
+    /**
+     * Returns true if there are no table replica processors, false otherwise.
+     */
+    boolean areTableReplicaProcessorsEmpty() {
+        return replicaProcessors.isEmpty();
     }
 
     /**

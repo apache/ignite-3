@@ -47,6 +47,11 @@ public:
      */
     static constexpr std::chrono::milliseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
 
+    /**
+     * Default operation
+     */
+    static constexpr std::chrono::milliseconds DEFAULT_OPERATION_TIMEOUT{0};
+
     // Default
     ignite_client_configuration() = default;
 
@@ -188,6 +193,38 @@ public:
     }
 
     /**
+     * Gets the operation timeout. Default is 0 (no timeout).
+     *
+     * An "operation" is a single client request to the server. Some public API calls may involve multiple operations,
+     * in which case the operation timeout is applied to each individual network call.
+     *
+     * Notably compute job execution consists of two calls. First request: submit, when server responds with success
+     * that means that job has been stored in the executor's queue and will be executed at some point.
+     * Second request: get_result, client requests job status if it was executed, failed or canceled.
+     * This configuration only applies to each of those requests separately but not to its combination therefore real
+     * execution times of compute jobs could be greater than operation timeout.
+     *
+     * @return Operation timeout.
+     */
+    [[nodiscard]] std::chrono::milliseconds get_operation_timeout() const { return m_operation_timeout; }
+
+    /**
+     * Sets the operation timeout.
+     *
+     * See @ref get_operation_timeout() for details.
+     *
+     * @param operation_timeout Operation timeout.
+     */
+    void set_operation_timeout(std::chrono::milliseconds operation_timeout) {
+        if (operation_timeout.count() < 0) {
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Operation timeout can't be negative: "
+                + std::to_string(operation_timeout.count()) + " milliseconds");
+        }
+
+        m_operation_timeout = operation_timeout;
+    }
+
+    /**
      * Gets the authenticator.
      *
      * @see Also see basic_authenticator.
@@ -305,6 +342,9 @@ private:
 
     /** Heartbeat interval. */
     std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
+
+    /** Operation timeout. */
+    std::chrono::milliseconds m_operation_timeout{DEFAULT_OPERATION_TIMEOUT};
 
     /** SSL Mode. */
     ssl_mode m_ssl_mode{ssl_mode::DISABLE};

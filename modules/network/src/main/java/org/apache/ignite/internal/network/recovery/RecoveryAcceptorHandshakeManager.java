@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.maybeFailOnStaleNodeDetection;
 import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -53,6 +56,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 
 /**
@@ -105,6 +109,12 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
+    /** Cluster topology service. */
+    private final TopologyService topologyService;
+
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -113,6 +123,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
+     * @param topologyService Cluster topology service.
      */
     public RecoveryAcceptorHandshakeManager(
             InternalClusterNode localNode,
@@ -123,7 +134,9 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            TopologyService topologyService,
+            FailureProcessor failureProcessor
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -133,6 +146,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
+        this.topologyService = topologyService;
+        this.failureProcessor = failureProcessor;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -166,12 +181,19 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onConnectionOpen() {
-        HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
-                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
-                .serverClusterId(clusterIdSupplier.clusterId())
-                .productName(productVersionSource.productName())
-                .productVersion(productVersionSource.productVersion().toString())
-                .build();
+        if (stopping.getAsBoolean()) {
+            sendRejectionMessageAndFailHandshake(
+                    S.toString("The node is stopping", "name", localNode.name(), false),
+                    HandshakeRejectionReason.STOPPING,
+                    m -> new NodeStoppingException()
+            );
+        } else {
+            sendHandshakeStartMessage();
+        }
+    }
+
+    private void sendHandshakeStartMessage() {
+        HandshakeStartMessage handshakeStartMessage = createHandshakeStartMessage();
 
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList()));
 
@@ -182,6 +204,16 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 );
             }
         });
+    }
+
+    private HandshakeStartMessage createHandshakeStartMessage() {
+        return messageFactory.handshakeStartMessage()
+                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
+                .serverClusterId(clusterIdSupplier.clusterId())
+                .productName(productVersionSource.productName())
+                .productVersion(productVersionSource.productVersion().toString())
+                .topologyVersion(topologyService.logicalTopologyVersion())
+                .build();
     }
 
     /** {@inheritDoc} */
@@ -233,14 +265,14 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
-        if (staleIdDetector.isIdStale(message.clientNode().id())) {
-            handleStaleInitiatorId(message);
+        if (stopping.getAsBoolean()) {
+            handleRefusalToEstablishConnectionDueToStopping(message);
 
             return true;
         }
 
-        if (stopping.getAsBoolean()) {
-            handleRefusalToEstablishConnectionDueToStopping(message);
+        if (staleIdDetector.isIdStale(message.clientNode().id())) {
+            handleStaleInitiatorId(message);
 
             return true;
         }
@@ -254,6 +286,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
+
+        maybeFailOnStaleNodeDetection(failureProcessor, new StaleNodeHandlingParametersImpl(topologyService), msg, msg.clientNode());
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {

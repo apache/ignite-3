@@ -21,7 +21,11 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.Test;
 
@@ -38,5 +42,20 @@ class ExceptionUtilsTest {
 
         assertThat(copied, isA(ExceptionInInitializerError.class));
         assertThat(hasCause(copied, IllegalArgumentException.class), is(true));
+    }
+
+    @Test
+    void hasCauseTest() {
+        var e0 = new IllegalStateException();
+        var e1 = new IllegalArgumentException(e0);
+        var e2 = new IOException(e1);
+        var e3 = new CompletionException(e2);
+
+        assertTrue(hasCause(e3, IllegalStateException.class));
+        assertTrue(hasCause(e3, IllegalArgumentException.class));
+        assertTrue(hasCause(e3, IOException.class));
+        assertTrue(hasCause(e3, CompletionException.class));
+
+        assertFalse(hasCause(e3, NullPointerException.class));
     }
 }

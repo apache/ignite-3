@@ -75,6 +75,7 @@ import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,7 +98,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
             ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
             ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
-            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT
+            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
+            ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -211,7 +213,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 })
                 .whenComplete((res, err) -> {
                     if (err != null) {
-                        close();
+                        close(err, false);
                     }
                 })
                 .thenApplyAsync(unused -> {
@@ -257,6 +259,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void close(@Nullable Throwable cause, boolean graceful) {
         if (!closed.compareAndSet(false, true)) {
             return;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ", graceful=" + graceful + ", message="
+                    + (cause != null ? cause.getMessage() : "") + ']');
         }
 
         if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
@@ -315,11 +322,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void onDisconnected(@Nullable Exception e) {
-        if (log.isDebugEnabled()) {
-            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
-        }
-
+    public void onDisconnected(@Nullable Throwable e) {
         close(e, false);
     }
 
@@ -590,6 +593,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         if (handler == null) {
             // Default notification handler. Used to deliver delayed replication acks.
+            if (err != null) {
+                if (err instanceof ClientDelayedAckException) {
+                    ClientDelayedAckException err0 = (ClientDelayedAckException) err;
+
+                    inflights.removeInflight(err0.txId(), new TransactionException(err0.code(), err0.getMessage(), err0.getCause()));
+                }
+
+                // Can't do anything to remove stuck inflight.
+                return;
+            }
+
             UUID txId = unpacker.unpackUuid();
             inflights.removeInflight(txId, err);
 
@@ -617,6 +631,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
         int expectedSchemaVersion = -1;
         long[] sqlUpdateCounters = null;
+        UUID txId = null;
 
         for (int i = 0; i < extSize; i++) {
             String key = unpacker.unpackString();
@@ -625,10 +640,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 expectedSchemaVersion = unpacker.unpackInt();
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
                 sqlUpdateCounters = unpacker.unpackLongArray();
+            } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
+                txId = unpacker.unpackUuid();
             } else {
                 // Unknown extension - ignore.
                 unpacker.skipValues(1);
             }
+        }
+
+        if (txId != null) {
+            return new ClientDelayedAckException(traceId, code, errMsg, txId, causeWithStackTrace);
+        }
+
+        if (sqlUpdateCounters != null) {
+            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
+            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
@@ -638,11 +664,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             return new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
-        }
-
-        if (sqlUpdateCounters != null) {
-            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
-            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         try {
@@ -905,7 +926,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     void checkTimeouts(long now) {
         for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
-            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+            TimeoutObject<ClientMessageUnpacker> timeoutObject = req.getValue();
 
             if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
                 // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
@@ -919,7 +940,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Timeout object wrapper for the completable future.
      */
-    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<ClientMessageUnpacker>> {
+    private static class TimeoutObjectImpl implements TimeoutObject<ClientMessageUnpacker> {
         /** End time (milliseconds since Unix epoch). */
         private final long endTime;
 

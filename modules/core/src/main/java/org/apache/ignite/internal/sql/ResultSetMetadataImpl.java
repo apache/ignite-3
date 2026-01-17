@@ -52,7 +52,7 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
         for (int i = 0; i < columns.size(); i++) {
             ColumnMetadata column = columns.get(i);
 
-            columnsIndices.put(column.name(), i);
+            columnsIndices.put(SqlCommon.normalizedColumnName(column), i);
         }
     }
 

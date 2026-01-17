@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -119,9 +123,18 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
     @Test
     void testExceptionHasHint() {
-        IgniteException ex = assertThrows(IgniteException.class, () -> client().sql().execute("select x from bad"));
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true",
-                ex.getCause().getCause().getCause().getCause().getMessage());
+        // Execute on all nodes to collect all types of exception.
+        List<String> causes = IntStream.range(0, client().configuration().addresses().length)
+                .mapToObj(i -> {
+                    IgniteException ex = assertThrows(IgniteException.class, () -> client().sql().execute("select x from bad"));
+
+                    return ex.getCause().getCause().getCause().getCause().getMessage();
+                })
+                .collect(Collectors.toList());
+
+        assertThat(causes,
+                hasItem(containsString("To see the full stack trace, "
+                        + "set clientConnector.sendServerExceptionStackTraceToClient:true on the server")));
     }
 
     @Test

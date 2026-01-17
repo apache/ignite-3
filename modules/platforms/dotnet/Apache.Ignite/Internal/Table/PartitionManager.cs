@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Common;
 using Ignite.Network;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using Network;
 using Proto;
 using Proto.MsgPack;
@@ -96,9 +97,15 @@ internal sealed class PartitionManager : IPartitionManager
         GetPartitionInternalAsync(tuple, TupleSerializerHandler.Instance);
 
     /// <inheritdoc/>
+    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull =>
         GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
+
+    /// <inheritdoc/>
+    public ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
+        where TK : notnull =>
+        GetPartitionInternalAsync(key, new MapperSerializerHandler<TK>(mapper));
 
     /// <inheritdoc/>
     public override string ToString() =>

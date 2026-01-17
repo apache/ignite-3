@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.cluster.migrate;
 
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-import static org.mockserver.model.JsonBody.json;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.rest.client.model.ClusterState;
-import org.apache.ignite.rest.client.model.ClusterStateClusterTag;
+import org.apache.ignite.rest.client.model.ClusterTag;
 import org.apache.ignite.rest.client.model.MigrateRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockserver.model.MediaType;
 
 /** Tests "recovery cluster migrate" commands. */
 @DisplayName("recovery cluster migrate")
@@ -62,17 +61,13 @@ class MigrateToClusterCommandTest extends IgniteCliInterfaceTestBase {
                 .msNodes(List.of("node"))
                 .igniteVersion("version")
                 .clusterTag(
-                        new ClusterStateClusterTag()
+                        new ClusterTag()
                                 .clusterName("clusterName")
                                 .clusterId(UUID.fromString("e0655494-eb02-4757-89db-ae562a170280"))
                 );
 
-        clientAndServer
-                .when(request()
-                        .withMethod("GET")
-                        .withPath("/management/v1/cluster/state")
-                )
-                .respond(response(clusterState.toJson()));
+        stubFor(get("/management/v1/cluster/state")
+                .willReturn(ok(clusterState.toJson())));
     }
 
     private static void expectMigrateRequest() {
@@ -83,13 +78,6 @@ class MigrateToClusterCommandTest extends IgniteCliInterfaceTestBase {
                 .clusterName("clusterName")
                 .clusterId(UUID.fromString("e0655494-eb02-4757-89db-ae562a170280"));
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/migrate")
-                        .withBody(json(migrateRequest.toJson()))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response());
+        returnOkForPostWithJson("/management/v1/recovery/cluster/migrate", migrateRequest.toJson());
     }
 }

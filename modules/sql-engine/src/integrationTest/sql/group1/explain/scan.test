@@ -201,7 +201,7 @@ SystemViewScan
 # Complex query where column of source table is renamed, and this renamed column is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
 explain plan
-SELECT
+SELECT /*+ disable_decorrelation */
   (SELECT COUNT(*)
      FROM test_table inner_t
     WHERE inner_t.c1 = renamed_c1
@@ -241,7 +241,7 @@ Project
 # Complex query where expression involving a column of source table is renamed, and this renamed expression is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
 explain plan
-SELECT
+SELECT /*+ disable_decorrelation */
   (SELECT COUNT(*)
      FROM test_table inner_t
     WHERE inner_t.c1 = doubled_c1
@@ -317,7 +317,7 @@ Exchange
       index: TEST_TABLE_IDX
       type: SORTED
       predicate: >(C1, 1)
-      searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1, lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]
+      searchBounds: (<1>..<null:INTEGER>)
       fieldNames: [C1]
       collation: [C1 ASC]
       est: (rows=1)
@@ -334,7 +334,7 @@ Exchange
       index: TEST_TABLE_IDX
       type: SORTED
       predicate: AND(SEARCH(C1, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
-      searchBounds: [MultiBounds [bounds=ArrayList [ExactBounds [bound=1], ExactBounds [bound=2], ExactBounds [bound=3]]]]
+      searchBounds: <1>, <2>, <3>
       fieldNames: [C1]
       collation: [C1 ASC]
       est: (rows=1)
@@ -354,7 +354,7 @@ Exchange
       index: HASH_IDX
       type: HASH
       predicate: =(C2, 10)
-      searchBounds: [ExactBounds [bound=10]]
+      searchBounds: <10>
       fieldNames: [C1]
       est: (rows=1)
 

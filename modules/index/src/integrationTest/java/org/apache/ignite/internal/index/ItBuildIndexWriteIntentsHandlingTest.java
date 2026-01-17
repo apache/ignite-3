@@ -20,50 +20,26 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.isIndexAvailable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.index.ItBuildIndexTest.getIndexDescriptor;
+import static org.apache.ignite.internal.index.IndexBuildTestUtils.INDEX_NAME;
+import static org.apache.ignite.internal.index.IndexBuildTestUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.IndexBuildTestUtils.createTestTable;
 import static org.apache.ignite.internal.index.WriteIntentSwitchControl.disableWriteIntentSwitchExecution;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest {
-    private static final String ZONE_NAME = "ZONE_TABLE";
-
-    private static final String TABLE_NAME = "TEST_TABLE";
-
-    private static final String INDEX_NAME = "TEST_INDEX";
-
     @Test
     void writeIntentFromTxAbandonedBeforeShouldNotBeIndexed() {
-        createTable(1, 1);
+        createTestTable(cluster, 1, 1);
 
         disableWriteIntentSwitchExecution(cluster);
 
@@ -83,9 +59,8 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26811")
     void writeIntentFromTxAbandonedWhileWaitingForTransactionsToFinishShouldNotBeIndexed() {
-        createTable(1, 1);
+        createTestTable(cluster, 1, 1);
 
         // Both disable write intent switch execution and track when we start waiting for transactions to finish before index build.
         CompletableFuture<Void> startedWaitForPreIndexTxsToFinish = new CompletableFuture<>();
@@ -122,6 +97,7 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         verifyNoNodesHaveAnythingInIndex();
     }
 
+    private void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[] args) {
     private void verifyNoNodesHaveAnythingInIndex() {
         for (int nodeIndex = 0; nodeIndex < initialNodes(); nodeIndex++) {
             IgniteImpl ignite = unwrapIgniteImpl(node(nodeIndex));
@@ -223,8 +199,14 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         String insertStmt = "INSERT INTO " + tblName + "(" + String.join(", ", columnNames) + ")"
                 + " VALUES (" + ", ?".repeat(columnNames.size()).substring(2) + ")";
 
-        for (Object[] args : tuples) {
-            cluster.node(0).sql().execute(tx, insertStmt, args).close();
-        }
+        node(0).sql().execute(tx, insertStmt, args).close();
+    }
+
+    private void verifyNoNodesHaveAnythingInIndex() {
+        IndexBuildTestUtils.verifyNoNodesHaveAnythingInIndex(cluster, initialNodes());
+    }
+
+    private void createIndex(String indexName) {
+        IndexBuildTestUtils.createIndex(cluster, indexName);
     }
 }

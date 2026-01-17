@@ -19,8 +19,11 @@ package org.apache.ignite.deployment;
 
 import static org.apache.ignite.deployment.version.Version.parseVersion;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
@@ -38,6 +41,8 @@ import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.StreamDeploymentUnit;
 import org.apache.ignite.internal.deployunit.UnitContent;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
+import org.apache.ignite.internal.deployunit.structure.UnitFile;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -83,6 +88,35 @@ public class FileDeployerServiceTest {
         try (StreamDeploymentUnit unit = content()) {
             CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", parseVersion("1.0.0"));
             assertThat(unitContent, willBe(equalTo(readContent(unit))));
+        }
+    }
+
+    @Test
+    public void testUnitStructure() throws Exception {
+        try (StreamDeploymentUnit unit = content()) {
+            CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), unit);
+            assertThat(deployed, willBe(true));
+        }
+
+        CompletableFuture<UnitFolder> folderFuture = service.getUnitStructure("id", parseVersion("1.0.0"));
+        assertThat(folderFuture, willCompleteSuccessfully());
+
+        UnitFolder folder = folderFuture.get();
+
+        assertThat(folder.children(),
+                containsInAnyOrder(
+                        Stream.of(file1, file2, file3)
+                                .map(FileDeployerServiceTest::toUnitFile).toArray()
+                )
+        );
+    }
+
+    private static UnitFile toUnitFile(Path file) {
+        try {
+            return new UnitFile(file.getFileName().toString(), Files.size(file));
+        } catch (IOException e) {
+            fail(e);
+            return null;
         }
     }
 

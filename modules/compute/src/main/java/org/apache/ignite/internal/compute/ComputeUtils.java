@@ -42,7 +42,6 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -50,6 +49,7 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -99,7 +99,7 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job class.
      */
-    public static <T, R> Class<ComputeJob<T, R>> jobClass(JobClassLoader jobClassLoader, String jobClassName) {
+    public static <T, R> Class<ComputeJob<T, R>> jobClass(UnitsClassLoader jobClassLoader, String jobClassName) {
         try {
             return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
@@ -147,7 +147,7 @@ public class ComputeUtils {
      * @param taskClassName Map reduce task class name.
      * @return Map reduce task class.
      */
-    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(JobClassLoader taskClassLoader, String taskClassName) {
+    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(UnitsClassLoader taskClassLoader, String taskClassName) {
         try {
             return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader.classLoader());
         } catch (ClassNotFoundException e) {

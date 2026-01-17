@@ -163,12 +163,16 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationEv
 import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
+import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.IgniteCluster;
@@ -206,6 +210,9 @@ public class ClientInboundMessageHandler
 
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
+
+    /** Tracks the number of sequential DDL queries executed and prints suggestion to use batching. */
+    private final Consumer<SqlQueryType> queryTypeListener;
 
     /** Configuration. */
     private final ClientConnectorView configuration;
@@ -289,6 +296,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -309,7 +317,8 @@ public class ClientInboundMessageHandler
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
-            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -364,6 +373,8 @@ public class ClientInboundMessageHandler
         this.extensions = extensions;
 
         this.computeConnectionFunc = computeConnectionFunc;
+
+        this.queryTypeListener = queryTypeListener;
     }
 
     @Override
@@ -658,7 +669,7 @@ public class ClientInboundMessageHandler
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (LOG.isDebugEnabled()) {
+        if (LOG.isDebugEnabled() && shouldLogError(err)) {
             if (isNotification) {
                 LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
@@ -686,6 +697,7 @@ public class ClientInboundMessageHandler
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
+        DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -715,7 +727,7 @@ public class ClientInboundMessageHandler
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
         } else {
-            packer.packString("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true");
+            packer.packString("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server");
         }
 
         // Extensions.
@@ -727,9 +739,29 @@ public class ClientInboundMessageHandler
             packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
             packer.packLongArray(sqlBatchException.updateCounters());
+        } else if (delayedAckException != null) {
+            packer.packInt(1); // 1 extension.
+            packer.packString(ErrorExtensions.DELAYED_ACK);
+            packer.packUuid(delayedAckException.txId());
         } else {
             packer.packNil(); // No extensions.
         }
+    }
+
+    private static boolean shouldLogError(Throwable e) {
+        Throwable cause = ExceptionUtils.unwrapRootCause(e);
+
+        // Do not log errors caused by cancellation (triggered by user action).
+        if (cause instanceof TraceableException) {
+            TraceableException te = (TraceableException) cause;
+            int c = te.code();
+
+            return c != Sql.EXECUTION_CANCELLED_ERR
+                    && c != Compute.COMPUTE_JOB_CANCELLED_ERR
+                    && c != Compute.CANCELLING_ERR;
+        }
+
+        return true;
     }
 
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
@@ -964,8 +996,8 @@ public class ClientInboundMessageHandler
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        clockService, notificationSender(requestId), resolveCurrentUsername(),
-                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT)
+                        igniteTables, clockService, notificationSender(requestId), resolveCurrentUsername(),
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT), queryTypeListener
                 );
 
             case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
@@ -1003,7 +1035,10 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
-                return ClientStreamerBatchSendRequest.process(in, igniteTables);
+                return ClientStreamerBatchSendRequest.process(in, igniteTables).thenApply(w -> {
+                    tsTracker.update(clockService.current());
+                    return w;
+                });
 
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, igniteTables);
@@ -1102,8 +1137,8 @@ public class ClientInboundMessageHandler
         boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
                 && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
-            LOG.info("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
+        if (primaryReplicasUpdated && LOG.isDebugEnabled()) {
+            LOG.debug("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 
@@ -1264,6 +1299,11 @@ public class ClientInboundMessageHandler
         return cancelHandles.size();
     }
 
+    @TestOnly
+    public Consumer<SqlQueryType> queryTypeListener() {
+        return queryTypeListener;
+    }
+
     private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
         // Server and client request ids do not clash, but we use negative to simplify the debugging.
         var requestId = serverToClientRequestId.decrementAndGet();
@@ -1374,11 +1414,11 @@ public class ClientInboundMessageHandler
                         packer.packString(jobClassName);
                         packDeploymentUnitPaths(ctx.deploymentUnits(), packer);
                         packer.packBoolean(false); // Retain deployment units in cache.
-                        ClientComputeJobPacker.packJobArgument(arg, null, packer);
+                        ClientComputeJobPacker.packJobArgument(arg, null, packer, null);
                     })
                     .thenApply(unpacker -> {
                         try (unpacker) {
-                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker);
+                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker, false);
                         }
                     });
         }

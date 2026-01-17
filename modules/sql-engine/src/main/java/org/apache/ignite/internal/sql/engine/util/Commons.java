@@ -83,8 +83,8 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
@@ -118,9 +118,11 @@ import org.jetbrains.annotations.TestOnly;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
-    public static final String PART_COL_NAME = "__PART";
-    // Old name for partition column. Kept for backward compatibility.
-    public static final String PART_COL_NAME_LEGACY = "__part";
+
+    public static final String PART_COL_NAME = "__PARTITION_ID";
+    // Old names for partition column. Kept for backward compatibility.
+    public static final String PART_COL_NAME_LEGACY1 = "__PART";
+    public static final String PART_COL_NAME_LEGACY2 = "__part";
 
     public static final String SYSTEM_USER_NAME = "SYSTEM";
 
@@ -171,6 +173,7 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.DISABLE_DECORRELATION.name(), (hint, rel) -> true)
                                     .build()
                     )
             )
@@ -179,7 +182,7 @@ public final class Commons {
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
-                    .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
@@ -372,7 +375,7 @@ public final class Commons {
             final ICompilerFactory compilerFactory;
 
             try {
-                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(ExpressionFactoryImpl.class.getClassLoader());
+                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(SqlExpressionFactoryImpl.class.getClassLoader());
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);
@@ -381,6 +384,7 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
+            cbe.setParentClassLoader(Commons.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class

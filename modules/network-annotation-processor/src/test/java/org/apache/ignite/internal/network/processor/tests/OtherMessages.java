@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.processor.tests;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.MessageSerialVersionUid;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.tostring.IgniteStringifier;
 import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
@@ -29,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
 public class OtherMessages {
     /** Message with {@link UUID} field that is not {@link Nullable} field. */
     @Transferable(11)
+    @MessageSerialVersionUid(9223372036854775807L)
     public interface StringifierFieldMessage extends NetworkMessage {
         @IgniteStringifier(name = "value.size", value = SizeOnlyStringifier.class)
         List<Integer> value();

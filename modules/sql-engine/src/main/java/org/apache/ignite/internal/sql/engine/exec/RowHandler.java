@@ -18,35 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.type.StructNativeType;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
 
 /**
  * Universal accessor for rows. It also has factory methods.
  */
-public interface RowHandler<RowT> {
-    /**
-     * Extract appropriate field.
-     *
-     * @param field Field position to be processed.
-     * @param row Object to be extracted from.
-     */
-    @Nullable Object get(int field, RowT row);
-
-    /**
-     * Checks whether the given field is {@code null}.
-     *
-     * @param field Field position to be processed.
-     * @param row Row.
-     * @return {@code true} if {@code field} is {@code null} and {@code false} otherwise.
-     */
-    boolean isNull(int field, RowT row);
-
-    /** Return column count contained in the incoming row. */
-    int columnCount(RowT row);
-
+public interface RowHandler<RowT> extends RowAccessor<RowT> {
     /**
      * Assembly row representation as BinaryTuple.
      *
@@ -61,106 +39,4 @@ public interface RowHandler<RowT> {
 
     /** String representation. */
     String toString(RowT row);
-
-    /** Creates a factory that produces rows with fields defined by the given schema. */
-    RowFactory<RowT> factory(StructNativeType rowSchema);
-
-    /**
-     * Provide methods for inner row assembly.
-     */
-    @SuppressWarnings("PublicInnerClass")
-    interface RowFactory<RowT> {
-        /** Return row accessor and mutator implementation. */
-        RowHandler<RowT> handler();
-
-        /** Creates a {@link RowBuilder row builder}. */
-        RowBuilder<RowT> rowBuilder();
-
-        /** Create empty row. */
-        RowT create();
-
-        /**
-         * Create row using incoming objects.
-         *
-         * @param fields Sequential objects definitions output row will be created from.
-         * @return Instantiation defined representation.
-         */
-        RowT create(Object... fields);
-
-        /**
-         * Create row using incoming binary tuple.
-         *
-         * @param tuple {@link InternalTuple} representation.
-         * @return Instantiation defined representation.
-         */
-        RowT create(InternalTuple tuple);
-
-        /**
-         * Returns an instance of a row schema used by this factory.
-         *
-         * @return RowSchema.
-         */
-        StructNativeType rowSchema();
-
-        /**
-         * The result row will satisfy the current factory's schema.
-         *
-         * <p>For example:
-         * <pre>
-         *    source row [5, 6, 7, 8] apply mapping [1, 3]
-         *    result row will be [6, 8]
-         * </pre>
-         *
-         * @param row Source row.
-         * @param mapping Target field indexes. Mapping should satisfy to row schema for the factory.
-         * @return A new row with fields from the specified mapping.
-         */
-        RowT map(RowT row, int[] mapping);
-    }
-
-    /**
-     * A builder to create rows. It uses the schema provided by an instance of row factory that created it.
-     *
-     * <pre>
-     *     // Create a row builder.
-     *     var rowBuilder = rowFactory.rowBuilder();
-     *     ...
-     *     // Call build() after all fields have been set.
-     *     var row1 = rowBuilder.build();
-     *     // Call reset() to cleanup builder's state.
-     *     rowBuilder.reset();
-     * </pre>
-     */
-    interface RowBuilder<RowT> {
-
-        /**
-         * Adds a field to the current row.
-         *
-         * @param value Field value.
-         * @return this.
-         */
-        RowBuilder<RowT> addField(@Nullable Object value);
-
-        /** Creates a new row from a previously added fields. */
-        RowT build();
-
-        /**
-         * Resets the state of this builder.
-         */
-        void reset();
-
-        /**
-         * Creates a new row and resets the state of this builder. This is a shorthand for:
-         * <pre>
-         *     Row row = builder.build();
-         *     builder.reset();
-         *     return row;
-         * </pre>
-         */
-        default RowT buildAndReset() {
-            RowT row = build();
-            reset();
-            return row;
-        }
-    }
 }

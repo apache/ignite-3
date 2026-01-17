@@ -37,14 +37,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -55,15 +59,20 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests server tuple builder implementation.
@@ -129,7 +138,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .set("price", 5.99d)
                 .set("id2", 33L);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(original);
 
@@ -158,7 +167,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testRowTupleMutability() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -185,7 +194,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testKeyValueTupleMutability() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -214,7 +223,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testRowTupleSchemaAwareness() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -237,7 +246,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testKeyValueTupleSchemaAwareness() {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -285,7 +294,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Tuple tuple = Tuple.copy(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));
 
         // Check tuples backed with Row.
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(fullSchema);
 
         Row row = marshaller.marshal(keyTuple, valTuple);
 
@@ -355,7 +364,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Tuple key1 = Tuple.create().set("keyUuidCol", UUID.randomUUID());
         Tuple val1 = addColumnOfAllTypes(Tuple.create());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(fullSchema);
 
         Row row = marshaller.marshal(key1, val1);
 
@@ -368,7 +377,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testTupleNetworkSerialization() throws Exception {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
 
@@ -404,7 +413,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 670_000_000))
                 .set("timestamp", Instant.ofEpochSecond(123, 450_000_000));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Row row = marshaller.marshal(tuple);
 
@@ -423,7 +432,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1)
                 .set("string", "abcef")
@@ -457,7 +466,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
 
@@ -474,7 +483,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schemaDescriptor);
 
         Tuple tuple = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.458"));
         Tuple expected = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.46")); // Rounded.
@@ -496,15 +505,75 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldName")
+    @SuppressWarnings("ThrowableNotThrown")
+    void nullPointerWhenReadingNullByNameAsPrimitiveAfterUpgrade(
+            ColumnType type,
+            BiConsumer<Tuple, String> fieldAccessor
+    ) {
+        Row binRow = createNullValueBinaryRow(type);
+
+        SchemaDescriptor schema = Objects.requireNonNull(binRow.schema());
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1,
+                new Column("NEW", SchemaTestUtils.specToType(type), true));
+
+        // Upgrade original row
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        Tuple upgradedRow = TableRow.tuple(schemaRegistry.resolve(binRow, schema2));
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(upgradedRow, "NEW"),
+                String.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "NEW")
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldIndex")
+    @SuppressWarnings("ThrowableNotThrown")
+    void nullPointerWhenReadingNullAsPrimitiveAfterUpgrade(
+            ColumnType type,
+            BiConsumer<Tuple, Integer> fieldAccessor
+    ) {
+        Row binRow = createNullValueBinaryRow(type);
+
+        SchemaDescriptor schema = Objects.requireNonNull(binRow.schema());
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1,
+                new Column("NEW", SchemaTestUtils.specToType(type), true));
+
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        Tuple upgradedRow = TableRow.tuple(schemaRegistry.resolve(binRow, schema2));
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> fieldAccessor.accept(upgradedRow, 2),
+                String.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, 2)
+        );
+    }
+
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         Tuple tuple = Tuple.create().set("ID", 1L);
 
         tuple = transformer.apply(tuple);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
+    }
+
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
+        return TableRow.tuple(createNullValueBinaryRow(valueType));
     }
 
     @Override
@@ -513,7 +582,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         tuple = addColumnsForDefaultSchema(tuple);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }
@@ -524,7 +593,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         tuple = addColumnOfAllTypes(tuple);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(fullSchema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }
@@ -539,8 +608,59 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         Tuple tuple = Tuple.create().set(columnName, value);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
+    }
+
+    private static Row createNullValueBinaryRow(ColumnType valueType) {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("KEY", INT32, false)},
+                new Column[]{new Column("VAL", SchemaTestUtils.specToType(valueType), true)}
+        );
+
+        Tuple tuple = Tuple.create().set("KEY", 1).set("VAL", null);
+        TupleMarshaller marshaller = KeyValueTestUtils.createMarshaller(schema);
+
+        return marshaller.marshal(tuple);
+    }
+
+    private static SchemaDescriptor applyAddingValueColumn(SchemaDescriptor desc, int position, Column newColumn) {
+        List<Column> columns = new ArrayList<>(desc.columns());
+        columns.add(position, newColumn);
+
+        SchemaDescriptor newSchema = new SchemaDescriptor(
+                desc.version() + 1,
+                columns,
+                desc.keyColumns().stream().map(Column::name).collect(Collectors.toList()),
+                desc.colocationColumns().stream().map(Column::name).collect(Collectors.toList())
+        );
+
+        int addedColumnIndex = newSchema.column(newColumn.name()).positionInRow();
+
+        newSchema.columnMapping(new ColumnMapper() {
+            @Override
+            public ColumnMapper add(Column col) {
+                return fail();
+            }
+
+            @Override
+            public ColumnMapper add(int from, int to) {
+                return fail();
+            }
+
+            @Override
+            public int map(int idx) {
+                return idx < addedColumnIndex ? idx : idx == addedColumnIndex ? -1 : idx - 1;
+            }
+
+            @Override
+            public Column mappedColumn(int idx) {
+                return idx == addedColumnIndex ? newSchema.column(idx) : null;
+            }
+        });
+
+        return newSchema;
     }
 }

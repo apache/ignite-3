@@ -208,16 +208,16 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     public void testCurrentUser() {
         server().sql().execute("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
 
-        IgniteClient client2WithAuth = IgniteClient.builder()
+        try (IgniteClient client2WithAuth = IgniteClient.builder()
                 .authenticator(BasicAuthenticator.builder()
                         .username(USERNAME_2)
                         .password(PASSWORD_2)
                         .build())
                 .addresses(getClientAddresses().toArray(new String[0]))
-                .build();
-
-        validateCurrentUser(clientWithAuth, USERNAME_1);
-        validateCurrentUser(client2WithAuth, USERNAME_2);
+                .build()) {
+            validateCurrentUser(clientWithAuth, USERNAME_1);
+            validateCurrentUser(client2WithAuth, USERNAME_2);
+        }
     }
 
     private static void validateCurrentUser(IgniteClient client, String expectedUsername) {

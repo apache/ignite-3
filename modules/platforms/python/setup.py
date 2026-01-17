@@ -89,6 +89,7 @@ class CMakeBuild(build_ext):
             ext_dir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
             cfg = 'Release'
             ext_file = os.path.splitext(os.path.basename(self.get_ext_filename(ext.name)))[0]
+            python_dir = os.path.dirname(sys.executable) if sys.executable else ""
 
             cmake_args = [
                 f'-DCMAKE_BUILD_TYPE={cfg}',
@@ -96,6 +97,7 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
                 f'-DEXTENSION_FILENAME={ext_file}',
                 f'-DIGNITE_VERSION={cmake_project_version(version)}',
+                f'-DPython3_ROOT_DIR={python_dir}'
             ]
 
             if platform.system() == 'Windows':
@@ -130,7 +132,7 @@ def run_setup():
     setuptools.setup(
         name=PACKAGE_NAME,
         version=version,
-        python_requires='>=3.8',
+        python_requires='>=3.10',
         author='The Apache Software Foundation',
         author_email='dev@ignite.apache.org',
         description='Apache Ignite 3 DB API Driver',
@@ -148,11 +150,11 @@ def run_setup():
             'Programming Language :: C++',
             'Programming Language :: Python',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
             'Programming Language :: Python :: 3.13',
+            'Programming Language :: Python :: 3.14',
             'Programming Language :: Python :: 3 :: Only',
             'Intended Audience :: Developers',
             'Topic :: Database :: Front-Ends',

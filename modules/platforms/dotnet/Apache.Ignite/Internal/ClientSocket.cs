@@ -460,6 +460,12 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+
+            if (javaStackTrace != null)
+            {
+                javaStackTrace += $"{Environment.NewLine}---- End of server-side stack trace ----{Environment.NewLine}";
+            }
+
             var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
@@ -907,13 +913,13 @@ namespace Apache.Ignite.Internal
             var isError = (flags & ResponseFlags.Error) != 0;
             var isNotification = (flags & ResponseFlags.Notification) != 0;
 
+            HandlePartitionAssignmentChange(flags, ref reader);
+            long observableTs = HandleObservableTimestamp(ref reader);
+
             if (isServerOp || isNotification)
             {
-                _logger.LogReceivedResponseTrace(requestId, ClientOp.None, flags,  ConnectionContext.ClusterNode.Address, null);
+                _logger.LogReceivedResponseTrace(requestId, ClientOp.None, flags,  ConnectionContext.ClusterNode.Address, null, observableTs);
             }
-
-            HandlePartitionAssignmentChange(flags, ref reader);
-            HandleObservableTimestamp(ref reader);
 
             if (isServerOp)
             {
@@ -942,7 +948,7 @@ namespace Apache.Ignite.Internal
             }
 
             _logger.LogReceivedResponseTrace(
-                requestId, pendingReq.Op, flags,  ConnectionContext.ClusterNode.Address, Stopwatch.GetElapsedTime(pendingReq.StartTs));
+                requestId, pendingReq.Op, flags,  ConnectionContext.ClusterNode.Address, Stopwatch.GetElapsedTime(pendingReq.StartTs), observableTs);
 
             Metrics.RequestsActiveDecrement();
 
@@ -988,10 +994,11 @@ namespace Apache.Ignite.Internal
             return notificationHandler.TrySetResult(response);
         }
 
-        private void HandleObservableTimestamp(ref MsgPackReader reader)
+        private long HandleObservableTimestamp(ref MsgPackReader reader)
         {
             var observableTimestamp = reader.ReadInt64();
             _listener.OnObservableTimestampChanged(observableTimestamp);
+            return observableTimestamp;
         }
 
         private void HandlePartitionAssignmentChange(ResponseFlags flags, ref MsgPackReader reader)
@@ -1094,6 +1101,8 @@ namespace Apache.Ignite.Internal
                     Environment.Exit(0);
                 }
             }
+
+            _listener.OnDisconnect(ex);
         }
 
         private readonly record struct PendingRequest(

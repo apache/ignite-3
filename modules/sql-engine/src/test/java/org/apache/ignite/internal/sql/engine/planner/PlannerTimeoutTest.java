@@ -38,8 +38,11 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -60,12 +63,17 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
 /**
  * Test planner timeout.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class PlannerTimeoutTest extends AbstractPlannerTest {
+
+    @InjectConfiguration("mock.autoRefresh.staleRowsCheckIntervalSeconds=2")
+    private StatisticsConfiguration statisticsConfiguration;
 
     @Test
     public void testPlannerTimeout() throws Exception {
@@ -86,7 +94,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 new PredefinedSchemaManager(schema),
                 mock(LongSupplier.class),
                 mock(ScheduledExecutorService.class),
-                producer
+                producer,
+                statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );
         prepareService.start();
         try {
@@ -117,7 +126,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .plannerTimeout(plannerTimeout)
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
+                        .defaultSchema(createRootSchema(List.of(schema)).subSchemas().get(schema.getName()))
                         .build())
                 .defaultSchemaName(schema.getName())
                 .query(sql)

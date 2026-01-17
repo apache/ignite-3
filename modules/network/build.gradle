@@ -41,6 +41,7 @@ dependencies {
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
+    compileOnly libs.jsr305 // Fix unknown enum constant warning
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(':ignite-network-annotation-processor')
@@ -54,6 +55,7 @@ dependencies {
     testImplementation project(':ignite-network-annotation-processor')
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation libs.jmh.core
     testImplementation(libs.kryo) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
@@ -83,6 +85,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler:'))
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.compileTesting
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster

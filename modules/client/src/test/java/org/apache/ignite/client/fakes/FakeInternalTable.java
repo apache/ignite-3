@@ -48,7 +48,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -60,8 +60,6 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
@@ -440,10 +438,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         return null;
     }
 
-    @Override public TxStateStorage txStateStorage() {
-        return null;
-    }
-
     @Override
     public void close() {
         // No-op.
@@ -462,16 +456,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         if (dataAccessListener != null) {
             dataAccessListener.accept(operation, arg);
         }
-    }
-
-    @Override
-    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
-        return null;
-    }
-
-    @Override
-    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
-        return null;
     }
 
     @Override
@@ -503,7 +487,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public ReplicationGroupId targetReplicationGroupId(int partId) {
+    public ZonePartitionId targetReplicationGroupId(int partId) {
         return null; // Not supported yet.
     }
 

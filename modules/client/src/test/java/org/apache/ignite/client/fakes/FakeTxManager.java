@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -29,13 +30,13 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -67,7 +68,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
         return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
     }
 
@@ -88,7 +89,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+            public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
                 return null;
             }
 
@@ -98,18 +99,18 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+            public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
                 return false;
             }
 
             @Override
-            public TablePartitionId commitPartition() {
+            public ZonePartitionId commitPartition() {
                 return null;
             }
 
             @Override
             public void enlist(
-                    ReplicationGroupId replicationGroupId,
+                    ZonePartitionId replicationGroupId,
                     int tableId,
                     String primaryNodeConsistentId,
                     long consistencyToken
@@ -202,6 +203,16 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
+            TxStateMeta txMeta,
+            InternalTransaction tx,
+            long currentEnlistmentConsistencyToken,
+            ZonePartitionId senderGroupId
+    ) {
+        return completedFuture(stateMeta(tx.id()));
+    }
+
+    @Override
     public <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return null;
     }
@@ -219,11 +230,11 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            ReplicationGroupId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commitIntent,
             boolean timeoutExceeded,
             boolean recovery,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         return nullCompletedFuture();
@@ -231,8 +242,8 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -242,7 +253,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -252,7 +263,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
         return nullCompletedFuture();
     }
 
@@ -289,8 +300,14 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
-            Consumer<Throwable> cb) {
+    public InternalTransaction beginRemote(
+            UUID txId,
+            ZonePartitionId commitPartId,
+            UUID coord,
+            long token,
+            long timeout,
+            Consumer<Throwable> cb
+    ) {
         return null;
     }
 }

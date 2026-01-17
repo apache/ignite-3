@@ -34,7 +34,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -46,12 +45,14 @@ import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -72,9 +72,9 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -172,14 +172,13 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     RaftGroupService raftClient,
                     TxManager txManager,
                     Executor scanRequestExecutor,
-                    PartitionGroupId replicationGroupId,
+                    ZonePartitionId replicationGroupId,
                     int tableId,
                     Supplier<Map<Integer, IndexLocker>> indexesLockers,
                     Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
                     Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
                     ClockService clockService,
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-                    TxStatePartitionStorage txStatePartitionStorage,
                     TransactionStateResolver transactionStateResolver,
                     StorageUpdateHandler storageUpdateHandler,
                     ValidationSchemasSource validationSchemasSource,
@@ -204,7 +203,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         secondaryIndexStorages,
                         clockService,
                         safeTime,
-                        txStatePartitionStorage,
                         transactionStateResolver,
                         storageUpdateHandler,
                         validationSchemasSource,
@@ -218,22 +216,23 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         mock(IndexMetaStorage.class),
                         lowWatermark,
                         mock(FailureProcessor.class),
-                        new SystemPropertiesNodeProperties(),
                         new TableMetricSource(QualifiedName.fromSimple("test_table"))
                 ) {
                     @Override
-                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
-                        if (request instanceof WriteIntentSwitchReplicaRequest) {
+                    public CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
+                        if (request instanceof TableWriteIntentSwitchReplicaRequest) {
                             logger().info("Dropping cleanup request: {}", request);
 
                             releaseTxLocks(
-                                    ((WriteIntentSwitchReplicaRequest) request).txId(),
+                                    ((TableWriteIntentSwitchReplicaRequest) request).txId(),
                                     txManager.lockManager()
                             );
 
-                            return completedFuture(new ReplicaResult(null, null));
+                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false, false, false);
+                            return completedFuture(new ReplicaResult(cleanupResult, null));
                         }
-                        return super.invoke(request, senderId);
+
+                        return super.process(request, replicaPrimacy, senderId);
                     }
                 };
             }

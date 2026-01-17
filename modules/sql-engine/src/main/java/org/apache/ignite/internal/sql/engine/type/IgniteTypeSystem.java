@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import static java.lang.Integer.min;
+
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -143,7 +145,10 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
                     sumType = typeFactory.createTypeWithNullability(
                             typeFactory.createSqlType(
                                     SqlTypeName.DECIMAL,
-                                    typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
+                                    min(
+                                            argumentType.getPrecision() * 2,
+                                            typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL)
+                                    ),
                                     argumentType.getScale()
                             ), argumentType.isNullable());
 
@@ -269,5 +274,10 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
         }
 
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean shouldConvertRaggedUnionTypesToVarying() {
+        return true;
     }
 }

@@ -720,6 +720,6 @@ public class JdbcPreparedStatementSelfTest extends JdbcStatementSelfTest {
     @Override
     protected PreparedStatement createStatement(Connection connection) {
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
-        return new JdbcPreparedStatement(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT, "SELECT 1");
+        return new JdbcPreparedStatement(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT, "SELECT 1", 0);
     }
 }

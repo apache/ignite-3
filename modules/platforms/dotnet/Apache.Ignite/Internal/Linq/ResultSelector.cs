@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -38,6 +39,7 @@ using static ResultSelectorOptions;
 /// <summary>
 /// Result selector cache.
 /// </summary>
+[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal static class ResultSelector
 {
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
@@ -60,13 +62,15 @@ internal static class ResultSelector
     /// LINQ handles type conversion when possible;
     /// LINQ allows more ways to instantiate resulting objects.
     /// </summary>
-    /// <param name="columns">Columns.</param>
+    /// <param name="meta">Metadata.</param>
     /// <param name="selectorExpression">Selector expression.</param>
     /// <param name="options">Options.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Row reader.</returns>
-    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression? selectorExpression, ResultSelectorOptions options)
+    public static RowReader<T> Get<T>(ResultSetMetadata meta, Expression? selectorExpression, ResultSelectorOptions options)
     {
+        var columns = meta.Columns;
+
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
@@ -113,7 +117,7 @@ internal static class ResultSelector
             })
         {
             // Select everything from a sub-query - use nested selector.
-            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, options);
+            return Get<T>(meta, subQuery.QueryModel.SelectClause.Selector, options);
         }
 
         var readerCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
@@ -128,7 +132,7 @@ internal static class ResultSelector
         var method = new DynamicMethod(
             name: $"SingleColumnFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            parameterTypes: [typeof(ResultSetMetadata), typeof(BinaryTupleReader).MakeByRefType(), typeof(object)],
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 
@@ -149,7 +153,7 @@ internal static class ResultSelector
         var method = new DynamicMethod(
             name: $"ConstructorFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            parameterTypes: [typeof(ResultSetMetadata), typeof(BinaryTupleReader).MakeByRefType(), typeof(object)],
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 
@@ -181,7 +185,7 @@ internal static class ResultSelector
         var method = new DynamicMethod(
             name: $"UninitializedObjectFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            parameterTypes: [typeof(ResultSetMetadata), typeof(BinaryTupleReader).MakeByRefType(), typeof(object)],
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 
@@ -217,7 +221,7 @@ internal static class ResultSelector
         var method = new DynamicMethod(
             name: $"MemberInitFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            parameterTypes: [typeof(ResultSetMetadata), typeof(BinaryTupleReader).MakeByRefType(), typeof(object)],
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 
@@ -277,7 +281,7 @@ internal static class ResultSelector
         var method = new DynamicMethod(
             name: $"KvPairFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            parameterTypes: [typeof(ResultSetMetadata), typeof(BinaryTupleReader).MakeByRefType(), typeof(object)],
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 

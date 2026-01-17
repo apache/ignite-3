@@ -440,7 +440,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
     }
 
     @Test
@@ -456,7 +456,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
     }
 
     @ParameterizedTest
@@ -660,7 +660,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
     }
 
     private static void assertComputeExceptionWithStackTrace(IgniteException cause) {
@@ -892,7 +892,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             assertNotNull(cause.getCause());
             String hint = cause.getCause().getMessage();
 
-            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+            assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
         }
     }
 
@@ -1170,6 +1170,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     .collect(Collectors.toList());
 
             return context.ignite().tables().table(TABLE_NAME).recordView().upsertAllAsync(null, tuples);
+        }
+    }
+
+    /** Simple job which always returns null value. */
+    public static class ReturnNullJob implements ComputeJob<Void, String> {
+        @Override
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable Void arg) {
+            return null;
         }
     }
 }

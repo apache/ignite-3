@@ -54,6 +54,8 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private final VolatilePageMemoryProfileConfiguration cfg;
 
+    private volatile long regionSize;
+
     private final PageIoRegistry ioRegistry;
 
     private final int pageSize;
@@ -89,8 +91,11 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
         );
 
-        VolatileDataRegionConfiguration cfg = regionConfiguration(this.cfg, pageSize);
-        var pageMemory = new VolatilePageMemory(cfg, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
+        VolatileDataRegionConfiguration regionConfiguration = regionConfiguration(this.cfg, pageSize);
+
+        this.regionSize = regionConfiguration.maxSizeBytes();
+
+        var pageMemory = new VolatilePageMemory(regionConfiguration, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
 
         pageMemory.start();
 
@@ -191,5 +196,10 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         if (pageMemory == null) {
             throw new StorageException("Data region not started");
         }
+    }
+
+    @Override
+    public long regionSize() {
+        return regionSize;
     }
 }

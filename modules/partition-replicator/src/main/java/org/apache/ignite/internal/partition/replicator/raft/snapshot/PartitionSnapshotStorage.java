@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotReader;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -48,9 +49,9 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Snapshot storage for a partition.
+ * Snapshot storage for a zone partition.
  *
- * <p>In case of zone partitions manages all table storages of a zone partition.
+ * <p>Manages all table storages of a zone partition.
  *
  * <p>Utilizes the fact that every partition already stores its latest applied index and thus can itself be used as its own snapshot.
  *
@@ -100,6 +101,8 @@ public class PartitionSnapshotStorage {
 
     private final LogStorageAccess logStorage;
 
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+
     /** Constructor. */
     public PartitionSnapshotStorage(
             PartitionKey partitionKey,
@@ -109,7 +112,8 @@ public class PartitionSnapshotStorage {
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
-            LogStorageAccess logStorage
+            LogStorageAccess logStorage,
+            RaftSnapshotsMetricsSource snapshotsMetricsSource
     ) {
         this(
                 partitionKey,
@@ -120,7 +124,8 @@ public class PartitionSnapshotStorage {
                 failureProcessor,
                 incomingSnapshotsExecutor,
                 DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS,
-                logStorage
+                logStorage,
+                snapshotsMetricsSource
         );
     }
 
@@ -134,7 +139,8 @@ public class PartitionSnapshotStorage {
             FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor,
             long waitForMetadataCatchupMs,
-            LogStorageAccess logStorage
+            LogStorageAccess logStorage,
+            RaftSnapshotsMetricsSource snapshotsMetricsSource
     ) {
         this.partitionKey = partitionKey;
         this.topologyService = topologyService;
@@ -145,6 +151,7 @@ public class PartitionSnapshotStorage {
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
         this.logStorage = logStorage;
+        this.snapshotsMetricsSource = snapshotsMetricsSource;
     }
 
     public PartitionKey partitionKey() {
@@ -199,6 +206,15 @@ public class PartitionSnapshotStorage {
     }
 
     /**
+     * Returns true if there are neither ongoing snapshot operations nor partition snapshot storages, falser otherwise.
+     */
+    public boolean arePartitionSnapshotStoragesEmpty() {
+        synchronized (snapshotOperationLock) {
+            return ongoingSnapshotOperations.isEmpty() && partitionsByTableId.isEmpty();
+        }
+    }
+
+    /**
      * Returns the TX state storage.
      */
     public PartitionTxStateAccess txState() {
@@ -231,7 +247,13 @@ public class PartitionSnapshotStorage {
 
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
-        var copier = new IncomingSnapshotCopier(this, snapshotUri, incomingSnapshotsExecutor, waitForMetadataCatchupMs) {
+        var copier = new IncomingSnapshotCopier(
+                this,
+                snapshotUri,
+                incomingSnapshotsExecutor,
+                waitForMetadataCatchupMs,
+                snapshotsMetricsSource
+        ) {
             @Override
             public void close() {
                 try {
@@ -257,7 +279,7 @@ public class PartitionSnapshotStorage {
 
         startSnapshotOperation(snapshotId);
 
-        return new OutgoingSnapshotReader(snapshotId, this) {
+        return new OutgoingSnapshotReader(snapshotId, this, snapshotsMetricsSource) {
             @Override
             public void close() throws IOException {
                 try {
@@ -279,7 +301,11 @@ public class PartitionSnapshotStorage {
     }
 
     private void completeSnapshotOperation(UUID snapshotId) {
+        LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
         synchronized (snapshotOperationLock) {
+            LOG.info("Finishing outgoing snapshot [partitionKey={}, snapshotId={}]", partitionKey, snapshotId);
+
             CompletableFuture<Void> operationFuture = ongoingSnapshotOperations.remove(snapshotId);
 
             assert operationFuture != null :
@@ -302,12 +328,15 @@ public class PartitionSnapshotStorage {
         for (PartitionMvStorageAccess partitionStorage : partitionsByTableId.values()) {
             long lastAppliedIndex = partitionStorage.lastAppliedIndex();
 
-            assert lastAppliedIndex >= 0 :
-                    String.format("Partition storage [tableId=%d, partitionId=%d] contains an unexpected applied index value: %d.",
-                            partitionStorage.tableId(),
-                            partitionStorage.partitionId(),
-                            lastAppliedIndex
-                    );
+            if (lastAppliedIndex < 0) {
+                throw new IllegalStateException(String.format(
+                        "MV partition storage [tableId=%d, zoneId=%d, partitionId=%d] contains an unexpected applied index value: %d.",
+                        partitionStorage.tableId(),
+                        partitionKey.zoneId(),
+                        partitionStorage.partitionId(),
+                        lastAppliedIndex
+                ));
+            }
 
             if (lastAppliedIndex == 0) {
                 return null;
@@ -319,7 +348,17 @@ public class PartitionSnapshotStorage {
             }
         }
 
-        if (txState.lastAppliedIndex() < minLastAppliedIndex) {
+        long txStateLastAppliedIndex = txState.lastAppliedIndex();
+        if (txStateLastAppliedIndex < 0) {
+            throw new IllegalStateException(
+                    String.format("Tx state partition storage [key=%s] contains an unexpected applied index value: %d.",
+                            partitionKey,
+                            txStateLastAppliedIndex
+                    )
+            );
+        }
+
+        if (txStateLastAppliedIndex < minLastAppliedIndex) {
             return startupSnapshotMetaFromTxStorage();
         } else {
             assert storageWithMinLastAppliedIndex != null;

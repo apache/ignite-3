@@ -584,12 +584,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureProcessor,
-                nodeProperties,
                 clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication(),
                 threadPoolsManager.commonScheduler(),
                 metricManager,
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(
@@ -642,7 +640,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureProcessor,
-                nodeProperties,
                 metricManager
         );
 
@@ -711,7 +708,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                metricManager
+                metricManager,
+                lowWatermark
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
@@ -751,7 +749,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 failureProcessor,
-                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -763,7 +760,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager,
                 schemaManager,
                 dataStorageManager,
-                outgoingSnapshotManager
+                outgoingSnapshotManager,
+                metricManager,
+                messagingServiceReturningToStorageOperationsPool,
+                replicaService
         );
 
         TableManager tableManager = new TableManager(
@@ -800,7 +800,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleListener,
-                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
@@ -834,7 +833,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService()),
@@ -1332,7 +1330,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    public void testOneNodeRestartWithGap() throws InterruptedException {
+    public void testOneNodeRestartWithGap() {
         IgniteImpl ignite = startNode(0);
 
         IgniteImpl ignite1 = startNode(1);
@@ -1687,8 +1685,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
-            int catalogVersion = node.catalogManager().latestCatalogVersion();
-            long timestamp = node.catalogManager().catalog(catalogVersion).time();
+            long timestamp = node.catalogManager().latestCatalog().time();
 
             node.metaStorageManager().put(
                     stablePartAssignmentsKey(partId),

@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Compute
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -623,14 +624,38 @@ namespace Apache.Ignite.Internal.Compute
                     .ConfigureAwait(false);
             }
 
+            if (target.SerializerHandlerFunc != null)
+            {
+                return await ExecuteColocatedAsync(
+                        target.TableName,
+                        target.Data,
+                        target.SerializerHandlerFunc,
+                        jobDescriptor,
+                        arg,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                     target.TableName,
                     target.Data,
-                    static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    static table => GetSerializerHandler(table),
                     jobDescriptor,
                     arg,
                     cancellationToken)
                 .ConfigureAwait(false);
+
+            [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Unreachable with IMapper.")]
+            [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "Unreachable with IMapper.")]
+            static IRecordSerializerHandler<TKey> GetSerializerHandler(Table table)
+            {
+                if (!RuntimeFeature.IsDynamicCodeSupported)
+                {
+                    throw new InvalidOperationException("Use JobTarget.Colocated overload with IMapper<T>.");
+                }
+
+                return table.GetRecordViewInternal<TKey>().RecordSerializer.Handler;
+            }
         }
 
         private async Task<bool?> CancelJobAsync(Guid jobId)

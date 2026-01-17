@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Common;
 using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
@@ -34,7 +35,7 @@ using NUnit.Framework;
 using TestHelpers;
 
 [TestFixture("3.0.0")]
-[Platform("Linux", Reason = "Faster runs on CI")]
+[Category(TestUtils.CategoryIntensive)]
 public class CurrentClientWithOldServerCompatibilityTest
 {
     private const string TableNameTest = "TEST";

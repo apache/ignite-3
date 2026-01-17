@@ -69,7 +69,7 @@ dependencies {
     implementation libs.okhttp.core
     implementation libs.okhttp.logging
     implementation libs.threetenbp
-    implementation libs.swagger.legacy.annotations
+    implementation libs.swaggerv3.annotations
     implementation libs.progressBar
 
     testAnnotationProcessor libs.picocli.annotation.processor
@@ -84,8 +84,7 @@ dependencies {
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.test
     testImplementation libs.assertj.core
-    testImplementation libs.mock.server.netty
-    testImplementation libs.mock.server.junit
+    testImplementation libs.wiremock
     testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor libs.picocli.annotation.processor
@@ -113,8 +112,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.micronaut.picocli
-    integrationTestImplementation libs.mock.server.netty
-    integrationTestImplementation libs.mock.server.junit
+    integrationTestImplementation libs.wiremock
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.assertj.core

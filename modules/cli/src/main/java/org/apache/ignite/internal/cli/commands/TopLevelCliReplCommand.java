@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cli.commands.node.NodeReplCommand;
 import org.apache.ignite.internal.cli.commands.recovery.RecoveryReplCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlReplCommand;
 import org.apache.ignite.internal.cli.commands.version.VersionCommand;
+import org.apache.ignite.internal.cli.commands.zone.ZoneReplCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.shell.jline3.PicocliCommands;
@@ -56,6 +57,7 @@ import picocli.shell.jline3.PicocliCommands;
                 DisconnectCommand.class,
                 NodeReplCommand.class,
                 ClusterReplCommand.class,
+                ZoneReplCommand.class,
                 RecoveryReplCommand.class
         },
 

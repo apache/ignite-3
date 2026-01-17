@@ -36,7 +36,7 @@ import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.HostAndPort;
@@ -52,6 +52,7 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -96,17 +97,29 @@ import org.jetbrains.annotations.Nullable;
  *          <br>If not set then system default on client timezone will be used.</td>
  *   </tr>
  *   <tr>
- *      <td>queryTimeout</td>
+ *      <td>queryTimeoutSeconds</td>
  *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
+ *   </tr>
+ *   <tr>
+ *       <td>partitionAwarenessMetadataCacheSize</td>
+ *       <td>Size of cache to store partition awareness metadata of queries, in number of entries.
+ *           <br>By default, the cache stores 1024 entries.
+ *           <br>The value {@code 0} can be used to disable partition awareness.</td>
  *   </tr>
  *   <tr>
  *      <th colspan="2">Connection properties</th>
  *   </tr>
  *   <tr>
- *      <td>connectionTimeout</td>
- *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
+ *      <td>connectionTimeoutMillis</td>
+ *      <td>Number of milliseconds JDBC client will wait for server to respond. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
+ *   </tr>
+ *   <tr>
+ *      <td>backgroundReconnectIntervalMillis</td>
+ *      <td>Background reconnect interval, in milliseconds.
+ *          <br>The value {@code 0} can be used to disable background reconnection.
+ *          <br>The default value is {@code 30 000}.</td>
  *   </tr>
  *   <tr>
  *       <th colspan="2">Basic authentication</th>
@@ -183,6 +196,9 @@ public class IgniteJdbcDriver implements Driver {
 
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
+
+    /** Full version string. */
+    private static final String FULL_VER = IgniteProductVersion.CURRENT_VERSION.toString();
 
     /**
      * Tracker of the latest time observed by client.
@@ -297,18 +313,19 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 addresses,
                 networkTimeout,
-                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
+                connectionProperties.getBackgroundReconnectInterval(),
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                new RetryLimitPolicy(),
+                new RetryReadPolicy(),
                 null,
                 extractSslConfiguration(connectionProperties),
                 false,
                 extractAuthenticationConfiguration(connectionProperties),
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
                 connectionProperties.getPartitionAwarenessMetadataCacheSize(),
-                JdbcDatabaseMetadata.DRIVER_NAME
+                JdbcDatabaseMetadata.DRIVER_NAME,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL
         );
 
         ChannelValidator channelValidator = ctx -> {
@@ -320,8 +337,8 @@ public class IgniteJdbcDriver implements Driver {
                         IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
                                 + "the feature required by the driver being used. Please refer to the documentation and use a compatible "
                                 + "version of the JDBC driver to connect to this node "
-                                + "[name={}, address={}, productVersion={}, driverVersion={}.{}]",
-                                node.name(), node.address(), ctx.productVersion(), getMajorVersion(), getMinorVersion()),
+                                + "[nodeName={}, nodeAddress={}, nodeVersion={}, driverVersion={}]",
+                                node.name(), node.address(), ctx.productVersion(), FULL_VER),
                         null
                 );
             }

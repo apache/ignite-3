@@ -87,7 +87,7 @@ namespace Apache.Ignite.Tests
             new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, string.Empty);
 
         private static IgniteClientConfigurationInternal GetConfigInternal() =>
-            new(new(), Task.FromResult((IgniteApiAccessor)null!));
+            new(new(), Task.FromResult<IgniteApiAccessor>(null!), DnsResolver.Instance, new());
 
         private class NoOpListener : IClientSocketEventListener
         {
@@ -97,6 +97,11 @@ namespace Apache.Ignite.Tests
             }
 
             public void OnObservableTimestampChanged(long timestamp)
+            {
+                // No-op.
+            }
+
+            public void OnDisconnect(Exception? ex)
             {
                 // No-op.
             }
