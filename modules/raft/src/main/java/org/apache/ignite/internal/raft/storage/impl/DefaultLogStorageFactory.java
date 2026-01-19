@@ -277,7 +277,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     @Override
     public LogSyncer logSyncer() {
-        return fsync ? new NoOpLogSyncer() : db::syncWal;
+        return fsync ? new NoOpLogSyncer() : () -> db.syncWal();
     }
 
     /**
