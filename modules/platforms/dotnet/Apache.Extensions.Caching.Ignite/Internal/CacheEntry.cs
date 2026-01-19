@@ -23,6 +23,10 @@ using System.Diagnostics.CodeAnalysis;
 /// Cache entry DTO.
 /// </summary>
 /// <param name="Value">Value bytes.</param>
+/// <param name="ExpiresAt">Expiration (Unix time millis).</param>
+/// <param name="SlidingExpiration">Sliding expiration (millis).</param>
 [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Internal DTO")]
 internal record struct CacheEntry(
-    byte[] Value);
+    byte[] Value,
+    long? ExpiresAt,
+    long? SlidingExpiration);

@@ -45,6 +45,14 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
             {
                 rowWriter.WriteBytes(obj.Value.Value);
             }
+            else if (column.Name == _options.ExpirationColumnName)
+            {
+                rowWriter.WriteLong(obj.Value.ExpiresAt);
+            }
+            else if (column.Name == _options.SlidingExpirationColumnName)
+            {
+                rowWriter.WriteLong(obj.Value.SlidingExpiration);
+            }
             else
             {
                 rowWriter.Skip();
@@ -57,6 +65,8 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
     {
         string? key = null;
         byte[]? value = null;
+        long? expiresAt = null;
+        long? slidingExpiration = null;
 
         foreach (var column in schema.Columns)
         {
@@ -67,6 +77,14 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
             else if (column.Name == _options.ValueColumnName)
             {
                 value = rowReader.ReadBytes();
+            }
+            else if (column.Name == _options.ExpirationColumnName)
+            {
+                expiresAt = rowReader.ReadLong();
+            }
+            else if (column.Name == _options.SlidingExpirationColumnName)
+            {
+                slidingExpiration = rowReader.ReadLong();
             }
             else
             {
@@ -89,6 +107,6 @@ internal sealed class CacheEntryMapper : IMapper<KeyValuePair<string, CacheEntry
             key = key[prefix.Length..];
         }
 
-        return KeyValuePair.Create(key, new CacheEntry(value));
+        return KeyValuePair.Create(key, new CacheEntry(value, expiresAt, slidingExpiration));
     }
 }
