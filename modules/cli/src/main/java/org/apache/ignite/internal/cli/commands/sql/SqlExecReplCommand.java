@@ -237,7 +237,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
         TruncationConfig truncationConfig = TruncationConfig.fromConfig(
                 configManagerProvider,
-                () -> terminal != null ? terminal.getWidth() : 0,
+                terminal::getWidth,
                 maxColWidth,
                 noTruncate,
                 plain

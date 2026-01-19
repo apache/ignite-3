@@ -89,6 +89,7 @@ public class TableTruncator {
         for (int col = 0; col < columnCount; col++) {
             maxContentWidths[col] = Math.max(maxContentWidths[col], stringLength(header[col]));
             for (Object[] row : content) {
+                // Defensive check: rows should have same length as header, but handle edge cases
                 if (col < row.length) {
                     maxContentWidths[col] = Math.max(maxContentWidths[col], stringLength(row[col]));
                 }

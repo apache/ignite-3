@@ -34,6 +34,11 @@ public class TableDecorator implements Decorator<Table, TerminalOutput> {
     private final boolean plain;
     private final TableTruncator truncator;
 
+    /**
+     * Creates a new TableDecorator with truncation disabled.
+     *
+     * @param plain whether to use plain formatting
+     */
     public TableDecorator(boolean plain) {
         this(plain, TruncationConfig.disabled());
     }
@@ -49,8 +54,8 @@ public class TableDecorator implements Decorator<Table, TerminalOutput> {
         this.truncator = new TableTruncator(truncationConfig);
     }
 
+    /** {@inheritDoc} */
     @Override
-    @SuppressWarnings("unchecked") // Safe cast: all CLI Table instances are Table<String>
     public TerminalOutput decorate(Table table) {
         Table<String> truncatedTable = truncator.truncate((Table<String>) table);
         if (plain) {
