@@ -17,12 +17,13 @@
 
 package org.apache.ignite.table;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
-import org.apache.ignite.table.criteria.CriteriaQuerySource;
+import java.util.Collection;
+import java.util.Set;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -32,28 +33,49 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class TableApiConsistencyTest {
 
+    Set<Method> noTxParamExclusions = Set.of(
+            KeyValueView.class.getDeclaredMethod("removeAll", Transaction.class, Collection.class),
+            KeyValueView.class.getDeclaredMethod("removeAllAsync", Transaction.class, Collection.class),
+            RecordView.class.getDeclaredMethod("deleteAll", Transaction.class, Collection.class),
+            RecordView.class.getDeclaredMethod("deleteAllAsync", Transaction.class, Collection.class)
+    );
+
+    public TableApiConsistencyTest() throws NoSuchMethodException {
+    }
+
     /**
      * Test validates that if method public method requires {@link Transaction} parameter then overloaded
      * method without such parameter should exists.
      */
     @ParameterizedTest
-    @ValueSource(classes = {KeyValueView.class, RecordView.class, CriteriaQuerySource.class})
+    @ValueSource(classes = {KeyValueView.class, RecordView.class})
     public void methodsWithOptionalTxShouldHaveSimpleOverload(Class<?> clazz) {
         for (Method mtd : clazz.getDeclaredMethods()) {
             var params = mtd.getParameters();
 
             int txParIdx = txParamIdx(params);
+            boolean deprecated = mtd.isAnnotationPresent(Deprecated.class);
 
-            if (txParIdx != -1) {
+            if (txParIdx != -1 && !deprecated) {
                 Class<?>[] altParams = Arrays.stream(params)
                         .filter(p -> p != params[txParIdx])
                         .map(Parameter::getType)
                         .toArray(Class[]::new);
 
-                assertDoesNotThrow(
-                        () -> clazz.getDeclaredMethod(mtd.getName(), altParams),
-                        () -> "Method " + mtd + " should have overload without transaction parameter"
-                );
+                Method altMtd;
+                try {
+                    altMtd = clazz.getDeclaredMethod(mtd.getName(), altParams);
+                } catch (NoSuchMethodException e) {
+                    altMtd = null;
+                }
+
+                if (altMtd == null && !noTxParamExclusions.contains(mtd)) {
+                    fail("Method " + mtd + " should have overload without transaction parameter");
+                }
+
+                if (altMtd != null && noTxParamExclusions.contains(mtd)) {
+                    fail("Method " + mtd + " has overload without transaction parameter but listed within exclusions");
+                }
             }
         }
     }

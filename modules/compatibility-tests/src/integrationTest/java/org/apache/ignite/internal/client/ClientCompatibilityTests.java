@@ -136,7 +136,7 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlColumnMeta() {
-        try (var cursor = client().sql().execute("select * from " + TABLE_NAME_ALL_COLUMNS)) {
+        try (var cursor = client().sql().execute((Transaction) null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
             ResultSetMetadata meta = cursor.metadata();
             assertNotNull(meta);
 
