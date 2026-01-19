@@ -119,7 +119,7 @@ public class TableTruncator {
      * @param columnWidths column widths to adjust (modified in place)
      * @param terminalWidth terminal width constraint
      */
-    private void distributeWidthsForTerminal(int[] columnWidths, int terminalWidth) {
+    private static void distributeWidthsForTerminal(int[] columnWidths, int terminalWidth) {
         int columnCount = columnWidths.length;
         int totalBorderOverhead = TABLE_BORDER_OVERHEAD + (columnCount * BORDER_OVERHEAD_PER_COLUMN);
         int availableWidth = terminalWidth - totalBorderOverhead;
@@ -205,7 +205,7 @@ public class TableTruncator {
      * @param maxWidth maximum width
      * @return truncated value
      */
-    String truncateCell(Object value, int maxWidth) {
+    static String truncateCell(Object value, int maxWidth) {
         if (value == null) {
             return "null";
         }
@@ -229,7 +229,7 @@ public class TableTruncator {
      * @param value value to measure
      * @return length of string representation
      */
-    private int stringLength(Object value) {
+    private static int stringLength(Object value) {
         if (value == null) {
             return 4; // "null"
         }
