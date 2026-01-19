@@ -97,7 +97,6 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         verifyNoNodesHaveAnythingInIndex();
     }
 
-    private void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[] args) {
     private void verifyNoNodesHaveAnythingInIndex() {
         for (int nodeIndex = 0; nodeIndex < initialNodes(); nodeIndex++) {
             IgniteImpl ignite = unwrapIgniteImpl(node(nodeIndex));
