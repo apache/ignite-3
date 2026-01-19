@@ -54,7 +54,15 @@ public class TableDecorator implements Decorator<Table, TerminalOutput> {
         this.truncator = new TableTruncator(truncationConfig);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Decorates a table for terminal output.
+     *
+     * <p>Applies truncation based on configuration and renders the table
+     * in either plain or formatted style.
+     *
+     * @param table the table to decorate
+     * @return terminal output containing the rendered table
+     */
     @Override
     public TerminalOutput decorate(Table table) {
         Table<String> truncatedTable = truncator.truncate((Table<String>) table);
