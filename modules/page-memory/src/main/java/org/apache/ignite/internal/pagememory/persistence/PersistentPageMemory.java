@@ -1509,14 +1509,18 @@ public class PersistentPageMemory implements PageMemory {
             return memPerRepl;
         }
 
-        private void acquirePage(long absPtr) {
-            if (PageHeader.acquirePage(absPtr) == 1) {
+        protected void acquirePage(long absPtr) {
+            int newPinCount = PageHeader.acquirePage(absPtr);
+
+            if (newPinCount == 1) {
                 acquiredPages.increment();
             }
         }
 
-        private void releasePage(long absPtr) {
-            if (PageHeader.releasePage(absPtr) == 0) {
+        protected void releasePage(long absPtr) {
+            int newPinCount = PageHeader.releasePage(absPtr);
+
+            if (newPinCount == 0) {
                 acquiredPages.decrement();
             }
         }
