@@ -59,7 +59,6 @@ public interface IgniteSql {
 
     /**
      * Executes a single SQL query.
-     * Opens implicit transaction.
      *
      * @param query SQL query template.
      * @param arguments Arguments for the template (optional).
@@ -214,7 +213,6 @@ public interface IgniteSql {
 
     /**
      * Executes SQL query in an asynchronous way.
-     * Opens implicit transaction.
      *
      * @param query SQL query template.
      * @param arguments Arguments for the template (optional).
@@ -367,7 +365,6 @@ public interface IgniteSql {
 
     /**
      * Executes a batched SQL query. Only DML queries are supported.
-     * Opens implicit transaction.
      *
      * @param dmlQuery DML query template.
      * @param batch Batch of query arguments.
@@ -440,7 +437,6 @@ public interface IgniteSql {
 
     /**
      * Executes a batched SQL query asynchronously.
-     * Opens implicit transaction.
      *
      * @param query SQL query template.
      * @param batch List of batch rows, where each row is a list of statement arguments.
