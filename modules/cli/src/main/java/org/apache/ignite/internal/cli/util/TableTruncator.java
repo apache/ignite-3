@@ -32,11 +32,18 @@ public class TableTruncator {
     /** Minimum column width to display at least ellipsis. */
     private static final int MIN_COLUMN_WIDTH = ELLIPSIS.length();
 
-    /** Characters used for table borders in FlipTables (| and spaces). */
+    /**
+     * Per-column overhead in FlipTables: space before + space after + separator.
+     * Example: " value │" = 3 chars overhead per column.
+     */
     private static final int BORDER_OVERHEAD_PER_COLUMN = 3;
 
-    /** Left and right border overhead. */
-    private static final int TABLE_BORDER_OVERHEAD = 2;
+    /**
+     * Fixed table border overhead.
+     * Total overhead formula: 1 + 3*N where N is column count.
+     * This accounts for: left border (1) + right border (1) + per-column (3*N) - last separator (1) = 1 + 3*N.
+     */
+    private static final int TABLE_BORDER_OVERHEAD = 1;
 
     private final TruncationConfig config;
 

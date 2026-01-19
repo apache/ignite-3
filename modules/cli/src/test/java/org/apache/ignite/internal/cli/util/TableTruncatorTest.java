@@ -158,14 +158,14 @@ class TableTruncatorTest {
         Object[][] content = {
                 {"very long content 1", "very long content 2", "very long content 3"}
         };
-        // Terminal width = 50, with overhead for borders (2 outer + 3*3 separators = 11)
+        // Terminal width = 50, with overhead for borders (1 + 3*3 = 10)
         TruncationConfig config = new TruncationConfig(true, 100, 50);
 
         int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
 
         // Total width should fit within terminal width
         int totalWidth = Arrays.stream(widths).sum();
-        assertThat(totalWidth <= 50 - 11, is(true));
+        assertThat(totalWidth <= 50 - 10, is(true));
 
         // Each column should have reasonable width (at least minimum of 3 for ellipsis)
         for (int width : widths) {
