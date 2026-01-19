@@ -28,9 +28,10 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -42,6 +43,7 @@ import org.testcontainers.utility.MountableFile;
  * Basic tests for Docker configuration.
  */
 public class ItDockerConfigTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItDockerConfigTest.class);
     private static final String DOCKER_IMAGE = "apacheignite/ignite:latest";
     private static final int CLUSTER_SIZE = 3;
     private static final List<GenericContainer<?>> igniteNodes = new ArrayList<>();
@@ -59,6 +61,18 @@ public class ItDockerConfigTest {
                     .withCopyToContainer(MountableFile.forClasspathResource("/org/apache/ignite/tests/docker/ignite-config.conf"),
                             "/opt/ignite/etc/ignite-config.conf")
                     .withCommand("--node-name node" + i)
+                    .withLogConsumer(frame -> {
+                        switch (frame.getType()) {
+                            case STDOUT:
+                            case END:
+                                LOG.info(frame.getUtf8String());
+                                break;
+                            case STDERR:
+                                LOG.error(frame.getUtf8String());
+                                break;
+                        }
+
+                    })
                     .withExposedPorts(10300, 10800)
                     .waitingFor(Wait.forListeningPorts(10300, 10800))
                     .waitingFor(Wait.forLogMessage(".*Joining the cluster.*", 1))
