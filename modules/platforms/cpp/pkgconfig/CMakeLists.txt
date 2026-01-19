@@ -15,15 +15,24 @@
 # limitations under the License.
 #
 
-project(ignite-fake-server)
+if (${ENABLE_CLIENT})
+    configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/ignite-client.pc.in
+            ${CMAKE_CURRENT_BINARY_DIR}/ignite-client.pc
+            @ONLY
+    )
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ignite-client.pc
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+    )
+endif()
 
-set(TARGET ${PROJECT_NAME})
-
-set(SOURCES
-    main.cpp
-    fake_server.cpp
-    tcp_client_channel.cpp
-    connection_test.cpp
-)
-
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c)
+if (${ENABLE_ODBC})
+    configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/ignite-odbc.pc.in
+            ${CMAKE_CURRENT_BINARY_DIR}/ignite-odbc.pc
+            @ONLY
+    )
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ignite-odbc.pc
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+    )
+endif()

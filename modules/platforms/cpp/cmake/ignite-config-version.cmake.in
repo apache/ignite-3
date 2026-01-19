@@ -15,15 +15,14 @@
 # limitations under the License.
 #
 
-project(ignite-fake-server)
+set(PACKAGE_VERSION "@PROJECT_VERSION@")
 
-set(TARGET ${PROJECT_NAME})
-
-set(SOURCES
-    main.cpp
-    fake_server.cpp
-    tcp_client_channel.cpp
-    connection_test.cpp
-)
-
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c)
+# Check whether the requested PACKAGE_VERSION is compatible
+if("${PACKAGE_VERSION}" VERSION_LESS "${PACKAGE_FIND_VERSION}")
+    set(PACKAGE_VERSION_COMPATIBLE FALSE)
+else()
+    set(PACKAGE_VERSION_COMPATIBLE TRUE)
+    if("${PACKAGE_VERSION}" VERSION_EQUAL "${PACKAGE_FIND_VERSION}")
+        set(PACKAGE_VERSION_EXACT TRUE)
+    endif()
+endif()
