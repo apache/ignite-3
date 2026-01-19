@@ -411,13 +411,15 @@ public final class ReliableChannel implements AutoCloseable {
             ClientChannelHolder holder = nodeChannelsByName.get(preferredNodeName);
 
             if (holder != null && !holder.close) {
-                return holder.getOrCreateChannelAsync().thenCompose(ch -> {
-                    if (ch != null) {
-                        return completedFuture(ch);
-                    } else {
-                        return getDefaultChannelAsync();
-                    }
-                });
+                return holder.getOrCreateChannelAsync()
+                        .handle((ch, err) -> ch) // On error, return null to fall back to default channel.
+                        .thenCompose(ch -> {
+                            if (ch != null) {
+                                return completedFuture(ch);
+                            } else {
+                                return getDefaultChannelAsync();
+                            }
+                        });
             }
         }
 

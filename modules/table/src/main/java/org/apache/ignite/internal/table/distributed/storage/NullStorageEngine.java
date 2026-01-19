@@ -66,6 +66,11 @@ public class NullStorageEngine implements StorageEngine {
         throwNoEngineException(tableId);
     }
 
+    @Override
+    public long requiredOffHeapMemorySize() {
+        return 0;
+    }
+
     private static <T> T throwNoEngineException(@Nullable Integer tableId) {
         throw new StorageException("Table uses an unknown storage profile or engine, so current node either should not receive "
                 + "any assignments, or storage profile addition is not handled properly"

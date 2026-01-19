@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Extensions.Caching.Ignite.Internal;
+package org.apache.ignite.internal.cli.commands.unit;
 
-using Apache.Ignite.Table;
-using Microsoft.Extensions.ObjectPool;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.BeforeEach;
 
-/// <summary>
-/// Ignite tuple pooled object policy.
-/// </summary>
-internal sealed class IgniteTuplePooledObjectPolicy : PooledObjectPolicy<IgniteTuple>
-{
-    /// <inheritdoc/>
-    public override IgniteTuple Create() => new();
+/** Integration test for node unit inspect command in REPL mode. */
+class ItNodeUnitInspectReplCommandTest extends ItNodeUnitInspectCommandTest {
+    @BeforeEach
+    void connect() {
+        connect(NODE_URL);
+    }
 
-    /// <inheritdoc/>
-    public override bool Return(IgniteTuple obj)
-    {
-        obj.Clear();
-        return true;
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
+
+    @Override
+    protected int errorExitCode() {
+        return 0;
     }
 }

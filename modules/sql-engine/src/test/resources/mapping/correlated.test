@@ -1,5 +1,5 @@
 N0
-SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
+SELECT /*+ disable_decorrelation */ (SELECT count(*) FROM ct_n1) FROM t_n1
 ---
 Fragment#2 root
   distribution: single
@@ -68,7 +68,7 @@ Fragment#3
 ---
 
 N1
-SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
+SELECT /*+ disable_decorrelation */ (SELECT count(*) FROM ct_n1) FROM t_n1
 ---
 Fragment#2 root
   distribution: single
@@ -120,7 +120,7 @@ Fragment#3
 ---
 
 N0
-SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
+SELECT /*+ disable_decorrelation */ (SELECT count(*) FROM ct_n1) FROM t_n2
 ---
 Fragment#2 root
   distribution: single
@@ -189,7 +189,7 @@ Fragment#3
 ---
 
 N1
-SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
+SELECT /*+ disable_decorrelation */ (SELECT count(*) FROM ct_n1) FROM t_n2
 ---
 Fragment#2 root
   distribution: single
@@ -241,7 +241,7 @@ Fragment#3
 ---
 
 N0
-SELECT t.c1 FROM t_n1 t JOIN table(system_range(1, 50)) as r ON t.id = r.x WHERE mod(r.x, 10) = 0
+SELECT /*+ disable_decorrelation */ t.c1 FROM t_n1 t JOIN table(system_range(1, 50)) as r ON t.id = r.x WHERE mod(r.x, 10) = 0
 ---
 Fragment#2 root
   distribution: single
@@ -289,7 +289,7 @@ Fragment#3
 ---
 
 N0
-SELECT t.c1 FROM ct_n1 t WHERE t.c1 < 5 AND
+SELECT /*+ disable_decorrelation */ t.c1 FROM ct_n1 t WHERE t.c1 < 5 AND
 EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 ---
 Fragment#2 root
@@ -352,7 +352,7 @@ Fragment#3
 ---
 
 N0
-SELECT t.c1 FROM t_n1 t WHERE t.c1 < 5 AND
+SELECT /*+ disable_decorrelation */ t.c1 FROM t_n1 t WHERE t.c1 < 5 AND
 EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 ---
 Fragment#2 root
@@ -414,7 +414,7 @@ Fragment#3
 ---
 # Pass partition pruning metadata for correlated joins.
 N0
-SELECT * FROM t1_n0n1n2 as cor WHERE EXISTS (SELECT 1 FROM t2_n0n1n2 as t2 WHERE t2.id = cor.id)
+SELECT /*+ disable_decorrelation */ * FROM t1_n0n1n2 as cor WHERE EXISTS (SELECT 1 FROM t2_n0n1n2 as t2 WHERE t2.id = cor.id)
 ---
 Fragment#2 root
   distribution: single
@@ -498,7 +498,7 @@ Fragment#5 correlated
 ---
 # Pass partition pruning metadata to correlated joins.
 N0
-SELECT * FROM t3_n0n1n2 AS out
+SELECT /*+ disable_decorrelation */ * FROM t3_n0n1n2 AS out
 WHERE EXISTS (SELECT * FROM t1_n0n1n2 as cor WHERE out.id = cor.id AND EXISTS (SELECT 1 FROM t2_n0n1n2 as t2 WHERE t2.id = cor.id))
 ---
 Fragment#3 root
@@ -622,7 +622,7 @@ Fragment#7 correlated
 ---
 # Pass partition pruning metadata to correlated joins one layer deep.
 N0
-SELECT * FROM t3_n0n1n2 AS out
+SELECT /*+ disable_decorrelation */ * FROM t3_n0n1n2 AS out
 WHERE EXISTS (
   SELECT * FROM t1_n0n1n2 as cor
   WHERE out.id = cor.id AND EXISTS (SELECT 1 FROM t2_n0n1n2 as t2 WHERE t2.id = out.id or t2.id=cor.id)

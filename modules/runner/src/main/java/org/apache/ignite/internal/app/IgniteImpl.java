@@ -1266,7 +1266,8 @@ public class IgniteImpl implements Ignite {
                 ),
                 computeExecutor,
                 computeCfg,
-                eventLog
+                eventLog,
+                observableTimestampTracker
         );
 
         systemViewManager.register(computeComponent);

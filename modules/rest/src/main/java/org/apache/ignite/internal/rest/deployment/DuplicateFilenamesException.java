@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.rest.deployment;
 
-/** Interface for collecting page cache metrics. */
-public interface PageCacheMetrics {
-    /** Increases the page cache hit metric by one. */
-    void incrementPageCacheHit();
+import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_NON_UNIQUE_FILENAMES_ERR;
 
-    /** Increases the page cache miss metric by one. */
-    void incrementPageCacheMiss();
+import org.apache.ignite.lang.IgniteException;
 
-    void incrementPageReplacement();
+/**
+ * Thrown when trying to deploy non-zip unit with duplicate filenames.
+ */
+public class DuplicateFilenamesException extends IgniteException {
+    /**
+     * Constructor.
+     */
+    DuplicateFilenamesException(String message) {
+        super(UNIT_NON_UNIQUE_FILENAMES_ERR, message);
+    }
 }

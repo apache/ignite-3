@@ -68,6 +68,11 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return 0;
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         return emptySet();
     }

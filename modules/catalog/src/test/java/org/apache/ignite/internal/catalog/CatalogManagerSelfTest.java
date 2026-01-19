@@ -222,7 +222,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
         reset(updateLog, clockWaiter);
 
-        Catalog initialCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog initialCatalog = manager.latestCatalog();
         assertNotNull(initialCatalog);
         int initial = initialCatalog.objectIdGenState();
 
@@ -299,7 +299,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         verify(clockWaiter, timeout(10_000).times(3)).waitFor(any());
 
-        Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog0 = manager.latestCatalog();
 
         assertNotNull(catalog0);
 
@@ -383,7 +383,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 TestCommand.fail()
         );
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.latestCatalog();
         assertNotNull(catalog);
         int initial = catalog.objectIdGenState();
 
@@ -394,7 +394,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 bulkUpdate.subList(0, bulkUpdate.size() - 1),
                 true, true);
 
-        Catalog updatedCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog updatedCatalog = manager.latestCatalog();
         assertNotNull(updatedCatalog);
         assertEquals(2 + initial, updatedCatalog.objectIdGenState());
     }

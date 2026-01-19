@@ -875,7 +875,7 @@ public class Cluster {
     public ZonePartitionId solePartitionId(String zoneName) {
         IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
+        Catalog catalog = node.catalogManager().latestCatalog();
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
 
