@@ -19,6 +19,8 @@ cmake_minimum_required(VERSION 3.18)
 
 project(ignite_subdirectory)
 
+set(CMAKE_CXX_STANDARD 17)
+
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" OFF)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 
