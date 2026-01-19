@@ -92,7 +92,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Thin SQL client supports iteration over the results of script execution.
      */
-    SQL_MULTISTATEMENT_SUPPORT(13);
+    SQL_MULTISTATEMENT_SUPPORT(13),
+
+    /**
+     * Compute tasks and jobs accept observable timestamp from the client.
+     */
+    COMPUTE_OBSERVABLE_TS(14);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

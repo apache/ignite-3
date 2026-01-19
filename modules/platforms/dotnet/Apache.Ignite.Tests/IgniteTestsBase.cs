@@ -82,6 +82,8 @@ namespace Apache.Ignite.Tests
 
         protected bool UseMapper { get; }
 
+        protected ConsoleLogger Logger => _logger;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -215,6 +217,8 @@ namespace Apache.Ignite.Tests
 
             return proxies;
         }
+
+        protected void AddDisposable(IDisposable disposable) => _disposables.Add(disposable);
 
         private void CheckPooledBufferLeak()
         {

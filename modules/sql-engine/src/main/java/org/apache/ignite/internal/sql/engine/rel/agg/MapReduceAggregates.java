@@ -653,8 +653,8 @@ public class MapReduceAggregates {
         // PROJECT: reduce_sum/reduce_count
 
         MakeReduceExpr reduceOutputExpr = (rexBuilder, input, args, typeFactory) -> {
-            RexNode numeratorRef = rexBuilder.makeInputRef(input, args.get(0));
-            RexInputRef denominatorRef = rexBuilder.makeInputRef(input, args.get(1));
+            RexNode numeratorRef = rexBuilder.makeInputRef(input, args.getInt(0));
+            RexInputRef denominatorRef = rexBuilder.makeInputRef(input, args.getInt(1));
 
             numeratorRef = rexBuilder.ensureType(mapSum0.type, numeratorRef, true);
 

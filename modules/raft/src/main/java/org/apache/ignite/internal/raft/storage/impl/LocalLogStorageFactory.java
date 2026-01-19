@@ -56,9 +56,4 @@ public class LocalLogStorageFactory implements LogStorageFactory {
         // This creates on-heap storages, there is nothing on disk.
         return Set.of();
     }
-
-    @Override
-    public void sync() {
-        // no-op
-    }
 }

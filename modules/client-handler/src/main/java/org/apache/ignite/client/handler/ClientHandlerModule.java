@@ -97,7 +97,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
             ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
             ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
-            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT
+            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
+            ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS
     ));
 
     /** Connection id generator.

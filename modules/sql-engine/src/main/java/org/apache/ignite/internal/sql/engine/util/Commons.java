@@ -182,7 +182,7 @@ public final class Commons {
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
-                    .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
