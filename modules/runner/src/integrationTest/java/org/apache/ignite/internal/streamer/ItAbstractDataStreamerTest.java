@@ -448,7 +448,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
         ArrayList<String> sqlRes = new ArrayList<>(count);
-        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " order by id");
+        ResultSet<SqlRow> resultSet = ignite().sql().execute("SELECT name FROM " + TABLE_NAME + " order by id");
         resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
 
         assertEquals(count, sqlRes.size());
